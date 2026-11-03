@@ -39,7 +39,7 @@ import os
 import re
 import subprocess
 
-VERSION = "0.2.0"
+VERSION = "0.2.1"
 SCHEMA = "reviewloop.report/1"
 
 SEVERITIES = ("blocker", "major", "minor", "nit")
@@ -722,6 +722,20 @@ def run_verification(patch, providers, previous_report, builder_response,
     }
 
 
+def _disposition_found(report_text, finding_id):
+    """Does the work report give this finding a disposition?
+
+    Looks for the finding ID with a fixed|rebutted|unresolved marker
+    nearby — the structured work-report contract from the workflow
+    spec. A floor check, like the evidence validation: it catches a
+    report that ignores findings, not one that argues badly."""
+    if not report_text or finding_id not in report_text:
+        return False
+    idx = report_text.index(finding_id)
+    window = report_text[idx:idx + 240].lower()
+    return any(w in window for w in ("fixed", "rebutted", "unresolved"))
+
+
 def run_loop(get_patch, invoke_builder, providers, context="",
              test_runner=None, max_rounds=3, allow_major=False,
              strict=False, max_patch_chars=80000, on_round=None):
@@ -740,14 +754,35 @@ def run_loop(get_patch, invoke_builder, providers, context="",
     """
     blocking_sevs = ("blocker",) if allow_major else BLOCKING_DEFAULT
     rounds = []
+    finding_states = {}
+    work_report_gaps = []
+
+    def _track(findings, state):
+        for f in findings or []:
+            if f.get("id"):
+                finding_states[f["id"]] = {
+                    "title": f.get("title"), "file": f.get("file"),
+                    "state": state}
+
+    def _track_cleared(cleared):
+        for f in cleared or []:
+            statuses = f.get("cleared_by") or []
+            _track([f], "rebutted_accepted"
+                   if statuses and all(s == "invalid" for s in statuses)
+                   else "fixed_verified")
 
     def _finish(final_gate, reason):
-        result = {"schema": SCHEMA, "version": VERSION, "mode": "loop",
-                  "created_at": _now_iso(), "rounds": rounds,
-                  "final_gate": final_gate,
-                  "advanced": final_gate == "pass",
-                  "stop_reason": reason}
-        return result
+        return {"schema": SCHEMA, "version": VERSION, "mode": "loop",
+                "created_at": _now_iso(), "rounds": rounds,
+                "final_gate": final_gate,
+                "advanced": final_gate == "pass",
+                "workflow_state": {"pass": "approved",
+                                   "blocked": "changes_requested",
+                                   "inconclusive": "needs_attention"}
+                .get(final_gate, "needs_attention"),
+                "finding_states": finding_states,
+                "work_report_gaps": work_report_gaps,
+                "stop_reason": reason}
 
     patch = get_patch()
     if not patch.strip():
@@ -758,6 +793,8 @@ def run_loop(get_patch, invoke_builder, providers, context="",
                         allow_major=allow_major, strict=strict)
     rounds.append({"round": 1, "kind": "review", "gate": report["gate"],
                    "report": report})
+    _track([f for f in report.get("findings") or []
+            if f.get("severity") in blocking_sevs], "unresolved")
     if on_round:
         on_round(1, report)
     if report["gate"] == "pass":
@@ -780,17 +817,29 @@ def run_loop(get_patch, invoke_builder, providers, context="",
             "open_findings": open_findings,
             "instructions": (
                 "Fix the blocking findings in the working tree. Then "
-                "write a work report: for each finding, what you "
-                "changed (or why the finding is wrong), and the test "
-                "evidence. The reviewers will verify your fixes "
-                "against the new diff — claims without diff evidence "
-                "do not clear a finding."),
+                "write a work report with one line per finding: "
+                "'Finding <id>: fixed | rebutted | unresolved — "
+                "evidence (file/line or test result)'. Findings "
+                "without a disposition are flagged to the reviewers. "
+                "The reviewers will verify your fixes against the "
+                "new diff — claims without diff evidence do not "
+                "clear a finding."),
         }
         try:
             response = invoke_builder(packet) or ""
         except Exception as exc:  # noqa: BLE001
             return _finish("inconclusive",
                            f"builder failed: {str(exc)[:200]}")
+        # Structured work-report contract: every open finding needs a
+        # disposition in the report. Gaps are flagged to the reviewers
+        # and recorded — they never clear a finding by themselves.
+        work_report_gaps = [f["id"] for f in open_findings
+                            if f.get("id") and not _disposition_found(
+                                response, f["id"])]
+        if work_report_gaps:
+            response += ("\n\n[loop note: the work report gives no "
+                         "disposition for finding(s): "
+                         + ", ".join(work_report_gaps) + "]")
         new_patch = get_patch()
         if not new_patch.strip() or new_patch == patch:
             return _finish("inconclusive",
@@ -802,6 +851,10 @@ def run_loop(get_patch, invoke_builder, providers, context="",
             allow_major=allow_major, strict=strict)
         rounds.append({"round": rnd, "kind": "verify",
                        "gate": report["gate"], "report": report})
+        _track_cleared(report.get("cleared"))
+        _track(report.get("remaining"), "unresolved")
+        _track([f for f in report.get("findings") or []
+                if f.get("severity") in blocking_sevs], "unresolved")
         if on_round:
             on_round(rnd, report)
         patch = new_patch

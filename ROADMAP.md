@@ -6,6 +6,7 @@
 - Markdown + JSON reports. Unit tests with fake providers.
 
 ## Next (open source)
+- **From the reviewer↔coding-agent workflow spec (2026-11-03):** account pools per provider with a configurable fallback order — on a quota/rate-limit error the next account takes the seat, visibly in the run history (the engine today degrades honestly but does not switch accounts); multi-step workflow templates (ordered steps with states: queued / running / awaiting review / changes requested / verifying / approved / failed) so a PASS advances the agent to the next step inside the app, not just signals the harness; round-to-round "what changed" diff view; an owner override action (waive a blocker) recorded in the audit history.
 - Suppression comments (`# reviewloop: ignore <rule>`) so deliberately-buggy test fixtures and a scanner's own rule-definition strings don't have to be rebutted every round — the top lesson of the v0.1.0 self-review (2026-11-03).
 - Global wall-clock budget per review round.
 - GitHub integration: run as a PR check, post the report as a PR review comment, update on each push (verification rounds keyed to the PR).

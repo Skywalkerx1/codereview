@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.1 — 2026-11-03
+From the reviewer↔coding-agent workflow spec (same day):
+- **Structured work-report contract enforced in the loop:** the builder packet now requires one disposition line per finding (`Finding <id>: fixed | rebutted | unresolved — evidence`); reports missing dispositions are flagged to the verification reviewers and recorded as `work_report_gaps` (they never clear a finding by themselves).
+- **Finding lifecycle in `loop-result.json`:** every blocking finding ends as `fixed_verified`, `rebutted_accepted`, or `unresolved`, plus a `workflow_state` (approved / changes_requested / needs_attention) matching the spec's step states.
+
 ## 0.2.0 — 2026-11-03
 - **Loop driver** (`reviewloop loop`): the full workflow as one command — reviewers review the working-tree diff; on BLOCKED, the findings packet is handed to a builder command (the coding agent: it receives `$REVIEWLOOP_PACKET`, edits the tree, writes its work report to `$REVIEWLOOP_RESPONSE`); a verification round then decides whether the workflow advances. Repeats up to `--max-rounds` builder rounds, then stops for a human. Writes per-round reports plus `loop-result.json` (`advanced: true` on PASS). Inconclusive rounds stop the loop — reviewer-infrastructure problems are never the builder's fault.
 - Live proof (internal panel): planted alert-flood change BLOCKED on round 1, scripted builder fixed it with a dedup guard + work report, verification PASS on round 2, loop advanced.

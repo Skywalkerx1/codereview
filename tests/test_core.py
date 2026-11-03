@@ -278,13 +278,31 @@ class LoopTests(unittest.TestCase):
             self.assertEqual(packet["gate"], "blocked")
             self.assertTrue(packet["open_findings"])
             state["patch"] = CLEAN
-            return ("Work report: added the state-file guard in "
-                    "app/alerts.py; alerts are batched.")
+            lines = [f"- Finding {f['id']}: fixed — guard added, "
+                     "alerts batched" for f in packet["open_findings"]]
+            return "Work report:\n" + "\n".join(lines)
         result = core.run_loop(lambda: state["patch"], builder,
                                self._panel(), max_rounds=3)
         self.assertEqual(result["final_gate"], "pass")
         self.assertTrue(result["advanced"])
+        self.assertEqual(result["workflow_state"], "approved")
+        self.assertEqual(result["work_report_gaps"], [])
+        self.assertTrue(result["finding_states"])
+        self.assertTrue(all(
+            s["state"] == "fixed_verified"
+            for s in result["finding_states"].values()))
         self.assertEqual(len(result["rounds"]), 2)
+
+    def test_loop_flags_missing_dispositions(self):
+        state = {"patch": BUGGY}
+
+        def sloppy_builder(packet):
+            state["patch"] = CLEAN
+            return "I fixed everything, trust me."
+        result = core.run_loop(lambda: state["patch"], sloppy_builder,
+                               self._panel(), max_rounds=2)
+        self.assertTrue(result["work_report_gaps"])
+        self.assertEqual(result["final_gate"], "pass")
 
     def test_loop_stops_for_human_at_max_rounds(self):
         calls = {"n": 0}
