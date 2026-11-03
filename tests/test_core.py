@@ -166,23 +166,72 @@ class VerificationTests(unittest.TestCase):
             "evidence": "", "recommendation": "", "confidence": 0.8,
             "sources": ["a"], "consensus": False}]}
 
+    _GOOD_EVIDENCE = ("return a + b and return a - b are the only "
+                      "helpers left in app/util.py and the sendmail "
+                      "alert is removed")
+
     def test_clears_only_on_consensus(self):
         def fixed(prompt):
             return json.dumps({
                 "resolutions": [{"finding_id": "abc123",
                                  "status": "fixed",
-                                 "evidence": "state file check added"}],
+                                 "evidence": self._GOOD_EVIDENCE}],
                 "new_findings": []})
         report = core.run_verification(
             CLEAN, {"a": fixed, "b": fixed}, self._previous(), "fixed it")
         self.assertEqual(report["gate"], "pass")
         self.assertEqual(len(report["cleared"]), 1)
 
+    def test_empty_evidence_does_not_clear(self):
+        # External Review 1, finding 1: a bare "fixed" assertion with
+        # no evidence must not clear a blocker.
+        def bare(prompt):
+            return json.dumps({
+                "resolutions": [{"finding_id": "abc123",
+                                 "status": "fixed", "evidence": ""}],
+                "new_findings": []})
+        report = core.run_verification(
+            CLEAN, {"a": bare, "b": bare}, self._previous(), "trust me")
+        self.assertEqual(report["gate"], "blocked")
+        self.assertEqual(len(report["remaining"]), 1)
+
+    def test_bogus_status_does_not_clear(self):
+        def bogus(prompt):
+            return json.dumps({
+                "resolutions": [{"finding_id": "abc123",
+                                 "status": "totally_fixed",
+                                 "evidence": self._GOOD_EVIDENCE}],
+                "new_findings": []})
+        report = core.run_verification(
+            CLEAN, {"a": bogus, "b": bogus}, self._previous(), "done")
+        self.assertEqual(report["gate"], "blocked")
+
+    def test_strict_degraded_verification_is_inconclusive(self):
+        # External Review 1, finding 2: strict mode must not PASS a
+        # verification round in which a reviewer failed.
+        def fixed(prompt):
+            return json.dumps({
+                "resolutions": [{"finding_id": "abc123",
+                                 "status": "fixed",
+                                 "evidence": self._GOOD_EVIDENCE}],
+                "new_findings": []})
+
+        def boom(prompt):
+            raise RuntimeError("provider down")
+        relaxed = core.run_verification(
+            CLEAN, {"a": fixed, "b": boom}, self._previous(), "fixed")
+        self.assertEqual(relaxed["gate"], "pass")
+        strict = core.run_verification(
+            CLEAN, {"a": fixed, "b": boom}, self._previous(), "fixed",
+            strict=True)
+        self.assertEqual(strict["gate"], "inconclusive")
+
     def test_split_verdict_keeps_block(self):
         def fixed(prompt):
             return json.dumps({
                 "resolutions": [{"finding_id": "abc123",
-                                 "status": "fixed", "evidence": "x"}],
+                                 "status": "fixed",
+                                 "evidence": self._GOOD_EVIDENCE}],
                 "new_findings": []})
 
         def unclear(prompt):

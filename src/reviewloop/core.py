@@ -39,7 +39,7 @@ import os
 import re
 import subprocess
 
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 SCHEMA = "reviewloop.report/1"
 
 SEVERITIES = ("blocker", "major", "minor", "nit")
@@ -587,6 +587,33 @@ def run_review(patch, providers, context="", test_results=None,
     }
 
 
+_RESOLUTION_STATUSES = ("fixed", "still_present", "invalid", "unclear")
+
+
+def _word_tokens(text):
+    return set(re.findall(r"[a-z0-9]{3,}", (text or "").lower()))
+
+
+def _validate_resolution(raw_status, evidence, haystack_tokens):
+    """Validate one reviewer's resolution before it can clear a block.
+
+    A `fixed`/`invalid` claim is only honoured when (a) the status is
+    in the allowed set and (b) the evidence is non-empty AND shares
+    real vocabulary with the material under review (the new diff, the
+    test output, the prior finding, or the builder's response) — an
+    unsupported assertion is downgraded to `unclear`, which keeps the
+    block. Returns (status, downgraded)."""
+    status = str(raw_status or "unclear").strip().lower()
+    if status not in _RESOLUTION_STATUSES:
+        return "unclear", True
+    if status in ("fixed", "invalid"):
+        ev = _word_tokens(evidence)
+        if len(ev) < 3 or len(ev & haystack_tokens) < 2 \
+                or len(ev & haystack_tokens) / len(ev) < 0.3:
+            return "unclear", True
+    return status, False
+
+
 def run_verification(patch, providers, previous_report, builder_response,
                      test_results=None, max_patch_chars=80000,
                      allow_major=False, strict=False):
@@ -606,6 +633,12 @@ def run_verification(patch, providers, previous_report, builder_response,
         prior=json.dumps(prior, ensure_ascii=False, indent=1)[:20000],
         response=(builder_response or "")[:6000],
         tests=_test_summary(test_results), patch=clean_patch)
+    # Vocabulary a genuine resolution's evidence can draw on: the new
+    # diff, the test output, the prior findings, the builder response.
+    haystack_tokens = _word_tokens(
+        clean_patch + "\n" + _test_summary(test_results) + "\n"
+        + json.dumps(prior, ensure_ascii=False) + "\n"
+        + (builder_response or ""))
 
     per_provider = []
     new_findings = list(deterministic_scan(patch, test_results))
@@ -623,10 +656,18 @@ def run_verification(patch, providers, previous_report, builder_response,
                 parsed = fut.result()
                 for r in parsed.get("resolutions") or []:
                     if isinstance(r, dict) and r.get("finding_id"):
-                        rec["resolutions"][str(r["finding_id"])] = {
-                            "status": str(r.get("status") or "unclear"),
-                            "evidence": str(r.get("evidence") or "")[:300],
-                        }
+                        raw_status = str(r.get("status") or "unclear")
+                        evidence = str(r.get("evidence") or "")[:300]
+                        status, downgraded = _validate_resolution(
+                            raw_status, evidence, haystack_tokens)
+                        entry = {"status": status, "evidence": evidence}
+                        if downgraded:
+                            entry["raw_status"] = raw_status
+                            entry["downgraded"] = (
+                                "resolution downgraded to unclear: "
+                                "status not allowed or evidence not "
+                                "supported by the diff/test material")
+                        rec["resolutions"][str(r["finding_id"])] = entry
                 for raw_f in parsed.get("new_findings") or []:
                     nf = _normalize_finding(raw_f, name)
                     if nf:
@@ -660,6 +701,10 @@ def run_verification(patch, providers, previous_report, builder_response,
             reasons.append("new diff was truncated")
     elif truncated and strict:
         gate, reasons = "inconclusive", ["new diff was truncated"]
+    elif degraded and strict:
+        gate, reasons = "inconclusive", [
+            "strict mode: at least one reviewer failed "
+            "(degraded verification)"]
     else:
         gate, reasons = "pass", ["all prior blockers cleared by "
                                  "reviewer consensus"]
