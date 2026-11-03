@@ -25,6 +25,9 @@ from .providers import build_providers
 
 
 def _run_tests(commands, cwd):
+    # shell=True is deliberate: test commands are operator-supplied
+    # shell strings (the same trust level as a CI config the operator
+    # wrote). They are never taken from the diff under review.
     results = []
     for cmd in commands or []:
         try:

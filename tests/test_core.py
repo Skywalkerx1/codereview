@@ -130,6 +130,33 @@ class ReviewLoopTests(unittest.TestCase):
         self.assertEqual(merged[0]["severity"], "blocker")
 
 
+class EdgeCaseTests(unittest.TestCase):
+    def test_empty_patch_reviews_clean(self):
+        report = core.run_review(
+            "", {"a": pass_provider, "b": pass_provider})
+        self.assertEqual(report["gate"], "pass")
+        self.assertEqual(report["findings"], [])
+
+    def test_oversized_patch_truncates_and_strict_is_inconclusive(self):
+        big = CLEAN + ("\n+// filler line\n" * 5000)
+        report = core.run_review(
+            big, {"a": pass_provider, "b": pass_provider},
+            max_patch_chars=2000, strict=True)
+        self.assertTrue(report["truncated"])
+        self.assertEqual(report["gate"], "inconclusive")
+
+    def test_provider_timeout_degrades_not_passes_silently(self):
+        def slow(prompt):
+            raise TimeoutError("provider timed out")
+        report = core.run_review(
+            CLEAN, {"a": slow, "b": pass_provider})
+        self.assertTrue(report["degraded"])
+        self.assertEqual(report["gate"], "pass")  # one reviewer served
+        strict = core.run_review(
+            CLEAN, {"a": slow, "b": pass_provider}, strict=True)
+        self.assertEqual(strict["gate"], "inconclusive")
+
+
 class VerificationTests(unittest.TestCase):
     def _previous(self):
         return {"gate": "blocked", "findings": [{
