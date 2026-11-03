@@ -231,7 +231,8 @@ def _workflow_main(argv, providers_override=None):
     for s in result["steps"]:
         print(f"  step {s['id']}: {s['state']}"
               + (f" (commit {s['commit'][:10]})" if s.get("commit")
-                 else ""))
+                 else "")
+              + (f" — {s['error']}" if s.get("error") else ""))
     return {"complete": 0, "stopped": 1}.get(
         result["workflow_state"], 2)
 

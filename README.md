@@ -66,6 +66,8 @@ reviewloop workflow --file workflow.json --repo . --out wf-out
 
 `workflow.json`: `{"steps": [{"id": "db", "title": "Add the schema", "agent_cmd": "…", "test_commands": ["…"]}]}`. Steps run in order; each step's change goes through the full review loop; on PASS the change is **committed as the step's approval record** and the workflow advances to the next step. State persists in `wf-out/workflow-state.json` — rerun to resume (approved steps are skipped), touch `wf-out/STOP` to pause between steps, and record owner waivers under the state's `waivers` map (`{step_id: [finding_id, …]}`).
 
+**Working-tree isolation:** a step that is starting fresh requires a **clean working tree** — commit or stash local edits first; the engine stops with a clear message rather than reviewing or committing changes that are not the step's. (A resumed step keeps its own in-progress changes.) The approval commit is verified byte-for-byte against the diff the reviewers approved; if the tree changed after the final review round, the commit is refused.
+
 ## GitHub pull requests
 
 ```bash

@@ -39,7 +39,7 @@ import os
 import re
 import subprocess
 
-VERSION = "0.4.0"
+VERSION = "0.4.1"
 SCHEMA = "reviewloop.report/1"
 
 SEVERITIES = ("blocker", "major", "minor", "nit")
@@ -76,7 +76,8 @@ def fingerprint(file, category, title):
 
 # ------------------------------------------------------------------ patch in
 
-def collect_git_patch(repo, range_spec=None, staged=False, paths=None):
+def collect_git_patch(repo, range_spec=None, staged=False, paths=None,
+                      exclude_paths=None):
     """Return a unified diff from a git working tree."""
     cmd = ["git", "-C", repo, "diff", "--no-color"]
     if staged:
@@ -85,9 +86,11 @@ def collect_git_patch(repo, range_spec=None, staged=False, paths=None):
         cmd.append(range_spec)
     else:
         cmd.append("HEAD")
-    if paths:
+    if paths or exclude_paths:
         cmd.append("--")
-        cmd.extend(paths)
+        cmd.extend(paths or ["."])
+        for ex in exclude_paths or []:
+            cmd.append(f":(exclude){ex}")
     out = subprocess.run(cmd, capture_output=True, timeout=120,
                          check=False)
     if out.returncode != 0:
@@ -955,12 +958,16 @@ def run_loop(get_patch, invoke_builder, providers, context="",
                    "needs a human")
 
 
-def include_untracked(repo):
+def include_untracked(repo, exclude_rel=None):
     """Intent-to-add every untracked file so `git diff` can see new
     files (a review that cannot see the agent's new files is blind).
-    Respects .gitignore; index-only, no content is staged."""
-    subprocess.run(["git", "-C", repo, "add", "-N", "."],
-                   capture_output=True, timeout=120, check=False)
+    Respects .gitignore; index-only, no content is staged.
+    `exclude_rel` (repo-relative, e.g. a workflow output dir) is
+    left out so the engine never reviews its own reports."""
+    args = ["git", "-C", repo, "add", "-N", "--", "."]
+    if exclude_rel:
+        args.append(f":(exclude){exclude_rel}")
+    subprocess.run(args, capture_output=True, timeout=120, check=False)
 
 
 def _git(repo, *args, check=True):
@@ -974,6 +981,67 @@ def _git(repo, *args, check=True):
     return text.strip()
 
 
+def _out_rel(repo, out_dir):
+    """out_dir as a repo-relative POSIX path, or None when it is
+    outside the repo (or is the repo root itself)."""
+    rel = os.path.relpath(os.path.abspath(out_dir),
+                          os.path.abspath(repo))
+    if rel == "." or rel == ".." or rel.startswith(".." + os.sep):
+        return None
+    return rel.replace(os.sep, "/")
+
+
+def _dirty_entries(repo, out_dir):
+    """Working-tree changes (staged, unstaged, untracked) as
+    `git status` display strings, excluding the workflow's own
+    output directory. A fresh workflow step must start from an
+    empty list — otherwise unrelated local edits would be reviewed
+    as step work and swept into the step's approval commit
+    (external Review 2 of v0.4.0, verified by reproduction)."""
+    out = subprocess.run(
+        ["git", "-C", repo, "status", "--porcelain=v1", "-z",
+         "--untracked-files=all"],
+        capture_output=True, timeout=120, check=False)
+    if out.returncode != 0:
+        raise RuntimeError(
+            "git status failed: "
+            + out.stderr.decode("utf-8", "replace")[:200])
+    rel = _out_rel(repo, out_dir)
+    tokens = out.stdout.decode("utf-8", errors="replace").split("\0")
+    entries = []
+    i = 0
+    while i < len(tokens):
+        tok = tokens[i]
+        i += 1
+        if not tok:
+            continue
+        path = tok[3:] if len(tok) > 3 else ""
+        if tok[0] in "RC" or (len(tok) > 1 and tok[1] in "RC"):
+            i += 1  # rename/copy: the source path follows in -z mode
+        if rel and (path == rel or path.startswith(rel + "/")):
+            continue
+        entries.append(tok.strip())
+    return entries
+
+
+def _diff_text(repo, base, cached=False, exclude_rel=None):
+    """Exact (unstripped) unified diff of the working tree — or of
+    the index with cached=True — against `base`."""
+    cmd = ["git", "-C", repo, "diff", "--no-color"]
+    if cached:
+        cmd.append("--cached")
+    cmd += [base, "--", "."]
+    if exclude_rel:
+        cmd.append(f":(exclude){exclude_rel}")
+    out = subprocess.run(cmd, capture_output=True, timeout=120,
+                         check=False)
+    if out.returncode != 0:
+        raise RuntimeError(
+            "git diff failed: "
+            + out.stderr.decode("utf-8", "replace")[:200])
+    return out.stdout.decode("utf-8", errors="replace")
+
+
 def run_workflow(steps, providers, repo, out_dir, max_rounds=3,
                  strict=False, state=None, save_state=None,
                  should_stop=None):
@@ -981,13 +1049,22 @@ def run_workflow(steps, providers, repo, out_dir, max_rounds=3,
 
     Steps run in order. Each step: snapshot the base commit -> the
     step's agent command makes its change -> the review loop gates
-    it (fix rounds included) -> on PASS the working tree is
+    it (fix rounds included) -> on PASS the step's change is
     committed as the step's approval record and the workflow
     advances. A step that cannot pass stops the workflow with its
     state recorded (changes_requested / needs_attention); approved
     steps are skipped on resume. Owner waivers live in the state
     (`waivers: {step_id: [finding_id, ...]}`) and are honoured by
     the loop. `should_stop()` between steps pauses the workflow.
+
+    Isolation (v0.4.1): a step that is starting fresh requires a
+    clean working tree (the workflow output dir excepted) — the
+    engine refuses to run rather than review or commit a user's
+    unrelated local edits. A resumed step (already started, e.g.
+    changes_requested) keeps its own in-progress tree. On PASS the
+    commit is staged only after re-checking that the current diff
+    is byte-identical to the diff the reviewers approved, and the
+    staged diff is verified against it again before committing.
     """
     if state is None:
         state = {}
@@ -1015,6 +1092,7 @@ def run_workflow(steps, providers, repo, out_dir, max_rounds=3,
                 "error": f"repository has no HEAD commit: {exc}",
                 "steps": []}
 
+    out_rel = _out_rel(repo, out_dir)
     results = []
     workflow_state = "complete"
     for step in steps:
@@ -1029,6 +1107,28 @@ def run_workflow(steps, providers, repo, out_dir, max_rounds=3,
             workflow_state = "paused"
             _save()
             break
+        if not rec.get("started_at"):
+            # Fresh step: refuse a dirty tree (see _dirty_entries).
+            # A resumed step has started_at set and keeps its own
+            # in-progress changes.
+            try:
+                dirty = _dirty_entries(repo, out_dir)
+            except Exception as exc:  # noqa: BLE001
+                dirty = [f"git status unavailable: {exc}"]
+            if dirty:
+                rec["state"] = "needs_attention"
+                rec["error"] = (
+                    "working tree is not clean — a workflow step "
+                    "must start from a clean tree, otherwise "
+                    "unrelated local changes would be reviewed and "
+                    "committed as step work. Commit or stash them "
+                    "first: " + ", ".join(dirty[:10])
+                    + (" …" if len(dirty) > 10 else ""))
+                rec["finished_at"] = _now_iso()
+                results.append(rec)
+                workflow_state = "stopped"
+                _save()
+                break
         rec["state"] = "running"
         rec["started_at"] = _now_iso()
         _save()
@@ -1043,8 +1143,10 @@ def run_workflow(steps, providers, repo, out_dir, max_rounds=3,
                    {"REVIEWLOOP_STEP": sid, "REVIEWLOOP_PHASE": "build"})
 
         def get_patch(base=base):
-            include_untracked(repo)
-            return collect_git_patch(repo, range_spec=base)
+            include_untracked(repo, exclude_rel=out_rel)
+            return collect_git_patch(
+                repo, range_spec=base,
+                exclude_paths=[out_rel] if out_rel else None)
 
         def invoke_builder(packet, cmd=step["agent_cmd"],
                            pp=packet_path, rp=response_path):
@@ -1091,13 +1193,44 @@ def run_workflow(steps, providers, repo, out_dir, max_rounds=3,
         rec["finding_states"] = loop_result["finding_states"]
         rec["rounds"] = len(loop_result["rounds"])
         if loop_result["final_gate"] == "pass":
-            dirty = _git(repo, "status", "--porcelain")
-            if dirty:
+            # Commit only the exact diff the reviewers approved.
+            approved_patch = get_patch()
+            final_report = (loop_result["rounds"][-1]["report"]
+                            if loop_result["rounds"] else {})
+            approved_sha = hashlib.sha256(
+                approved_patch.encode("utf-8")).hexdigest()
+            rec["approved_patch_sha256"] = approved_sha
+            if final_report.get("patch_sha256") != approved_sha:
+                rec["state"] = "needs_attention"
+                rec["error"] = (
+                    "the working tree changed after the final "
+                    "review round — the approval commit was refused "
+                    "because it would not match the reviewed diff")
+                rec["finished_at"] = _now_iso()
+                results.append(rec)
+                workflow_state = "stopped"
+                _save()
+                break
+            if approved_patch.strip():
                 add_args = ["add", "-A", "--", "."]
-                rel_out = os.path.relpath(out_dir, repo)
-                if not rel_out.startswith(".."):
-                    add_args.append(f":(exclude){rel_out}")
+                if out_rel:
+                    add_args.append(f":(exclude){out_rel}")
                 _git(repo, *add_args)
+                staged = _diff_text(repo, base, cached=True,
+                                    exclude_rel=out_rel)
+                if staged != approved_patch:
+                    _git(repo, "reset", "-q", "--", ".",
+                         check=False)
+                    rec["state"] = "needs_attention"
+                    rec["error"] = (
+                        "the staged diff does not match the "
+                        "approved diff — the approval commit was "
+                        "refused and the index was reset")
+                    rec["finished_at"] = _now_iso()
+                    results.append(rec)
+                    workflow_state = "stopped"
+                    _save()
+                    break
                 _git(repo, "-c", "user.name=ReviewLoop",
                      "-c", "user.email=reviewloop@localhost",
                      "commit", "-q", "-m",

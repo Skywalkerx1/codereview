@@ -1,5 +1,12 @@
 # Review notes — ReviewLoop (prepared for external review, 2026-11-03)
 
+**Update — external Review 2 of v0.4.0 returned one Major (a
+passing workflow step could commit unrelated working-tree
+changes). Verified real by reproduction and fixed in v0.4.1:
+clean-tree precondition for fresh steps, byte-exact approval
+commits, output dir excluded from the reviewed diff. Full
+response in `review-2-response-2026-11-03.md`.**
+
 **Update — external Review 1 returned two Major findings against
 v0.1.0 (verification evidence not validated; `--strict` could pass a
 degraded verification round). Both were correct, both are fixed in

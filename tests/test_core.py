@@ -529,6 +529,108 @@ class WorkflowTests(unittest.TestCase):
             save_state=lambda s: None)
         self.assertEqual(result2["workflow_state"], "complete")
 
+    # -- v0.4.1 isolation regressions (external Review 2) ----------
+
+    def _repo_with_agent(self, agent_body):
+        import subprocess
+        import tempfile
+        repo = tempfile.mkdtemp(prefix="rl-wf-")
+        out = os.path.join(repo, "wf-out")
+
+        def git(*a):
+            return subprocess.run(["git", "-C", repo, *a],
+                                  check=True, capture_output=True,
+                                  text=True).stdout.strip()
+        subprocess.run(["git", "init", "-q", repo], check=True)
+        with open(os.path.join(repo, "base.txt"), "w") as fh:
+            fh.write("base\n")
+        agent = os.path.join(repo, "agent.py")
+        with open(agent, "w") as fh:
+            fh.write(agent_body)
+        git("add", "-A")
+        subprocess.run(["git", "-C", repo, "-c", "user.name=T",
+                        "-c", "user.email=t@e", "commit", "-qm",
+                        "base+agent"], check=True)
+        return repo, out, agent, git
+
+    def test_fresh_step_refuses_dirty_tree(self):
+        repo, out, agent, git = self._repo_with_agent(
+            "open('step.py', 'w').write('STEP = True\\n')\n")
+        head_before = git("rev-parse", "HEAD")
+        with open(os.path.join(repo, "base.txt"), "a") as fh:
+            fh.write("UNRELATED LOCAL EDIT\n")
+        with open(os.path.join(repo, "unrelated.txt"), "w") as fh:
+            fh.write("not step work\n")
+        steps = [{"id": "feature", "title": "add feature",
+                  "agent_cmd": f"python3 {agent}"}]
+        result = core.run_workflow(steps, self._panel(), repo, out,
+                                   state={}, save_state=lambda s: None)
+        self.assertEqual(result["workflow_state"], "stopped")
+        rec = result["steps"][0]
+        self.assertEqual(rec["state"], "needs_attention")
+        self.assertIn("not clean", rec["error"])
+        self.assertIn("unrelated.txt", rec["error"])
+        # The agent never ran, nothing was committed, edits intact.
+        self.assertFalse(os.path.exists(os.path.join(repo, "step.py")))
+        self.assertEqual(git("rev-parse", "HEAD"), head_before)
+        with open(os.path.join(repo, "base.txt")) as fh:
+            self.assertIn("UNRELATED LOCAL EDIT", fh.read())
+
+    def test_approval_commit_contains_exactly_step_files(self):
+        repo, out, agent, git = self._repo_with_agent(
+            "open('step.py', 'w').write('STEP = True\\n')\n"
+            "open('base.txt', 'a').write('step change\\n')\n")
+        steps = [{"id": "feature", "title": "add feature",
+                  "agent_cmd": f"python3 {agent}"}]
+        result = core.run_workflow(steps, self._panel(), repo, out,
+                                   state={}, save_state=lambda s: None)
+        self.assertEqual(result["workflow_state"], "complete")
+        names = git("show", "--name-only", "--format=", "HEAD")
+        self.assertEqual(set(names.splitlines()),
+                         {"base.txt", "step.py"})
+
+    def test_resumed_step_keeps_its_in_progress_tree(self):
+        repo, out, agent, git = self._repo_with_agent(
+            "open('step.py', 'w').write('STEP = True\\n')\n")
+        with open(os.path.join(repo, "step.py"), "w") as fh:
+            fh.write("STEP = True\n")  # the step's own earlier work
+        state = {"steps": {"feature": {
+            "id": "feature", "title": "add feature",
+            "state": "changes_requested",
+            "started_at": "2026-11-03T00:00:00+00:00"}}}
+        steps = [{"id": "feature", "title": "add feature",
+                  "agent_cmd": f"python3 {agent}"}]
+        result = core.run_workflow(steps, self._panel(), repo, out,
+                                   state=state,
+                                   save_state=lambda s: None)
+        self.assertEqual(result["workflow_state"], "complete")
+        self.assertEqual(result["steps"][0]["state"], "approved")
+        names = git("show", "--name-only", "--format=", "HEAD")
+        self.assertEqual(set(names.splitlines()), {"step.py"})
+
+    def test_tree_changed_after_review_refuses_commit(self):
+        repo, out, agent, git = self._repo_with_agent(
+            "open('step.py', 'w').write('STEP = True\\n')\n")
+        head_before = git("rev-parse", "HEAD")
+        mutated = {"done": False}
+
+        def sneaky(prompt):
+            if not mutated["done"]:
+                mutated["done"] = True
+                with open(os.path.join(repo, "sneak.txt"), "w") as fh:
+                    fh.write("unreviewed\n")
+            return json.dumps({"findings": [], "summary": "clean"})
+        steps = [{"id": "feature", "title": "add feature",
+                  "agent_cmd": f"python3 {agent}"}]
+        result = core.run_workflow(
+            steps, {"a": sneaky, "b": sneaky}, repo, out, state={},
+            save_state=lambda s: None)
+        self.assertEqual(result["workflow_state"], "stopped")
+        rec = result["steps"][0]
+        self.assertEqual(rec["state"], "needs_attention")
+        self.assertIn("changed after the final review", rec["error"])
+        self.assertEqual(git("rev-parse", "HEAD"), head_before)
+
 
 if __name__ == "__main__":
     unittest.main()
