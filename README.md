@@ -66,6 +66,15 @@ reviewloop workflow --file workflow.json --repo . --out wf-out
 
 `workflow.json`: `{"steps": [{"id": "db", "title": "Add the schema", "agent_cmd": "…", "test_commands": ["…"]}]}`. Steps run in order; each step's change goes through the full review loop; on PASS the change is **committed as the step's approval record** and the workflow advances to the next step. State persists in `wf-out/workflow-state.json` — rerun to resume (approved steps are skipped), touch `wf-out/STOP` to pause between steps, and record owner waivers under the state's `waivers` map (`{step_id: [finding_id, …]}`).
 
+## GitHub pull requests
+
+```bash
+reviewloop pr --repo OWNER/REPO --number 123                 # read-only review
+reviewloop pr --pr https://github.com/OWNER/REPO/pull/123 --post
+```
+
+Fetches the PR's metadata + unified diff from the GitHub API and reviews it in place. Read-only works without a token on public repos. `--post` (needs `GITHUB_TOKEN` with repo access) posts the report as a PR review comment — COMMENT by default; `--request-changes` escalates a blocked gate to REQUEST_CHANGES; the bot never auto-approves — and sets a `reviewloop` commit status on the PR head (success / failure / pending). Re-run with `--verify-previous report.json` after a push to run the verification round against the new diff.
+
 ## The loop driver — the full workflow in one command
 
 ```bash
@@ -120,7 +129,7 @@ Hardcoded secrets · AWS keys · private keys · `eval`/`exec` · `DROP TABLE` �
 
 ## Status
 
-v0.1 — the core loop (review → gate → verify) is complete, unit-tested, and live-verified against real providers. On the roadmap: GitHub PR integration, a hosted dashboard with team policies and history, reviewer calibration stats, and more provider adapters. See [ROADMAP.md](ROADMAP.md).
+v0.4 — the core loop (review → gate → verify), the loop driver, account pools, the multi-step workflow engine, and GitHub PR integration are complete, unit-tested, and live-verified against real providers. On the roadmap: a hosted dashboard with team policies and history, notifications, reviewer calibration stats, and more provider adapters. See [ROADMAP.md](ROADMAP.md).
 
 ## Honest limits
 

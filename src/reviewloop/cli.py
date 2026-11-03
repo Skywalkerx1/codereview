@@ -10,6 +10,8 @@ Examples:
   reviewloop loop --repo . --builder-cmd "your-coding-agent" \
       --provider gemini --provider gemini --provider nvidia
   reviewloop workflow --file workflow.json --repo . --out wf-out
+  reviewloop pr --repo OWNER/REPO --number 123 --provider gemini
+  reviewloop pr --pr https://github.com/OWNER/REPO/pull/123 --post
 
 Exit codes: 0 = gate PASS, 1 = gate BLOCKED, 2 = INCONCLUSIVE or
 usage/infrastructure error.
@@ -234,9 +236,102 @@ def _workflow_main(argv, providers_override=None):
         result["workflow_state"], 2)
 
 
+def _pr_main(argv, providers_override=None):
+    """reviewloop pr — review a GitHub pull request where it lives.
+
+    Read path works without a token on public repos. --post (review
+    comment + commit status) needs GITHUB_TOKEN with repo access."""
+    from .github import GitHubClient, GitHubError, parse_pr_url, \
+        review_pr
+
+    ap = argparse.ArgumentParser(prog="reviewloop pr")
+    ap.add_argument("--repo", help="OWNER/REPO")
+    ap.add_argument("--number", type=int, help="PR number")
+    ap.add_argument("--pr", help="full PR URL")
+    ap.add_argument("--post", action="store_true",
+                    help="post the review comment + commit status "
+                         "(needs GITHUB_TOKEN)")
+    ap.add_argument("--request-changes", action="store_true",
+                    help="use REQUEST_CHANGES when the gate blocks")
+    ap.add_argument("--provider", action="append", default=[])
+    ap.add_argument("--verify-previous",
+                    help="previous report JSON: verification round")
+    ap.add_argument("--builder-response", default="",
+                    help="builder's work report (or @file)")
+    ap.add_argument("--test-command", action="append", default=[])
+    ap.add_argument("--strict", action="store_true")
+    ap.add_argument("--allow-major", action="store_true")
+    ap.add_argument("--out", default="reviewloop-pr-out")
+    args = ap.parse_args(argv)
+    try:
+        if args.pr:
+            owner, repo, number = parse_pr_url(args.pr)
+        elif args.repo and args.number:
+            owner, repo = args.repo.split("/", 1)
+            number = args.number
+        else:
+            print("reviewloop pr: give --pr URL or --repo OWNER/REPO "
+                  "with --number", file=sys.stderr)
+            return 2
+    except Exception as exc:  # noqa: BLE001
+        print(f"reviewloop pr: {exc}", file=sys.stderr)
+        return 2
+
+    builder_response = args.builder_response
+    if builder_response.startswith("@"):
+        with open(os.path.expanduser(builder_response[1:]),
+                  encoding="utf-8", errors="replace") as fh:
+            builder_response = fh.read()
+    previous = None
+    if args.verify_previous:
+        with open(args.verify_previous, encoding="utf-8") as fh:
+            previous = json.load(fh)
+
+    if providers_override is not None:
+        providers = providers_override
+    else:
+        specs = args.provider
+        if not specs:
+            env = os.environ.get("REVIEWLOOP_PROVIDERS", "")
+            specs = [s.strip() for s in env.split(",") if s.strip()] \
+                or ["gemini", "openai"]
+        try:
+            providers = build_providers(specs)
+        except Exception as exc:  # noqa: BLE001
+            print(f"reviewloop: provider setup failed: {exc}",
+                  file=sys.stderr)
+            return 2
+
+    test_results = _run_tests(args.test_command, ".")
+    try:
+        report, actions = review_pr(
+            GitHubClient(), owner, repo, number, providers,
+            post=args.post, request_changes=args.request_changes,
+            previous=previous, builder_response=builder_response,
+            test_results=test_results, strict=args.strict,
+            allow_major=args.allow_major)
+    except GitHubError as exc:
+        print(f"reviewloop pr: {exc}", file=sys.stderr)
+        return 2
+    jpath, mpath = core.write_report(report, args.out)
+    print(f"reviewloop pr: {owner}/{repo}#{number} — "
+          f"{report['pr']['title']}")
+    print(f"  gate = {report['gate'].upper()} "
+          f"({'; '.join(report.get('gate_reasons') or [])})")
+    for a in actions:
+        print(f"  posted: {a}")
+    print(f"  report: {mpath}")
+    print(f"  data:   {jpath}")
+    return {"pass": 0, "blocked": 1, "inconclusive": 2}.get(
+        report["gate"], 2)
+
+
 def main(argv=None, providers_override=None):
     if argv is None:
         argv = sys.argv[1:]
+    if argv and argv[0] == "pr":
+        return _pr_main(argv[1:],
+                        providers_override=providers_override)
     if argv and argv[0] == "workflow":
         return _workflow_main(argv[1:],
                               providers_override=providers_override)

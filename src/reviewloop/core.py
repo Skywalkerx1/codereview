@@ -39,7 +39,7 @@ import os
 import re
 import subprocess
 
-VERSION = "0.3.0"
+VERSION = "0.4.0"
 SCHEMA = "reviewloop.report/1"
 
 SEVERITIES = ("blocker", "major", "minor", "nit")
