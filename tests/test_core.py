@@ -244,5 +244,84 @@ class VerificationTests(unittest.TestCase):
         self.assertEqual(report["gate"], "blocked")
 
 
+class LoopTests(unittest.TestCase):
+    """The full workflow: review -> builder fix + work report ->
+    verification -> advance (or stop for a human)."""
+
+    _EVIDENCE = ("alert removed from app/alerts.py and the return "
+                 "helpers remain")
+
+    def _panel(self):
+        import re
+
+        def reviewer(prompt):
+            if "VERIFICATION round" in prompt:
+                ids = re.findall(r'"id":\s*"([0-9a-f]{12})"', prompt)
+                return json.dumps({
+                    "resolutions": [
+                        {"finding_id": i, "status": "fixed",
+                         "evidence": self._EVIDENCE} for i in ids],
+                    "new_findings": []})
+            return json.dumps({"findings": [{
+                "severity": "blocker", "category": "reliability",
+                "file": "app/alerts.py", "line": 3,
+                "title": "Alert sent per violation with no dedup",
+                "evidence": "sendmail in loop",
+                "recommendation": "add a state-file guard",
+                "confidence": 0.9}], "summary": "blocked"})
+        return {"a": reviewer, "b": reviewer}
+
+    def test_loop_advances_after_builder_fix(self):
+        state = {"patch": BUGGY}
+
+        def builder(packet):
+            self.assertEqual(packet["gate"], "blocked")
+            self.assertTrue(packet["open_findings"])
+            state["patch"] = CLEAN
+            return ("Work report: added the state-file guard in "
+                    "app/alerts.py; alerts are batched.")
+        result = core.run_loop(lambda: state["patch"], builder,
+                               self._panel(), max_rounds=3)
+        self.assertEqual(result["final_gate"], "pass")
+        self.assertTrue(result["advanced"])
+        self.assertEqual(len(result["rounds"]), 2)
+
+    def test_loop_stops_for_human_at_max_rounds(self):
+        calls = {"n": 0}
+
+        def get_patch():
+            calls["n"] += 1
+            return BUGGY + f"\n# attempt {calls['n']}"
+
+        def stubborn(prompt):
+            if "VERIFICATION round" in prompt:
+                import re
+                ids = re.findall(r'"id":\s*"([0-9a-f]{12})"', prompt)
+                return json.dumps({
+                    "resolutions": [
+                        {"finding_id": i, "status": "still_present",
+                         "evidence": "unchanged"} for i in ids],
+                    "new_findings": []})
+            return json.dumps({"findings": [{
+                "severity": "blocker", "category": "reliability",
+                "file": "app/alerts.py", "line": 3,
+                "title": "Alert sent per violation with no dedup",
+                "evidence": "sendmail in loop",
+                "recommendation": "add a state-file guard",
+                "confidence": 0.9}], "summary": "blocked"})
+        result = core.run_loop(get_patch, lambda packet: "tried",
+                               {"a": stubborn, "b": stubborn},
+                               max_rounds=2)
+        self.assertEqual(result["final_gate"], "blocked")
+        self.assertFalse(result["advanced"])
+        self.assertEqual(len(result["rounds"]), 3)
+
+    def test_loop_inconclusive_when_builder_makes_no_change(self):
+        result = core.run_loop(lambda: BUGGY, lambda packet: "done",
+                               self._panel(), max_rounds=2)
+        self.assertEqual(result["final_gate"], "inconclusive")
+        self.assertIn("no new change", result["stop_reason"])
+
+
 if __name__ == "__main__":
     unittest.main()

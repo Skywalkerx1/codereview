@@ -39,7 +39,7 @@ import os
 import re
 import subprocess
 
-VERSION = "0.1.1"
+VERSION = "0.2.0"
 SCHEMA = "reviewloop.report/1"
 
 SEVERITIES = ("blocker", "major", "minor", "nit")
@@ -720,6 +720,107 @@ def run_verification(patch, providers, previous_report, builder_response,
         "degraded": degraded, "truncated": truncated,
         "gate": gate, "gate_reasons": reasons,
     }
+
+
+def run_loop(get_patch, invoke_builder, providers, context="",
+             test_runner=None, max_rounds=3, allow_major=False,
+             strict=False, max_patch_chars=80000, on_round=None):
+    """Drive the full workflow the product is named for:
+
+    reviewers review the change -> the report is handed to the coding
+    agent (builder) -> the builder fixes the code and returns a work
+    report -> a verification round checks the fixes -> on PASS the
+    workflow advances; on BLOCKED the loop repeats, up to max_rounds,
+    then stops for a human.
+
+    get_patch() returns the current diff; invoke_builder(packet)
+    performs the fix in the working tree and returns the work report
+    text; test_runner() optionally returns fresh test results each
+    round; on_round(round_no, report) is called with every report.
+    """
+    blocking_sevs = ("blocker",) if allow_major else BLOCKING_DEFAULT
+    rounds = []
+
+    def _finish(final_gate, reason):
+        result = {"schema": SCHEMA, "version": VERSION, "mode": "loop",
+                  "created_at": _now_iso(), "rounds": rounds,
+                  "final_gate": final_gate,
+                  "advanced": final_gate == "pass",
+                  "stop_reason": reason}
+        return result
+
+    patch = get_patch()
+    if not patch.strip():
+        return _finish("inconclusive", "the change is empty")
+    report = run_review(patch, providers, context=context,
+                        test_results=test_runner() if test_runner else [],
+                        max_patch_chars=max_patch_chars,
+                        allow_major=allow_major, strict=strict)
+    rounds.append({"round": 1, "kind": "review", "gate": report["gate"],
+                   "report": report})
+    if on_round:
+        on_round(1, report)
+    if report["gate"] == "pass":
+        return _finish("pass", "review passed on round 1")
+    if report["gate"] == "inconclusive":
+        return _finish("inconclusive",
+                       "review could not complete — reviewer "
+                       "infrastructure, not the builder")
+
+    previous = report
+    attempts = 0
+    while report["gate"] != "pass" and attempts < max_rounds:
+        attempts += 1
+        rnd = attempts + 1
+        open_findings = [f for f in previous.get("findings") or []
+                         if f.get("severity") in blocking_sevs]
+        packet = {
+            "round": attempts,
+            "gate": previous.get("gate"),
+            "open_findings": open_findings,
+            "instructions": (
+                "Fix the blocking findings in the working tree. Then "
+                "write a work report: for each finding, what you "
+                "changed (or why the finding is wrong), and the test "
+                "evidence. The reviewers will verify your fixes "
+                "against the new diff — claims without diff evidence "
+                "do not clear a finding."),
+        }
+        try:
+            response = invoke_builder(packet) or ""
+        except Exception as exc:  # noqa: BLE001
+            return _finish("inconclusive",
+                           f"builder failed: {str(exc)[:200]}")
+        new_patch = get_patch()
+        if not new_patch.strip() or new_patch == patch:
+            return _finish("inconclusive",
+                           "builder produced no new change")
+        report = run_verification(
+            new_patch, providers, previous, response,
+            test_results=test_runner() if test_runner else [],
+            max_patch_chars=max_patch_chars,
+            allow_major=allow_major, strict=strict)
+        rounds.append({"round": rnd, "kind": "verify",
+                       "gate": report["gate"], "report": report})
+        if on_round:
+            on_round(rnd, report)
+        patch = new_patch
+        if report["gate"] == "pass":
+            return _finish("pass",
+                           f"verification passed on round {rnd}")
+        if report["gate"] == "inconclusive":
+            return _finish("inconclusive",
+                           "verification could not complete — "
+                           "reviewer infrastructure, not the builder")
+        # Chain: still-open + new blocking findings become the prior
+        # set for the next round.
+        previous = {"gate": report["gate"],
+                    "findings": (report.get("remaining") or [])
+                    + [f for f in report.get("findings") or []
+                       if f.get("severity") in blocking_sevs]}
+    return _finish(report["gate"],
+                   f"stopped after {max_rounds} builder round(s) — "
+                   "needs a human")
 
 
 # ------------------------------------------------------------------ output

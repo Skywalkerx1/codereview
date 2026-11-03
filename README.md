@@ -46,6 +46,21 @@ echo $?   # 0 = PASS, 1 = BLOCKED, 2 = INCONCLUSIVE
 
 The report lands in `reviewloop-out/` as Markdown (for humans) + JSON (for tooling).
 
+## The loop driver — the full workflow in one command
+
+```bash
+reviewloop loop --repo . \
+    --builder-cmd "your-coding-agent-command" \
+    --provider gemini --provider nvidia --max-rounds 3
+```
+
+1. Reviewers review the working-tree diff. **PASS → the workflow advances** (exit 0).
+2. On BLOCKED, the findings are written to `$REVIEWLOOP_PACKET` (JSON) and your builder command — the coding agent — is invoked. It edits the working tree and writes its **work report** (per finding: what changed, with test evidence) to `$REVIEWLOOP_RESPONSE`.
+3. A verification round checks the fixes against the new diff. PASS advances; BLOCKED loops back to the builder.
+4. After `--max-rounds` builder rounds without a PASS, the loop stops and hands back to a human. A round that cannot complete (reviewer outage) stops the loop as INCONCLUSIVE — infrastructure problems are never blamed on the builder.
+
+Per-round reports land in `round-1/`, `round-2/`, … and `loop-result.json` summarizes the run (`advanced: true/false`).
+
 ## The verification round
 
 A blocked change is fixed — or rebutted with evidence — and re-checked:

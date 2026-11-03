@@ -58,7 +58,110 @@ def _load_patch(args):
                                   staged=args.staged)
 
 
+def _loop_main(argv, providers_override=None):
+    """reviewloop loop — drive review -> builder fix -> verify ->
+    advance until PASS or the builder-round budget runs out."""
+    ap = argparse.ArgumentParser(
+        prog="reviewloop loop",
+        description="Loop driver: reviewers review the working-tree "
+                    "diff, a builder command (the coding agent) fixes "
+                    "the findings and writes a work report, and a "
+                    "verification round decides whether the workflow "
+                    "advances.")
+    ap.add_argument("--repo", default=".",
+                    help="git repository path (default: .)")
+    ap.add_argument("--range", dest="range",
+                    help="git diff range (default: working tree vs "
+                         "HEAD)")
+    ap.add_argument("--staged", action="store_true")
+    ap.add_argument("--builder-cmd", required=True,
+                    help="command that acts as the coding agent. It "
+                         "receives $REVIEWLOOP_PACKET (JSON: gate + "
+                         "open findings), edits the working tree, and "
+                         "writes its work report to $REVIEWLOOP_RESPONSE")
+    ap.add_argument("--max-rounds", type=int, default=3,
+                    help="builder rounds before stopping for a human "
+                         "(default 3)")
+    ap.add_argument("--provider", action="append", default=[],
+                    help="provider preset or custom spec; repeatable")
+    ap.add_argument("--context", default="")
+    ap.add_argument("--test-command", action="append", default=[])
+    ap.add_argument("--out", default="reviewloop-out")
+    ap.add_argument("--allow-major", action="store_true")
+    ap.add_argument("--strict", action="store_true")
+    args = ap.parse_args(argv)
+
+    if providers_override is not None:
+        providers = providers_override
+    else:
+        specs = args.provider
+        if not specs:
+            env = os.environ.get("REVIEWLOOP_PROVIDERS", "")
+            specs = [s.strip() for s in env.split(",") if s.strip()] \
+                or ["gemini", "openai"]
+        try:
+            providers = build_providers(specs)
+        except Exception as exc:  # noqa: BLE001
+            print(f"reviewloop: provider setup failed: {exc}",
+                  file=sys.stderr)
+            return 2
+
+    os.makedirs(args.out, exist_ok=True)
+    packet_path = os.path.join(args.out, "builder-packet.json")
+    response_path = os.path.join(args.out, "builder-response.md")
+
+    def get_patch():
+        return core.collect_git_patch(args.repo, range_spec=args.range,
+                                      staged=args.staged)
+
+    def invoke_builder(packet):
+        with open(packet_path, "w", encoding="utf-8") as fh:
+            json.dump(packet, fh, ensure_ascii=False, indent=1)
+        env = dict(os.environ, REVIEWLOOP_PACKET=packet_path,
+                   REVIEWLOOP_RESPONSE=response_path,
+                   REVIEWLOOP_GATE=str(packet.get("gate") or ""),
+                   REVIEWLOOP_ROUND=str(packet.get("round") or ""))
+        if os.path.exists(response_path):
+            os.remove(response_path)
+        out = subprocess.run(args.builder_cmd, shell=True, cwd=args.repo,
+                             env=env, capture_output=True, timeout=3600,
+                             check=False)
+        if os.path.exists(response_path):
+            with open(response_path, encoding="utf-8",
+                      errors="replace") as fh:
+                return fh.read()
+        return (out.stdout + out.stderr).decode(
+            "utf-8", errors="replace")[-4000:]
+
+    def on_round(rnd, report):
+        core.write_report(report, os.path.join(args.out,
+                                               f"round-{rnd}"))
+
+    result = core.run_loop(
+        get_patch, invoke_builder, providers, context=args.context,
+        test_runner=lambda: _run_tests(args.test_command, args.repo),
+        max_rounds=args.max_rounds, allow_major=args.allow_major,
+        strict=args.strict, on_round=on_round)
+    summary = {k: v for k, v in result.items() if k != "rounds"}
+    summary["rounds"] = [{"round": r["round"], "kind": r["kind"],
+                          "gate": r["gate"]} for r in result["rounds"]]
+    with open(os.path.join(args.out, "loop-result.json"), "w",
+              encoding="utf-8") as fh:
+        json.dump(summary, fh, ensure_ascii=False, indent=1)
+    print(f"reviewloop loop: final gate = "
+          f"{result['final_gate'].upper()} — {result['stop_reason']}")
+    print(f"  rounds: {len(result['rounds'])} "
+          f"(details in {args.out}/round-*/ and loop-result.json)")
+    return {"pass": 0, "blocked": 1, "inconclusive": 2}.get(
+        result["final_gate"], 2)
+
+
 def main(argv=None, providers_override=None):
+    if argv is None:
+        argv = sys.argv[1:]
+    if argv and argv[0] == "loop":
+        return _loop_main(argv[1:],
+                          providers_override=providers_override)
     ap = argparse.ArgumentParser(
         prog="reviewloop",
         description="Multi-model code review loop with a "
