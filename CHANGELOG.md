@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.2 — 2026-11-03
+External Review 3 — verdict was Approve; its one Minor is fixed:
+- **Approval commits are assembled in a temporary Git index.** The engine now builds the commit with `GIT_INDEX_FILE` pointed at a throwaway index (read-tree the step base → add the working tree → verify the staged diff is byte-identical to the approved diff → write-tree → commit-tree → HEAD moved by an update-ref guarded on the base). The v0.4.1 recovery path ran `git reset -q -- .` on a staged-diff mismatch, which reset the user's whole index and destroyed pre-staged state belonging to a resumed step. Now a refusal touches nothing: the temporary index is discarded and the user's index is exactly as it was. On success the real index is synced to the new HEAD — the state a normal commit leaves behind.
+- Regression test: a resumed step with pre-staged work that hits a forced staged mismatch keeps its staged entries after the refusal (`test_mismatch_refusal_preserves_staged_index`); the exact-commit test now also asserts a clean post-commit index. Suite: 44 tests. Full response: `review-3-response-2026-11-03.md`.
+
 ## 0.4.1 — 2026-11-03
 External Review 2 — one Major, verified real by reproduction, fixed:
 - **Workflow steps are isolated from the user's working tree.** A step starting fresh now requires a clean tree (staged, unstaged, and untracked changes all count; the workflow output directory is excepted): the engine stops with `needs_attention` and a message naming the offending paths instead of reviewing — and later committing — unrelated local edits as step work. A resumed step (already started, e.g. `changes_requested`) keeps its own in-progress tree. The output directory is also excluded from the reviewed diff and from intent-to-add, so the engine never reviews its own reports.

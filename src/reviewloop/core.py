@@ -39,7 +39,7 @@ import os
 import re
 import subprocess
 
-VERSION = "0.4.1"
+VERSION = "0.4.2"
 SCHEMA = "reviewloop.report/1"
 
 SEVERITIES = ("blocker", "major", "minor", "nit")
@@ -1024,9 +1024,10 @@ def _dirty_entries(repo, out_dir):
     return entries
 
 
-def _diff_text(repo, base, cached=False, exclude_rel=None):
+def _diff_text(repo, base, cached=False, exclude_rel=None, env=None):
     """Exact (unstripped) unified diff of the working tree — or of
-    the index with cached=True — against `base`."""
+    the index with cached=True — against `base`. `env` overrides
+    the process environment (used with a temporary GIT_INDEX_FILE)."""
     cmd = ["git", "-C", repo, "diff", "--no-color"]
     if cached:
         cmd.append("--cached")
@@ -1034,12 +1035,78 @@ def _diff_text(repo, base, cached=False, exclude_rel=None):
     if exclude_rel:
         cmd.append(f":(exclude){exclude_rel}")
     out = subprocess.run(cmd, capture_output=True, timeout=120,
-                         check=False)
+                         check=False, env=env)
     if out.returncode != 0:
         raise RuntimeError(
             "git diff failed: "
             + out.stderr.decode("utf-8", "replace")[:200])
     return out.stdout.decode("utf-8", errors="replace")
+
+
+def _commit_approved_diff(repo, base, approved_patch, out_rel,
+                          message):
+    """Commit exactly `approved_patch` as a child of `base`,
+    without ever staging into the user's real index.
+
+    The tree is assembled in a TEMPORARY index (GIT_INDEX_FILE):
+    read-tree the base, add the working tree (output dir excluded),
+    verify the staged diff is byte-identical to the approved one,
+    write-tree, commit-tree, then move HEAD with an update-ref
+    guarded on HEAD still being `base`. On any refusal the real
+    index is completely untouched — a resumed step's pre-staged
+    entries survive (external Review 3 of v0.4.1: the previous
+    recovery ran `git reset -- .` and destroyed them). On success
+    the real index is synced to the new HEAD, the state a normal
+    commit leaves behind.
+
+    Returns (True, commit_sha) or (False, reason).
+    """
+    import tempfile
+
+    fd, index_path = tempfile.mkstemp(prefix="reviewloop-index-")
+    os.close(fd)
+    os.unlink(index_path)  # git creates the index file itself
+    env = dict(os.environ, GIT_INDEX_FILE=index_path)
+
+    def run(*args):
+        out = subprocess.run(["git", "-C", repo, *args], env=env,
+                             capture_output=True, timeout=300,
+                             check=False)
+        if out.returncode != 0:
+            raise RuntimeError(
+                f"git {' '.join(args[:2])} failed: "
+                + out.stderr.decode("utf-8", "replace")[:200])
+        return out.stdout.decode("utf-8", errors="replace").strip()
+
+    try:
+        run("read-tree", base)
+        add_args = ["add", "-A", "--", "."]
+        if out_rel:
+            add_args.append(f":(exclude){out_rel}")
+        run(*add_args)
+        staged = _diff_text(repo, base, cached=True,
+                            exclude_rel=out_rel, env=env)
+        if staged != approved_patch:
+            return (False, "staged")
+        tree = run("write-tree")
+        commit = run("-c", "user.name=ReviewLoop",
+                     "-c", "user.email=reviewloop@localhost",
+                     "commit-tree", tree, "-p", base, "-m", message)
+    finally:
+        for p in (index_path, index_path + ".lock"):
+            if os.path.exists(p):
+                os.unlink(p)
+    upd = subprocess.run(
+        ["git", "-C", repo, "update-ref", "HEAD", commit, base],
+        capture_output=True, timeout=120, check=False)
+    if upd.returncode != 0:
+        return (False, "head-moved")
+    # Sync the real index to the new HEAD (what a normal commit
+    # leaves behind). Working tree is not touched.
+    subprocess.run(["git", "-C", repo, "reset", "-q", "--mixed",
+                    "HEAD"], capture_output=True, timeout=120,
+                   check=False)
+    return (True, commit)
 
 
 def run_workflow(steps, providers, repo, out_dir, max_rounds=3,
@@ -1212,31 +1279,34 @@ def run_workflow(steps, providers, repo, out_dir, max_rounds=3,
                 _save()
                 break
             if approved_patch.strip():
-                add_args = ["add", "-A", "--", "."]
-                if out_rel:
-                    add_args.append(f":(exclude){out_rel}")
-                _git(repo, *add_args)
-                staged = _diff_text(repo, base, cached=True,
-                                    exclude_rel=out_rel)
-                if staged != approved_patch:
-                    _git(repo, "reset", "-q", "--", ".",
-                         check=False)
+                try:
+                    ok, value = _commit_approved_diff(
+                        repo, base, approved_patch, out_rel,
+                        f"reviewloop: step '{sid}' approved — "
+                        f"{step.get('title') or sid}")
+                except Exception as exc:  # noqa: BLE001
+                    ok, value = False, f"error: {exc}"
+                if not ok:
                     rec["state"] = "needs_attention"
-                    rec["error"] = (
-                        "the staged diff does not match the "
-                        "approved diff — the approval commit was "
-                        "refused and the index was reset")
+                    rec["error"] = {
+                        "staged": (
+                            "the staged diff does not match the "
+                            "approved diff — the approval commit "
+                            "was refused; your index was not "
+                            "touched"),
+                        "head-moved": (
+                            "HEAD moved while the approval commit "
+                            "was being prepared — the commit was "
+                            "refused"),
+                    }.get(value, f"approval commit failed: {value}")
                     rec["finished_at"] = _now_iso()
                     results.append(rec)
                     workflow_state = "stopped"
                     _save()
                     break
-                _git(repo, "-c", "user.name=ReviewLoop",
-                     "-c", "user.email=reviewloop@localhost",
-                     "commit", "-q", "-m",
-                     f"reviewloop: step '{sid}' approved — "
-                     f"{step.get('title') or sid}")
-            rec["commit"] = _git(repo, "rev-parse", "HEAD")
+                rec["commit"] = value
+            else:
+                rec["commit"] = _git(repo, "rev-parse", "HEAD")
             rec["state"] = "approved"
             rec["finished_at"] = _now_iso()
             results.append(rec)

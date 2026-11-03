@@ -1,5 +1,12 @@
 # Review notes — ReviewLoop (prepared for external review, 2026-11-03)
 
+**Update — external Review 3 of v0.4.1: verdict APPROVE, with one
+Minor (the staged-mismatch recovery reset the whole Git index).
+Verified by reproduction and fixed in v0.4.2: approval commits
+are assembled in a temporary Git index, so a refusal never
+touches the user's index. Full response in
+`review-3-response-2026-11-03.md`.**
+
 **Update — external Review 2 of v0.4.0 returned one Major (a
 passing workflow step could commit unrelated working-tree
 changes). Verified real by reproduction and fixed in v0.4.1:

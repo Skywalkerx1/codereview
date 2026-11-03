@@ -588,6 +588,13 @@ class WorkflowTests(unittest.TestCase):
         names = git("show", "--name-only", "--format=", "HEAD")
         self.assertEqual(set(names.splitlines()),
                          {"base.txt", "step.py"})
+        # The temp-index commit leaves the real index synced to
+        # HEAD: nothing staged or modified afterwards (the wf-out
+        # directory is the engine's own output).
+        status = git("status", "--porcelain")
+        leftover = [ln for ln in status.splitlines()
+                    if "wf-out" not in ln]
+        self.assertEqual(leftover, [])
 
     def test_resumed_step_keeps_its_in_progress_tree(self):
         repo, out, agent, git = self._repo_with_agent(
@@ -630,6 +637,50 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(rec["state"], "needs_attention")
         self.assertIn("changed after the final review", rec["error"])
         self.assertEqual(git("rev-parse", "HEAD"), head_before)
+
+    def test_mismatch_refusal_preserves_staged_index(self):
+        # External Review 3 (Minor): the v0.4.1 recovery ran
+        # `git reset -- .` and destroyed pre-staged state. The
+        # approval commit now uses a temporary index, so a refusal
+        # must leave the user's real index exactly as it was.
+        import subprocess
+        repo, out, agent, git = self._repo_with_agent(
+            "open('step.py', 'w').write('STEP = True\\n')\n")
+        head_before = git("rev-parse", "HEAD")
+        with open(os.path.join(repo, "step.py"), "w") as fh:
+            fh.write("STEP = True\n")
+        subprocess.run(["git", "-C", repo, "add", "step.py"],
+                       check=True, capture_output=True)
+        staged_before = git("diff", "--cached", "--name-only")
+        self.assertEqual(staged_before, "step.py")
+
+        orig = core._diff_text
+
+        def corrupt(r, b, cached=False, exclude_rel=None, env=None):
+            text = orig(r, b, cached=cached, exclude_rel=exclude_rel,
+                        env=env)
+            return text + "\n-- forced mismatch --" if cached else text
+        core._diff_text = corrupt
+        try:
+            state = {"steps": {"feature": {
+                "id": "feature", "title": "add feature",
+                "state": "changes_requested",
+                "started_at": "2026-11-03T00:00:00+00:00"}}}
+            steps = [{"id": "feature", "title": "add feature",
+                      "agent_cmd": f"python3 {agent}"}]
+            result = core.run_workflow(
+                steps, self._panel(), repo, out, state=state,
+                save_state=lambda s: None)
+        finally:
+            core._diff_text = orig
+        self.assertEqual(result["workflow_state"], "stopped")
+        rec = result["steps"][0]
+        self.assertEqual(rec["state"], "needs_attention")
+        self.assertIn("index was not touched", rec["error"])
+        self.assertEqual(git("rev-parse", "HEAD"), head_before)
+        # The pre-staged entry survived the refusal.
+        self.assertEqual(git("diff", "--cached", "--name-only"),
+                         "step.py")
 
 
 if __name__ == "__main__":
