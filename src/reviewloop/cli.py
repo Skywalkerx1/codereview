@@ -7,6 +7,9 @@ Examples:
       --test-command "python -m pytest -q"
   reviewloop --patch fix.diff --verify-previous report.json \
       --builder-response response.md --provider gemini --provider nvidia
+  reviewloop loop --repo . --builder-cmd "your-coding-agent" \
+      --provider gemini --provider gemini --provider nvidia
+  reviewloop workflow --file workflow.json --repo . --out wf-out
 
 Exit codes: 0 = gate PASS, 1 = gate BLOCKED, 2 = INCONCLUSIVE or
 usage/infrastructure error.
@@ -82,6 +85,9 @@ def _loop_main(argv, providers_override=None):
     ap.add_argument("--max-rounds", type=int, default=3,
                     help="builder rounds before stopping for a human "
                          "(default 3)")
+    ap.add_argument("--waive", action="append", default=[],
+                    help="finding ID waived by the owner (recorded "
+                         "in the result); repeatable")
     ap.add_argument("--provider", action="append", default=[],
                     help="provider preset or custom spec; repeatable")
     ap.add_argument("--context", default="")
@@ -111,6 +117,8 @@ def _loop_main(argv, providers_override=None):
     response_path = os.path.join(args.out, "builder-response.md")
 
     def get_patch():
+        if not args.staged and not args.range:
+            core.include_untracked(args.repo)
         return core.collect_git_patch(args.repo, range_spec=args.range,
                                       staged=args.staged)
 
@@ -141,10 +149,15 @@ def _loop_main(argv, providers_override=None):
         get_patch, invoke_builder, providers, context=args.context,
         test_runner=lambda: _run_tests(args.test_command, args.repo),
         max_rounds=args.max_rounds, allow_major=args.allow_major,
-        strict=args.strict, on_round=on_round)
+        strict=args.strict, on_round=on_round,
+        waived_ids=args.waive)
     summary = {k: v for k, v in result.items() if k != "rounds"}
     summary["rounds"] = [{"round": r["round"], "kind": r["kind"],
-                          "gate": r["gate"]} for r in result["rounds"]]
+                          "gate": r["gate"],
+                          "files": r.get("files") or [],
+                          "changes_vs_previous":
+                              r.get("changes_vs_previous") or {}}
+                         for r in result["rounds"]]
     with open(os.path.join(args.out, "loop-result.json"), "w",
               encoding="utf-8") as fh:
         json.dump(summary, fh, ensure_ascii=False, indent=1)
@@ -156,9 +169,77 @@ def _loop_main(argv, providers_override=None):
         result["final_gate"], 2)
 
 
+def _workflow_main(argv, providers_override=None):
+    """reviewloop workflow — run a multi-step workflow file; each
+    step is gated by the review loop and committed on approval.
+    State lives in <out>/workflow-state.json (edit its `waivers`
+    map to record owner waivers, then rerun to resume); touching
+    <out>/STOP pauses the workflow between steps."""
+    ap = argparse.ArgumentParser(prog="reviewloop workflow")
+    ap.add_argument("--file", required=True,
+                    help="workflow JSON: {name, steps: [{id, title, "
+                         "agent_cmd, test_commands?}]}")
+    ap.add_argument("--repo", default=".")
+    ap.add_argument("--out", default="reviewloop-workflow-out")
+    ap.add_argument("--max-rounds", type=int, default=3)
+    ap.add_argument("--strict", action="store_true")
+    ap.add_argument("--provider", action="append", default=[])
+    args = ap.parse_args(argv)
+
+    with open(args.file, encoding="utf-8") as fh:
+        wf = json.load(fh)
+    steps = wf.get("steps") or []
+    if not steps:
+        print("reviewloop: workflow file has no steps",
+              file=sys.stderr)
+        return 2
+    if providers_override is not None:
+        providers = providers_override
+    else:
+        specs = args.provider
+        if not specs:
+            env = os.environ.get("REVIEWLOOP_PROVIDERS", "")
+            specs = [s.strip() for s in env.split(",") if s.strip()] \
+                or ["gemini", "openai"]
+        try:
+            providers = build_providers(specs)
+        except Exception as exc:  # noqa: BLE001
+            print(f"reviewloop: provider setup failed: {exc}",
+                  file=sys.stderr)
+            return 2
+
+    os.makedirs(args.out, exist_ok=True)
+    state_path = os.path.join(args.out, "workflow-state.json")
+    state = {}
+    if os.path.exists(state_path):
+        with open(state_path, encoding="utf-8") as fh:
+            state = json.load(fh)
+
+    def save_state(s):
+        with open(state_path, "w", encoding="utf-8") as fh:
+            json.dump(s, fh, ensure_ascii=False, indent=1)
+
+    result = core.run_workflow(
+        steps, providers, args.repo, args.out,
+        max_rounds=args.max_rounds, strict=args.strict, state=state,
+        save_state=save_state,
+        should_stop=lambda: os.path.exists(
+            os.path.join(args.out, "STOP")))
+    print(f"reviewloop workflow: {result['workflow_state']}")
+    for s in result["steps"]:
+        print(f"  step {s['id']}: {s['state']}"
+              + (f" (commit {s['commit'][:10]})" if s.get("commit")
+                 else ""))
+    return {"complete": 0, "stopped": 1}.get(
+        result["workflow_state"], 2)
+
+
 def main(argv=None, providers_override=None):
     if argv is None:
         argv = sys.argv[1:]
+    if argv and argv[0] == "workflow":
+        return _workflow_main(argv[1:],
+                              providers_override=providers_override)
     if argv and argv[0] == "loop":
         return _loop_main(argv[1:],
                           providers_override=providers_override)

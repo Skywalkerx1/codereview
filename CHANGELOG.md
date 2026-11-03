@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.0 — 2026-11-03
+The workflow spec's real gaps, closed:
+- **Account pools with visible fallback rotation.** Repeating a reviewer seat (`--provider gemini --provider gemini`, or custom specs sharing a name) builds a pool: accounts are tried in order (preset accounts read `GEMINI_API_KEY`, `GEMINI_API_KEY_2`, …), a quota/rate-limit/5xx/dead-key error rotates to the next account, and every report records which account served and each rotation (from → to → error). Never a silent substitution. Live proof: a dead first account rotated to the second, recorded in the report.
+- **Multi-step workflow engine** (`reviewloop workflow --file wf.json`): ordered steps with the spec's states (queued / running / changes_requested / verifying / approved / needs_attention), each step gated by the full review loop; on PASS the step's change is committed as its approval record and the workflow advances. State persists in `workflow-state.json` — rerunning resumes (approved steps are skipped); a `STOP` file pauses between steps; owner waivers are read from the state's `waivers` map.
+- **Owner waivers in the loop** (`--waive <finding-id>` or workflow-state waivers): waived blockers are recorded as `waived_by_owner` in the finding lifecycle and never sent to the builder.
+- **Round-to-round change summary:** each loop round records its file list and the per-file line-count delta vs the previous round.
+- Fixes found by the workflow tests and live runs: patches now include untracked files (intent-to-add) — a review blind to the agent's new files was the engine's worst failure mode; approval commits exclude the workflow's own output directory; JSON recovery hardened (repair retry + one fresh sample; prompts now ban double quotes inside string values, the main malformed-JSON cause).
+
 ## 0.2.1 — 2026-11-03
 From the reviewer↔coding-agent workflow spec (same day):
 - **Structured work-report contract enforced in the loop:** the builder packet now requires one disposition line per finding (`Finding <id>: fixed | rebutted | unresolved — evidence`); reports missing dispositions are flagged to the verification reviewers and recorded as `work_report_gaps` (they never clear a finding by themselves).

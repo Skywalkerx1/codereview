@@ -122,8 +122,11 @@ PRESETS = {
 }
 
 
-def build_provider(spec):
-    """spec -> (name, callable). See module docstring for formats."""
+def build_provider(spec, occurrence=1):
+    """spec -> (name, callable, account_label).
+
+    `occurrence` > 1 (the same seat requested again) selects the
+    next account's key env for presets: GEMINI_API_KEY_2, _3, ..."""
     if "|" in spec:
         parts = [p.strip() for p in spec.split("|")]
         if len(parts) != 5:
@@ -131,27 +134,91 @@ def build_provider(spec):
                 f"bad provider spec {spec!r}: want "
                 "name|type|base_url|model|key_env")
         name, kind, base, model, key_env = parts
-    else:
-        name = spec.strip().lower()
-        if name not in PRESETS:
-            raise ProviderError(
-                f"unknown provider {spec!r}; presets: "
-                f"{', '.join(sorted(PRESETS))}, or use the custom "
-                "name|type|base_url|model|key_env form")
-        kind, base, model, key_env, extra = PRESETS[name]
         if kind == "gemini":
-            return name, gemini(model, key_env)
-        return name, openai_compatible(base, model, key_env, extra)
+            return name, gemini(model, key_env), key_env
+        if kind == "openai-compatible":
+            return name, openai_compatible(base, model, key_env), key_env
+        raise ProviderError(f"unknown provider type {kind!r}")
+    name = spec.strip().lower()
+    if name not in PRESETS:
+        raise ProviderError(
+            f"unknown provider {spec!r}; presets: "
+            f"{', '.join(sorted(PRESETS))}, or use the custom "
+            "name|type|base_url|model|key_env form")
+    kind, base, model, key_env, extra = PRESETS[name]
+    if occurrence > 1:
+        key_env = f"{key_env}_{occurrence}"
     if kind == "gemini":
-        return name, gemini(model, key_env)
-    if kind == "openai-compatible":
-        return name, openai_compatible(base, model, key_env)
-    raise ProviderError(f"unknown provider type {kind!r}")
+        return name, gemini(model, key_env), key_env
+    return name, openai_compatible(base, model, key_env, extra), key_env
+
+
+_RETRYABLE_MARKERS = ("429", "500", "502", "503", "504", "401", "403",
+                      "quota", "rate limit", "network", "timed out",
+                      "timeout")
+
+
+def is_retryable(exc):
+    """Quota / availability / dead-key errors are worth rotating to
+    the next account for; a malformed request is not."""
+    msg = str(exc).lower()
+    return any(m in msg for m in _RETRYABLE_MARKERS)
+
+
+class AccountPool:
+    """One reviewer seat backed by several accounts, tried in order.
+
+    On a retryable error (quota, rate limit, 5xx, dead key) the next
+    account takes the seat. Every rotation is recorded on
+    `rotations` and the serving account on `last_account`, so run
+    reports show exactly which account reviewed and when a switch
+    happened — never a silent substitution. Account labels are key
+    env names, never key values."""
+
+    def __init__(self, accounts):
+        # accounts: [(label, callable)]
+        self.accounts = list(accounts)
+        self.rotations = []
+        self.last_account = None
+        import threading
+        self._lock = threading.Lock()
+
+    def __call__(self, prompt):
+        last_exc = None
+        for i, (label, fn) in enumerate(self.accounts):
+            try:
+                text = fn(prompt)
+            except Exception as exc:  # noqa: BLE001
+                last_exc = exc
+                if not is_retryable(exc):
+                    raise
+                if i + 1 < len(self.accounts):
+                    with self._lock:
+                        self.rotations.append({
+                            "from": label,
+                            "to": self.accounts[i + 1][0],
+                            "error": str(exc)[:200]})
+                continue
+            with self._lock:
+                self.last_account = label
+            return text
+        raise last_exc
 
 
 def build_providers(specs):
-    providers = {}
+    """specs -> {seat name: callable}. Repeating a seat (the same
+    preset twice, or custom specs sharing a name) builds an
+    AccountPool for that seat with one account per occurrence."""
+    seats = {}
+    counts = {}
     for spec in specs:
-        name, fn = build_provider(spec)
-        providers[name] = fn
+        seat_key = spec.split("|")[0].strip().lower() \
+            if "|" in spec else spec.strip().lower()
+        counts[seat_key] = counts.get(seat_key, 0) + 1
+        name, fn, label = build_provider(spec, counts[seat_key])
+        seats.setdefault(name, []).append((label, fn))
+    providers = {}
+    for name, accounts in seats.items():
+        providers[name] = accounts[0][1] if len(accounts) == 1 \
+            else AccountPool(accounts)
     return providers

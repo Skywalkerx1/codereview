@@ -46,6 +46,26 @@ echo $?   # 0 = PASS, 1 = BLOCKED, 2 = INCONCLUSIVE
 
 The report lands in `reviewloop-out/` as Markdown (for humans) + JSON (for tooling).
 
+## Account pools — when a free quota dies, the next account reviews
+
+Repeat a seat to give it several accounts:
+
+```bash
+export GEMINI_API_KEY=...        # account 1
+export GEMINI_API_KEY_2=...      # account 2
+reviewloop --repo . --provider gemini --provider gemini --provider nvidia
+```
+
+Accounts are tried in order; a quota, rate-limit, 5xx, or dead-key error rotates the seat to the next account. Every report records **which account served and each rotation** (from → to → error) — fallback is visible in the run history, never silently substituted. If every account fails, the seat degrades honestly and the gate says so. Custom specs sharing a name pool the same way (one account per spec, labelled by its key env).
+
+## Multi-step workflows
+
+```bash
+reviewloop workflow --file workflow.json --repo . --out wf-out
+```
+
+`workflow.json`: `{"steps": [{"id": "db", "title": "Add the schema", "agent_cmd": "…", "test_commands": ["…"]}]}`. Steps run in order; each step's change goes through the full review loop; on PASS the change is **committed as the step's approval record** and the workflow advances to the next step. State persists in `wf-out/workflow-state.json` — rerun to resume (approved steps are skipped), touch `wf-out/STOP` to pause between steps, and record owner waivers under the state's `waivers` map (`{step_id: [finding_id, …]}`).
+
 ## The loop driver — the full workflow in one command
 
 ```bash

@@ -7,7 +7,7 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from reviewloop import core  # noqa: E402
+from reviewloop import core, providers  # noqa: E402
 
 BUGGY = """diff --git a/app/alerts.py b/app/alerts.py
 --- a/app/alerts.py
@@ -111,6 +111,21 @@ class ReviewLoopTests(unittest.TestCase):
         parsed = core._call_and_parse(flaky, "review this")
         self.assertEqual(parsed["summary"], "ok")
         self.assertEqual(calls["n"], 2)
+
+    def test_json_fresh_sample_recovery(self):
+        # The repair retry can fail too (same model, same trap); a
+        # fresh sample of the original prompt is the third attempt.
+        calls = {"n": 0}
+
+        def stubborn(prompt):
+            calls["n"] += 1
+            if calls["n"] <= 2:
+                return '{"verdict": "pass", "summary": "has "bad" quotes"}'
+            return json.dumps({"verdict": "pass", "summary": "clean",
+                               "findings": []})
+        parsed = core._call_and_parse(stubborn, "review this")
+        self.assertEqual(parsed["summary"], "clean")
+        self.assertEqual(calls["n"], 3)
 
     def test_consensus_merge(self):
         merged = core.merge_findings([
@@ -339,6 +354,180 @@ class LoopTests(unittest.TestCase):
                                self._panel(), max_rounds=2)
         self.assertEqual(result["final_gate"], "inconclusive")
         self.assertIn("no new change", result["stop_reason"])
+
+
+class PoolTests(unittest.TestCase):
+    """Account pools: a quota-dead account rotates to the next,
+    visibly; a dead seat degrades instead of failing open."""
+
+    def test_rotation_on_quota_error(self):
+        from reviewloop.providers import AccountPool, ProviderError
+
+        def dead(prompt):
+            raise ProviderError("HTTP 429 from api.example")
+
+        def alive(prompt):
+            return '{"findings": []}'
+        pool = AccountPool([("KEY_1", dead), ("KEY_2", alive)])
+        self.assertEqual(pool("prompt"), '{"findings": []}')
+        self.assertEqual(pool.last_account, "KEY_2")
+        self.assertEqual(len(pool.rotations), 1)
+        self.assertEqual(pool.rotations[0]["from"], "KEY_1")
+
+    def test_no_rotation_on_bad_request(self):
+        from reviewloop.providers import AccountPool, ProviderError
+
+        def bad(prompt):
+            raise ProviderError("HTTP 400 from api.example")
+        pool = AccountPool([("KEY_1", bad),
+                            ("KEY_2", lambda p: "never reached")])
+        with self.assertRaises(ProviderError):
+            pool("prompt")
+        self.assertEqual(pool.rotations, [])
+
+    def test_all_accounts_dead_raises(self):
+        from reviewloop.providers import AccountPool, ProviderError
+
+        def dead(prompt):
+            raise ProviderError("HTTP 503 from api.example")
+        pool = AccountPool([("KEY_1", dead), ("KEY_2", dead)])
+        with self.assertRaises(ProviderError):
+            pool("prompt")
+        self.assertEqual(len(pool.rotations), 1)
+
+    def test_repeated_preset_builds_a_pool(self):
+        built = providers.build_providers(["gemini", "gemini"])
+        from reviewloop.providers import AccountPool
+        self.assertIsInstance(built["gemini"], AccountPool)
+        self.assertEqual([label for label, _ in built["gemini"].accounts],
+                         ["GEMINI_API_KEY", "GEMINI_API_KEY_2"])
+
+
+class WaiverTests(unittest.TestCase):
+    PATCH = """diff --git a/app/alerts.py b/app/alerts.py
+--- a/app/alerts.py
++++ b/app/alerts.py
+@@ -1,1 +1,3 @@
+ import smtplib
++
++sendmail("admin@example.com", "x")
+"""
+
+    def test_owner_waiver_advances_without_builder(self):
+        panel = LoopTests("test_loop_advances_after_builder_fix")._panel()
+        waived = {f["id"] for f in core.deterministic_scan(self.PATCH)}
+        waived.add(core.fingerprint(
+            "app/alerts.py", "reliability",
+            "Alert sent per violation with no dedup"))
+        called = {"builder": False}
+
+        def builder(packet):
+            called["builder"] = True
+            return ""
+        result = core.run_loop(lambda: self.PATCH, builder, panel,
+                               waived_ids=waived)
+        self.assertEqual(result["final_gate"], "pass")
+        self.assertFalse(called["builder"])
+        self.assertTrue(all(
+            s["state"] == "waived_by_owner"
+            for s in result["finding_states"].values()))
+
+
+class WorkflowTests(unittest.TestCase):
+    """Two steps: a clean change, then a buggy change the agent
+    must fix under review. Both end approved and committed."""
+
+    def _panel(self):
+        import re
+
+        def reviewer(prompt):
+            if "VERIFICATION round" in prompt:
+                ids = re.findall(r'"id":\s*"([0-9a-f]{12})"', prompt)
+                ok = "STATE_GUARD" in prompt
+                return json.dumps({
+                    "resolutions": [
+                        {"finding_id": i,
+                         "status": "fixed" if ok else "still_present",
+                         "evidence": ("alert removed from app/alerts.py "
+                                      "and the return helpers remain")
+                         if ok else "still there"} for i in ids],
+                    "new_findings": []})
+            if "sendmail(" in prompt and "STATE_GUARD" not in prompt:
+                return json.dumps({"findings": [{
+                    "severity": "blocker", "category": "reliability",
+                    "file": "app/alerts.py", "line": 3,
+                    "title": "Alert sent per violation with no dedup",
+                    "evidence": "sendmail in loop",
+                    "recommendation": "add a state-file guard",
+                    "confidence": 0.9}], "summary": "blocked"})
+            return json.dumps({"findings": [], "summary": "clean"})
+        return {"a": reviewer, "b": reviewer}
+
+    def test_two_step_workflow_completes(self):
+        import subprocess
+        import tempfile
+        repo = tempfile.mkdtemp(prefix="rl-wf-")
+        out = os.path.join(repo, "wf-out")
+
+        def git(*a):
+            subprocess.run(["git", "-C", repo, *a], check=True,
+                           capture_output=True)
+        subprocess.run(["git", "init", "-q", repo], check=True)
+        with open(os.path.join(repo, "base.txt"), "w") as fh:
+            fh.write("base\n")
+        git("add", "-A")
+        subprocess.run(["git", "-C", repo, "-c", "user.name=T",
+                        "-c", "user.email=t@e", "commit", "-qm",
+                        "base"], check=True)
+
+        agent1 = os.path.join(repo, "agent1.py")
+        with open(agent1, "w") as fh:
+            fh.write("open('util.py', 'w').write("
+                     "'def add(a, b):\\n    return a + b\\n')\n")
+        agent2 = os.path.join(repo, "agent2.py")
+        with open(agent2, "w") as fh:
+            fh.write(
+                "import json, os\n"
+                "if os.environ.get('REVIEWLOOP_PHASE') == 'fix':\n"
+                "    packet = json.load(open("
+                "os.environ['REVIEWLOOP_PACKET']))\n"
+                "    open('app_alerts.py', 'w').write("
+                "'STATE_GUARD = True\\n')\n"
+                "    lines = ['- Finding %s: fixed — guard added' "
+                "% f['id'] for f in packet['open_findings']]\n"
+                "    open(os.environ['REVIEWLOOP_RESPONSE'], 'w')"
+                ".write('\\n'.join(lines))\n"
+                "else:\n"
+                "    open('app_alerts.py', 'w').write("
+                "'import smtplib\\nfor v in vs:\\n"
+                "    sendmail(\\'a@b.c\\', v)\\n')\n")
+        git("add", "-A")
+        subprocess.run(["git", "-C", repo, "-c", "user.name=T",
+                        "-c", "user.email=t@e", "commit", "-qm",
+                        "agents"], check=True)
+
+        steps = [
+            {"id": "util", "title": "add util",
+             "agent_cmd": f"python3 {agent1}"},
+            {"id": "alerts", "title": "alert checker",
+             "agent_cmd": f"python3 {agent2}"},
+        ]
+        state = {}
+        result = core.run_workflow(
+            steps, self._panel(), repo, out, state=state,
+            save_state=lambda s: None)
+        self.assertEqual(result["workflow_state"], "complete")
+        self.assertEqual([s["state"] for s in result["steps"]],
+                         ["approved", "approved"])
+        log = subprocess.run(["git", "-C", repo, "log", "--oneline"],
+                             capture_output=True, text=True).stdout
+        self.assertIn("step 'util' approved", log)
+        self.assertIn("step 'alerts' approved", log)
+        # Resume: approved steps are skipped, nothing re-runs.
+        result2 = core.run_workflow(
+            steps, self._panel(), repo, out, state=state,
+            save_state=lambda s: None)
+        self.assertEqual(result2["workflow_state"], "complete")
 
 
 if __name__ == "__main__":
