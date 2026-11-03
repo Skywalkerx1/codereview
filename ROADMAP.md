@@ -6,6 +6,8 @@
 - Markdown + JSON reports. Unit tests with fake providers.
 
 ## Next (open source)
+- Suppression comments (`# reviewloop: ignore <rule>`) so deliberately-buggy test fixtures and a scanner's own rule-definition strings don't have to be rebutted every round — the top lesson of the v0.1.0 self-review (2026-11-03).
+- Global wall-clock budget per review round.
 - GitHub integration: run as a PR check, post the report as a PR review comment, update on each push (verification rounds keyed to the PR).
 - More lenses (API-contract, migrations, i18n) and per-path lens routing.
 - Reviewer calibration: track which reviewers' findings prove real (confirmed in verification / post-merge incidents) and weight consensus accordingly.
