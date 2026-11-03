@@ -1,0 +1,299 @@
+{
+  "schema": "reviewloop.report/1",
+  "version": "0.1.0",
+  "mode": "review",
+  "created_at": "2026-11-03T20:11:01+00:00",
+  "patch_sha256": "5b2af8b5d52f1cf8e8c122bee1b6b8766c9a068ab707d79b007037e214bd0dcc",
+  "patch_chars": 574,
+  "files": [
+    "app/health_check.py"
+  ],
+  "context": "Hourly invariant checker change (TEST FIXTURE: deliberately buggy sample)",
+  "test_results": [],
+  "deterministic_findings": [
+    {
+      "id": "ab3901340bea",
+      "rule": "sql-string-build",
+      "severity": "major",
+      "category": "security",
+      "file": "app/health_check.py",
+      "line": 14,
+      "title": "SQL statement built by string formatting/concatenation",
+      "evidence": "db.execute(f\"DELETE FROM jobs WHERE id = {v.job_id}\")",
+      "recommendation": "Use parameterized queries / bound parameters for every value.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "e4eafb5f84d9",
+      "rule": "hardcoded-secret",
+      "severity": "blocker",
+      "category": "security",
+      "file": "app/health_check.py",
+      "line": 21,
+      "title": "Possible hardcoded secret in added code",
+      "evidence": "SMTP_PASSWORD = \"correct-horse-battery-staple-42\"",
+      "recommendation": "Move the value to the secret store / environment and rotate it if it was ever real.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "e7ef7266eae3",
+      "rule": "alert-no-guard",
+      "severity": "major",
+      "category": "reliability",
+      "file": "app/health_check.py",
+      "line": 15,
+      "title": "Notification/alert added with no dedup, cooldown, or state guard visible in the change",
+      "evidence": "sendmail(\"admin@example.com\",",
+      "recommendation": "Gate repeated alerts on a persisted state/signature so a persistent condition cannot flood recipients — send on change, suppress repeats, re-alert on recovery.",
+      "confidence": 0.6,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    }
+  ],
+  "reviewer_reports": [
+    {
+      "provider": "nvidia",
+      "lens": "operations",
+      "status": "ok",
+      "error": "",
+      "summary": "The change introduces critical production risks: SQL injection via string interpolation, data loss from unconditional job deletion, credential exposure, and unbounded alert flooding without deduplication or cooldown.",
+      "findings": [
+        {
+          "id": "4acc4f3b35d4",
+          "rule": "",
+          "severity": "blocker",
+          "category": "security",
+          "file": "app/health_check.py",
+          "line": 14,
+          "title": "SQL injection via string interpolation",
+          "evidence": "db.execute(f\"DELETE FROM jobs WHERE id = {v.job_id}\")",
+          "recommendation": "Use parameterized queries with placeholders instead of f-strings for SQL execution.",
+          "confidence": 1.0,
+          "sources": [
+            "nvidia"
+          ],
+          "consensus": false
+        },
+        {
+          "id": "fd6de602c42d",
+          "rule": "",
+          "severity": "blocker",
+          "category": "data-loss",
+          "file": "app/health_check.py",
+          "line": 13,
+          "title": "Unconditional job deletion without dedup or confirmation",
+          "evidence": "for v in violations: db.execute(f\"DELETE FROM jobs WHERE id = {v.job_id}\")",
+          "recommendation": "Add a deduplication guard, a confirmation step, or a soft-delete flag; never delete jobs unconditionally in a health checker.",
+          "confidence": 1.0,
+          "sources": [
+            "nvidia"
+          ],
+          "consensus": false
+        },
+        {
+          "id": "f8e6bedc011e",
+          "rule": "",
+          "severity": "blocker",
+          "category": "security",
+          "file": "app/health_check.py",
+          "line": 17,
+          "title": "Hardcoded SMTP password in source",
+          "evidence": "SMTP_PASSWORD = '[REDACTED]'",
+          "recommendation": "Remove the hardcoded credential; pull from a secret manager or environment variable at runtime.",
+          "confidence": 1.0,
+          "sources": [
+            "nvidia"
+          ],
+          "consensus": false
+        },
+        {
+          "id": "72546613d942",
+          "rule": "",
+          "severity": "major",
+          "category": "reliability",
+          "file": "app/health_check.py",
+          "line": 11,
+          "title": "Alert flood without dedup/cooldown",
+          "evidence": "sendmail(\"admin@example.com\", f\"ABNORMALITY in {v.name}\", \"please investigate\")",
+          "recommendation": "Add dedup logic (e.g., track last-alert timestamp per violation) or a cooldown to prevent alert floods during repeated invariant checks.",
+          "confidence": 0.95,
+          "sources": [
+            "nvidia"
+          ],
+          "consensus": false
+        },
+        {
+          "id": "3c9f127bd2d6",
+          "rule": "",
+          "severity": "minor",
+          "category": "correctness",
+          "file": "app/health_check.py",
+          "line": 18,
+          "title": "Violation count no longer returned meaningfully",
+          "evidence": "return len(violations)",
+          "recommendation": "Ensure the return value reflects the intended state after deletions, or remove the return if it is no longer needed.",
+          "confidence": 0.3,
+          "sources": [
+            "nvidia"
+          ],
+          "consensus": false
+        }
+      ]
+    },
+    {
+      "provider": "gemini",
+      "lens": "correctness",
+      "status": "error",
+      "error": "gemini overloaded: HTTP 503",
+      "summary": "",
+      "findings": []
+    }
+  ],
+  "findings": [
+    {
+      "id": "f8e6bedc011e",
+      "rule": "",
+      "severity": "blocker",
+      "category": "security",
+      "file": "app/health_check.py",
+      "line": 17,
+      "title": "Hardcoded SMTP password in source",
+      "evidence": "SMTP_PASSWORD = '[REDACTED]'",
+      "recommendation": "Remove the hardcoded credential; pull from a secret manager or environment variable at runtime.",
+      "confidence": 1.0,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "e4eafb5f84d9",
+      "rule": "hardcoded-secret",
+      "severity": "blocker",
+      "category": "security",
+      "file": "app/health_check.py",
+      "line": 21,
+      "title": "Possible hardcoded secret in added code",
+      "evidence": "SMTP_PASSWORD = \"correct-horse-battery-staple-42\"",
+      "recommendation": "Move the value to the secret store / environment and rotate it if it was ever real.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "4acc4f3b35d4",
+      "rule": "",
+      "severity": "blocker",
+      "category": "security",
+      "file": "app/health_check.py",
+      "line": 14,
+      "title": "SQL injection via string interpolation",
+      "evidence": "db.execute(f\"DELETE FROM jobs WHERE id = {v.job_id}\")",
+      "recommendation": "Use parameterized queries with placeholders instead of f-strings for SQL execution.",
+      "confidence": 1.0,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "fd6de602c42d",
+      "rule": "",
+      "severity": "blocker",
+      "category": "data-loss",
+      "file": "app/health_check.py",
+      "line": 13,
+      "title": "Unconditional job deletion without dedup or confirmation",
+      "evidence": "for v in violations: db.execute(f\"DELETE FROM jobs WHERE id = {v.job_id}\")",
+      "recommendation": "Add a deduplication guard, a confirmation step, or a soft-delete flag; never delete jobs unconditionally in a health checker.",
+      "confidence": 1.0,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "72546613d942",
+      "rule": "",
+      "severity": "major",
+      "category": "reliability",
+      "file": "app/health_check.py",
+      "line": 11,
+      "title": "Alert flood without dedup/cooldown",
+      "evidence": "sendmail(\"admin@example.com\", f\"ABNORMALITY in {v.name}\", \"please investigate\")",
+      "recommendation": "Add dedup logic (e.g., track last-alert timestamp per violation) or a cooldown to prevent alert floods during repeated invariant checks.",
+      "confidence": 0.95,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "e7ef7266eae3",
+      "rule": "alert-no-guard",
+      "severity": "major",
+      "category": "reliability",
+      "file": "app/health_check.py",
+      "line": 15,
+      "title": "Notification/alert added with no dedup, cooldown, or state guard visible in the change",
+      "evidence": "sendmail(\"admin@example.com\",",
+      "recommendation": "Gate repeated alerts on a persisted state/signature so a persistent condition cannot flood recipients — send on change, suppress repeats, re-alert on recovery.",
+      "confidence": 0.6,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "ab3901340bea",
+      "rule": "sql-string-build",
+      "severity": "major",
+      "category": "security",
+      "file": "app/health_check.py",
+      "line": 14,
+      "title": "SQL statement built by string formatting/concatenation",
+      "evidence": "db.execute(f\"DELETE FROM jobs WHERE id = {v.job_id}\")",
+      "recommendation": "Use parameterized queries / bound parameters for every value.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "3c9f127bd2d6",
+      "rule": "",
+      "severity": "minor",
+      "category": "correctness",
+      "file": "app/health_check.py",
+      "line": 18,
+      "title": "Violation count no longer returned meaningfully",
+      "evidence": "return len(violations)",
+      "recommendation": "Ensure the return value reflects the intended state after deletions, or remove the return if it is no longer needed.",
+      "confidence": 0.3,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false
+    }
+  ],
+  "degraded": true,
+  "truncated": false,
+  "gate": "blocked",
+  "gate_reasons": [
+    "7 blocking finding(s) (blocker, major)",
+    "at least one reviewer failed (degraded review)"
+  ]
+}

@@ -1,0 +1,98 @@
+# ReviewLoop
+
+**One agent builds. Independent models review. A deterministic gate decides.**
+
+ReviewLoop is a multi-model code review loop for teams where AI agents write a growing share of the code. A single model reviewing its own work rubber-stamps it; a human reviewing everything becomes the bottleneck. ReviewLoop puts the change in front of *other* models — with different providers, different lenses — and lets code, not vibes, decide whether it ships.
+
+```
+builder ──diff──▶ deterministic checks ──▶ reviewer A (correctness/security)
+                      (secrets, injection,        │
+                       data-loss, your tests)     ▼
+                                            reviewer B (operations/reliability)
+                                                  │
+                              ┌───── gate ◀───────┘
+                              │  PASS / BLOCKED / INCONCLUSIVE
+                              ▼
+              fix or rebut ──▶ verification round ──▶ PASS only when
+                                                         every reviewer agrees
+                                                         the block is resolved
+```
+
+## Why
+
+- **Self-review is not review.** The model that wrote the code shares its blind spots. Independent providers catch different things.
+- **LLM opinions are not a gate.** Findings are structured, merged across reviewers (consensus raises confidence, never lowers severity), and the pass/block decision is made by deterministic rules over those findings.
+- **Alerts about the loop itself can't flood you** — the same dedup discipline ReviewLoop checks for in your code is part of its own design brief (see the `alert-no-guard` rule, born from a real incident: an hourly checker that emailed on every run while the same violation persisted for weeks).
+
+## Quick start
+
+```bash
+pip install reviewloop        # or: pip install -e . from a clone
+
+export GEMINI_API_KEY=...     # any two providers are a good start
+export OPENAI_API_KEY=...
+
+# Review the staged diff in the current repo
+reviewloop --repo . --staged --provider gemini --provider openai
+
+# Review a patch file, with your test suite as a first-class input
+reviewloop --patch change.diff \
+  --provider gemini --provider xai \
+  --test-command "python -m pytest -q" \
+  --context "Adds retry logic to the payment webhook handler"
+
+echo $?   # 0 = PASS, 1 = BLOCKED, 2 = INCONCLUSIVE
+```
+
+The report lands in `reviewloop-out/` as Markdown (for humans) + JSON (for tooling).
+
+## The verification round
+
+A blocked change is fixed — or rebutted with evidence — and re-checked:
+
+```bash
+reviewloop --patch fix.diff \
+  --verify-previous reviewloop-out/reviewloop-20261103-150000.json \
+  --builder-response @response.md \
+  --provider gemini --provider openai
+```
+
+A prior blocker clears **only when every successful reviewer agrees** it is fixed (with evidence in the new diff) or was invalid. A split verdict keeps the block. The builder can never approve their own work — that rule is the product.
+
+## Providers
+
+Any two (or more) independent models. Presets: `gemini`, `openai`, `xai` (Grok), `nvidia`, `deepseek`. Any OpenAI-compatible endpoint works too:
+
+```
+--provider "mine|openai-compatible|https://api.example.com/v1|model-id|MY_KEY_ENV"
+```
+
+Keys come from environment variables only. Secrets in the diff are redacted before anything is sent to a provider, and the diff is treated as untrusted data — reviewers are instructed to ignore instructions embedded in code and comments.
+
+## Gate semantics
+
+| Gate | Meaning |
+|---|---|
+| `PASS` | No blocking findings (blockers, and majors by default; `--allow-major` relaxes majors to advisory) |
+| `BLOCKED` | A blocking finding stands — from a model reviewer, a deterministic rule, or a failing test command |
+| `INCONCLUSIVE` | Reviewers unavailable, or (with `--strict`) the review was degraded/truncated — a human decides |
+
+Provider failure degrades the review (noted in the report); it never silently passes a change, and in `--strict` mode it blocks the pass.
+
+## Deterministic checks (no model required)
+
+Hardcoded secrets · AWS keys · private keys · `eval`/`exec` · `DROP TABLE` · string-built SQL · `DELETE` without `WHERE` · shell execution · alerts/notifications with no dedup/cooldown/state guard · disabled tests · debug leftovers · your own test commands as blockers.
+
+## Status
+
+v0.1 — the core loop (review → gate → verify) is complete, unit-tested, and live-verified against real providers. On the roadmap: GitHub PR integration, a hosted dashboard with team policies and history, reviewer calibration stats, and more provider adapters. See [ROADMAP.md](ROADMAP.md).
+
+## Honest limits
+
+- **Diff-only review can false-positive** when correctness depends on code outside the hunk (helpers, state semantics). The verification round — builder rebuttal with quoted evidence, reviewers must agree — is the designed correction, and full-file context modes are on the roadmap.
+- **Reviewers are models.** They miss things and occasionally invent them. The deterministic layer and your tests are not optional extras; they are half the gate.
+- **A degraded review is labeled, never hidden.** If a provider is down, the report says so; `--strict` turns degradation into INCONCLUSIVE instead of a pass.
+
+## License
+
+MIT — see [LICENSE](LICENSE).

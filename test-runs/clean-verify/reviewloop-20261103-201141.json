@@ -1,0 +1,96 @@
+{
+  "schema": "reviewloop.report/1",
+  "version": "0.1.0",
+  "mode": "verify",
+  "created_at": "2026-11-03T20:11:41+00:00",
+  "patch_sha256": "3c2402f76d1bed1d8f6f0dd97e92c31f63d97b1fb5d5639feb64f82d4a907626",
+  "previous_gate": "blocked",
+  "cleared": [
+    {
+      "id": "5a98a53724e8",
+      "rule": "",
+      "severity": "major",
+      "category": "reliability",
+      "file": "app/health_check.py",
+      "line": 21,
+      "title": "Alert sent on every check invocation without dedup",
+      "evidence": "sendmail(\"admin@example.com\", \"ABNORMALITY set changed\", _describe(violations))",
+      "recommendation": "Only send the alert if the signature actually changed from the persisted state; compare sig to state.get(\"signature\") before mailing. Additionally, guard the sendmail calls with the same condition used for the state comparison to prevent duplicate alerts.",
+      "confidence": 0.95,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false,
+      "cleared_by": [
+        "fixed"
+      ]
+    },
+    {
+      "id": "33db08e4aca9",
+      "rule": "",
+      "severity": "major",
+      "category": "reliability",
+      "file": "app/health_check.py",
+      "line": 23,
+      "title": "Recovery email sent on every recovery condition met without dedup",
+      "evidence": "if not violations and state.get(\"signature\"): sendmail(\"admin@example.com\", \"RECOVERED\", \"all checks green\")",
+      "recommendation": "Ensure the recovery email is only sent when transitioning from a violation state to a clean state; track the prior violation signature and only mail on the transition event.",
+      "confidence": 0.9,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false,
+      "cleared_by": [
+        "fixed"
+      ]
+    }
+  ],
+  "remaining": [],
+  "reviewer_reports": [
+    {
+      "provider": "gemini",
+      "status": "error",
+      "error": "gemini quota: HTTP 429",
+      "resolutions": {}
+    },
+    {
+      "provider": "nvidia",
+      "status": "ok",
+      "error": "",
+      "resolutions": {
+        "5a98a53724e8": {
+          "status": "fixed",
+          "evidence": "The new diff shows the alert sendmail call is inside the conditional `if violations and sig != state.get(\"signature\"):`. The mail only fires when the violation set's signature differs from the persisted state, implementing the requested dedup mechanism."
+        },
+        "33db08e4aca9": {
+          "status": "fixed",
+          "evidence": "The new diff shows the recovery sendmail call is inside the conditional `if not violations and state.get(\"signature\"):`. This fires only on the transition from a non-empty persisted signature to zero violations, and the state is saved with the empty signature afterward, preventing repeats."
+        }
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "f5e2f9a0ac77",
+      "rule": "",
+      "severity": "major",
+      "category": "reliability",
+      "file": "app/health_check.py",
+      "line": 25,
+      "title": "State file write may not be atomic; concurrent runs could corrupt state or lose dedup guard",
+      "evidence": "The diff writes state via `_save_state(STATE_PATH, {\"signature\": sig})` without any file lock or atomic write pattern (e.g., write to temp file then rename). Two concurrent executions could interleave writes, potentially overwriting each other's signatures and bypassing the dedup guard.",
+      "recommendation": "Implement an atomic file write or acquire an exclusive lock around the state read-modify-write cycle to prevent corruption or lost updates.",
+      "confidence": 0.85,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false
+    }
+  ],
+  "degraded": true,
+  "truncated": false,
+  "gate": "blocked",
+  "gate_reasons": [
+    "1 blocking item(s) still open"
+  ]
+}

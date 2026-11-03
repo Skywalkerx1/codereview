@@ -1,0 +1,66 @@
+{
+  "schema": "reviewloop.report/1",
+  "version": "0.1.0",
+  "mode": "verify",
+  "created_at": "2026-11-03T20:13:07+00:00",
+  "patch_sha256": "7fb26eff30eeef3dd807965bff1c73a89fe4e51edeaf8e5c0f85b0bc15e70b62",
+  "previous_gate": "blocked",
+  "cleared": [],
+  "remaining": [
+    {
+      "id": "90099c486271",
+      "rule": "",
+      "severity": "major",
+      "category": "reliability",
+      "file": "app/health_check.py",
+      "line": 17,
+      "title": "No dedup guard: same violation set triggers email every hour",
+      "evidence": "    if violations and sig != state.get(\"signature\"):",
+      "recommendation": "Add a persistent 'last_sent' timestamp or 'acknowledged' flag to the state, or compare against a stored set of previously sent signatures to prevent email floods.",
+      "confidence": 0.9,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false,
+      "last_statuses": []
+    },
+    {
+      "id": "dcfe2cf029ec",
+      "rule": "",
+      "severity": "major",
+      "category": "reliability",
+      "file": "app/health_check.py",
+      "line": 22,
+      "title": "Recovery alert floods: state signature never cleared after recovery",
+      "evidence": "    if not violations and state.get(\"signature\"):",
+      "recommendation": "Clear the state signature (e.g., set to None or empty string) after sending the recovery notice, so the condition will not re-trigger on the next check cycle.",
+      "confidence": 0.9,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false,
+      "last_statuses": []
+    }
+  ],
+  "reviewer_reports": [
+    {
+      "provider": "gemini",
+      "status": "error",
+      "error": "gemini quota: HTTP 429",
+      "resolutions": {}
+    },
+    {
+      "provider": "nvidia",
+      "status": "error",
+      "error": "Expecting ',' delimiter: line 1 column 1304 (char 1303)",
+      "resolutions": {}
+    }
+  ],
+  "findings": [],
+  "degraded": true,
+  "truncated": false,
+  "gate": "inconclusive",
+  "gate_reasons": [
+    "no reviewer succeeded"
+  ]
+}

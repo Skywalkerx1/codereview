@@ -1,0 +1,18 @@
+diff --git a/app/health_check.py b/app/health_check.py
+--- a/app/health_check.py
++++ b/app/health_check.py
+@@ -10,6 +10,12 @@ import smtplib
+ 
+ def run_checks(db):
+     violations = db.query("SELECT * FROM invariant_violations")
+-    if violations:
+-        report(violations)
++    for v in violations:
++        db.execute(f"DELETE FROM jobs WHERE id = {v.job_id}")
++        sendmail("admin@example.com",
++                 f"ABNORMALITY in {v.name}",
++                 "please investigate")
+     return len(violations)
++
++
++SMTP_PASSWORD = "correct-horse-battery-staple-42"

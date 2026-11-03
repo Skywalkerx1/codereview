@@ -1,0 +1,138 @@
+{
+  "schema": "reviewloop.report/1",
+  "version": "0.1.0",
+  "mode": "review",
+  "created_at": "2026-11-03T20:12:51+00:00",
+  "patch_sha256": "7fb26eff30eeef3dd807965bff1c73a89fe4e51edeaf8e5c0f85b0bc15e70b62",
+  "patch_chars": 993,
+  "files": [
+    "app/health_check.py"
+  ],
+  "context": "Hourly invariant checker: alert only when the violation set changes, recovery notice on transition, atomic state write (TEST FIXTURE: clean sample v2)",
+  "test_results": [],
+  "deterministic_findings": [],
+  "reviewer_reports": [
+    {
+      "provider": "nvidia",
+      "lens": "operations",
+      "status": "ok",
+      "error": "",
+      "summary": "The change introduces a state-based alerting mechanism but has a critical missing guard against duplicate emails on repeated violations, and the state file path lacks directory creation, risking crashes. The recovery logic also fails to clear the state signature after recovery, causing persistent false recovery alerts.",
+      "findings": [
+        {
+          "id": "90099c486271",
+          "rule": "",
+          "severity": "major",
+          "category": "reliability",
+          "file": "app/health_check.py",
+          "line": 17,
+          "title": "No dedup guard: same violation set triggers email every hour",
+          "evidence": "    if violations and sig != state.get(\"signature\"):",
+          "recommendation": "Add a persistent 'last_sent' timestamp or 'acknowledged' flag to the state, or compare against a stored set of previously sent signatures to prevent email floods.",
+          "confidence": 0.9,
+          "sources": [
+            "nvidia"
+          ],
+          "consensus": false
+        },
+        {
+          "id": "dcfe2cf029ec",
+          "rule": "",
+          "severity": "major",
+          "category": "reliability",
+          "file": "app/health_check.py",
+          "line": 22,
+          "title": "Recovery alert floods: state signature never cleared after recovery",
+          "evidence": "    if not violations and state.get(\"signature\"):",
+          "recommendation": "Clear the state signature (e.g., set to None or empty string) after sending the recovery notice, so the condition will not re-trigger on the next check cycle.",
+          "confidence": 0.9,
+          "sources": [
+            "nvidia"
+          ],
+          "consensus": false
+        },
+        {
+          "id": "69bdffba77d3",
+          "rule": "",
+          "severity": "minor",
+          "category": "correctness",
+          "file": "app/health_check.py",
+          "line": 31,
+          "title": "State directory may not exist: os.replace raises FileNotFoundError",
+          "evidence": "    tmp = STATE_PATH + \".tmp\"\n    with open(tmp, \"w\") as fh:\n        json.dump({\"signature\": sig}, fh)\n    os.replace(tmp, STATE_PATH)",
+          "recommendation": "Ensure the directory for STATE_PATH exists before writing (e.g., os.makedirs(os.path.dirname(STATE_PATH), exist_ok=True) at module load), or wrap the write in a try/except that creates the directory.",
+          "confidence": 0.8,
+          "sources": [
+            "nvidia"
+          ],
+          "consensus": false
+        }
+      ]
+    },
+    {
+      "provider": "gemini",
+      "lens": "correctness",
+      "status": "error",
+      "error": "gemini overloaded: HTTP 503",
+      "summary": "",
+      "findings": []
+    }
+  ],
+  "findings": [
+    {
+      "id": "90099c486271",
+      "rule": "",
+      "severity": "major",
+      "category": "reliability",
+      "file": "app/health_check.py",
+      "line": 17,
+      "title": "No dedup guard: same violation set triggers email every hour",
+      "evidence": "    if violations and sig != state.get(\"signature\"):",
+      "recommendation": "Add a persistent 'last_sent' timestamp or 'acknowledged' flag to the state, or compare against a stored set of previously sent signatures to prevent email floods.",
+      "confidence": 0.9,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "dcfe2cf029ec",
+      "rule": "",
+      "severity": "major",
+      "category": "reliability",
+      "file": "app/health_check.py",
+      "line": 22,
+      "title": "Recovery alert floods: state signature never cleared after recovery",
+      "evidence": "    if not violations and state.get(\"signature\"):",
+      "recommendation": "Clear the state signature (e.g., set to None or empty string) after sending the recovery notice, so the condition will not re-trigger on the next check cycle.",
+      "confidence": 0.9,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "69bdffba77d3",
+      "rule": "",
+      "severity": "minor",
+      "category": "correctness",
+      "file": "app/health_check.py",
+      "line": 31,
+      "title": "State directory may not exist: os.replace raises FileNotFoundError",
+      "evidence": "    tmp = STATE_PATH + \".tmp\"\n    with open(tmp, \"w\") as fh:\n        json.dump({\"signature\": sig}, fh)\n    os.replace(tmp, STATE_PATH)",
+      "recommendation": "Ensure the directory for STATE_PATH exists before writing (e.g., os.makedirs(os.path.dirname(STATE_PATH), exist_ok=True) at module load), or wrap the write in a try/except that creates the directory.",
+      "confidence": 0.8,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false
+    }
+  ],
+  "degraded": true,
+  "truncated": false,
+  "gate": "blocked",
+  "gate_reasons": [
+    "2 blocking finding(s) (major)",
+    "at least one reviewer failed (degraded review)"
+  ]
+}

@@ -1,0 +1,29 @@
+diff --git a/app/health_check.py b/app/health_check.py
+--- a/app/health_check.py
++++ b/app/health_check.py
+@@ -1,3 +1,4 @@
+ import json
++import os
+ import smtplib
+@@ -10,8 +11,22 @@
+ STATE_PATH = "/var/lib/app/health_alert_state.json"
+ 
++def _alert_signature(violations):
++    return ",".join(sorted(v.name for v in violations))
++
+ def run_checks(db):
+     violations = db.query("SELECT * FROM invariant_violations")
+-    if violations:
+-        report(violations)
++    sig = _alert_signature(violations)
++    state = _load_state(STATE_PATH)
++    if violations and sig != state.get("signature"):
++        sendmail("admin@example.com", "ABNORMALITY set changed",
++                 _describe(violations))
++    if not violations and state.get("signature"):
++        sendmail("admin@example.com", "RECOVERED", "all checks green")
++    tmp = STATE_PATH + ".tmp"
++    with open(tmp, "w") as fh:
++        json.dump({"signature": sig}, fh)
++    os.replace(tmp, STATE_PATH)
+     return len(violations)
