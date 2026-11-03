@@ -1,4 +1,10 @@
-# Review notes — ReviewLoop v0.1.0 (prepared for external review, 2026-11-03)
+# Review notes — ReviewLoop (prepared for external review, 2026-11-03)
+
+**Update — external Review 1 returned two Major findings against
+v0.1.0 (verification evidence not validated; `--strict` could pass a
+degraded verification round). Both were correct, both are fixed in
+v0.1.1, and the full response is in `review-1-response-2026-11-03.md`.
+The notes below describe the original v0.1.0 self-review.**
 
 This package was reviewed BEFORE packaging by ReviewLoop itself
 (the tool reviewing its own source), with Gemini + NVIDIA as the
