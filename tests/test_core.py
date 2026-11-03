@@ -1,4 +1,4 @@
-"""Unit tests for reviewloop core — fake providers, no network."""
+"""Unit tests for codereview core — fake providers, no network."""
 
 import json
 import os
@@ -7,7 +7,7 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from reviewloop import core, providers  # noqa: E402
+from codereview import core, providers  # noqa: E402
 
 BUGGY = """diff --git a/app/alerts.py b/app/alerts.py
 --- a/app/alerts.py
@@ -75,7 +75,7 @@ class DeterministicScanTests(unittest.TestCase):
         self.assertIn("REDACTED", out)
 
 
-class ReviewLoopTests(unittest.TestCase):
+class CodeReviewTests(unittest.TestCase):
     def test_pass_when_reviewers_pass(self):
         report = core.run_review(
             CLEAN, {"a": pass_provider, "b": pass_provider})
@@ -361,7 +361,7 @@ class PoolTests(unittest.TestCase):
     visibly; a dead seat degrades instead of failing open."""
 
     def test_rotation_on_quota_error(self):
-        from reviewloop.providers import AccountPool, ProviderError
+        from codereview.providers import AccountPool, ProviderError
 
         def dead(prompt):
             raise ProviderError("HTTP 429 from api.example")
@@ -375,7 +375,7 @@ class PoolTests(unittest.TestCase):
         self.assertEqual(pool.rotations[0]["from"], "KEY_1")
 
     def test_no_rotation_on_bad_request(self):
-        from reviewloop.providers import AccountPool, ProviderError
+        from codereview.providers import AccountPool, ProviderError
 
         def bad(prompt):
             raise ProviderError("HTTP 400 from api.example")
@@ -386,7 +386,7 @@ class PoolTests(unittest.TestCase):
         self.assertEqual(pool.rotations, [])
 
     def test_all_accounts_dead_raises(self):
-        from reviewloop.providers import AccountPool, ProviderError
+        from codereview.providers import AccountPool, ProviderError
 
         def dead(prompt):
             raise ProviderError("HTTP 503 from api.example")
@@ -397,7 +397,7 @@ class PoolTests(unittest.TestCase):
 
     def test_repeated_preset_builds_a_pool(self):
         built = providers.build_providers(["gemini", "gemini"])
-        from reviewloop.providers import AccountPool
+        from codereview.providers import AccountPool
         self.assertIsInstance(built["gemini"], AccountPool)
         self.assertEqual([label for label, _ in built["gemini"].accounts],
                          ["GEMINI_API_KEY", "GEMINI_API_KEY_2"])
@@ -488,14 +488,14 @@ class WorkflowTests(unittest.TestCase):
         with open(agent2, "w") as fh:
             fh.write(
                 "import json, os\n"
-                "if os.environ.get('REVIEWLOOP_PHASE') == 'fix':\n"
+                "if os.environ.get('CODEREVIEW_PHASE') == 'fix':\n"
                 "    packet = json.load(open("
-                "os.environ['REVIEWLOOP_PACKET']))\n"
+                "os.environ['CODEREVIEW_PACKET']))\n"
                 "    open('app_alerts.py', 'w').write("
                 "'STATE_GUARD = True\\n')\n"
                 "    lines = ['- Finding %s: fixed — guard added' "
                 "% f['id'] for f in packet['open_findings']]\n"
-                "    open(os.environ['REVIEWLOOP_RESPONSE'], 'w')"
+                "    open(os.environ['CODEREVIEW_RESPONSE'], 'w')"
                 ".write('\\n'.join(lines))\n"
                 "else:\n"
                 "    open('app_alerts.py', 'w').write("

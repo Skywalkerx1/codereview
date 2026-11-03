@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.5.0 — 2026-11-03
+- **Renamed: ReviewLoop is now CodeReview.** Package `codereview`, CLI `codereview`, builder env contract `CODEREVIEW_*`, GitHub commit-status context `codereview`, approval commits authored as CodeReview. Backwards compatibility is kept for one transition: a `reviewloop` import shim and CLI alias ship in the package, builders receive both `CODEREVIEW_*` and legacy `REVIEWLOOP_*` variables, and `$REVIEWLOOP_PROVIDERS` is still honoured. No behaviour changes. Note: the PyPI distribution name `codereview` is already taken by an unrelated project (a desktop diff viewer), so a future PyPI release will need a distinct distribution name; the GitHub repository name is unaffected.
+
 ## 0.4.2 — 2026-11-03
 External Review 3 — verdict was Approve; its one Minor is fixed:
 - **Approval commits are assembled in a temporary Git index.** The engine now builds the commit with `GIT_INDEX_FILE` pointed at a throwaway index (read-tree the step base → add the working tree → verify the staged diff is byte-identical to the approved diff → write-tree → commit-tree → HEAD moved by an update-ref guarded on the base). The v0.4.1 recovery path ran `git reset -q -- .` on a staged-diff mismatch, which reset the user's whole index and destroyed pre-staged state belonging to a resumed step. Now a refusal touches nothing: the temporary index is discarded and the user's index is exactly as it was. On success the real index is synced to the new HEAD — the state a normal commit leaves behind.

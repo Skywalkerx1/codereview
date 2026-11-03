@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
-"""reviewloop CLI.
+"""codereview CLI.
 
 Examples:
-  reviewloop --repo . --staged --provider gemini --provider openai
-  reviewloop --patch change.diff --provider xai --provider gemini \
+  codereview --repo . --staged --provider gemini --provider openai
+  codereview --patch change.diff --provider xai --provider gemini \
       --test-command "python -m pytest -q"
-  reviewloop --patch fix.diff --verify-previous report.json \
+  codereview --patch fix.diff --verify-previous report.json \
       --builder-response response.md --provider gemini --provider nvidia
-  reviewloop loop --repo . --builder-cmd "your-coding-agent" \
+  codereview loop --repo . --builder-cmd "your-coding-agent" \
       --provider gemini --provider gemini --provider nvidia
-  reviewloop workflow --file workflow.json --repo . --out wf-out
-  reviewloop pr --repo OWNER/REPO --number 123 --provider gemini
-  reviewloop pr --pr https://github.com/OWNER/REPO/pull/123 --post
+  codereview workflow --file workflow.json --repo . --out wf-out
+  codereview pr --repo OWNER/REPO --number 123 --provider gemini
+  codereview pr --pr https://github.com/OWNER/REPO/pull/123 --post
 
 Exit codes: 0 = gate PASS, 1 = gate BLOCKED, 2 = INCONCLUSIVE or
 usage/infrastructure error.
@@ -64,10 +64,10 @@ def _load_patch(args):
 
 
 def _loop_main(argv, providers_override=None):
-    """reviewloop loop — drive review -> builder fix -> verify ->
+    """codereview loop — drive review -> builder fix -> verify ->
     advance until PASS or the builder-round budget runs out."""
     ap = argparse.ArgumentParser(
-        prog="reviewloop loop",
+        prog="codereview loop",
         description="Loop driver: reviewers review the working-tree "
                     "diff, a builder command (the coding agent) fixes "
                     "the findings and writes a work report, and a "
@@ -81,9 +81,9 @@ def _loop_main(argv, providers_override=None):
     ap.add_argument("--staged", action="store_true")
     ap.add_argument("--builder-cmd", required=True,
                     help="command that acts as the coding agent. It "
-                         "receives $REVIEWLOOP_PACKET (JSON: gate + "
+                         "receives $CODEREVIEW_PACKET (JSON: gate + "
                          "open findings), edits the working tree, and "
-                         "writes its work report to $REVIEWLOOP_RESPONSE")
+                         "writes its work report to $CODEREVIEW_RESPONSE")
     ap.add_argument("--max-rounds", type=int, default=3,
                     help="builder rounds before stopping for a human "
                          "(default 3)")
@@ -94,7 +94,7 @@ def _loop_main(argv, providers_override=None):
                     help="provider preset or custom spec; repeatable")
     ap.add_argument("--context", default="")
     ap.add_argument("--test-command", action="append", default=[])
-    ap.add_argument("--out", default="reviewloop-out")
+    ap.add_argument("--out", default="codereview-out")
     ap.add_argument("--allow-major", action="store_true")
     ap.add_argument("--strict", action="store_true")
     args = ap.parse_args(argv)
@@ -104,13 +104,13 @@ def _loop_main(argv, providers_override=None):
     else:
         specs = args.provider
         if not specs:
-            env = os.environ.get("REVIEWLOOP_PROVIDERS", "")
+            env = (os.environ.get("CODEREVIEW_PROVIDERS") or os.environ.get("REVIEWLOOP_PROVIDERS", ""))
             specs = [s.strip() for s in env.split(",") if s.strip()] \
                 or ["gemini", "openai"]
         try:
             providers = build_providers(specs)
         except Exception as exc:  # noqa: BLE001
-            print(f"reviewloop: provider setup failed: {exc}",
+            print(f"codereview: provider setup failed: {exc}",
                   file=sys.stderr)
             return 2
 
@@ -127,10 +127,14 @@ def _loop_main(argv, providers_override=None):
     def invoke_builder(packet):
         with open(packet_path, "w", encoding="utf-8") as fh:
             json.dump(packet, fh, ensure_ascii=False, indent=1)
-        env = dict(os.environ, REVIEWLOOP_PACKET=packet_path,
-                   REVIEWLOOP_RESPONSE=response_path,
-                   REVIEWLOOP_GATE=str(packet.get("gate") or ""),
-                   REVIEWLOOP_ROUND=str(packet.get("round") or ""))
+        env = dict(os.environ, CODEREVIEW_PACKET=packet_path,
+                   CODEREVIEW_RESPONSE=response_path,
+                   CODEREVIEW_GATE=str(packet.get("gate") or ""),
+                   CODEREVIEW_ROUND=str(packet.get("round") or ""))
+        # Legacy aliases (pre-v0.5.0 name) for existing builders.
+        for _k in [k for k in env if k.startswith("CODEREVIEW_")]:
+            env.setdefault("REVIEWLOOP_" + _k[len("CODEREVIEW_"):],
+                           env[_k])
         if os.path.exists(response_path):
             os.remove(response_path)
         out = subprocess.run(args.builder_cmd, shell=True, cwd=args.repo,
@@ -163,7 +167,7 @@ def _loop_main(argv, providers_override=None):
     with open(os.path.join(args.out, "loop-result.json"), "w",
               encoding="utf-8") as fh:
         json.dump(summary, fh, ensure_ascii=False, indent=1)
-    print(f"reviewloop loop: final gate = "
+    print(f"codereview loop: final gate = "
           f"{result['final_gate'].upper()} — {result['stop_reason']}")
     print(f"  rounds: {len(result['rounds'])} "
           f"(details in {args.out}/round-*/ and loop-result.json)")
@@ -172,17 +176,17 @@ def _loop_main(argv, providers_override=None):
 
 
 def _workflow_main(argv, providers_override=None):
-    """reviewloop workflow — run a multi-step workflow file; each
+    """codereview workflow — run a multi-step workflow file; each
     step is gated by the review loop and committed on approval.
     State lives in <out>/workflow-state.json (edit its `waivers`
     map to record owner waivers, then rerun to resume); touching
     <out>/STOP pauses the workflow between steps."""
-    ap = argparse.ArgumentParser(prog="reviewloop workflow")
+    ap = argparse.ArgumentParser(prog="codereview workflow")
     ap.add_argument("--file", required=True,
                     help="workflow JSON: {name, steps: [{id, title, "
                          "agent_cmd, test_commands?}]}")
     ap.add_argument("--repo", default=".")
-    ap.add_argument("--out", default="reviewloop-workflow-out")
+    ap.add_argument("--out", default="codereview-workflow-out")
     ap.add_argument("--max-rounds", type=int, default=3)
     ap.add_argument("--strict", action="store_true")
     ap.add_argument("--provider", action="append", default=[])
@@ -192,7 +196,7 @@ def _workflow_main(argv, providers_override=None):
         wf = json.load(fh)
     steps = wf.get("steps") or []
     if not steps:
-        print("reviewloop: workflow file has no steps",
+        print("codereview: workflow file has no steps",
               file=sys.stderr)
         return 2
     if providers_override is not None:
@@ -200,13 +204,13 @@ def _workflow_main(argv, providers_override=None):
     else:
         specs = args.provider
         if not specs:
-            env = os.environ.get("REVIEWLOOP_PROVIDERS", "")
+            env = (os.environ.get("CODEREVIEW_PROVIDERS") or os.environ.get("REVIEWLOOP_PROVIDERS", ""))
             specs = [s.strip() for s in env.split(",") if s.strip()] \
                 or ["gemini", "openai"]
         try:
             providers = build_providers(specs)
         except Exception as exc:  # noqa: BLE001
-            print(f"reviewloop: provider setup failed: {exc}",
+            print(f"codereview: provider setup failed: {exc}",
                   file=sys.stderr)
             return 2
 
@@ -227,7 +231,7 @@ def _workflow_main(argv, providers_override=None):
         save_state=save_state,
         should_stop=lambda: os.path.exists(
             os.path.join(args.out, "STOP")))
-    print(f"reviewloop workflow: {result['workflow_state']}")
+    print(f"codereview workflow: {result['workflow_state']}")
     for s in result["steps"]:
         print(f"  step {s['id']}: {s['state']}"
               + (f" (commit {s['commit'][:10]})" if s.get("commit")
@@ -238,14 +242,14 @@ def _workflow_main(argv, providers_override=None):
 
 
 def _pr_main(argv, providers_override=None):
-    """reviewloop pr — review a GitHub pull request where it lives.
+    """codereview pr — review a GitHub pull request where it lives.
 
     Read path works without a token on public repos. --post (review
     comment + commit status) needs GITHUB_TOKEN with repo access."""
     from .github import GitHubClient, GitHubError, parse_pr_url, \
         review_pr
 
-    ap = argparse.ArgumentParser(prog="reviewloop pr")
+    ap = argparse.ArgumentParser(prog="codereview pr")
     ap.add_argument("--repo", help="OWNER/REPO")
     ap.add_argument("--number", type=int, help="PR number")
     ap.add_argument("--pr", help="full PR URL")
@@ -262,7 +266,7 @@ def _pr_main(argv, providers_override=None):
     ap.add_argument("--test-command", action="append", default=[])
     ap.add_argument("--strict", action="store_true")
     ap.add_argument("--allow-major", action="store_true")
-    ap.add_argument("--out", default="reviewloop-pr-out")
+    ap.add_argument("--out", default="codereview-pr-out")
     args = ap.parse_args(argv)
     try:
         if args.pr:
@@ -271,11 +275,11 @@ def _pr_main(argv, providers_override=None):
             owner, repo = args.repo.split("/", 1)
             number = args.number
         else:
-            print("reviewloop pr: give --pr URL or --repo OWNER/REPO "
+            print("codereview pr: give --pr URL or --repo OWNER/REPO "
                   "with --number", file=sys.stderr)
             return 2
     except Exception as exc:  # noqa: BLE001
-        print(f"reviewloop pr: {exc}", file=sys.stderr)
+        print(f"codereview pr: {exc}", file=sys.stderr)
         return 2
 
     builder_response = args.builder_response
@@ -293,13 +297,13 @@ def _pr_main(argv, providers_override=None):
     else:
         specs = args.provider
         if not specs:
-            env = os.environ.get("REVIEWLOOP_PROVIDERS", "")
+            env = (os.environ.get("CODEREVIEW_PROVIDERS") or os.environ.get("REVIEWLOOP_PROVIDERS", ""))
             specs = [s.strip() for s in env.split(",") if s.strip()] \
                 or ["gemini", "openai"]
         try:
             providers = build_providers(specs)
         except Exception as exc:  # noqa: BLE001
-            print(f"reviewloop: provider setup failed: {exc}",
+            print(f"codereview: provider setup failed: {exc}",
                   file=sys.stderr)
             return 2
 
@@ -312,10 +316,10 @@ def _pr_main(argv, providers_override=None):
             test_results=test_results, strict=args.strict,
             allow_major=args.allow_major)
     except GitHubError as exc:
-        print(f"reviewloop pr: {exc}", file=sys.stderr)
+        print(f"codereview pr: {exc}", file=sys.stderr)
         return 2
     jpath, mpath = core.write_report(report, args.out)
-    print(f"reviewloop pr: {owner}/{repo}#{number} — "
+    print(f"codereview pr: {owner}/{repo}#{number} — "
           f"{report['pr']['title']}")
     print(f"  gate = {report['gate'].upper()} "
           f"({'; '.join(report.get('gate_reasons') or [])})")
@@ -340,7 +344,7 @@ def main(argv=None, providers_override=None):
         return _loop_main(argv[1:],
                           providers_override=providers_override)
     ap = argparse.ArgumentParser(
-        prog="reviewloop",
+        prog="codereview",
         description="Multi-model code review loop with a "
                     "deterministic gate.")
     src = ap.add_argument_group("change source (pick one)")
@@ -355,15 +359,15 @@ def main(argv=None, providers_override=None):
     ap.add_argument("--provider", action="append", default=[],
                     help="provider preset (gemini, openai, xai, nvidia, "
                          "deepseek) or name|type|base_url|model|key_env; "
-                         "repeatable. Default: $REVIEWLOOP_PROVIDERS or "
+                         "repeatable. Default: $CODEREVIEW_PROVIDERS or "
                          "gemini,openai")
     ap.add_argument("--context", default="",
                     help="builder's change description (or @file)")
     ap.add_argument("--test-command", action="append", default=[],
                     help="test command to run and include; repeatable")
-    ap.add_argument("--out", default="reviewloop-out",
+    ap.add_argument("--out", default="codereview-out",
                     help="output directory for the report (default: "
-                         "reviewloop-out)")
+                         "codereview-out)")
     ap.add_argument("--allow-major", action="store_true",
                     help="only blockers block the gate (majors advisory)")
     ap.add_argument("--strict", action="store_true",
@@ -387,11 +391,11 @@ def main(argv=None, providers_override=None):
     try:
         patch = _load_patch(args)
     except Exception as exc:  # noqa: BLE001
-        print(f"reviewloop: could not load the change: {exc}",
+        print(f"codereview: could not load the change: {exc}",
               file=sys.stderr)
         return 2
     if not patch.strip():
-        print("reviewloop: the change is empty — nothing to review.",
+        print("codereview: the change is empty — nothing to review.",
               file=sys.stderr)
         return 2
 
@@ -400,13 +404,13 @@ def main(argv=None, providers_override=None):
     else:
         specs = args.provider
         if not specs:
-            env = os.environ.get("REVIEWLOOP_PROVIDERS", "")
+            env = (os.environ.get("CODEREVIEW_PROVIDERS") or os.environ.get("REVIEWLOOP_PROVIDERS", ""))
             specs = [s.strip() for s in env.split(",") if s.strip()] \
                 or ["gemini", "openai"]
         try:
             providers = build_providers(specs)
         except Exception as exc:  # noqa: BLE001
-            print(f"reviewloop: provider setup failed: {exc}",
+            print(f"codereview: provider setup failed: {exc}",
                   file=sys.stderr)
             return 2
 
@@ -418,7 +422,7 @@ def main(argv=None, providers_override=None):
             with open(args.verify_previous, encoding="utf-8") as fh:
                 previous = json.load(fh)
         except Exception as exc:  # noqa: BLE001
-            print(f"reviewloop: could not read previous report: {exc}",
+            print(f"codereview: could not read previous report: {exc}",
                   file=sys.stderr)
             return 2
         report = core.run_verification(
@@ -437,7 +441,7 @@ def main(argv=None, providers_override=None):
     jpath, mpath = core.write_report(report, args.out)
     n_block = sum(1 for f in report.get("findings") or []
                   if f["severity"] in ("blocker", "major"))
-    print(f"reviewloop: gate = {report['gate'].upper()} "
+    print(f"codereview: gate = {report['gate'].upper()} "
           f"({'; '.join(report.get('gate_reasons') or [])})")
     print(f"  findings: {len(report.get('findings') or [])} "
           f"({n_block} blocking-severity)")

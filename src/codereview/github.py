@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""reviewloop GitHub integration — review a pull request where it
+"""codereview GitHub integration — review a pull request where it
 lives.
 
 Read path (works without a token on public repos): fetch the PR's
@@ -8,7 +8,7 @@ loop on the diff.
 
 Write path (needs GITHUB_TOKEN with access to the repo): post the
 report as a PR review comment and set a commit status on the PR
-head — `reviewloop` context: success (gate pass), failure
+head — `codereview` context: success (gate pass), failure
 (blocked), pending (inconclusive). Review events are COMMENT by
 default; --request-changes opts into REQUEST_CHANGES on a blocked
 gate. The bot never auto-approves.
@@ -56,7 +56,7 @@ class GitHubClient:
                  payload=None):
         headers = {"Accept": accept,
                    "X-GitHub-Api-Version": "2022-11-28",
-                   "User-Agent": "reviewloop"}
+                   "User-Agent": "codereview"}
         if self.token:
             headers["Authorization"] = f"Bearer {self.token}"
         data = None
@@ -100,7 +100,7 @@ class GitHubClient:
 
     def set_status(self, owner, repo, sha, state, description,
                    target_url=None):
-        payload = {"state": state, "context": "reviewloop",
+        payload = {"state": state, "context": "codereview",
                    "description": description[:140]}
         if target_url:
             payload["target_url"] = target_url
@@ -119,7 +119,7 @@ def render_pr_comment(report, owner, repo, number):
     gate = report["gate"].upper()
     icon = {"PASS": "✅", "BLOCKED": "⛔",
             "INCONCLUSIVE": "⚠️"}.get(gate, "")
-    lines = [f"## {icon} ReviewLoop gate: **{gate}**",
+    lines = [f"## {icon} CodeReview gate: **{gate}**",
              "",
              "; ".join(report.get("gate_reasons") or []), ""]
     def cell(text):
@@ -142,7 +142,7 @@ def render_pr_comment(report, owner, repo, number):
     if report.get("degraded"):
         lines.append("_Degraded round: at least one reviewer failed "
                      "(see the full report)._\n")
-    lines.append(f"ReviewLoop {report.get('version')} · "
+    lines.append(f"CodeReview {report.get('version')} · "
                  f"revision `{report.get('patch_sha256', '')[:12]}` · "
                  f"PR #{number}")
     return "\n".join(lines)
@@ -192,5 +192,5 @@ def review_pr(client, owner, repo, number, reviewer_providers,
             desc = ("; ".join(report.get("gate_reasons") or [])
                     or report["gate"])
             client.set_status(owner, repo, head_sha, state, desc)
-            actions.append(f"commit status set: reviewloop={state}")
+            actions.append(f"commit status set: codereview={state}")
     return report, actions

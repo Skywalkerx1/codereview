@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""reviewloop core — multi-model code review with a deterministic gate.
+"""codereview core — multi-model code review with a deterministic gate.
 
 Design (the loop the product is named for):
 
@@ -39,8 +39,8 @@ import os
 import re
 import subprocess
 
-VERSION = "0.4.2"
-SCHEMA = "reviewloop.report/1"
+VERSION = "0.5.0"
+SCHEMA = "codereview.report/1"
 
 SEVERITIES = ("blocker", "major", "minor", "nit")
 _SEV_RANK = {s: i for i, s in enumerate(SEVERITIES)}
@@ -1063,7 +1063,7 @@ def _commit_approved_diff(repo, base, approved_patch, out_rel,
     """
     import tempfile
 
-    fd, index_path = tempfile.mkstemp(prefix="reviewloop-index-")
+    fd, index_path = tempfile.mkstemp(prefix="codereview-index-")
     os.close(fd)
     os.unlink(index_path)  # git creates the index file itself
     env = dict(os.environ, GIT_INDEX_FILE=index_path)
@@ -1089,8 +1089,8 @@ def _commit_approved_diff(repo, base, approved_patch, out_rel,
         if staged != approved_patch:
             return (False, "staged")
         tree = run("write-tree")
-        commit = run("-c", "user.name=ReviewLoop",
-                     "-c", "user.email=reviewloop@localhost",
+        commit = run("-c", "user.name=CodeReview",
+                     "-c", "user.email=codereview@localhost",
                      "commit-tree", tree, "-p", base, "-m", message)
     finally:
         for p in (index_path, index_path + ".lock"):
@@ -1145,6 +1145,11 @@ def run_workflow(steps, providers, repo, out_dir, max_rounds=3,
             save_state(state)
 
     def _run_agent(cmd, env_extra):
+        # Legacy aliases (pre-v0.5.0 name) for existing builders.
+        for k, v in list(env_extra.items()):
+            if k.startswith("CODEREVIEW_"):
+                env_extra.setdefault(
+                    "REVIEWLOOP_" + k[len("CODEREVIEW_"):], v)
         env = dict(os.environ, **env_extra)
         out = subprocess.run(cmd, shell=True, cwd=repo, env=env,
                              capture_output=True, timeout=3600,
@@ -1207,7 +1212,7 @@ def run_workflow(steps, providers, repo, out_dir, max_rounds=3,
         response_path = os.path.join(step_out, "builder-response.md")
 
         _run_agent(step["agent_cmd"],
-                   {"REVIEWLOOP_STEP": sid, "REVIEWLOOP_PHASE": "build"})
+                   {"CODEREVIEW_STEP": sid, "CODEREVIEW_PHASE": "build"})
 
         def get_patch(base=base):
             include_untracked(repo, exclude_rel=out_rel)
@@ -1222,10 +1227,10 @@ def run_workflow(steps, providers, repo, out_dir, max_rounds=3,
             if os.path.exists(rp):
                 os.remove(rp)
             out = _run_agent(cmd, {
-                "REVIEWLOOP_STEP": sid, "REVIEWLOOP_PHASE": "fix",
-                "REVIEWLOOP_PACKET": pp, "REVIEWLOOP_RESPONSE": rp,
-                "REVIEWLOOP_GATE": str(packet.get("gate") or ""),
-                "REVIEWLOOP_ROUND": str(packet.get("round") or "")})
+                "CODEREVIEW_STEP": sid, "CODEREVIEW_PHASE": "fix",
+                "CODEREVIEW_PACKET": pp, "CODEREVIEW_RESPONSE": rp,
+                "CODEREVIEW_GATE": str(packet.get("gate") or ""),
+                "CODEREVIEW_ROUND": str(packet.get("round") or "")})
             if os.path.exists(rp):
                 with open(rp, encoding="utf-8",
                           errors="replace") as fh:
@@ -1282,7 +1287,7 @@ def run_workflow(steps, providers, repo, out_dir, max_rounds=3,
                 try:
                     ok, value = _commit_approved_diff(
                         repo, base, approved_patch, out_rel,
-                        f"reviewloop: step '{sid}' approved — "
+                        f"codereview: step '{sid}' approved — "
                         f"{step.get('title') or sid}")
                 except Exception as exc:  # noqa: BLE001
                     ok, value = False, f"error: {exc}"
@@ -1329,7 +1334,7 @@ def run_workflow(steps, providers, repo, out_dir, max_rounds=3,
 # ------------------------------------------------------------------ output
 
 def render_markdown(report):
-    lines = [f"# ReviewLoop report — {report.get('mode', 'review')}",
+    lines = [f"# CodeReview report — {report.get('mode', 'review')}",
              "",
              f"**Gate: {report.get('gate', '?').upper()}**"
              + (f" — {'; '.join(report.get('gate_reasons') or [])}"
@@ -1395,7 +1400,7 @@ def render_markdown(report):
 
 def write_report(report, out_dir, stem=None):
     os.makedirs(out_dir, exist_ok=True)
-    stem = stem or ("reviewloop-" + datetime.datetime.now(
+    stem = stem or ("codereview-" + datetime.datetime.now(
         datetime.timezone.utc).strftime("%Y%m%d-%H%M%S"))
     jpath = os.path.join(out_dir, stem + ".json")
     mpath = os.path.join(out_dir, stem + ".md")

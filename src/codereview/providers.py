@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""reviewloop providers — build reviewer callables from API keys.
+"""codereview providers — build reviewer callables from API keys.
 
 A provider is a callable: prompt (str) -> raw model text (str).
 Keys are read from environment variables only; nothing is stored,

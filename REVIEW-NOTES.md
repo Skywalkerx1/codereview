@@ -1,4 +1,9 @@
-# Review notes — ReviewLoop (prepared for external review, 2026-11-03)
+# Review notes — CodeReview (prepared for external review, 2026-11-03)
+
+**Rename (v0.5.0, 2026-11-03): this project was called ReviewLoop
+through v0.4.2 and is now CodeReview. The notes and response
+documents in this archive describe the earlier releases under
+their original name; the history is unchanged.**
 
 **Update — external Review 3 of v0.4.1: verdict APPROVE, with one
 Minor (the staged-mismatch recovery reset the whole Git index).

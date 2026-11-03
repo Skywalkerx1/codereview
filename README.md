@@ -1,8 +1,8 @@
-# ReviewLoop
+# CodeReview
 
 **One agent builds. Independent models review. A deterministic gate decides.**
 
-ReviewLoop is a multi-model code review loop for teams where AI agents write a growing share of the code. A single model reviewing its own work rubber-stamps it; a human reviewing everything becomes the bottleneck. ReviewLoop puts the change in front of *other* models — with different providers, different lenses — and lets code, not vibes, decide whether it ships.
+CodeReview is a multi-model code review loop for teams where AI agents write a growing share of the code. A single model reviewing its own work rubber-stamps it; a human reviewing everything becomes the bottleneck. CodeReview puts the change in front of *other* models — with different providers, different lenses — and lets code, not vibes, decide whether it ships.
 
 ```
 builder ──diff──▶ deterministic checks ──▶ reviewer A (correctness/security)
@@ -22,21 +22,21 @@ builder ──diff──▶ deterministic checks ──▶ reviewer A (correctne
 
 - **Self-review is not review.** The model that wrote the code shares its blind spots. Independent providers catch different things.
 - **LLM opinions are not a gate.** Findings are structured, merged across reviewers (consensus raises confidence, never lowers severity), and the pass/block decision is made by deterministic rules over those findings.
-- **Alerts about the loop itself can't flood you** — the same dedup discipline ReviewLoop checks for in your code is part of its own design brief (see the `alert-no-guard` rule, born from a real incident: an hourly checker that emailed on every run while the same violation persisted for weeks).
+- **Alerts about the loop itself can't flood you** — the same dedup discipline CodeReview checks for in your code is part of its own design brief (see the `alert-no-guard` rule, born from a real incident: an hourly checker that emailed on every run while the same violation persisted for weeks).
 
 ## Quick start
 
 ```bash
-pip install reviewloop        # or: pip install -e . from a clone
+pip install codereview        # or: pip install -e . from a clone
 
 export GEMINI_API_KEY=...     # any two providers are a good start
 export OPENAI_API_KEY=...
 
 # Review the staged diff in the current repo
-reviewloop --repo . --staged --provider gemini --provider openai
+codereview --repo . --staged --provider gemini --provider openai
 
 # Review a patch file, with your test suite as a first-class input
-reviewloop --patch change.diff \
+codereview --patch change.diff \
   --provider gemini --provider xai \
   --test-command "python -m pytest -q" \
   --context "Adds retry logic to the payment webhook handler"
@@ -44,7 +44,7 @@ reviewloop --patch change.diff \
 echo $?   # 0 = PASS, 1 = BLOCKED, 2 = INCONCLUSIVE
 ```
 
-The report lands in `reviewloop-out/` as Markdown (for humans) + JSON (for tooling).
+The report lands in `codereview-out/` as Markdown (for humans) + JSON (for tooling).
 
 ## Account pools — when a free quota dies, the next account reviews
 
@@ -53,7 +53,7 @@ Repeat a seat to give it several accounts:
 ```bash
 export GEMINI_API_KEY=...        # account 1
 export GEMINI_API_KEY_2=...      # account 2
-reviewloop --repo . --provider gemini --provider gemini --provider nvidia
+codereview --repo . --provider gemini --provider gemini --provider nvidia
 ```
 
 Accounts are tried in order; a quota, rate-limit, 5xx, or dead-key error rotates the seat to the next account. Every report records **which account served and each rotation** (from → to → error) — fallback is visible in the run history, never silently substituted. If every account fails, the seat degrades honestly and the gate says so. Custom specs sharing a name pool the same way (one account per spec, labelled by its key env).
@@ -61,7 +61,7 @@ Accounts are tried in order; a quota, rate-limit, 5xx, or dead-key error rotates
 ## Multi-step workflows
 
 ```bash
-reviewloop workflow --file workflow.json --repo . --out wf-out
+codereview workflow --file workflow.json --repo . --out wf-out
 ```
 
 `workflow.json`: `{"steps": [{"id": "db", "title": "Add the schema", "agent_cmd": "…", "test_commands": ["…"]}]}`. Steps run in order; each step's change goes through the full review loop; on PASS the change is **committed as the step's approval record** and the workflow advances to the next step. State persists in `wf-out/workflow-state.json` — rerun to resume (approved steps are skipped), touch `wf-out/STOP` to pause between steps, and record owner waivers under the state's `waivers` map (`{step_id: [finding_id, …]}`).
@@ -71,22 +71,22 @@ reviewloop workflow --file workflow.json --repo . --out wf-out
 ## GitHub pull requests
 
 ```bash
-reviewloop pr --repo OWNER/REPO --number 123                 # read-only review
-reviewloop pr --pr https://github.com/OWNER/REPO/pull/123 --post
+codereview pr --repo OWNER/REPO --number 123                 # read-only review
+codereview pr --pr https://github.com/OWNER/REPO/pull/123 --post
 ```
 
-Fetches the PR's metadata + unified diff from the GitHub API and reviews it in place. Read-only works without a token on public repos. `--post` (needs `GITHUB_TOKEN` with repo access) posts the report as a PR review comment — COMMENT by default; `--request-changes` escalates a blocked gate to REQUEST_CHANGES; the bot never auto-approves — and sets a `reviewloop` commit status on the PR head (success / failure / pending). Re-run with `--verify-previous report.json` after a push to run the verification round against the new diff.
+Fetches the PR's metadata + unified diff from the GitHub API and reviews it in place. Read-only works without a token on public repos. `--post` (needs `GITHUB_TOKEN` with repo access) posts the report as a PR review comment — COMMENT by default; `--request-changes` escalates a blocked gate to REQUEST_CHANGES; the bot never auto-approves — and sets a `codereview` commit status on the PR head (success / failure / pending). Re-run with `--verify-previous report.json` after a push to run the verification round against the new diff.
 
 ## The loop driver — the full workflow in one command
 
 ```bash
-reviewloop loop --repo . \
+codereview loop --repo . \
     --builder-cmd "your-coding-agent-command" \
     --provider gemini --provider nvidia --max-rounds 3
 ```
 
 1. Reviewers review the working-tree diff. **PASS → the workflow advances** (exit 0).
-2. On BLOCKED, the findings are written to `$REVIEWLOOP_PACKET` (JSON) and your builder command — the coding agent — is invoked. It edits the working tree and writes its **work report** (per finding: what changed, with test evidence) to `$REVIEWLOOP_RESPONSE`.
+2. On BLOCKED, the findings are written to `$CODEREVIEW_PACKET` (JSON) and your builder command — the coding agent — is invoked. It edits the working tree and writes its **work report** (per finding: what changed, with test evidence) to `$CODEREVIEW_RESPONSE`.
 3. A verification round checks the fixes against the new diff. PASS advances; BLOCKED loops back to the builder.
 4. After `--max-rounds` builder rounds without a PASS, the loop stops and hands back to a human. A round that cannot complete (reviewer outage) stops the loop as INCONCLUSIVE — infrastructure problems are never blamed on the builder.
 
@@ -97,8 +97,8 @@ Per-round reports land in `round-1/`, `round-2/`, … and `loop-result.json` sum
 A blocked change is fixed — or rebutted with evidence — and re-checked:
 
 ```bash
-reviewloop --patch fix.diff \
-  --verify-previous reviewloop-out/reviewloop-20261103-150000.json \
+codereview --patch fix.diff \
+  --verify-previous codereview-out/codereview-20261103-150000.json \
   --builder-response @response.md \
   --provider gemini --provider openai
 ```

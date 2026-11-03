@@ -3,8 +3,8 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "reviewloop"
-version = "0.4.2"
+name = "codereview"
+version = "0.5.0"
 description = "Multi-model code review loop: one agent builds, independent models review, a deterministic gate decides."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -21,7 +21,8 @@ classifiers = [
 dependencies = []
 
 [project.scripts]
-reviewloop = "reviewloop.cli:main"
+codereview = "codereview.cli:main"
+reviewloop = "codereview.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

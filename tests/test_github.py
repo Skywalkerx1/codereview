@@ -6,7 +6,7 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from reviewloop.github import (GitHubClient, GitHubError, parse_pr_url,
+from codereview.github import (GitHubClient, GitHubError, parse_pr_url,
                                render_pr_comment, review_pr)
 
 PR_JSON = {"title": "Add the thing", "body": "does stuff",
@@ -110,7 +110,7 @@ class TestReviewPr(unittest.TestCase):
         self.assertIn("BLOCKED", review_body["body"])
         status_body = json.loads(posts[1].data.decode())
         self.assertEqual(status_body["state"], "failure")
-        self.assertEqual(status_body["context"], "reviewloop")
+        self.assertEqual(status_body["context"], "codereview")
 
     def test_pass_posts_comment_event_and_success(self):
         client, op = _client()
