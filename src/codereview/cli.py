@@ -1002,6 +1002,17 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
                          "instead of blocking again. The store's "
                          "hash and every link are recorded and "
                          "recomputed by record-verify")
+    ap.add_argument("--tech-lead",
+                    help="designate the seat that serves as Tech "
+                         "Lead for adjudicating refuted findings "
+                         "(owner amendment 2026-11-04): the Tech "
+                         "Lead's family must be independent of "
+                         "both the finding's raiser and its "
+                         "refuter — a designation that cannot "
+                         "serve independently is rejected and "
+                         "substituted, loudly, on the record. "
+                         "Without a designation, the first "
+                         "independent seat serves")
     ap.add_argument("--attempts-log",
                     help="append one JSON line describing this run "
                          "(seats, error classes, gate) to this file")
@@ -1166,7 +1177,8 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
             seat_meta=seat_meta, fallbacks=fallbacks,
             record_extra=record_extra,
             fixture_scope=fixture_scope, private=args.private,
-            precedents=precedents)
+            precedents=precedents,
+            tech_lead=args.tech_lead or None)
 
     jpath, mpath = core.write_report(report, args.out)
     if args.attempts_log:

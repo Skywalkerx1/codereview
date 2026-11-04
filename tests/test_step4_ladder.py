@@ -1,8 +1,12 @@
 """Step 4 machinery (v15-closing-run solution §5, owner-adopted
-2026-11-04): refutation-adequacy routing (§5a.1), third-family
-tiebreak (§5a.3), the severity rubric + supported-platform
-manifest as prompt/policy (§5b/§5c), deterministic platform-scope
-labelling (§5c), and function-level precedent (§5d).
+2026-11-04): refutation-adequacy routing (§5a.1), Tech Lead
+adjudication (owner amendment 2026-11-04, superseding the
+§5a.3 tiebreak: an independent third role decides finally —
+sustain_finding / sustain_refutation / needs-probe / escalate —
+with loud substitution of an ineligible designated seat), the
+severity rubric + supported-platform manifest as prompt/policy
+(§5b/§5c), deterministic platform-scope labelling (§5c), and
+function-level precedent (§5d).
 
 All providers are scripted fakes; the git fixtures are real
 temporary repositories, in the established suite style."""
@@ -52,11 +56,13 @@ def mk_finding(quote=CITED, sev="major", title="Total computed "
 
 class Seat:
     """Scripted provider: answers per prompt kind, including the
-    tiebreak pass. A payload may be a dict, a raw string, or an
-    Exception."""
+    Tech Lead adjudication pass. A payload may be a dict, a raw
+    string, or an Exception; the tech_lead payload may be a LIST
+    of payloads consumed in call order (the needs-probe loop
+    calls the Tech Lead twice)."""
 
     def __init__(self, review=None, reground=None, xconfirm=None,
-                 tiebreak=None):
+                 tech_lead=None):
         self.review = {"verdict": "pass", "summary": "ok",
                        "findings": []} if review is None else review
         self.reground = {"status": "withdrawn",
@@ -64,16 +70,20 @@ class Seat:
             if reground is None else reground
         self.xconfirm = {"verdict": "confirm"} \
             if xconfirm is None else xconfirm
-        self.tiebreak = {"verdict": "refute",
-                         "evidence_quote": THIRD_LINE,
-                         "reason": "the claim does not hold"} \
-            if tiebreak is None else tiebreak
+        self.tech_lead = {
+            "decision": "sustain_refutation",
+            "evidence_quote": THIRD_LINE,
+            "rationale": "the refutation is correct on the code"} \
+            if tech_lead is None else tech_lead
 
     def __call__(self, prompt):
         if "RE-GROUND pass" in prompt:
             payload = self.reground
-        elif "THIRD-FAMILY TIEBREAK pass" in prompt:
-            payload = self.tiebreak
+        elif "TECH LEAD ADJUDICATION pass" in prompt:
+            payload = self.tech_lead
+            if isinstance(payload, list):
+                payload = payload.pop(0) if len(payload) > 1 \
+                    else payload[0]
         elif "CROSS-FAMILY CONFIRMATION pass" in prompt:
             payload = self.xconfirm
         else:
@@ -150,73 +160,221 @@ class AdequacyFlowTests(unittest.TestCase):
         self.assertEqual(d["dispute"]["adequacy"], "strong")
 
 
-class TiebreakTests(unittest.TestCase):
-    def test_weak_plus_tiebreak_refute_resolves_and_passes(self):
-        c = Seat(tiebreak={"verdict": "refute",
-                           "evidence_quote": THIRD_LINE,
-                           "reason": "no reachable defect"})
-        rec = review3(raiser(), refuter(CITED), c)
+PRECEDENTS_CTX = {"entries": [],
+                  "blob_lookup": lambda p: "BLOB1",
+                  "source_lookup": lambda p: None}
+
+
+class TechLeadTests(unittest.TestCase):
+    def test_weak_refutation_sustained_by_tech_lead(self):
+        rec = review3(raiser(), refuter(CITED), Seat())
         self.assertEqual(rec["gate"], "pass")
         self.assertEqual(rec["findings"], [])
         self.assertNotIn("refutation_weak_findings", rec)
-        res = rec["tiebreak_resolved_findings"]
-        self.assertEqual(len(res), 1)
-        f = res[0]
-        self.assertEqual(f["status"], "tiebreak_refuted")
-        self.assertEqual(f["tiebreak"]["seat"], "seatC")
-        self.assertEqual(f["tiebreak"]["family"], "famC")
-        self.assertEqual(f["tiebreak"]["outcome"], "refuted")
-        self.assertEqual(f["tiebreak"]["evidence_quote"],
-                         THIRD_LINE)
-        self.assertEqual(f["dispute"]["evidence_quote"], CITED)
+        self.assertNotIn("disputed_findings", rec)
+        adj_list = rec["adjudicated_refuted_findings"]
+        self.assertEqual(len(adj_list), 1)
+        f = adj_list[0]
+        self.assertEqual(f["status"], "adjudicated_refuted")
+        self.assertEqual(f["cross_family"], "tech_lead_refuted")
+        adj = f["adjudication"]
+        self.assertEqual(adj["role"], "tech_lead")
+        self.assertEqual(adj["seat"], "seatC")
+        self.assertEqual(adj["family"], "famC")
+        self.assertEqual(adj["tier"], "paid")
+        self.assertEqual(adj["decision"], "sustain_refutation")
+        self.assertEqual(adj["evidence_quote"], THIRD_LINE)
+        self.assertEqual(adj["positions"]["refuter"]["adequacy"],
+                         "weak")
+        self.assertEqual(adj["positions"]["raiser"]["family"],
+                         "famA")
+        self.assertEqual(f["precedent_eligible"],
+                         "sustain_refutation")
 
-    def test_tiebreak_confirm_returns_finding_to_blocking(self):
-        c = Seat(tiebreak={"verdict": "confirm",
-                           "evidence_quote": THIRD_LINE,
-                           "reason": "the defect is real"})
+    def test_strong_dispute_also_adjudicated(self):
+        rec = review3(raiser(), refuter(OTHER_LINE), Seat())
+        self.assertEqual(rec["gate"], "pass")
+        self.assertNotIn("disputed_findings", rec)
+        f = rec["adjudicated_refuted_findings"][0]
+        self.assertEqual(
+            f["adjudication"]["positions"]["refuter"]["adequacy"],
+            "strong")
+
+    def test_sustain_finding_returns_to_blocking(self):
+        c = Seat(tech_lead={"decision": "sustain_finding",
+                            "evidence_quote": THIRD_LINE,
+                            "rationale": "the defect is real"})
         rec = review3(raiser(), refuter(CITED), c)
         self.assertEqual(rec["gate"], "blocked")
         self.assertEqual(len(rec["findings"]), 1)
         f = rec["findings"][0]
-        self.assertEqual(f["cross_family"], "tiebreak_confirmed")
-        self.assertEqual(f["tiebreak"]["outcome"], "confirmed")
-        self.assertNotIn("tiebreak_resolved_findings", rec)
+        self.assertEqual(f["cross_family"], "tech_lead_sustained")
+        self.assertEqual(f["severity"], "major")
+        self.assertEqual(f["adjudication"]["decision"],
+                         "sustain_finding")
+        self.assertNotIn("adjudicated_refuted_findings", rec)
 
-    def test_strong_dispute_plus_tiebreak_confirm_blocks(self):
-        c = Seat(tiebreak={"verdict": "confirm",
-                           "evidence_quote": THIRD_LINE,
-                           "reason": "raiser and I agree"})
-        rec = review3(raiser(), refuter(OTHER_LINE), c)
-        self.assertEqual(rec["gate"], "blocked")
-        self.assertEqual(rec["findings"][0]["cross_family"],
-                         "tiebreak_confirmed")
-        self.assertNotIn("disputed_findings", rec)
-
-    def test_strong_dispute_plus_tiebreak_refute_resolves(self):
-        rec = review3(raiser(), refuter(OTHER_LINE), Seat())
+    def test_downgrade_applies_loudly_and_is_precedent_eligible(self):
+        c = Seat(tech_lead={"decision": "sustain_finding",
+                            "severity": "minor",
+                            "evidence_quote": THIRD_LINE,
+                            "rationale": "real but not reachable "
+                                         "as a major"})
+        rec = review3(raiser(), refuter(OTHER_LINE), c,
+                      precedents=PRECEDENTS_CTX)
         self.assertEqual(rec["gate"], "pass")
-        self.assertEqual(
-            len(rec["tiebreak_resolved_findings"]), 1)
-        self.assertNotIn("disputed_findings", rec)
+        f = rec["findings"][0]
+        self.assertEqual(f["severity"], "minor")
+        self.assertEqual(f["severity_before_adjudication"],
+                         "major")
+        adj = f["adjudication"]
+        self.assertEqual(adj["severity_before"], "major")
+        self.assertEqual(adj["severity_applied"], "minor")
+        self.assertEqual(f["precedent_eligible"],
+                         "rubric_downgrade")
+        cands = rec["precedent_candidates"]
+        self.assertEqual(len(cands), 1)
+        self.assertEqual(cands[0]["finding_id"], f["id"])
+        self.assertEqual(cands[0]["blob"], "BLOB1")
 
-    def test_tiebreak_vote_without_valid_quote_resolves_nothing(self):
-        c = Seat(tiebreak={"verdict": "refute",
-                           "evidence_quote": BOGUS_QUOTE,
-                           "reason": "trust me"})
+    def test_severity_upgrade_never_applied(self):
+        c = Seat(tech_lead={"decision": "sustain_finding",
+                            "severity": "blocker",
+                            "evidence_quote": THIRD_LINE,
+                            "rationale": "worse than claimed"})
+        rec = review3(raiser(), refuter(CITED), c)
+        self.assertEqual(rec["gate"], "blocked")
+        f = rec["findings"][0]
+        self.assertEqual(f["severity"], "major")
+        self.assertEqual(f["adjudication"]["severity_requested"],
+                         "blocker")
+        self.assertIn("never raise",
+                      f["adjudication"]["severity_note"])
+
+    def test_sustain_refutation_records_precedent_candidate(self):
+        rec = review3(raiser(), refuter(CITED), Seat(),
+                      precedents=PRECEDENTS_CTX)
+        cands = rec["precedent_candidates"]
+        self.assertEqual(len(cands), 1)
+        f = rec["adjudicated_refuted_findings"][0]
+        self.assertEqual(cands[0]["finding_id"], f["id"])
+        self.assertEqual(cands[0]["path"], "app.py")
+        self.assertEqual(cands[0]["blob"], "BLOB1")
+
+    def test_needs_probe_loop_decides_on_combined_evidence(self):
+        calls = []
+
+        def probe(finding, request):
+            calls.append(request)
+            return {"outcome": "rebutted",
+                    "evidence_quote": THIRD_LINE,
+                    "detail": "probe: the call site guards the "
+                              "total before use"}
+
+        c = Seat(tech_lead=[
+            {"decision": "needs_probe",
+             "probe_request": "check whether the caller guards "
+                              "the total",
+             "rationale": "the region alone cannot settle it"},
+            {"decision": "sustain_refutation",
+             "evidence_quote": THIRD_LINE,
+             "rationale": "the probe confirms the guard"}])
+        rec = review3(raiser(), refuter(CITED), c, probe_fn=probe)
+        self.assertEqual(len(calls), 1)
+        self.assertIn("guards", calls[0])
+        self.assertEqual(rec["gate"], "pass")
+        f = rec["adjudicated_refuted_findings"][0]
+        self.assertEqual(f["adjudication"]["probe"]["outcome"],
+                         "rebutted")
+        self.assertEqual(f["adjudication"]["decision"],
+                         "sustain_refutation")
+
+    def test_needs_probe_without_channel_escalates(self):
+        c = Seat(tech_lead={"decision": "needs_probe",
+                            "probe_request": "run the caller",
+                            "rationale": "cannot settle it here"})
         rec = review3(raiser(), refuter(CITED), c)
         self.assertEqual(rec["gate"], "inconclusive")
-        weak = rec["refutation_weak_findings"]
-        self.assertEqual(len(weak), 1)
-        self.assertEqual(weak[0]["tiebreak"]["outcome"],
-                         "unresolved")
-        self.assertNotIn("tiebreak_resolved_findings", rec)
+        esc = rec["escalated_findings"]
+        self.assertEqual(len(esc), 1)
+        self.assertIn("probe",
+                      esc[0]["adjudication"]["escalation_reason"])
+
+    def test_escalate_on_degraded_panel(self):
+        meta4 = dict(META3)
+        meta4["seatD"] = {"family": "famD", "tier": "paid"}
+        d = Seat(review=RuntimeError("seat down"))
+        c = Seat(tech_lead={
+            "decision": "escalate",
+            "rationale": "the panel degraded and the remaining "
+                         "evidence cannot carry a final decision"})
+        rec = core.run_review(
+            PATCH, {"seatA": raiser(), "seatB": refuter(CITED),
+                    "seatC": c, "seatD": d},
+            seat_meta=meta4, sleep=lambda *_a: None)
+        self.assertTrue(rec["degraded"])
+        self.assertEqual(rec["gate"], "inconclusive")
+        esc = rec["escalated_findings"]
+        self.assertEqual(len(esc), 1)
+        self.assertEqual(esc[0]["status"], "escalated")
+        self.assertIn("degraded",
+                      esc[0]["adjudication"]["escalation_reason"])
+
+    def test_unvalidated_decision_escalates_loudly(self):
+        c = Seat(tech_lead={"decision": "sustain_refutation",
+                            "evidence_quote": BOGUS_QUOTE,
+                            "rationale": "trust me"})
+        rec = review3(raiser(), refuter(CITED), c)
+        self.assertEqual(rec["gate"], "inconclusive")
+        esc = rec["escalated_findings"]
+        self.assertEqual(len(esc), 1)
+        adj = esc[0]["adjudication"]
+        self.assertEqual(adj["decision"], "escalate")
+        self.assertEqual(adj["raw_outcome"], "invalid")
+        self.assertIn("no quote", adj["escalation_reason"])
+        self.assertNotIn("adjudicated_refuted_findings", rec)
+
+    def test_designated_refuter_family_substituted_loudly(self):
+        rec = review3(raiser(), refuter(CITED), Seat(),
+                      tech_lead="seatB")
+        f = rec["adjudicated_refuted_findings"][0]
+        self.assertEqual(f["adjudication"]["seat"], "seatC")
+        sub = f["adjudication"]["substitution"]
+        self.assertEqual(sub["designated"], "seatB")
+        self.assertIn("independent", sub["reason"])
+        subs = rec["tech_lead_substitutions"]
+        self.assertEqual(len(subs), 1)
+        self.assertEqual(subs[0]["substitute"], "seatC")
+        self.assertTrue(any("substitution" in r.lower()
+                            for r in rec["gate_reasons"]))
+
+    def test_designated_independent_seat_serves_without_substitution(self):
+        rec = review3(raiser(), refuter(CITED), Seat(),
+                      tech_lead="seatC")
+        f = rec["adjudicated_refuted_findings"][0]
+        self.assertEqual(f["adjudication"]["seat"], "seatC")
+        self.assertNotIn("substitution", f["adjudication"])
+        self.assertNotIn("tech_lead_substitutions", rec)
+
+    def test_designated_same_family_without_substitute_stays_disputed(self):
+        rec = review2(raiser(), refuter(OTHER_LINE),
+                      tech_lead="seatB")
+        self.assertEqual(rec["gate"], "inconclusive")
+        d = rec["disputed_findings"][0]
+        self.assertEqual(d["tech_lead"]["status"], "unavailable")
+        self.assertEqual(
+            d["tech_lead"]["substitution"]["designated"], "seatB")
+        self.assertIn("independent",
+                      d["tech_lead"]["substitution"]["reason"])
 
     def test_no_third_family_leaves_weak_state(self):
-        # Two-seat panel: no family remains for a tiebreak.
+        # Two-seat panel: no family remains to adjudicate.
         rec = review2(raiser(), refuter(CITED))
         weak = rec["refutation_weak_findings"]
         self.assertEqual(len(weak), 1)
-        self.assertNotIn("tiebreak", weak[0])
+        self.assertEqual(weak[0]["tech_lead"]["status"],
+                         "unavailable")
+        self.assertNotIn("adjudication", weak[0])
 
 
 class PlatformScopeTests(unittest.TestCase):
@@ -266,10 +424,15 @@ class RubricPolicyTests(unittest.TestCase):
         self.assertIn("hypothetical future seat kinds",
                       core._VERIFY_PROMPT)
 
-    def test_tiebreak_prompt_demands_quotes(self):
-        self.assertIn("THIRD-FAMILY TIEBREAK pass",
-                      core._TIEBREAK_PROMPT)
-        self.assertIn("evidence_quote", core._TIEBREAK_PROMPT)
+    def test_tech_lead_prompt_names_role_and_decisions(self):
+        self.assertIn("TECH LEAD ADJUDICATION pass",
+                      core._TECH_LEAD_PROMPT)
+        self.assertIn("Tech Lead", core._TECH_LEAD_PROMPT)
+        for decision in ("sustain_finding", "sustain_refutation",
+                         "needs_probe", "escalate"):
+            self.assertIn(decision, core._TECH_LEAD_PROMPT)
+        self.assertIn("no majority vote",
+                      core._TECH_LEAD_PROMPT.lower())
 
 
 SRC_V1 = (
