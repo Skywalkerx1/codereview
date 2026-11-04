@@ -152,13 +152,19 @@ class EdgeCaseTests(unittest.TestCase):
         self.assertEqual(report["gate"], "pass")
         self.assertEqual(report["findings"], [])
 
-    def test_oversized_patch_truncates_and_strict_is_inconclusive(self):
+    def test_oversized_patch_is_subsplit_not_truncated(self):
+        # v0.9.5 (review-v15 machinery bar 1) supersedes the old
+        # truncate-and-flag behaviour: the oversized section is
+        # sub-split across batches, coverage stays complete, and
+        # even strict mode judges the run on its findings.
         big = CLEAN + ("\n+// filler line\n" * 5000)
         report = core.run_review(
             big, {"a": pass_provider, "b": pass_provider},
             max_patch_chars=2000, strict=True)
-        self.assertTrue(report["truncated"])
-        self.assertEqual(report["gate"], "inconclusive")
+        self.assertFalse(report["truncated"])
+        self.assertTrue(report["coverage"]["complete"])
+        self.assertGreater(report["coverage"]["batch_count"], 1)
+        self.assertEqual(report["gate"], "pass")
 
     def test_provider_timeout_degrades_not_passes_silently(self):
         def slow(prompt):

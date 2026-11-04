@@ -613,13 +613,17 @@ class BatchSectionsDetailedTests(unittest.TestCase):
         self.assertEqual("".join(batches),
                          "x" * 30 + "y" * 30 + "z" * 10)
 
-    def test_oversized_section_truncates_and_flags(self):
+    def test_oversized_section_subsplits_without_truncating(self):
+        # v0.9.5 (review-v15 machinery bar 1) supersedes the old
+        # truncate-and-flag behaviour: an oversized section is
+        # sub-split across batches and lands completely.
         sections = [("big.py", "x" * 500)]
         batches, batch_files, truncated = \
             core._batch_sections_detailed(sections, 100)
-        self.assertTrue(truncated)
-        self.assertEqual(batch_files, [["big.py"]])
-        self.assertIn("section truncated", batches[0])
+        self.assertFalse(truncated)
+        self.assertEqual(batch_files, [["big.py"]] * 5)
+        self.assertEqual("".join(batches), "x" * 500)
+        self.assertTrue(all(len(b) <= 100 for b in batches))
 
 
 class HousekeepingTests(unittest.TestCase):

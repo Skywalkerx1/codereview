@@ -42,7 +42,7 @@ import re
 import subprocess
 import time
 
-VERSION = "0.9.4"
+VERSION = "0.9.5"
 SCHEMA = "codereview.report/1"
 
 SEVERITIES = ("blocker", "major", "minor", "nit")
@@ -703,38 +703,140 @@ def merge_findings(findings):
 
 # ------------------------------------------------------------------ the loop
 
+def _section_units(text):
+    """Split one diff section into (head, units): the head is the
+    preamble before the first hunk (the ``diff --git`` / --- / +++
+    lines); each unit is (hunk_header, body_lines) with the hunk
+    header its ``@@`` line. A section with no hunks is a single
+    unit with an empty header and the whole text as its body."""
+    head_lines, units = [], []
+    body = None
+    for ln in text.splitlines(keepends=True):
+        if ln.startswith("@@ "):
+            body = []
+            units.append((ln, body))
+        elif body is None:
+            head_lines.append(ln)
+        else:
+            body.append(ln)
+    if not units:
+        return "", [("", head_lines)]
+    return "".join(head_lines), units
+
+
+def _split_section(text, max_chars):
+    """Sub-split one oversized diff section into pieces of at most
+    max_chars (v0.9.5, review-v15 machinery bar 1): diff-hunk
+    boundaries first, line boundaries inside a single oversized
+    hunk, character splits of a single over-long line as the last
+    resort. Every piece repeats the section head and, for
+    line-split pieces, the hunk header, so a reviewer always knows
+    which file and hunk a piece belongs to; hunk bodies are never
+    dropped or reordered, so no content is ever truncated.
+
+    Returns (pieces, unplaceable). unplaceable is True only when
+    the budget cannot hold even a minimally framed slice (the
+    repeated head alone meets/exceeds the budget, or max_chars <
+    1): the section is then returned whole — over budget, flagged
+    by the caller as an incomplete batching — never silently cut.
+    """
+    if len(text) <= max_chars:
+        return [text], False
+    if max_chars < 1:
+        return [text], True
+    head, units = _section_units(text)
+    if len(head) >= max_chars:
+        return [text], True
+    pieces, cur, has = [], head, False
+
+    def flush():
+        nonlocal cur, has
+        if has:
+            pieces.append(cur)
+        cur, has = head, False
+
+    for hunk_header, body in units:
+        unit = hunk_header + "".join(body)
+        if len(cur) + len(unit) <= max_chars:
+            cur += unit
+            has = True
+            continue
+        if len(head) + len(unit) <= max_chars:
+            flush()
+            cur, has = head + unit, True
+            continue
+        # The unit alone exceeds a fresh piece: split it at line
+        # boundaries, the hunk header repeated atop each piece.
+        flush()
+        stem = head + hunk_header
+        if len(stem) >= max_chars:
+            return [text], True
+        piece, phas = stem, False
+        for ln in body:
+            if len(piece) + len(ln) <= max_chars:
+                piece += ln
+                phas = True
+                continue
+            if phas:
+                pieces.append(piece)
+                piece, phas = stem, False
+            if len(stem) + len(ln) <= max_chars:
+                piece, phas = stem + ln, True
+                continue
+            # A single line longer than a fresh framed piece:
+            # character-split it, the stem repeated per segment.
+            room = max_chars - len(stem)
+            for i in range(0, len(ln), room):
+                pieces.append(stem + ln[i:i + room])
+        if phas:
+            pieces.append(piece)
+    flush()
+    return pieces or [text], False
+
+
 def _batch_sections_detailed(sections, max_chars):
     """_batch_sections plus the coverage ledger: which files each
     batch carries (v0.9.3, solution §2a). The record's coverage is
     derived from this ACTUAL batching — the same lists the jobs
-    are built from — never recomputed after the fact."""
+    are built from — never recomputed after the fact.
+
+    Oversized sections are sub-split (v0.9.5, _split_section) so
+    every section lands completely across batches; the third
+    return value (named `truncated` by callers for record
+    compatibility) now means batching INCOMPLETE: some content
+    could not be placed within the budget at all, which the run
+    reports loudly as degraded with incomplete coverage."""
     batches, batch_files, current, current_files = [], [], "", []
-    truncated = False
+    incomplete = False
     for file, text in sections:
         if len(text) > max_chars:
-            text = text[:max_chars] + "\n[... section truncated ...]\n"
-            truncated = True
-        if current and len(current) + len(text) > max_chars:
-            batches.append(current)
-            batch_files.append(current_files)
-            current, current_files = "", []
-        current += text
-        if file not in current_files:
-            current_files.append(file)
+            pieces, unplaceable = _split_section(text, max_chars)
+            incomplete = incomplete or unplaceable
+        else:
+            pieces = [text]
+        for piece in pieces:
+            if current and len(current) + len(piece) > max_chars:
+                batches.append(current)
+                batch_files.append(current_files)
+                current, current_files = "", []
+            current += piece
+            if file not in current_files:
+                current_files.append(file)
     if current:
         batches.append(current)
         batch_files.append(current_files)
-    return batches or [""], batch_files or [[]], truncated
+    return batches or [""], batch_files or [[]], incomplete
 
 
 def _batch_sections(sections, max_chars):
     """Group per-file sections into batches under max_chars.
 
-    Returns (batches, truncated_flag). An oversized single section is
-    truncated and flags the review incomplete."""
-    batches, _files, truncated = _batch_sections_detailed(
+    Returns (batches, incomplete_flag). Oversized sections are
+    sub-split across batches (never truncated); the flag is set
+    only when content could not be placed within the budget."""
+    batches, _files, incomplete = _batch_sections_detailed(
         sections, max_chars)
-    return batches, truncated
+    return batches, incomplete
 
 
 def _call_provider(fn, prompt):
@@ -926,7 +1028,8 @@ def _gate(findings, allow_major=False, degraded=False, incomplete=False,
         return "inconclusive", ["no reviewer succeeded and no "
                                  "deterministic blocker was found"]
     if incomplete:
-        reasons.append("part of the diff was truncated")
+        reasons.append("part of the diff could not be batched "
+                       "within the size budget")
         if strict:
             return "inconclusive", reasons
     if degraded:
@@ -1352,7 +1455,8 @@ def run_review(patch, providers, context="", test_results=None,
     reasons = reasons + fallback_notes
     if not coverage_complete:
         reasons = ["coverage incomplete: "
-                   + ("section(s) truncated; " if truncated else "")
+                   + ("section(s) could not be placed within "
+                      "the batch budget; " if truncated else "")
                    + f"{len(coverage_omissions)} file/lens "
                      f"omission(s) — run marked degraded"] + reasons
     if withdrawn_findings:
@@ -1503,14 +1607,26 @@ def _validate_resolution(raw_status, evidence, haystack_tokens):
 def run_verification(patch, providers, previous_report, builder_response,
                      test_results=None, max_patch_chars=80000,
                      allow_major=False, strict=False, seat_meta=None,
-                     sleep=None, record_extra=None, private=False):
+                     fallbacks=None, sleep=None, record_extra=None,
+                     private=False):
     """Verification round: a prior blocker clears only when every
     successful reviewer marks it fixed/invalid AND the seat that
     raised it is among them (deterministic findings clear when the
     pattern no longer fires in the new scan). A PASS also needs a
     quorum of at least 2 successful reviewers when 2+ are
     configured; anything unconfirmed is INCONCLUSIVE, never a
-    one-reviewer "consensus"."""
+    one-reviewer "consensus".
+
+    `fallbacks` is the same lens -> (name, callable) map run_review
+    takes (v0.9.5, review-v15 machinery bar 2): when a primary seat
+    fails, the fallback configured for the lens that seat would
+    serve in a review round (the _reviewer_tasks assignment) runs
+    the verification job instead, recorded exactly as in a review
+    round (provider = the serving fallback, fallback_for = the
+    primary, summed attempts). Without it, a quota-failed primary
+    left the family that raised a finding unable to finder-confirm
+    its own clearance — the finding came back unjudged and the
+    round degraded to a single family."""
     test_results = test_results or []
     blocking_sevs = ("blocker",) if allow_major else BLOCKING_DEFAULT
     prior = [f for f in previous_report.get("findings") or []
@@ -1532,10 +1648,22 @@ def run_verification(patch, providers, previous_report, builder_response,
         + json.dumps(prior, ensure_ascii=False) + "\n"
         + (builder_response or ""))
 
+    # Fallback selection mirrors the review path's lens assignment
+    # (_reviewer_tasks): a seat's fallback is the one configured
+    # for the lens it would serve in a review round — two seats
+    # split the lenses, a single seat serves both, 3+ cycle.
+    provider_lenses = {}
+    _items = list(providers.items())
+    for _i, (_name, _fn) in enumerate(_items):
+        provider_lenses[_name] = (
+            list(LENSES) if len(_items) == 1
+            else [list(LENSES)[_i % len(LENSES)]])
+
     per_provider = []
     new_findings = list(deterministic_scan(patch, test_results))
     any_success = False
     degraded = False
+    fallback_notes = []
     with concurrent.futures.ThreadPoolExecutor(
             max_workers=max(2, len(providers) or 1)) as ex:
         futs = {ex.submit(_review_job, fn, prompt, sleep): name
@@ -1543,10 +1671,60 @@ def run_verification(patch, providers, previous_report, builder_response,
         for fut in concurrent.futures.as_completed(futs):
             name = futs[fut]
             res = fut.result()
+            serving_name, serving_fn = name, providers[name]
             rec = {"provider": name, "status": "error", "error": "",
                    "resolutions": {},
                    "attempts": res["attempts"],
                    "error_classes": res["error_classes"]}
+            if not res["ok"] and fallbacks:
+                fb_name = fb_fn = None
+                for lens in provider_lenses.get(name, []):
+                    if lens in fallbacks:
+                        fb_name, fb_fn = fallbacks[lens]
+                        break
+                if fb_name is not None and fb_name != name:
+                    # Same bounded-substitution contract as a
+                    # review round: the reason is recorded and the
+                    # fallback gets only the attempts the job
+                    # budget has left.
+                    remaining = _MAX_JOB_ATTEMPTS - res["attempts"]
+                    fb = None
+                    if remaining <= 0:
+                        fallback_notes.append(
+                            f"verification fallback seat "
+                            f"{fb_name!r} not attempted for "
+                            f"{name!r}: job attempt budget "
+                            f"({_MAX_JOB_ATTEMPTS}) exhausted by "
+                            f"the primary")
+                        rec["error"] = (
+                            f"{res['error']} | fallback "
+                            f"{fb_name!r} not attempted: job "
+                            f"attempt budget exhausted")[:300]
+                    else:
+                        fb = _review_job(fb_fn, prompt, sleep,
+                                         max_attempts=remaining)
+                        rec["attempts"] = (res["attempts"]
+                                           + fb["attempts"])
+                    if fb is not None and fb["ok"]:
+                        fallback_notes.append(
+                            f"verification served by fallback "
+                            f"seat {fb_name!r} (primary {name!r} "
+                            f"failed: "
+                            f"{res['error_classes'][-1] if res['error_classes'] else 'error'})")
+                        rec.update({
+                            "provider": fb_name,
+                            "fallback_for": name,
+                            "primary_error": str(res["error"])[:300],
+                            "error_classes":
+                                res["error_classes"]
+                                + fb["error_classes"]})
+                        serving_name, serving_fn = fb_name, fb_fn
+                        res = fb
+                    elif fb is not None:
+                        rec["error"] = (
+                            f"{res['error']} | fallback "
+                            f"{fb_name!r} also failed: "
+                            f"{fb['error']}")[:300]
             try:
                 if not res["ok"]:
                     raise res["error"]
@@ -1566,17 +1744,17 @@ def run_verification(patch, providers, previous_report, builder_response,
                                 "supported by the diff/test material")
                         rec["resolutions"][str(r["finding_id"])] = entry
                 for raw_f in parsed.get("new_findings") or []:
-                    nf = _normalize_finding(raw_f, name)
+                    nf = _normalize_finding(raw_f, serving_name)
                     if nf:
                         new_findings.append(nf)
                 rec["status"] = "ok"
-                rec.update(_provider_meta(providers[name]))
-                rec.update(_seat_meta(seat_meta, name))
+                rec.update(_provider_meta(serving_fn))
+                rec.update(_seat_meta(seat_meta, serving_name))
                 any_success = True
             except Exception as exc:  # noqa: BLE001
-                rec["error"] = str(exc)[:300]
-                rec.update(_provider_meta(providers[name]))
-                rec.update(_seat_meta(seat_meta, name))
+                rec["error"] = rec["error"] or str(exc)[:300]
+                rec.update(_provider_meta(serving_fn))
+                rec.update(_seat_meta(seat_meta, serving_name))
                 degraded = True
             per_provider.append(rec)
 
@@ -1656,6 +1834,7 @@ def run_verification(patch, providers, previous_report, builder_response,
                           "independent review")
         if degraded:
             reasons[0] += " — DEGRADED"
+    reasons = reasons + fallback_notes
     report = {
         "schema": SCHEMA, "version": VERSION, "mode": "verify",
         "created_at": _now_iso(),
@@ -1821,7 +2000,8 @@ def verify_record(record, repo=None, record_dir=None):
         add("coverage_complete", False,
             "coverage incomplete: "
             + (f"{len(oms)} omission(s), first: {oms[0]}"
-               if oms else "section(s) truncated"))
+               if oms else "section(s) could not be placed "
+               "within the batch budget"))
     # Tier attestation (decision (a), record-and-attest, v0.9.3):
     # the record carries the run's own `private` declaration and
     # each seat's tier. The ONLY failure is the conjunction the
@@ -1996,6 +2176,21 @@ def _validate_precedent_scope(record, ps, sfinds, repo, head):
     return problems
 
 
+def _resolve_commit(repo, ref):
+    """Full SHA for a possibly-abbreviated commit ref, resolved
+    against the repo; None when it does not resolve — the caller
+    then compares the raw string as-is, so a bad ref fails the
+    comparison honestly rather than passing by abbreviation
+    (v0.9.5, review-v15 machinery bar 3)."""
+    if not repo or not ref:
+        return None
+    try:
+        return _git(repo, "rev-parse", "--verify",
+                    f"{ref}^{{commit}}")
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def verify_chain(records, repo=None, record_dirs=None):
     """Form B chain verification (owner-adopted, v14-hold
     solution §2): an ordered set of records — round 1 (a full
@@ -2039,9 +2234,20 @@ def verify_chain(records, repo=None, record_dirs=None):
         f"{len(records)} record(s): round 1 mode="
         f"{r1.get('mode')!r}, verification rounds="
         f"{len(rounds)}")
-    # Contiguity + patch hashes.
+    # Contiguity + patch hashes. Range endpoints and head fields
+    # are normalized to full SHAs before comparison (v0.9.5):
+    # records store full SHAs in `head` while ranges are routinely
+    # supplied abbreviated (e3fc6a8), and a raw string comparison
+    # reported a "gap" between a commit and itself.
     range_problems, hash_problems = [], []
     prev_head = None
+    resolved = {}
+
+    def _full(ref):
+        if ref not in resolved:
+            resolved[ref] = _resolve_commit(repo, ref) or ref
+        return resolved[ref]
+
     for i, rec in enumerate(records):
         rng, head = rec.get("range"), rec.get("head")
         label = f"record {i + 1}"
@@ -2056,15 +2262,16 @@ def verify_chain(records, repo=None, record_dirs=None):
                                   f"unparsable")
             continue
         base, range_head = m.group(1), m.group(2)
-        if range_head != head:
+        head_full = _full(str(head))
+        if _full(range_head) != head_full:
             range_problems.append(
                 f"{label} head field != its range head")
-        if prev_head is not None and base != prev_head:
+        if prev_head is not None and _full(base) != prev_head:
             range_problems.append(
                 f"{label} starts at {base[:12]}… but the "
                 f"previous round ended at {prev_head[:12]}… "
                 f"(gap or overlap)")
-        prev_head = head
+        prev_head = head_full
         if not repo:
             hash_problems.append("no repo supplied to recompute "
                                  "patch hashes")

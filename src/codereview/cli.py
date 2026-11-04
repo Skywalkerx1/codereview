@@ -1138,7 +1138,8 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
             test_results=test_results,
             max_patch_chars=args.max_patch_chars,
             allow_major=args.allow_major, strict=args.strict,
-            seat_meta=seat_meta, record_extra=record_extra,
+            seat_meta=seat_meta, fallbacks=fallbacks,
+            record_extra=record_extra,
             private=args.private)
     else:
         report = core.run_review(
