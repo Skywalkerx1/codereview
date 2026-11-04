@@ -56,13 +56,20 @@ _SYSTEM = ("You are an independent, strict code reviewer in a multi-model "
            "review loop. Output only the JSON object the user prompt "
            "asks for.")
 
+_SOLVER_SYSTEM = ("You are the solver in a software-maintenance "
+                  "workflow. You turn an issue report into an "
+                  "executable solution plan in Markdown. You never "
+                  "write the fix yourself; a builder implements your "
+                  "plan and an independent review gates the result.")
 
-def openai_compatible(base_url, model, key_env, extra_payload=None):
+
+def openai_compatible(base_url, model, key_env, extra_payload=None,
+                      system=_SYSTEM):
     """Callable for any OpenAI-compatible chat completions endpoint."""
     def call(prompt):
         payload = {
             "model": model,
-            "messages": [{"role": "system", "content": _SYSTEM},
+            "messages": [{"role": "system", "content": system},
                          {"role": "user", "content": prompt}],
             "temperature": 0.1,
             "max_tokens": 8192,
@@ -83,18 +90,23 @@ def openai_compatible(base_url, model, key_env, extra_payload=None):
     return call
 
 
-def gemini(model, key_env="GEMINI_API_KEY"):
-    """Callable for the Gemini generateContent API."""
+def gemini(model, key_env="GEMINI_API_KEY", system=_SYSTEM,
+           json_mode=True):
+    """Callable for the Gemini generateContent API.
+
+    json_mode (the reviewer default) asks the API for a JSON body;
+    solver callables pass json_mode=False because their answer is a
+    Markdown plan, not a JSON object."""
     def call(prompt):
         url = ("https://generativelanguage.googleapis.com/v1beta/models/"
                f"{model}:generateContent")
+        generation = {"temperature": 0.1, "maxOutputTokens": 8192}
+        if json_mode:
+            generation["responseMimeType"] = "application/json"
         payload = {
-            "systemInstruction": {"parts": [{"text": _SYSTEM}]},
+            "systemInstruction": {"parts": [{"text": system}]},
             "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {
-                "temperature": 0.1, "maxOutputTokens": 8192,
-                "responseMimeType": "application/json",
-            },
+            "generationConfig": generation,
         }
         data = _post_json(url, {"x-goog-api-key": _key(key_env)}, payload)
         try:
@@ -122,11 +134,16 @@ PRESETS = {
 }
 
 
-def build_provider(spec, occurrence=1):
+def build_provider(spec, occurrence=1, text_mode=False):
     """spec -> (name, callable, account_label).
 
     `occurrence` > 1 (the same seat requested again) selects the
-    next account's key env for presets: GEMINI_API_KEY_2, _3, ..."""
+    next account's key env for presets: GEMINI_API_KEY_2, _3, ...
+
+    `text_mode` builds a solver callable instead of a reviewer: a
+    solver-persona system prompt and, for Gemini, no JSON response
+    mode — the answer is a Markdown plan."""
+    system = _SOLVER_SYSTEM if text_mode else _SYSTEM
     if "|" in spec:
         parts = [p.strip() for p in spec.split("|")]
         if len(parts) != 5:
@@ -135,9 +152,11 @@ def build_provider(spec, occurrence=1):
                 "name|type|base_url|model|key_env")
         name, kind, base, model, key_env = parts
         if kind == "gemini":
-            return name, gemini(model, key_env), key_env
+            return name, gemini(model, key_env, system=system,
+                                json_mode=not text_mode), key_env
         if kind == "openai-compatible":
-            return name, openai_compatible(base, model, key_env), key_env
+            return name, openai_compatible(base, model, key_env,
+                                           system=system), key_env
         raise ProviderError(f"unknown provider type {kind!r}")
     name = spec.strip().lower()
     if name not in PRESETS:
@@ -149,8 +168,10 @@ def build_provider(spec, occurrence=1):
     if occurrence > 1:
         key_env = f"{key_env}_{occurrence}"
     if kind == "gemini":
-        return name, gemini(model, key_env), key_env
-    return name, openai_compatible(base, model, key_env, extra), key_env
+        return name, gemini(model, key_env, system=system,
+                            json_mode=not text_mode), key_env
+    return name, openai_compatible(base, model, key_env, extra,
+                                   system=system), key_env
 
 
 _RETRYABLE_MARKERS = ("429", "500", "502", "503", "504", "401", "403",
@@ -205,7 +226,7 @@ class AccountPool:
         raise last_exc
 
 
-def build_providers(specs):
+def build_providers(specs, text_mode=False):
     """specs -> {seat name: callable}. Repeating a seat (the same
     preset twice, or custom specs sharing a name) builds an
     AccountPool for that seat with one account per occurrence."""
@@ -215,10 +236,18 @@ def build_providers(specs):
         seat_key = spec.split("|")[0].strip().lower() \
             if "|" in spec else spec.strip().lower()
         counts[seat_key] = counts.get(seat_key, 0) + 1
-        name, fn, label = build_provider(spec, counts[seat_key])
+        name, fn, label = build_provider(spec, counts[seat_key],
+                                         text_mode=text_mode)
         seats.setdefault(name, []).append((label, fn))
     providers = {}
     for name, accounts in seats.items():
         providers[name] = accounts[0][1] if len(accounts) == 1 \
             else AccountPool(accounts)
     return providers
+
+
+def build_solvers(specs):
+    """specs -> {seat name: solver callable} for intake mode: same
+    seats and account pools as build_providers, but each callable
+    answers in plain Markdown (see build_provider's text_mode)."""
+    return build_providers(specs, text_mode=True)

@@ -1,0 +1,174 @@
+{
+  "schema": "codereview.report/1",
+  "version": "0.6.0",
+  "mode": "verify",
+  "created_at": "2026-11-04T04:20:44+00:00",
+  "patch_sha256": "0da2b6450a843bf4beaf37968f526f7c15ecbb44ecaafc98835e578215622e8e",
+  "previous_gate": "blocked",
+  "cleared": [
+    {
+      "id": "31a87dbc039d",
+      "rule": "hardcoded-secret",
+      "severity": "blocker",
+      "category": "security",
+      "file": "tests/test_intake.py",
+      "line": 49,
+      "title": "Possible hardcoded secret in added code",
+      "evidence": "report = REPORT + '\\nAPI_KEY = '[REDACTED]'\\n'",
+      "recommendation": "Move the value to the secret store / environment and rotate it if it was ever real.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false,
+      "cleared_by": [
+        "fixed"
+      ]
+    },
+    {
+      "id": "89082dada28a",
+      "rule": "",
+      "severity": "major",
+      "category": "reliability",
+      "file": "src/codereview/cli.py",
+      "line": 260,
+      "title": "Thread pool with no per-solver timeout or cancellation",
+      "evidence": "with ThreadPoolExecutor(max_workers=len(solvers)) as pool: ... fut.result()  # no blocking timeout; each solver runs unbounded",
+      "recommendation": "Add a per-solver timeout (e.g., 60s) via pool.submit(fn, timeout=60) or wrap fut.result() in a timeout guard. Without this, a hung or deadlocked solver blocks the entire intake and consumes a thread slot permanently.",
+      "confidence": 0.9,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false,
+      "cleared_by": [
+        "fixed"
+      ]
+    },
+    {
+      "id": "1d399e559b17",
+      "rule": "",
+      "severity": "major",
+      "category": "reliability",
+      "file": "src/codereview/intake.py",
+      "line": 118,
+      "title": "No cooldown or dedup between solver retries / re-runs",
+      "evidence": "run_intake iterates solvers once; there is no guard against re-running intake rapidly, no back-off, and no dedup of identical failure patterns. In production, a transient API outage could cause repeated immediate re-runs, flooding logs and consuming API quota.",
+      "recommendation": "Add a module-level cooldown (e.g., 60s) or a simple file-based lock that prevents re-entry within a window. Also record the last-run timestamp in intake.json and surface it in the CLI so operators can see throttle state.",
+      "confidence": 0.85,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false,
+      "cleared_by": [
+        "invalid"
+      ]
+    },
+    {
+      "id": "b1da6b19d4c5",
+      "rule": "",
+      "severity": "major",
+      "category": "correctness",
+      "file": "src/codereview/providers.py",
+      "line": 168,
+      "title": "build_provider does not pass text_mode for non-gemini openai-compatible specs",
+      "evidence": "When kind == \"openai-compatible\", the call is openai_compatible(base, model, key_env, extra, system=system) — but system is only set from text_mode in the function signature default. If text_mode=True is passed, the system prompt is _SOLVER_SYSTEM, which is correct; however the code path at line 168 calls openai_compatible with system=system where system defaults to _SYSTEM if not provided, potent",
+      "recommendation": "Ensure that when text_mode=True is used for openai-compatible providers, the system argument is explicitly _SOLVER_SYSTEM, not relying on the default. Add an assertion or explicit branch: if text_mode: system = _SOLVER_SYSTEM",
+      "confidence": 0.8,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false,
+      "cleared_by": [
+        "invalid"
+      ]
+    }
+  ],
+  "remaining": [],
+  "reviewer_reports": [
+    {
+      "provider": "gemini",
+      "status": "error",
+      "error": "gemini quota: HTTP 429",
+      "resolutions": {}
+    },
+    {
+      "provider": "nvidia",
+      "status": "ok",
+      "error": "",
+      "resolutions": {
+        "31a87dbc039d": {
+          "status": "fixed",
+          "evidence": "The diff shows the secret value is now assembled at runtime ('supersecret' + 'value123') so no secret-shaped literal sits in source. The test confirms the redacted value 'REDACTED' appears in the prompt instead of the secret string."
+        },
+        "89082dada28a": {
+          "status": "fixed",
+          "evidence": "The diff adds per-solver deadline logic: a shared deadline is computed from the timeout argument, futures are waited on with that deadline, TimeoutError is caught and recorded, and pool.shutdown(wait=False, cancel_futures=True) ensures a hung solver cannot block the run."
+        },
+        "1d399e559b17": {
+          "status": "invalid",
+          "evidence": "The builder correctly notes that run_intake invokes each solver exactly once per run — there is no automatic retry loop. The described failure mode (repeated immediate re-runs flooding logs) has no code path in intake. Retry-with-rotation exists on the reviewer path (providers.AccountPool) but is un"
+        },
+        "b1da6b19d4c5": {
+          "status": "invalid",
+          "evidence": "The diff shows build_provider explicitly computes system = _SOLVER_SYSTEM if text_mode else _SYSTEM before branching, and passes system=system in all branches (gemini, openai-compatible, preset and custom). New wire tests (test_solver_wire_*, test_reviewer_wire_*) confirm the correct system prompt a"
+        }
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "31a87dbc039d",
+      "rule": "hardcoded-secret",
+      "severity": "blocker",
+      "category": "security",
+      "file": "tests/test_intake.py",
+      "line": 46,
+      "title": "Possible hardcoded secret in added code",
+      "evidence": "secret = '[REDACTED]' + \"value123\"",
+      "recommendation": "Move the value to the secret store / environment and rotate it if it was ever real.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "9f5c12383661",
+      "rule": "",
+      "severity": "minor",
+      "category": "reliability",
+      "file": "src/codereview/cli.py",
+      "line": 260,
+      "title": "Thread pool shutdown may cancel pending solver results on timeout",
+      "evidence": "pool.shutdown(wait=False, cancel_futures=True) in run_intake will cancel futures that have not yet completed, even those still pending within their individual deadline. If a solver is in the middle of a legitimate but slow response (e.g., 200s into a 300s timeout), it will be killed abruptly rather than allowed to finish naturally.",
+      "recommendation": "Consider using wait=False without cancel_futures, or only cancel futures that have exceeded the deadline, to allow in-progress solvers to complete if they are within their allowed window.",
+      "confidence": 0.7,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "2eb065fbee35",
+      "rule": "",
+      "severity": "minor",
+      "category": "correctness",
+      "file": "src/codereview/intake.py",
+      "line": 145,
+      "title": "Potential double-truncation of report when context capping interacts with MAX_REPORT_CHARS",
+      "evidence": "The _prepare function first caps the report via _cap(report, MAX_REPORT_CHARS) and then builds the prompt via build_solver_prompt which also caps individual context files against MAX_TOTAL_CONTEXT_CHARS. If a report is exactly at the 60000-char boundary and contexts push the total over 120000, the initial _cap may have already truncated text that later context capping removes from the total count,",
+      "recommendation": "Review the flow: ensure the report capping and context total capping are coordinated, or that a second cap on the final prompt is intentional and documented.",
+      "confidence": 0.6,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false
+    }
+  ],
+  "degraded": true,
+  "truncated": false,
+  "gate": "blocked",
+  "gate_reasons": [
+    "1 blocking item(s) still open"
+  ]
+}

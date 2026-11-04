@@ -46,6 +46,20 @@ echo $?   # 0 = PASS, 1 = BLOCKED, 2 = INCONCLUSIVE
 
 The report lands in `codereview-out/` as Markdown (for humans) + JSON (for tooling).
 
+## Intake — from issue report to solution plan
+
+Everything above starts from a code change that already exists. Intake starts from the problem:
+
+```bash
+codereview intake issue-report.md \
+  --provider gemini --provider nvidia \
+  --context src/alerts.py --repo .
+```
+
+Solver models (a separate seat type that answers in Markdown, not JSON) read the issue report plus any context files and the repo's file listing, and each writes a solution plan in a fixed shape: diagnosis steps in order, ranked hypotheses — each with the test that settles it — a numbered fix plan, prevention, risks and rollback, and closure criteria a verifier can run. The first solver that answers becomes `solution.md`; the others are kept as alternates next to it, with an `intake.json` manifest recording the report's hash, what was sent, and every truncation. Reports and context are secret-redacted and size-capped before anything leaves the machine.
+
+Intake writes no code and gates nothing: the builder reads `solution.md`, implements it, and the review loop above gates the resulting change. Exit 0 means a plan was produced; exit 2 means every solver failed.
+
 ## Account pools — when a free quota dies, the next account reviews
 
 Repeat a seat to give it several accounts:

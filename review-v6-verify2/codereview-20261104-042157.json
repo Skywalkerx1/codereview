@@ -1,0 +1,64 @@
+{
+  "schema": "codereview.report/1",
+  "version": "0.6.0",
+  "mode": "verify",
+  "created_at": "2026-11-04T04:21:57+00:00",
+  "patch_sha256": "05be653a598ef7747ad5e77f72faf5b87a020fbdc4529535e4ac0abb79873d80",
+  "previous_gate": "blocked",
+  "cleared": [
+    {
+      "id": "31a87dbc039d",
+      "rule": "hardcoded-secret",
+      "severity": "blocker",
+      "category": "security",
+      "file": "tests/test_intake.py",
+      "line": 46,
+      "title": "Possible hardcoded secret in added code",
+      "evidence": "secret = '[REDACTED]' + \"value123\"",
+      "recommendation": "Move the value to the secret store / environment and rotate it if it was ever real.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false,
+      "cleared_by": [
+        "fixed"
+      ]
+    }
+  ],
+  "remaining": [],
+  "reviewer_reports": [
+    {
+      "provider": "gemini",
+      "status": "error",
+      "error": "gemini quota: HTTP 429",
+      "resolutions": {}
+    },
+    {
+      "provider": "nvidia",
+      "status": "ok",
+      "error": "",
+      "resolutions": {
+        "31a87dbc039d": {
+          "status": "fixed",
+          "evidence": "Deterministic scan over tests/test_intake.py returns 0 hardcoded-secret findings. The fixture is now assembled from fragments under neutral names (fixture_value / fixture_line, key name split as \"API\" + '_KEY...') so no credential-shaped literal exists in the source. Runtime redaction still catches "
+        },
+        "9f5c12383661": {
+          "status": "invalid",
+          "evidence": "The builder's explanation confirms that futures are collected against the shared deadline BEFORE pool.shutdown(cancel_futures=True) is called. A solver still running at that point has already missed the deadline and been recorded as timed out. cancel_futures=True only drops not-yet-started work and "
+        },
+        "2eb065fbee35": {
+          "status": "invalid",
+          "evidence": "The builder confirms the two caps are intentional layers: _prepare caps the report and each context file individually (recorded per-item in the manifest); build_solver_prompt additionally enforces the total context budget across files and discloses any further cut inside the prompt itself. The repor"
+        }
+      }
+    }
+  ],
+  "findings": [],
+  "degraded": true,
+  "truncated": false,
+  "gate": "pass",
+  "gate_reasons": [
+    "all prior blockers cleared by reviewer consensus"
+  ]
+}

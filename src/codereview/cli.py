@@ -12,9 +12,12 @@ Examples:
   codereview workflow --file workflow.json --repo . --out wf-out
   codereview pr --repo OWNER/REPO --number 123 --provider gemini
   codereview pr --pr https://github.com/OWNER/REPO/pull/123 --post
+  codereview intake issue-report.md --provider gemini \
+      --provider nvidia --context src/alerts.py
 
-Exit codes: 0 = gate PASS, 1 = gate BLOCKED, 2 = INCONCLUSIVE or
-usage/infrastructure error.
+Exit codes: 0 = gate PASS (intake: a solution was produced),
+1 = gate BLOCKED, 2 = INCONCLUSIVE or usage/infrastructure error
+(intake: every solver failed).
 """
 
 from __future__ import annotations
@@ -241,6 +244,133 @@ def _workflow_main(argv, providers_override=None):
         result["workflow_state"], 2)
 
 
+def _repo_tree(repo, limit=200):
+    """A shallow file listing for solver context: `git ls-files`
+    when the repo is a git checkout, else a depth-limited walk.
+    Returns "" when nothing useful can be listed."""
+    try:
+        if os.path.isdir(os.path.join(repo, ".git")):
+            out = subprocess.run(
+                ["git", "-C", repo, "ls-files"],
+                capture_output=True, timeout=30, check=False)
+            lines = out.stdout.decode("utf-8", errors="replace") \
+                .splitlines()
+            return "\n".join(lines[:limit])
+        found = []
+        for dirpath, dirnames, filenames in os.walk(repo):
+            depth = os.path.relpath(dirpath, repo).count(os.sep)
+            if depth > 2:
+                dirnames[:] = []
+                continue
+            dirnames[:] = [d for d in dirnames
+                           if not d.startswith(".")]
+            for name in sorted(filenames):
+                found.append(os.path.relpath(
+                    os.path.join(dirpath, name), repo))
+            if len(found) >= limit:
+                break
+        return "\n".join(sorted(found)[:limit])
+    except Exception:  # noqa: BLE001 - the tree is optional context
+        return ""
+
+
+def _intake_main(argv, solvers_override=None):
+    """codereview intake — issue report in, solution plan out.
+
+    The solvers are a separate seat type from the reviewers: they
+    answer in Markdown (see providers.build_solvers). The primary
+    solver's plan lands in <out>/solution.md for the builder."""
+    from . import intake
+    from .providers import build_solvers
+
+    ap = argparse.ArgumentParser(
+        prog="codereview intake",
+        description="Turn an issue report into an executable "
+                    "solution plan: solver models read the report "
+                    "(plus optional context files) and write the "
+                    "plan a builder then implements.")
+    ap.add_argument("report", help="issue report (Markdown)")
+    ap.add_argument("--context", action="append", default=[],
+                    help="context file to include (source files, "
+                         "logs); repeatable")
+    ap.add_argument("--repo", default="",
+                    help="repository the report is about: its file "
+                         "listing is included as context")
+    ap.add_argument("--provider", action="append", default=[],
+                    help="solver preset or custom spec; repeatable. "
+                         "The first seat that answers is the primary. "
+                         "Default: $CODEREVIEW_PROVIDERS or "
+                         "gemini,nvidia")
+    ap.add_argument("--timeout", type=int,
+                    default=intake.DEFAULT_SOLVER_TIMEOUT,
+                    help="per-solver deadline in seconds "
+                         "(default 300)")
+    ap.add_argument("--out", default="codereview-intake-out")
+    args = ap.parse_args(argv)
+
+    try:
+        with open(os.path.expanduser(args.report), encoding="utf-8",
+                  errors="replace") as fh:
+            report = fh.read()
+    except Exception as exc:  # noqa: BLE001
+        print(f"codereview intake: could not read the report: {exc}",
+              file=sys.stderr)
+        return 2
+    if not report.strip():
+        print("codereview intake: the report is empty.",
+              file=sys.stderr)
+        return 2
+    contexts = []
+    for path in args.context:
+        try:
+            with open(os.path.expanduser(path), encoding="utf-8",
+                      errors="replace") as fh:
+                contexts.append((path, fh.read()))
+        except Exception as exc:  # noqa: BLE001
+            print(f"codereview intake: could not read context "
+                  f"{path}: {exc}", file=sys.stderr)
+            return 2
+
+    if solvers_override is not None:
+        solvers = solvers_override
+    else:
+        specs = args.provider
+        if not specs:
+            env = (os.environ.get("CODEREVIEW_PROVIDERS")
+                   or os.environ.get("REVIEWLOOP_PROVIDERS", ""))
+            specs = [s.strip() for s in env.split(",") if s.strip()] \
+                or ["gemini", "nvidia"]
+        try:
+            solvers = build_solvers(specs)
+        except Exception as exc:  # noqa: BLE001
+            print(f"codereview: solver setup failed: {exc}",
+                  file=sys.stderr)
+            return 2
+
+    result = intake.run_intake(
+        report, solvers, contexts=contexts,
+        repo_tree=_repo_tree(args.repo) if args.repo else "",
+        timeout=args.timeout)
+    solution_path, manifest_path = intake.write_intake(
+        result, args.out, report_name=os.path.basename(args.report))
+    print(f"codereview intake: {os.path.basename(args.report)}")
+    for s in result["solutions"]:
+        if s["ok"]:
+            print(f"  solver {s['name']}: OK "
+                  f"({s['seconds']}s, {s['chars']} chars)")
+        else:
+            print(f"  solver {s['name']}: FAILED — {s['error']}")
+    if result["ok"]:
+        print(f"  primary: {result['primary']}")
+        print(f"  solution: {solution_path}")
+        print(f"  data:     {manifest_path}")
+        return 0
+    print("  no solver produced a plan — see intake.json",
+          file=sys.stderr)
+    print(f"  data:     {manifest_path}")
+    return 2
+
+
 def _pr_main(argv, providers_override=None):
     """codereview pr — review a GitHub pull request where it lives.
 
@@ -343,6 +473,9 @@ def main(argv=None, providers_override=None):
     if argv and argv[0] == "loop":
         return _loop_main(argv[1:],
                           providers_override=providers_override)
+    if argv and argv[0] == "intake":
+        return _intake_main(argv[1:],
+                            solvers_override=providers_override)
     ap = argparse.ArgumentParser(
         prog="codereview",
         description="Multi-model code review loop with a "
