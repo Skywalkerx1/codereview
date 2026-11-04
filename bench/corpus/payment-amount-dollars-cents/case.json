@@ -1,0 +1,24 @@
+{
+  "id": "payment-amount-dollars-cents",
+  "title": "Checkout passes the amount to a cents-based gateway",
+  "category": "payments",
+  "split": "public",
+  "source": "Authored for the CodeReview benchmark corpus (defect injection), 2026-11-04",
+  "license": "MIT (original to this repository)",
+  "expected": [
+    {
+      "severity": "blocker",
+      "category": "correctness",
+      "file": "billing/charge.py",
+      "line": 13,
+      "title": "Charge amount passed in dollars where the gateway expects cents",
+      "keywords": [
+        "cents",
+        "dollars",
+        "amount",
+        "units",
+        "100"
+      ]
+    }
+  ]
+}

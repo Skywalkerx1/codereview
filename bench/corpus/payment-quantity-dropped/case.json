@@ -1,0 +1,23 @@
+{
+  "id": "payment-quantity-dropped",
+  "title": "Cart total uses the unit price only",
+  "category": "payments",
+  "split": "public",
+  "source": "Authored for the CodeReview benchmark corpus (defect injection), 2026-11-04",
+  "license": "MIT (original to this repository)",
+  "expected": [
+    {
+      "severity": "major",
+      "category": "correctness",
+      "file": "shop/cart.py",
+      "line": 9,
+      "title": "Cart total ignores item quantity",
+      "keywords": [
+        "quantity",
+        "qty",
+        "total",
+        "price"
+      ]
+    }
+  ]
+}

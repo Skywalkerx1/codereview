@@ -1,0 +1,23 @@
+{
+  "id": "command-injection-shell",
+  "title": "Ping helper passes user input to a shell",
+  "category": "injection",
+  "split": "public",
+  "source": "Authored for the CodeReview benchmark corpus (defect injection), 2026-11-04",
+  "license": "MIT (original to this repository)",
+  "expected": [
+    {
+      "severity": "blocker",
+      "category": "security",
+      "file": "app/nettools.py",
+      "line": 5,
+      "title": "Command injection: shell command built from user input",
+      "keywords": [
+        "command",
+        "injection",
+        "shell",
+        "input"
+      ]
+    }
+  ]
+}

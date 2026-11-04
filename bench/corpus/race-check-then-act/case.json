@@ -1,0 +1,24 @@
+{
+  "id": "race-check-then-act",
+  "title": "File creation guarded by an existence check",
+  "category": "concurrency",
+  "split": "holdout",
+  "source": "Authored for the CodeReview benchmark corpus (defect injection), 2026-11-04",
+  "license": "MIT (original to this repository)",
+  "expected": [
+    {
+      "severity": "major",
+      "category": "correctness",
+      "file": "app/files.py",
+      "line": 11,
+      "title": "Check-then-act race: existence check and create are not atomic",
+      "keywords": [
+        "race",
+        "atomic",
+        "exists",
+        "check",
+        "create"
+      ]
+    }
+  ]
+}

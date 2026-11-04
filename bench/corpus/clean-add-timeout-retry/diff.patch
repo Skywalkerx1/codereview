@@ -1,0 +1,15 @@
+diff --git a/app/feeds.py b/app/feeds.py
+--- a/app/feeds.py
++++ b/app/feeds.py
+@@ -9,6 +9,10 @@ import requests
+ 
+ def poll(feed):
+-    resp = requests.get(feed.url)
+-    return resp.json()
++    for attempt in range(2):
++        try:
++            resp = requests.get(feed.url, timeout=10)
++            return resp.json()
++        except requests.Timeout:
++            if attempt == 1:
++                raise

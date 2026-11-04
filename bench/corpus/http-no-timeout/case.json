@@ -1,0 +1,23 @@
+{
+  "id": "http-no-timeout",
+  "title": "Feed poller fetches without a timeout",
+  "category": "reliability",
+  "split": "public",
+  "source": "Authored for the CodeReview benchmark corpus (defect injection), 2026-11-04",
+  "license": "MIT (original to this repository)",
+  "expected": [
+    {
+      "severity": "major",
+      "category": "reliability",
+      "file": "app/feeds.py",
+      "line": 11,
+      "title": "Outbound HTTP call has no timeout and can hang the worker",
+      "keywords": [
+        "timeout",
+        "requests",
+        "hang",
+        "no"
+      ]
+    }
+  ]
+}

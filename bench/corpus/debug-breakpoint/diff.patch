@@ -1,0 +1,7 @@
+diff --git a/app/report.py b/app/report.py
+--- a/app/report.py
++++ b/app/report.py
+@@ -18,5 +18,6 @@ def build_report(rows):
+     totals = summarise(rows)
++    breakpoint()
+     return render(totals)

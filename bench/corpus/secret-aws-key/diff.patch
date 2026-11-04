@@ -1,0 +1,9 @@
+diff --git a/ops/deploy.py b/ops/deploy.py
+--- a/ops/deploy.py
++++ b/ops/deploy.py
+@@ -5,4 +5,6 @@ import boto3
+ 
+ REGION = "us-east-1"
++
++AWS_ACCESS_KEY_ID = "AKIAFAKEKEY123456789"
+ client = boto3.client("s3", region_name=REGION)

@@ -1,0 +1,10 @@
+diff --git a/app/auth.py b/app/auth.py
+--- a/app/auth.py
++++ b/app/auth.py
+@@ -8,5 +8,6 @@ logger = logging.getLogger("auth")
+ def login(email, password):
+     user = authenticate(email, password)
+     if user:
++        logger.info("login ok email=%s password=%s", email, password)
+         return new_session(user)
+     raise AuthError("bad credentials")

@@ -1,0 +1,13 @@
+diff --git a/app/uploads.py b/app/uploads.py
+--- a/app/uploads.py
++++ b/app/uploads.py
+@@ -2,6 +2,7 @@ import os
+ 
+ UPLOAD_DIR = "/var/app/uploads"
+ 
+-def save_upload(name, data):
+-    path = os.path.join(UPLOAD_DIR, os.path.basename(name))
++def save_upload(name, data):
++    path = os.path.join(UPLOAD_DIR, name)
+     with open(path, "wb") as fh:
+         fh.write(data)

@@ -1,0 +1,9 @@
+diff --git a/app/views.py b/app/views.py
+--- a/app/views.py
++++ b/app/views.py
+@@ -20,8 +20,6 @@ def delete_user(request, user_id):
+-    if not request.user.has_perm("users.delete"):
+-        raise PermissionDenied
+     db.users.delete(user_id)
+     audit.log("user.deleted", user_id)
+     return redirect("/users")

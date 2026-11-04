@@ -1,0 +1,8 @@
+diff --git a/app/calc.py b/app/calc.py
+--- a/app/calc.py
++++ b/app/calc.py
+@@ -4,4 +4,4 @@ def evaluate(expr):
+     if len(expr) > 200:
+         raise ValueError("expression too long")
+-    return parse_expression(expr)
++    return eval(expr)

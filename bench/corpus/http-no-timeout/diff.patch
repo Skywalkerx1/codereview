@@ -1,0 +1,9 @@
+diff --git a/app/feeds.py b/app/feeds.py
+--- a/app/feeds.py
++++ b/app/feeds.py
+@@ -9,4 +9,5 @@ import requests
+ 
+ def poll(feed):
+-    resp = requests.get(feed.url, timeout=10)
++    resp = requests.get(feed.url)
+     return resp.json()

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.8.0 — 2026-11-04
+Epic A — the benchmark harness and corpus v0 (the revised plan's Week-1 epic; it blocks everything else, so it ships before any new surface):
+- **`codereview bench run|report`**: run named panel configurations over a labelled corpus and score them against ground truth. `bench run --config X` (repeatable; configs are small JSON files naming provider specs and/or seats) appends per-case records to `bench-out/<config>.jsonl` and resumes — recorded cases are skipped unless `--force`. `bench report` prints Markdown and can write MD+JSON; `--max-escaped-rate R` turns it into a CI regression gate.
+- **Metrics, defined in code and in `bench/README.md`**: recall, precision, clean-case false-positive rate, cost per verdict, p50/p95 latency, and the headline **escaped-defect rate** — defects no finding blocked on (unseen, or reported only as minor/nit, so the default gate would have shipped them). Matching is file + location (line within 3, or title-token overlap when lines are far/missing); one-to-one, worst severity first.
+- **Corpus v0**: 36 cases (27 public / 9 holdout), 29 defect cases with 31 ground-truth defects + 7 clean controls — authored defect injections (secrets, SQL/shell injection, auth removal and bypass, dollars-vs-cents and partial-refund payments, races, swallowed errors, traversal, XSS) plus cases converted from this repo's own stored run artifacts (the demo health-checker change and its verified fix). Loader validates every case and refuses a manifest that disagrees with the directories on disk. Growth path to 50–100 documented in `bench/README.md`.
+- **Holdout discipline (A5)**: `bench report --public` drops holdout records before scoring — no holdout id, row, or number can appear in public output; a regression test asserts it.
+- **Scripted replay seats** for deterministic, zero-call CI runs (`oracle` replays ground truth, `blind` reports nothing, `noisy` complains about everything). Their scores validate the harness, never a model. On corpus v0 the scripted runs already surface two honest facts: the deterministic layer alone accounts for recall 0.452 (13 of 31 defects), and cross-layer duplicate findings under dissimilar titles cost precision — recorded in `bench/README.md`, not tuned away.
+- Suite: 136 tests (15 new).
+
 ## 0.7.3 — 2026-11-04
 The §4 hardening from the owner's clean-record solution — written after five attempts at a two-reviewer release record for the v0.7.1+v0.7.2 span failed on capacity and credentials, never on findings:
 - **Preflight** (§4.1): `codereview doctor` probes every configured seat with one minimal call and reports per-seat health as JSON (ok / error class / message). A scheduler aborts on a dead seat before a doomed run creates a record; a missing key surfaces as class `auth`, naming the actual problem.

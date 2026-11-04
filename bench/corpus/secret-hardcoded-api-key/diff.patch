@@ -1,0 +1,10 @@
+diff --git a/app/config.py b/app/config.py
+--- a/app/config.py
++++ b/app/config.py
+@@ -3,4 +3,6 @@ import os
+ 
+ DEBUG = False
+ TIMEOUT = 30
++
++API_KEY = "f4k3dEm0-key-9f27c1ab"
+ SERVICE_URL = "https://api.example.com"

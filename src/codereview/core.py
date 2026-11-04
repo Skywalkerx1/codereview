@@ -41,7 +41,7 @@ import re
 import subprocess
 import time
 
-VERSION = "0.7.3"
+VERSION = "0.8.0"
 SCHEMA = "codereview.report/1"
 
 SEVERITIES = ("blocker", "major", "minor", "nit")

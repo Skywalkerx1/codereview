@@ -1,0 +1,7 @@
+{
+  "default": {
+    "verdict": "pass",
+    "summary": "scripted blind seat: reports nothing",
+    "findings": []
+  }
+}

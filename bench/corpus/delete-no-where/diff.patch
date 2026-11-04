@@ -1,0 +1,7 @@
+diff --git a/db/maintenance.py b/db/maintenance.py
+--- a/db/maintenance.py
++++ b/db/maintenance.py
+@@ -4,4 +4,4 @@ def cleanup_sessions(cursor, cutoff):
+-    cursor.execute("DELETE FROM sessions WHERE expires_at < ?", (cutoff,))
++    cursor.execute("DELETE FROM sessions")
+     return cursor.rowcount

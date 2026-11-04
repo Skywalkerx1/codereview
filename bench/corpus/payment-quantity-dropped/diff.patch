@@ -1,0 +1,10 @@
+diff --git a/shop/cart.py b/shop/cart.py
+--- a/shop/cart.py
++++ b/shop/cart.py
+@@ -6,7 +6,7 @@ class Cart:
+     def total(self):
+         total = 0
+         for item in self.items:
+-            total += item.price * item.qty
++            total += item.price
+         return total

@@ -1,0 +1,7 @@
+diff --git a/app/audit.py b/app/audit.py
+--- a/app/audit.py
++++ b/app/audit.py
+@@ -6,5 +6,5 @@ def audit_view(db):
+-    rows = db.execute("SELECT * FROM audit_log LIMIT 200").fetchall()
++    rows = db.execute("SELECT * FROM audit_log").fetchall()
+     return render_rows(rows)

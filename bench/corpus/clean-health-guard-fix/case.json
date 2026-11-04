@@ -1,0 +1,9 @@
+{
+  "id": "clean-health-guard-fix",
+  "title": "Health alerts gain a signature state guard",
+  "category": "clean",
+  "split": "public",
+  "source": "This repo's examples/clean_change.patch — the verified fix for the demo health checker.",
+  "license": "MIT (original to this repository)",
+  "expected": []
+}

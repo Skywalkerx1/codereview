@@ -1,0 +1,13 @@
+diff --git a/app/util.py b/app/util.py
+--- a/app/util.py
++++ b/app/util.py
+@@ -3,8 +3,8 @@ def fmt_amt(cents):
+     return f"${cents / 100:.2f}"
+ 
+-def calc(a, b):
++def sum_amounts(a, b):
+     return a + b
+ 
+ def show(cents):
+-    return fmt_amt(calc(cents, 0))
++    return fmt_amt(sum_amounts(cents, 0))

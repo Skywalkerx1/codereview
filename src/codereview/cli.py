@@ -28,6 +28,7 @@ import os
 import subprocess
 import sys
 
+from . import bench as bench_mod
 from . import core
 from .providers import build_providers
 
@@ -578,6 +579,111 @@ def _record_verify_main(argv):
     return 0 if result["eligible"] else 1
 
 
+def _bench_main(argv, providers_override=None):
+    """codereview bench run|report — Epic A benchmark harness."""
+    if not argv or argv[0] not in ("run", "report"):
+        print("usage: codereview bench run --config NAME [...] "
+              "[--corpus DIR] [--out DIR] [--split all|public|holdout]\n"
+              "       codereview bench report [--results DIR] "
+              "[--corpus DIR] [--public] [--out-dir DIR]\n"
+              "              [--max-escaped-rate RATE]",
+              file=sys.stderr)
+        return 2
+    action, rest = argv[0], argv[1:]
+    if action == "run":
+        ap = argparse.ArgumentParser(prog="codereview bench run")
+        ap.add_argument("--config", action="append", required=True,
+                        help="config name (bench/configs/<name>.json) "
+                             "or path to a config JSON; repeatable")
+        ap.add_argument("--corpus", default="bench/corpus",
+                        help="corpus directory (default: bench/corpus)")
+        ap.add_argument("--out", default="bench-out",
+                        help="results directory (default: bench-out); "
+                             "runs resume — recorded cases are skipped")
+        ap.add_argument("--split", default="all",
+                        choices=["all", "public", "holdout"],
+                        help="restrict to one corpus split")
+        ap.add_argument("--force", action="store_true",
+                        help="discard existing results for the named "
+                             "configs and re-run every case")
+        args = ap.parse_args(rest)
+        injected = None
+        if providers_override is not None:
+            injected = {}
+            for spec in args.config:
+                try:
+                    name = bench_mod.load_config(
+                        bench_mod.resolve_config_path(
+                            spec, args.corpus))["name"]
+                except Exception:  # noqa: BLE001
+                    continue
+                injected[name] = providers_override
+        try:
+            results = bench_mod.run_bench(
+                args.corpus, args.config, args.out, split=args.split,
+                force=args.force, providers_by_config=injected)
+        except Exception as exc:  # noqa: BLE001
+            print(f"codereview bench: {exc}", file=sys.stderr)
+            return 2
+        for name, records in results.items():
+            gates = {}
+            for rec in records:
+                gates[rec["gate"]] = gates.get(rec["gate"], 0) + 1
+            print(f"codereview bench: {name}: {len(records)} case "
+                  f"record(s) in {args.out} "
+                  f"(gates: {json.dumps(gates, sort_keys=True)})")
+        return 0
+    ap = argparse.ArgumentParser(prog="codereview bench report")
+    ap.add_argument("--results", default="bench-out",
+                    help="results directory written by bench run "
+                         "(default: bench-out)")
+    ap.add_argument("--corpus", default="bench/corpus",
+                    help="corpus directory (default: bench/corpus)")
+    ap.add_argument("--public", action="store_true",
+                    help="public report: holdout split excluded "
+                         "before scoring (ids and rows never appear)")
+    ap.add_argument("--out-dir",
+                    help="also write bench-report.md and "
+                         "bench-report.json here")
+    ap.add_argument("--max-escaped-rate", type=float,
+                    help="exit 1 if any config's escaped-defect rate "
+                         "exceeds this rate (CI regression gate)")
+    args = ap.parse_args(rest)
+    try:
+        report = bench_mod.build_report(
+            bench_mod.load_results(args.results), args.corpus,
+            public_only=args.public)
+    except Exception as exc:  # noqa: BLE001
+        print(f"codereview bench: {exc}", file=sys.stderr)
+        return 2
+    md = bench_mod.render_markdown(report)
+    print(md)
+    if args.out_dir:
+        os.makedirs(args.out_dir, exist_ok=True)
+        stem = "bench-report-public" if args.public else "bench-report"
+        with open(os.path.join(args.out_dir, stem + ".md"), "w",
+                  encoding="utf-8") as fh:
+            fh.write(md)
+        with open(os.path.join(args.out_dir, stem + ".json"), "w",
+                  encoding="utf-8") as fh:
+            json.dump(report, fh, indent=2)
+        print(f"codereview bench: wrote {stem}.md / {stem}.json "
+              f"to {args.out_dir}")
+    if args.max_escaped_rate is not None:
+        worst = [(name, e["metrics"]["escaped_defect_rate"])
+                 for name, e in report["configs"].items()
+                 if e["metrics"]["escaped_defect_rate"] is not None
+                 and e["metrics"]["escaped_defect_rate"]
+                 > args.max_escaped_rate]
+        if worst:
+            for name, rate in worst:
+                print(f"codereview bench: {name} escaped-defect rate "
+                      f"{rate:.3f} exceeds --max-escaped-rate "
+                      f"{args.max_escaped_rate}", file=sys.stderr)
+            return 1
+    return 0
+
+
 def main(argv=None, providers_override=None, seat_meta_override=None,
          fallbacks_override=None):
     if argv is None:
@@ -587,6 +693,9 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
                             providers_override=providers_override)
     if argv and argv[0] == "record-verify":
         return _record_verify_main(argv[1:])
+    if argv and argv[0] == "bench":
+        return _bench_main(argv[1:],
+                           providers_override=providers_override)
     if argv and argv[0] == "pr":
         return _pr_main(argv[1:],
                         providers_override=providers_override)

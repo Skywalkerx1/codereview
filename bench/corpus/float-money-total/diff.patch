@@ -1,0 +1,11 @@
+diff --git a/shop/pricing.py b/shop/pricing.py
+--- a/shop/pricing.py
++++ b/shop/pricing.py
+@@ -5,7 +5,7 @@ from decimal import Decimal
+ def invoice_total(lines):
+-    total = Decimal("0")
++    total = 0.0
+     for line in lines:
+-        total += line.price
++        total += float(line.price)
+     return total

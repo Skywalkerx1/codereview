@@ -1,0 +1,24 @@
+{
+  "id": "unbounded-query",
+  "title": "Audit endpoint loads the whole table",
+  "category": "performance",
+  "split": "public",
+  "source": "Authored for the CodeReview benchmark corpus (defect injection), 2026-11-04",
+  "license": "MIT (original to this repository)",
+  "expected": [
+    {
+      "severity": "major",
+      "category": "performance",
+      "file": "app/audit.py",
+      "line": 6,
+      "title": "Unbounded query loads the entire audit table into memory",
+      "keywords": [
+        "unbounded",
+        "limit",
+        "memory",
+        "pagination",
+        "entire"
+      ]
+    }
+  ]
+}

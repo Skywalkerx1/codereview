@@ -1,0 +1,16 @@
+{
+  "name": "oracle",
+  "providers": [
+    {
+      "name": "oracle",
+      "script": "../scripts/oracle.json"
+    }
+  ],
+  "seat_meta": {
+    "oracle": {
+      "family": "scripted",
+      "tier": "offline"
+    }
+  },
+  "cost_per_call_usd": 0
+}

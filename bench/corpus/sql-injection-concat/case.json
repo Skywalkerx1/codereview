@@ -1,0 +1,23 @@
+{
+  "id": "sql-injection-concat",
+  "title": "Search builds SQL by string concatenation",
+  "category": "injection",
+  "split": "holdout",
+  "source": "Authored for the CodeReview benchmark corpus (defect injection), 2026-11-04",
+  "license": "MIT (original to this repository)",
+  "expected": [
+    {
+      "severity": "blocker",
+      "category": "security",
+      "file": "app/search.py",
+      "line": 5,
+      "title": "SQL injection: query built by string concatenation",
+      "keywords": [
+        "sql",
+        "injection",
+        "concatenation",
+        "parameterized"
+      ]
+    }
+  ]
+}

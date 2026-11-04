@@ -1,0 +1,11 @@
+diff --git a/app/forms.py b/app/forms.py
+--- a/app/forms.py
++++ b/app/forms.py
+@@ -6,7 +6,10 @@ ALLOWED_TAGS = {"bug", "feature", "question"}
+ 
+ def clean_tag(raw):
+-    return raw.strip().lower()
++    tag = raw.strip().lower()
++    if len(tag) > 40 or tag not in ALLOWED_TAGS:
++        raise ValidationError("unknown tag")
++    return tag

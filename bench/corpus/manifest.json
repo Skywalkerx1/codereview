@@ -1,0 +1,222 @@
+{
+  "schema": "codereview.benchcorpus/1",
+  "version": "0",
+  "cases": [
+    {
+      "id": "secret-hardcoded-api-key",
+      "category": "secrets",
+      "split": "public",
+      "expected_defects": 1
+    },
+    {
+      "id": "secret-private-key",
+      "category": "secrets",
+      "split": "public",
+      "expected_defects": 1
+    },
+    {
+      "id": "sql-injection-fstring",
+      "category": "injection",
+      "split": "public",
+      "expected_defects": 1
+    },
+    {
+      "id": "command-injection-shell",
+      "category": "injection",
+      "split": "public",
+      "expected_defects": 1
+    },
+    {
+      "id": "eval-user-input",
+      "category": "injection",
+      "split": "public",
+      "expected_defects": 1
+    },
+    {
+      "id": "auth-check-removed",
+      "category": "auth",
+      "split": "public",
+      "expected_defects": 1
+    },
+    {
+      "id": "payment-amount-dollars-cents",
+      "category": "payments",
+      "split": "public",
+      "expected_defects": 1
+    },
+    {
+      "id": "payment-quantity-dropped",
+      "category": "payments",
+      "split": "public",
+      "expected_defects": 1
+    },
+    {
+      "id": "race-counter-increment",
+      "category": "concurrency",
+      "split": "public",
+      "expected_defects": 1
+    },
+    {
+      "id": "error-swallow-bare-except",
+      "category": "error-handling",
+      "split": "public",
+      "expected_defects": 1
+    },
+    {
+      "id": "http-no-timeout",
+      "category": "reliability",
+      "split": "public",
+      "expected_defects": 1
+    },
+    {
+      "id": "delete-no-where",
+      "category": "data-loss",
+      "split": "public",
+      "expected_defects": 1
+    },
+    {
+      "id": "path-traversal-upload",
+      "category": "security",
+      "split": "public",
+      "expected_defects": 1
+    },
+    {
+      "id": "ssrf-fetch",
+      "category": "security",
+      "split": "public",
+      "expected_defects": 1
+    },
+    {
+      "id": "plaintext-password-store",
+      "category": "security",
+      "split": "public",
+      "expected_defects": 1
+    },
+    {
+      "id": "sensitive-data-logging",
+      "category": "security",
+      "split": "public",
+      "expected_defects": 1
+    },
+    {
+      "id": "float-money-total",
+      "category": "correctness",
+      "split": "public",
+      "expected_defects": 1
+    },
+    {
+      "id": "off-by-one-pagination",
+      "category": "correctness",
+      "split": "public",
+      "expected_defects": 1
+    },
+    {
+      "id": "disabled-test",
+      "category": "testing",
+      "split": "public",
+      "expected_defects": 1
+    },
+    {
+      "id": "debug-breakpoint",
+      "category": "quality",
+      "split": "public",
+      "expected_defects": 1
+    },
+    {
+      "id": "unbounded-query",
+      "category": "performance",
+      "split": "public",
+      "expected_defects": 1
+    },
+    {
+      "id": "real-buggy-alert-flood",
+      "category": "real",
+      "split": "public",
+      "expected_defects": 3
+    },
+    {
+      "id": "clean-parameterized-query",
+      "category": "clean",
+      "split": "public",
+      "expected_defects": 0
+    },
+    {
+      "id": "clean-add-timeout-retry",
+      "category": "clean",
+      "split": "public",
+      "expected_defects": 0
+    },
+    {
+      "id": "clean-refactor-rename",
+      "category": "clean",
+      "split": "public",
+      "expected_defects": 0
+    },
+    {
+      "id": "clean-add-tests",
+      "category": "clean",
+      "split": "public",
+      "expected_defects": 0
+    },
+    {
+      "id": "clean-health-guard-fix",
+      "category": "clean",
+      "split": "public",
+      "expected_defects": 0
+    },
+    {
+      "id": "secret-aws-key",
+      "category": "secrets",
+      "split": "holdout",
+      "expected_defects": 1
+    },
+    {
+      "id": "sql-injection-concat",
+      "category": "injection",
+      "split": "holdout",
+      "expected_defects": 1
+    },
+    {
+      "id": "auth-admin-or-true",
+      "category": "auth",
+      "split": "holdout",
+      "expected_defects": 1
+    },
+    {
+      "id": "payment-refund-partial",
+      "category": "payments",
+      "split": "holdout",
+      "expected_defects": 1
+    },
+    {
+      "id": "race-check-then-act",
+      "category": "concurrency",
+      "split": "holdout",
+      "expected_defects": 1
+    },
+    {
+      "id": "drop-table-migration",
+      "category": "data-loss",
+      "split": "holdout",
+      "expected_defects": 1
+    },
+    {
+      "id": "xss-innerhtml",
+      "category": "security",
+      "split": "holdout",
+      "expected_defects": 1
+    },
+    {
+      "id": "clean-auth-check-added",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0
+    },
+    {
+      "id": "clean-input-validation",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0
+    }
+  ]
+}

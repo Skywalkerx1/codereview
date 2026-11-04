@@ -1,0 +1,10 @@
+diff --git a/app/metrics.py b/app/metrics.py
+--- a/app/metrics.py
++++ b/app/metrics.py
+@@ -12,3 +12,7 @@ def record_view(store, page_id):
+     count = store.get(f"views:{page_id}") or 0
+     store.set(f"views:{page_id}", count + 1)
++
++def record_click(store, page_id):
++    count = store.get(f"clicks:{page_id}") or 0
++    store.set(f"clicks:{page_id}", count + 1)

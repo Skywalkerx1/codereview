@@ -1,0 +1,16 @@
+{
+  "name": "noisy",
+  "providers": [
+    {
+      "name": "noisy",
+      "script": "../scripts/noisy.json"
+    }
+  ],
+  "seat_meta": {
+    "noisy": {
+      "family": "scripted",
+      "tier": "offline"
+    }
+  },
+  "cost_per_call_usd": 0
+}

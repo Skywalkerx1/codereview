@@ -1,0 +1,51 @@
+{
+  "id": "real-buggy-alert-flood",
+  "title": "Health checker deletes rows and alerts per violation, with a hardcoded SMTP password",
+  "category": "real",
+  "split": "public",
+  "source": "Adapted from this repo's examples/buggy_alert_flood.patch — the change that drove the 2026-11-04 live demo loop; its alert finding was confirmed by the demo panel (round-1 record). Password value is synthetic.",
+  "license": "MIT (original to this repository)",
+  "expected": [
+    {
+      "severity": "blocker",
+      "category": "security",
+      "file": "app/health_check.py",
+      "line": 14,
+      "title": "DELETE statement built with f-string interpolation (injection)",
+      "keywords": [
+        "injection",
+        "string",
+        "delete",
+        "sql",
+        "interpolation"
+      ]
+    },
+    {
+      "severity": "major",
+      "category": "reliability",
+      "file": "app/health_check.py",
+      "line": 15,
+      "title": "Alert email sent per violation with no dedup or cooldown guard",
+      "keywords": [
+        "alert",
+        "dedup",
+        "cooldown",
+        "guard",
+        "violation"
+      ]
+    },
+    {
+      "severity": "blocker",
+      "category": "security",
+      "file": "app/health_check.py",
+      "line": 21,
+      "title": "Hardcoded SMTP password in source",
+      "keywords": [
+        "hardcoded",
+        "password",
+        "smtp",
+        "secret"
+      ]
+    }
+  ]
+}

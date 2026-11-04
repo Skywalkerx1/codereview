@@ -1,0 +1,9 @@
+diff --git a/app/listing.py b/app/listing.py
+--- a/app/listing.py
++++ b/app/listing.py
+@@ -7,6 +7,6 @@ def all_pages(fetch, total_pages):
+     items = []
+-    for page in range(1, total_pages + 1):
++    for page in range(1, total_pages):
+         items.extend(fetch(page))
+     return items

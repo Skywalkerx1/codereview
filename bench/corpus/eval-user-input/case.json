@@ -1,0 +1,23 @@
+{
+  "id": "eval-user-input",
+  "title": "Calculator endpoint evals the expression parameter",
+  "category": "injection",
+  "split": "public",
+  "source": "Authored for the CodeReview benchmark corpus (defect injection), 2026-11-04",
+  "license": "MIT (original to this repository)",
+  "expected": [
+    {
+      "severity": "blocker",
+      "category": "security",
+      "file": "app/calc.py",
+      "line": 6,
+      "title": "eval() executes user-supplied input",
+      "keywords": [
+        "eval",
+        "execution",
+        "input",
+        "arbitrary"
+      ]
+    }
+  ]
+}

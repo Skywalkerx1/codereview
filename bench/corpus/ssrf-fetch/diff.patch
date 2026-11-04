@@ -1,0 +1,10 @@
+diff --git a/app/preview.py b/app/preview.py
+--- a/app/preview.py
++++ b/app/preview.py
+@@ -1,6 +1,6 @@ import requests
+ 
+ def preview(request):
+-    url = request.params["url"]
+-    return fetch_with_allowlist(url)
++    url = request.params["url"]
++    return requests.get(url).text

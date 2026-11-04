@@ -1,0 +1,23 @@
+{
+  "id": "sensitive-data-logging",
+  "title": "Login handler logs the submitted password",
+  "category": "security",
+  "split": "public",
+  "source": "Authored for the CodeReview benchmark corpus (defect injection), 2026-11-04",
+  "license": "MIT (original to this repository)",
+  "expected": [
+    {
+      "severity": "major",
+      "category": "security",
+      "file": "app/auth.py",
+      "line": 11,
+      "title": "Password written to the application log",
+      "keywords": [
+        "log",
+        "password",
+        "sensitive",
+        "credential"
+      ]
+    }
+  ]
+}

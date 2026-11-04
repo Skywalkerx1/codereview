@@ -1,0 +1,23 @@
+{
+  "id": "plaintext-password-store",
+  "title": "Signup stores the password as submitted",
+  "category": "security",
+  "split": "public",
+  "source": "Authored for the CodeReview benchmark corpus (defect injection), 2026-11-04",
+  "license": "MIT (original to this repository)",
+  "expected": [
+    {
+      "severity": "blocker",
+      "category": "security",
+      "file": "app/accounts.py",
+      "line": 14,
+      "title": "Password stored in plaintext without hashing",
+      "keywords": [
+        "plaintext",
+        "password",
+        "hash",
+        "stored"
+      ]
+    }
+  ]
+}

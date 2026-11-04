@@ -1,0 +1,9 @@
+diff --git a/app/files.py b/app/files.py
+--- a/app/files.py
++++ b/app/files.py
+@@ -10,6 +10,8 @@ def claim_path(base, name):
+     path = os.path.join(base, name)
+-    return open(path, "x")
++    if not os.path.exists(path):
++        return open(path, "w")
++    raise FileExistsError(path)

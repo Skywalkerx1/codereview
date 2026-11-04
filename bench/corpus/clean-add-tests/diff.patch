@@ -1,0 +1,14 @@
+diff --git a/tests/test_cart.py b/tests/test_cart.py
+--- a/tests/test_cart.py
++++ b/tests/test_cart.py
+@@ -1,5 +1,11 @@
+ from shop.cart import Cart, Item
+ 
+ def test_empty_cart_totals_zero():
+     cart = Cart()
+     assert cart.total() == 0
++
++def test_total_multiplies_price_by_quantity():
++    cart = Cart()
++    cart.add(Item(price=250, qty=3))
++    assert cart.total() == 750

@@ -1,0 +1,8 @@
+diff --git a/app/search.py b/app/search.py
+--- a/app/search.py
++++ b/app/search.py
+@@ -5,4 +5,4 @@ def search(db, term):
+-    q = "SELECT * FROM docs WHERE title LIKE ?"
+-    return db.execute(q, (f"%{term}%",))
++    q = "SELECT * FROM docs WHERE title LIKE '%" + term + "%'"
++    return db.execute(q)

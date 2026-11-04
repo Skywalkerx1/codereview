@@ -1,0 +1,9 @@
+diff --git a/web/comments.js b/web/comments.js
+--- a/web/comments.js
++++ b/web/comments.js
+@@ -12,6 +12,6 @@ function renderComment(comment) {
+   const el = document.createElement("div");
+-  el.textContent = comment.body;
++  el.innerHTML = comment.body;
+   return el;
+ }

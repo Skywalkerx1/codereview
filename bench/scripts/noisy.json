@@ -1,0 +1,18 @@
+{
+  "default": {
+    "verdict": "changes_requested",
+    "summary": "scripted noisy seat: one generic complaint for every change",
+    "findings": [
+      {
+        "severity": "minor",
+        "category": "quality",
+        "file": "app/util.py",
+        "line": 1,
+        "title": "Possible style issue in naming",
+        "evidence": "naming could be clearer",
+        "recommendation": "Rename for clarity.",
+        "confidence": 0.3
+      }
+    ]
+  }
+}

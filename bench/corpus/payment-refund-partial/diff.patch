@@ -1,0 +1,7 @@
+diff --git a/billing/refunds.py b/billing/refunds.py
+--- a/billing/refunds.py
++++ b/billing/refunds.py
+@@ -8,6 +8,6 @@ def refund(order, amount_cents):
+     # amount_cents is the partial amount the support agent approved.
+-    return gateway.refund(order.txn_id, amount_cents)
++    return gateway.refund(order.txn_id, order.total_cents)

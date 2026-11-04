@@ -152,6 +152,17 @@ A gate verdict you intend to *publish* (a release record) has to survive its own
 - **Fallback seats.** Provider failures are classified (daily quota and auth errors are never retried; per-minute rate limits and 5xx/overloads get bounded backoff — every attempt is recorded). If a lens's primary seat still fails, a configured fallback serves it: `--fallback correctness=openai`. The substitution is printed on the report and in the gate reasons, never silent.
 - **Machine-checked eligibility.** Every reviewer report records its seat's vendor **family** and pricing **tier** (`--seat-meta gemini:google:paid`). `codereview record-verify <record-dir> --repo .` then decides whether a record may be called clean: gate PASS, not degraded, tests passed, every lens served, at least two distinct vendor families, the reviewed range's patch hash unchanged, and no later commits except the one filing the record. Relatedly, `--private` refuses seats tagged with a free tier — free tiers may train on submitted code, so they don't review private repositories.
 
+## Benchmark — prove it, don't pitch it
+
+CodeReview's claim is measured, not asserted. The benchmark (Epic A) runs named panel configurations over a labelled corpus of diffs and scores them against ground truth:
+
+```bash
+codereview bench run --config panel-gemini-nvidia --split public
+codereview bench report            # full report; --public excludes the holdout split
+```
+
+Corpus v0 ships in `bench/corpus/`: 36 cases (29 defect cases with 31 ground-truth defects, 7 clean controls; 27 public / 9 holdout), mixing authored defect injections (secrets, injection, auth regressions, payment bugs, races) with cases converted from this repo's own run records. The headline metric is the **escaped-defect rate**: defects no finding blocked on — unseen, or reported only as a minor/nit so the gate would have shipped them. Reports also carry recall, precision, clean-case false-positive rate, cost per verdict, and p50/p95 latency; `bench report --max-escaped-rate R` works as a CI regression gate. Scripted replay seats (`oracle` / `blind` / `noisy` configs) run the whole harness deterministically with zero provider calls — their scores validate the harness, not any model. Definitions, corpus provenance, and the growth path to 50–100 cases live in `bench/README.md`. Anything public quotes the public split only: holdout records are dropped before scoring in `--public` reports, so no holdout case can leak into a claim.
+
 ## Gate semantics
 
 | Gate | Meaning |

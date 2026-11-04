@@ -1,0 +1,16 @@
+{
+  "name": "blind",
+  "providers": [
+    {
+      "name": "blind",
+      "script": "../scripts/blind.json"
+    }
+  ],
+  "seat_meta": {
+    "blind": {
+      "family": "scripted",
+      "tier": "offline"
+    }
+  },
+  "cost_per_call_usd": 0
+}

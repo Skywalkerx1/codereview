@@ -1,0 +1,521 @@
+{
+  "secret-hardcoded-api-key": {
+    "verdict": "changes_requested",
+    "summary": "scripted oracle response for harness validation",
+    "findings": [
+      {
+        "severity": "blocker",
+        "category": "security",
+        "file": "app/config.py",
+        "line": 7,
+        "title": "Hardcoded API key committed in config",
+        "evidence": "see diff line 7",
+        "recommendation": "Fix per the finding title.",
+        "confidence": 0.95
+      }
+    ]
+  },
+  "secret-private-key": {
+    "verdict": "changes_requested",
+    "summary": "scripted oracle response for harness validation",
+    "findings": [
+      {
+        "severity": "blocker",
+        "category": "security",
+        "file": "app/certs.py",
+        "line": 3,
+        "title": "Private key material committed in source",
+        "evidence": "see diff line 3",
+        "recommendation": "Fix per the finding title.",
+        "confidence": 0.95
+      }
+    ]
+  },
+  "sql-injection-fstring": {
+    "verdict": "changes_requested",
+    "summary": "scripted oracle response for harness validation",
+    "findings": [
+      {
+        "severity": "blocker",
+        "category": "security",
+        "file": "app/users.py",
+        "line": 12,
+        "title": "SQL injection: query built with f-string interpolation",
+        "evidence": "see diff line 12",
+        "recommendation": "Fix per the finding title.",
+        "confidence": 0.95
+      }
+    ]
+  },
+  "command-injection-shell": {
+    "verdict": "changes_requested",
+    "summary": "scripted oracle response for harness validation",
+    "findings": [
+      {
+        "severity": "blocker",
+        "category": "security",
+        "file": "app/nettools.py",
+        "line": 5,
+        "title": "Command injection: shell command built from user input",
+        "evidence": "see diff line 5",
+        "recommendation": "Fix per the finding title.",
+        "confidence": 0.95
+      }
+    ]
+  },
+  "eval-user-input": {
+    "verdict": "changes_requested",
+    "summary": "scripted oracle response for harness validation",
+    "findings": [
+      {
+        "severity": "blocker",
+        "category": "security",
+        "file": "app/calc.py",
+        "line": 6,
+        "title": "eval() executes user-supplied input",
+        "evidence": "see diff line 6",
+        "recommendation": "Fix per the finding title.",
+        "confidence": 0.95
+      }
+    ]
+  },
+  "auth-check-removed": {
+    "verdict": "changes_requested",
+    "summary": "scripted oracle response for harness validation",
+    "findings": [
+      {
+        "severity": "blocker",
+        "category": "security",
+        "file": "app/views.py",
+        "line": 20,
+        "title": "Permission check removed before a destructive handler",
+        "evidence": "see diff line 20",
+        "recommendation": "Fix per the finding title.",
+        "confidence": 0.95
+      }
+    ]
+  },
+  "payment-amount-dollars-cents": {
+    "verdict": "changes_requested",
+    "summary": "scripted oracle response for harness validation",
+    "findings": [
+      {
+        "severity": "blocker",
+        "category": "correctness",
+        "file": "billing/charge.py",
+        "line": 13,
+        "title": "Charge amount passed in dollars where the gateway expects cents",
+        "evidence": "see diff line 13",
+        "recommendation": "Fix per the finding title.",
+        "confidence": 0.95
+      }
+    ]
+  },
+  "payment-quantity-dropped": {
+    "verdict": "changes_requested",
+    "summary": "scripted oracle response for harness validation",
+    "findings": [
+      {
+        "severity": "major",
+        "category": "correctness",
+        "file": "shop/cart.py",
+        "line": 9,
+        "title": "Cart total ignores item quantity",
+        "evidence": "see diff line 9",
+        "recommendation": "Fix per the finding title.",
+        "confidence": 0.95
+      }
+    ]
+  },
+  "race-counter-increment": {
+    "verdict": "changes_requested",
+    "summary": "scripted oracle response for harness validation",
+    "findings": [
+      {
+        "severity": "major",
+        "category": "correctness",
+        "file": "app/metrics.py",
+        "line": 17,
+        "title": "Read-modify-write counter races under concurrent requests",
+        "evidence": "see diff line 17",
+        "recommendation": "Fix per the finding title.",
+        "confidence": 0.95
+      }
+    ]
+  },
+  "error-swallow-bare-except": {
+    "verdict": "changes_requested",
+    "summary": "scripted oracle response for harness validation",
+    "findings": [
+      {
+        "severity": "major",
+        "category": "reliability",
+        "file": "app/ledger.py",
+        "line": 18,
+        "title": "Bare except swallows commit failures silently",
+        "evidence": "see diff line 18",
+        "recommendation": "Fix per the finding title.",
+        "confidence": 0.95
+      }
+    ]
+  },
+  "http-no-timeout": {
+    "verdict": "changes_requested",
+    "summary": "scripted oracle response for harness validation",
+    "findings": [
+      {
+        "severity": "major",
+        "category": "reliability",
+        "file": "app/feeds.py",
+        "line": 11,
+        "title": "Outbound HTTP call has no timeout and can hang the worker",
+        "evidence": "see diff line 11",
+        "recommendation": "Fix per the finding title.",
+        "confidence": 0.95
+      }
+    ]
+  },
+  "delete-no-where": {
+    "verdict": "changes_requested",
+    "summary": "scripted oracle response for harness validation",
+    "findings": [
+      {
+        "severity": "major",
+        "category": "data-loss",
+        "file": "db/maintenance.py",
+        "line": 4,
+        "title": "DELETE without a WHERE clause wipes the whole table",
+        "evidence": "see diff line 4",
+        "recommendation": "Fix per the finding title.",
+        "confidence": 0.95
+      }
+    ]
+  },
+  "path-traversal-upload": {
+    "verdict": "changes_requested",
+    "summary": "scripted oracle response for harness validation",
+    "findings": [
+      {
+        "severity": "blocker",
+        "category": "security",
+        "file": "app/uploads.py",
+        "line": 6,
+        "title": "Unsanitized file name allows path traversal outside the upload dir",
+        "evidence": "see diff line 6",
+        "recommendation": "Fix per the finding title.",
+        "confidence": 0.95
+      }
+    ]
+  },
+  "ssrf-fetch": {
+    "verdict": "changes_requested",
+    "summary": "scripted oracle response for harness validation",
+    "findings": [
+      {
+        "severity": "major",
+        "category": "security",
+        "file": "app/preview.py",
+        "line": 4,
+        "title": "Server fetches an arbitrary user-supplied URL (SSRF)",
+        "evidence": "see diff line 4",
+        "recommendation": "Fix per the finding title.",
+        "confidence": 0.95
+      }
+    ]
+  },
+  "plaintext-password-store": {
+    "verdict": "changes_requested",
+    "summary": "scripted oracle response for harness validation",
+    "findings": [
+      {
+        "severity": "blocker",
+        "category": "security",
+        "file": "app/accounts.py",
+        "line": 14,
+        "title": "Password stored in plaintext without hashing",
+        "evidence": "see diff line 14",
+        "recommendation": "Fix per the finding title.",
+        "confidence": 0.95
+      }
+    ]
+  },
+  "sensitive-data-logging": {
+    "verdict": "changes_requested",
+    "summary": "scripted oracle response for harness validation",
+    "findings": [
+      {
+        "severity": "major",
+        "category": "security",
+        "file": "app/auth.py",
+        "line": 11,
+        "title": "Password written to the application log",
+        "evidence": "see diff line 11",
+        "recommendation": "Fix per the finding title.",
+        "confidence": 0.95
+      }
+    ]
+  },
+  "float-money-total": {
+    "verdict": "changes_requested",
+    "summary": "scripted oracle response for harness validation",
+    "findings": [
+      {
+        "severity": "minor",
+        "category": "correctness",
+        "file": "shop/pricing.py",
+        "line": 8,
+        "title": "Money totals accumulated in float lose cents to rounding",
+        "evidence": "see diff line 8",
+        "recommendation": "Fix per the finding title.",
+        "confidence": 0.95
+      }
+    ]
+  },
+  "off-by-one-pagination": {
+    "verdict": "changes_requested",
+    "summary": "scripted oracle response for harness validation",
+    "findings": [
+      {
+        "severity": "minor",
+        "category": "correctness",
+        "file": "app/listing.py",
+        "line": 8,
+        "title": "Pagination loop drops the last page (off-by-one)",
+        "evidence": "see diff line 8",
+        "recommendation": "Fix per the finding title.",
+        "confidence": 0.95
+      }
+    ]
+  },
+  "disabled-test": {
+    "verdict": "changes_requested",
+    "summary": "scripted oracle response for harness validation",
+    "findings": [
+      {
+        "severity": "minor",
+        "category": "testing",
+        "file": "tests/test_billing.py",
+        "line": 11,
+        "title": "Test disabled with a skip marker instead of being fixed",
+        "evidence": "see diff line 11",
+        "recommendation": "Fix per the finding title.",
+        "confidence": 0.95
+      }
+    ]
+  },
+  "debug-breakpoint": {
+    "verdict": "changes_requested",
+    "summary": "scripted oracle response for harness validation",
+    "findings": [
+      {
+        "severity": "nit",
+        "category": "quality",
+        "file": "app/report.py",
+        "line": 19,
+        "title": "Debug breakpoint left in shipped code",
+        "evidence": "see diff line 19",
+        "recommendation": "Fix per the finding title.",
+        "confidence": 0.95
+      }
+    ]
+  },
+  "unbounded-query": {
+    "verdict": "changes_requested",
+    "summary": "scripted oracle response for harness validation",
+    "findings": [
+      {
+        "severity": "major",
+        "category": "performance",
+        "file": "app/audit.py",
+        "line": 6,
+        "title": "Unbounded query loads the entire audit table into memory",
+        "evidence": "see diff line 6",
+        "recommendation": "Fix per the finding title.",
+        "confidence": 0.95
+      }
+    ]
+  },
+  "real-buggy-alert-flood": {
+    "verdict": "changes_requested",
+    "summary": "scripted oracle response for harness validation",
+    "findings": [
+      {
+        "severity": "blocker",
+        "category": "security",
+        "file": "app/health_check.py",
+        "line": 14,
+        "title": "DELETE statement built with f-string interpolation (injection)",
+        "evidence": "see diff line 14",
+        "recommendation": "Fix per the finding title.",
+        "confidence": 0.95
+      },
+      {
+        "severity": "major",
+        "category": "reliability",
+        "file": "app/health_check.py",
+        "line": 15,
+        "title": "Alert email sent per violation with no dedup or cooldown guard",
+        "evidence": "see diff line 15",
+        "recommendation": "Fix per the finding title.",
+        "confidence": 0.95
+      },
+      {
+        "severity": "blocker",
+        "category": "security",
+        "file": "app/health_check.py",
+        "line": 21,
+        "title": "Hardcoded SMTP password in source",
+        "evidence": "see diff line 21",
+        "recommendation": "Fix per the finding title.",
+        "confidence": 0.95
+      }
+    ]
+  },
+  "clean-parameterized-query": {
+    "verdict": "pass",
+    "summary": "scripted oracle response for harness validation",
+    "findings": []
+  },
+  "clean-add-timeout-retry": {
+    "verdict": "pass",
+    "summary": "scripted oracle response for harness validation",
+    "findings": []
+  },
+  "clean-refactor-rename": {
+    "verdict": "pass",
+    "summary": "scripted oracle response for harness validation",
+    "findings": []
+  },
+  "clean-add-tests": {
+    "verdict": "pass",
+    "summary": "scripted oracle response for harness validation",
+    "findings": []
+  },
+  "clean-health-guard-fix": {
+    "verdict": "pass",
+    "summary": "scripted oracle response for harness validation",
+    "findings": []
+  },
+  "secret-aws-key": {
+    "verdict": "changes_requested",
+    "summary": "scripted oracle response for harness validation",
+    "findings": [
+      {
+        "severity": "blocker",
+        "category": "security",
+        "file": "ops/deploy.py",
+        "line": 8,
+        "title": "AWS access key id committed in source",
+        "evidence": "see diff line 8",
+        "recommendation": "Fix per the finding title.",
+        "confidence": 0.95
+      }
+    ]
+  },
+  "sql-injection-concat": {
+    "verdict": "changes_requested",
+    "summary": "scripted oracle response for harness validation",
+    "findings": [
+      {
+        "severity": "blocker",
+        "category": "security",
+        "file": "app/search.py",
+        "line": 5,
+        "title": "SQL injection: query built by string concatenation",
+        "evidence": "see diff line 5",
+        "recommendation": "Fix per the finding title.",
+        "confidence": 0.95
+      }
+    ]
+  },
+  "auth-admin-or-true": {
+    "verdict": "changes_requested",
+    "summary": "scripted oracle response for harness validation",
+    "findings": [
+      {
+        "severity": "blocker",
+        "category": "security",
+        "file": "app/admin.py",
+        "line": 7,
+        "title": "Admin check bypassed: condition is always true",
+        "evidence": "see diff line 7",
+        "recommendation": "Fix per the finding title.",
+        "confidence": 0.95
+      }
+    ]
+  },
+  "payment-refund-partial": {
+    "verdict": "changes_requested",
+    "summary": "scripted oracle response for harness validation",
+    "findings": [
+      {
+        "severity": "major",
+        "category": "correctness",
+        "file": "billing/refunds.py",
+        "line": 9,
+        "title": "Partial refund issues the full order amount instead",
+        "evidence": "see diff line 9",
+        "recommendation": "Fix per the finding title.",
+        "confidence": 0.95
+      }
+    ]
+  },
+  "race-check-then-act": {
+    "verdict": "changes_requested",
+    "summary": "scripted oracle response for harness validation",
+    "findings": [
+      {
+        "severity": "major",
+        "category": "correctness",
+        "file": "app/files.py",
+        "line": 11,
+        "title": "Check-then-act race: existence check and create are not atomic",
+        "evidence": "see diff line 11",
+        "recommendation": "Fix per the finding title.",
+        "confidence": 0.95
+      }
+    ]
+  },
+  "drop-table-migration": {
+    "verdict": "changes_requested",
+    "summary": "scripted oracle response for harness validation",
+    "findings": [
+      {
+        "severity": "blocker",
+        "category": "data-loss",
+        "file": "db/migrations/0042_cleanup.py",
+        "line": 5,
+        "title": "DROP TABLE destroys the legacy users table in a migration",
+        "evidence": "see diff line 5",
+        "recommendation": "Fix per the finding title.",
+        "confidence": 0.95
+      }
+    ]
+  },
+  "xss-innerhtml": {
+    "verdict": "changes_requested",
+    "summary": "scripted oracle response for harness validation",
+    "findings": [
+      {
+        "severity": "major",
+        "category": "security",
+        "file": "web/comments.js",
+        "line": 13,
+        "title": "User-supplied comment injected via innerHTML (XSS)",
+        "evidence": "see diff line 13",
+        "recommendation": "Fix per the finding title.",
+        "confidence": 0.95
+      }
+    ]
+  },
+  "clean-auth-check-added": {
+    "verdict": "pass",
+    "summary": "scripted oracle response for harness validation",
+    "findings": []
+  },
+  "clean-input-validation": {
+    "verdict": "pass",
+    "summary": "scripted oracle response for harness validation",
+    "findings": []
+  }
+}

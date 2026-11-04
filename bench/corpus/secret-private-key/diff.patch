@@ -1,0 +1,11 @@
+diff --git a/app/certs.py b/app/certs.py
+--- a/app/certs.py
++++ b/app/certs.py
+@@ -1,2 +1,7 @@
+ # Certificate material for the staging gateway.
++
++PRIVATE_KEY_PEM = """-----BEGIN RSA PRIVATE KEY-----
++MIIBOgIBAAJBAKfake0material0for0the0bench0corpus0only0AA
++-----END RSA PRIVATE KEY-----"""
++
+ GATEWAY_HOST = "gw.internal"

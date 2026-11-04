@@ -1,0 +1,22 @@
+{
+  "id": "disabled-test",
+  "title": "Billing test silenced with a skip marker",
+  "category": "testing",
+  "split": "public",
+  "source": "Authored for the CodeReview benchmark corpus (defect injection), 2026-11-04",
+  "license": "MIT (original to this repository)",
+  "expected": [
+    {
+      "severity": "minor",
+      "category": "testing",
+      "file": "tests/test_billing.py",
+      "line": 11,
+      "title": "Test disabled with a skip marker instead of being fixed",
+      "keywords": [
+        "skip",
+        "disabled",
+        "test"
+      ]
+    }
+  ]
+}

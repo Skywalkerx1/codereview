@@ -1,0 +1,6 @@
+diff --git a/app/users.py b/app/users.py
+--- a/app/users.py
++++ b/app/users.py
+@@ -11,4 +11,4 @@ def find_by_name(db, name):
+-    return db.execute("SELECT * FROM users WHERE name = '" + name + "'")
++    return db.execute("SELECT * FROM users WHERE name = ?", (name,))

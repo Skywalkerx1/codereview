@@ -1,0 +1,9 @@
+diff --git a/db/migrations/0042_cleanup.py b/db/migrations/0042_cleanup.py
+--- a/db/migrations/0042_cleanup.py
++++ b/db/migrations/0042_cleanup.py
+@@ -2,4 +2,5 @@
+ 
+ def upgrade(conn):
+     conn.execute("DROP INDEX idx_legacy_email")
++    conn.execute("DROP TABLE legacy_users")
+     conn.execute("VACUUM")

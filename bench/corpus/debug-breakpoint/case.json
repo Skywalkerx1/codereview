@@ -1,0 +1,22 @@
+{
+  "id": "debug-breakpoint",
+  "title": "Breakpoint left in the report builder",
+  "category": "quality",
+  "split": "public",
+  "source": "Authored for the CodeReview benchmark corpus (defect injection), 2026-11-04",
+  "license": "MIT (original to this repository)",
+  "expected": [
+    {
+      "severity": "nit",
+      "category": "quality",
+      "file": "app/report.py",
+      "line": 19,
+      "title": "Debug breakpoint left in shipped code",
+      "keywords": [
+        "debug",
+        "breakpoint",
+        "leftover"
+      ]
+    }
+  ]
+}

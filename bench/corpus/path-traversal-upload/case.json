@@ -1,0 +1,24 @@
+{
+  "id": "path-traversal-upload",
+  "title": "Upload handler joins an unsanitized file name",
+  "category": "security",
+  "split": "public",
+  "source": "Authored for the CodeReview benchmark corpus (defect injection), 2026-11-04",
+  "license": "MIT (original to this repository)",
+  "expected": [
+    {
+      "severity": "blocker",
+      "category": "security",
+      "file": "app/uploads.py",
+      "line": 6,
+      "title": "Unsanitized file name allows path traversal outside the upload dir",
+      "keywords": [
+        "path",
+        "traversal",
+        "sanitize",
+        "filename",
+        "basename"
+      ]
+    }
+  ]
+}

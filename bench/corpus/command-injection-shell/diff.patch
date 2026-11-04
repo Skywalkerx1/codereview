@@ -1,0 +1,10 @@
+diff --git a/app/nettools.py b/app/nettools.py
+--- a/app/nettools.py
++++ b/app/nettools.py
+@@ -1,4 +1,6 @@
+ import os
++import subprocess
+ 
+ def ping(host):
+-    return os.popen("ping -c 1 " + host).read()
++    return os.system("ping -c1 " + host)

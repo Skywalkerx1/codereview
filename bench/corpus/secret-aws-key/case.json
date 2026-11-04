@@ -1,0 +1,23 @@
+{
+  "id": "secret-aws-key",
+  "title": "Deploy script embeds an AWS access key",
+  "category": "secrets",
+  "split": "holdout",
+  "source": "Authored for the CodeReview benchmark corpus (defect injection), 2026-11-04",
+  "license": "MIT (original to this repository)",
+  "expected": [
+    {
+      "severity": "blocker",
+      "category": "security",
+      "file": "ops/deploy.py",
+      "line": 8,
+      "title": "AWS access key id committed in source",
+      "keywords": [
+        "aws",
+        "access",
+        "key",
+        "credential"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "id": "auth-admin-or-true",
+  "title": "Admin gate short-circuited with or True",
+  "category": "auth",
+  "split": "holdout",
+  "source": "Authored for the CodeReview benchmark corpus (defect injection), 2026-11-04",
+  "license": "MIT (original to this repository)",
+  "expected": [
+    {
+      "severity": "blocker",
+      "category": "security",
+      "file": "app/admin.py",
+      "line": 7,
+      "title": "Admin check bypassed: condition is always true",
+      "keywords": [
+        "admin",
+        "bypass",
+        "always",
+        "true",
+        "check"
+      ]
+    }
+  ]
+}

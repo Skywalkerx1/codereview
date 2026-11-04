@@ -1,0 +1,11 @@
+diff --git a/app/ledger.py b/app/ledger.py
+--- a/app/ledger.py
++++ b/app/ledger.py
+@@ -15,5 +15,8 @@ def post_entry(db, entry):
+     db.insert("entries", entry)
+-    db.commit()
++    try:
++        db.commit()
++    except:
++        pass
+     return entry.id
