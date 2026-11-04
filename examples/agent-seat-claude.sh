@@ -14,4 +14,10 @@
 # The wrapper feeds the prompt file as Claude Code's input document
 # and instructs it to answer with the JSON verdict alone. Adjust the
 # instruction line to taste; keep the "only JSON" requirement.
-exec claude -p "You are a reviewer seat in a multi-model code review. The document on stdin is your complete brief: a diff plus instructions. Follow the instructions exactly and output ONLY the JSON verdict object they ask for — no prose, no markdown fences." < "$CODEREVIEW_PROMPT"
+#
+# --tools "" disables ALL built-in tools for the run: the brief is
+# self-contained, so a reviewer seat needs no file, shell, or web
+# access at all — and the untrusted diff gets no tool surface to
+# act through. (Flag verified against the Claude Code CLI docs;
+# check `claude --help` on your version.)
+exec claude -p --tools "" "You are a reviewer seat in a multi-model code review. The document on stdin is your complete brief: a diff plus instructions. Follow the instructions exactly and output ONLY the JSON verdict object they ask for — no prose, no markdown fences." < "$CODEREVIEW_PROMPT"

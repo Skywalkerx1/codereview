@@ -1,0 +1,56 @@
+{
+  "schema": "codereview.report/1",
+  "version": "0.7.1",
+  "mode": "review",
+  "created_at": "2026-11-04T05:35:00+00:00",
+  "patch_sha256": "5043de6c0d09df768545a0333f71f6c256c8a582adb3f0b40b6a7cc4c7562e5d",
+  "patch_chars": 44959,
+  "files": [
+    "CHANGELOG.md",
+    "README.md",
+    "REVIEW-NOTES.md",
+    "ROADMAP.md",
+    "examples/agent-seat-claude.sh",
+    "pyproject.toml",
+    "src/codereview/cli.py",
+    "src/codereview/core.py",
+    "src/codereview/providers.py",
+    "tests/test_core.py",
+    "tests/test_external_review_v070.py"
+  ],
+  "context": "v0.7.1: fixes for the v0.7.0 external review (APPROVE WITH REQUIRED FIXES). (1) Agent seats get an allow-listed environment (no provider keys; CODEREVIEW_AGENT_ENV opt-in). (2) Verification PASS now needs a quorum of 2 successful reviewers when 2+ configured AND confirmation by the seat that raised each blocker (deterministic findings clear only when the pattern stops firing); unconfirmed = INCONCLUSIVE (new unjudged bucket); DEGRADED rendered on the Markdown gate line with reviewer tally; one o",
+  "test_results": [
+    {
+      "command": "python3 -m unittest discover -s tests",
+      "ok": true,
+      "exit_code": 0,
+      "output_tail": "....................................................................................\n----------------------------------------------------------------------\nRan 84 tests in 9.140s\n\nOK\n"
+    }
+  ],
+  "deterministic_findings": [],
+  "reviewer_reports": [
+    {
+      "provider": "gemini",
+      "lens": "correctness",
+      "status": "error",
+      "error": "gemini quota: HTTP 429",
+      "summary": "",
+      "findings": []
+    },
+    {
+      "provider": "nvidia",
+      "lens": "operations",
+      "status": "ok",
+      "error": "",
+      "summary": "The v0.7.1 change set addresses all external review findings from v0.7.0; the code changes are sound and all 84 tests pass.",
+      "findings": []
+    }
+  ],
+  "findings": [],
+  "degraded": true,
+  "truncated": false,
+  "gate": "pass",
+  "gate_reasons": [
+    "at least one reviewer failed (degraded review)"
+  ]
+}

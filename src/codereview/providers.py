@@ -26,6 +26,8 @@ from __future__ import annotations
 import json
 import os
 import shlex
+import shutil
+import signal
 import subprocess
 import tempfile
 import urllib.error
@@ -36,7 +38,15 @@ AGENT_TIMEOUT = 900
 
 
 class ProviderError(Exception):
-    pass
+    """A provider/seat failure. `retryable` tells the account pool
+    whether rotating to another account could help: True/False when
+    the failure class is known (quota vs. a local agent command that
+    will fail identically on every account), None to fall back to
+    the message heuristics in is_retryable."""
+
+    def __init__(self, message, retryable=None):
+        super().__init__(message)
+        self.retryable = retryable
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -134,56 +144,132 @@ def gemini(model, key_env="GEMINI_API_KEY", system=_SYSTEM,
     return call
 
 
+MAX_AGENT_OUTPUT = 1_000_000
+
+# The only variables an agent seat inherits by default. Everything
+# else in the operator's environment — above all every provider API
+# key and token — stays out of the agent process unless the operator
+# explicitly opts a name in via CODEREVIEW_AGENT_ENV (comma-separated).
+_AGENT_ENV_BASE = (
+    "PATH", "HOME", "LANG", "LC_ALL", "LC_CTYPE", "TERM", "TMPDIR",
+    "USER", "LOGNAME", "SHELL",
+    "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY",
+    "http_proxy", "https_proxy", "no_proxy",
+    "SYSTEMROOT", "WINDIR", "PATHEXT", "COMSPEC",
+)
+
+
+def _agent_env(prompt_path):
+    names = [n for n in _AGENT_ENV_BASE if n in os.environ]
+    extra = [n.strip() for n in
+             os.environ.get("CODEREVIEW_AGENT_ENV", "").split(",")
+             if n.strip()]
+    env = {n: os.environ[n] for n in names + extra if n in os.environ}
+    env["CODEREVIEW_PROMPT"] = prompt_path
+    return env
+
+
+def _kill_tree(proc):
+    """Kill the agent's whole process group (it was started in its
+    own session), so a timeout leaves no orphaned grandchildren."""
+    try:
+        if os.name == "posix":
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+        else:
+            proc.kill()
+    except (ProcessLookupError, PermissionError, OSError):
+        try:
+            proc.kill()
+        except OSError:
+            pass
+
+
+def _read_tail(path, limit):
+    try:
+        size = os.path.getsize(path)
+        with open(path, "rb") as fh:
+            if size > limit:
+                fh.seek(-limit, os.SEEK_END)
+            return fh.read().decode("utf-8", "replace")
+    except OSError:
+        return ""
+
+
 def command_agent(command, timeout=AGENT_TIMEOUT):
     """Callable backed by a local agent command.
 
-    The prompt goes to a temp file ($CODEREVIEW_PROMPT) and to the
-    command's stdin; stdout is the response. The command line is
-    split with shlex and executed WITHOUT a shell (shell=False):
-    shell metacharacters in it are literal, and anything needing
-    pipes or redirection belongs in a wrapper script. A bad command
-    line, a non-zero exit, a timeout, or empty output is a
-    ProviderError — the seat degrades honestly in the run report,
-    like any other provider failure."""
+    Isolation contract (v0.7.0 external review, findings 1/3/5/6):
+    the agent runs in a fresh scratch directory containing ONLY the
+    prompt file (its cwd — never the repo), with an allow-listed
+    environment (no provider keys unless the operator opts names in
+    via CODEREVIEW_AGENT_ENV), in its own process group so a timeout
+    kills the whole tree, and its output is captured to files and
+    capped (the verdict tail is kept). The command line is split
+    with shlex and executed WITHOUT a shell: metacharacters are
+    literal; pipes/redirection belong in a wrapper script. Every
+    failure is a ProviderError with retryable=False — the seat
+    degrades honestly in the run report, like any provider failure,
+    and never triggers account rotation."""
     def call(prompt):
         try:
             argv = shlex.split(command)
         except ValueError as exc:
-            raise ProviderError(f"bad agent command {command!r}: {exc}")
+            raise ProviderError(f"bad agent command {command!r}: {exc}",
+                                retryable=False)
         if not argv:
-            raise ProviderError("empty agent command")
-        fd, path = tempfile.mkstemp(prefix="codereview-prompt-",
-                                    suffix=".md")
+            raise ProviderError("empty agent command", retryable=False)
+        workdir = tempfile.mkdtemp(prefix="codereview-agent-")
+        cap_fds = []
         try:
-            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            prompt_path = os.path.join(workdir, "prompt.md")
+            with open(prompt_path, "w", encoding="utf-8") as fh:
                 fh.write(prompt)
-            env = dict(os.environ, CODEREVIEW_PROMPT=path)
+            # Capture files live OUTSIDE the scratch cwd: the agent
+            # sees a directory containing only its prompt.
+            out_fd, out_path = tempfile.mkstemp(
+                prefix="codereview-agent-out-")
+            err_fd, err_path = tempfile.mkstemp(
+                prefix="codereview-agent-err-")
+            cap_fds = [out_path, err_path]
             try:
-                out = subprocess.run(
-                    argv, shell=False, input=prompt,
-                    capture_output=True, text=True, timeout=timeout,
-                    env=env, check=False)
-            except subprocess.TimeoutExpired:
-                raise ProviderError(
-                    f"agent command timed out after {timeout}s")
+                with os.fdopen(out_fd, "wb") as out_f, \
+                        os.fdopen(err_fd, "wb") as err_f:
+                    proc = subprocess.Popen(
+                        argv, shell=False, stdin=subprocess.PIPE,
+                        stdout=out_f, stderr=err_f,
+                        env=_agent_env(prompt_path), cwd=workdir,
+                        start_new_session=True)
+                    try:
+                        proc.communicate(
+                            input=prompt.encode("utf-8"),
+                            timeout=timeout)
+                    except subprocess.TimeoutExpired:
+                        _kill_tree(proc)
+                        proc.communicate()
+                        raise ProviderError(
+                            f"agent command timed out after {timeout}s",
+                            retryable=False)
             except OSError as exc:
                 raise ProviderError(
                     f"agent command failed to start: "
-                    f"{exc.strerror or exc}")
-            if out.returncode != 0:
-                tail = (out.stderr or "").strip()[-300:]
+                    f"{exc.strerror or exc}", retryable=False)
+            if proc.returncode != 0:
+                tail = _read_tail(err_path, 4096).strip()[-300:]
                 raise ProviderError(
-                    f"agent command exited {out.returncode}"
-                    + (f": {tail}" if tail else ""))
-            text = (out.stdout or "").strip()
+                    f"agent command exited {proc.returncode}"
+                    + (f": {tail}" if tail else ""), retryable=False)
+            text = _read_tail(out_path, MAX_AGENT_OUTPUT).strip()
             if not text:
-                raise ProviderError("agent command produced no output")
+                raise ProviderError("agent command produced no output",
+                                    retryable=False)
             return text
         finally:
-            try:
-                os.unlink(path)
-            except OSError:
-                pass
+            shutil.rmtree(workdir, ignore_errors=True)
+            for cap in cap_fds:
+                try:
+                    os.unlink(cap)
+                except OSError:
+                    pass
     return call
 
 
@@ -201,7 +287,8 @@ PRESETS = {
 }
 
 
-def build_provider(spec, occurrence=1, text_mode=False):
+def build_provider(spec, occurrence=1, text_mode=False,
+                   agent_timeout=None):
     """spec -> (name, callable, account_label).
 
     `occurrence` > 1 (the same seat requested again) selects the
@@ -226,7 +313,9 @@ def build_provider(spec, occurrence=1, text_mode=False):
         # same-named agent specs never collapse into one pool.
         seat_name = agent_name if occurrence <= 1 \
             else f"{agent_name}-{occurrence}"
-        return seat_name, command_agent(command), f"agent:{seat_name}"
+        return seat_name, command_agent(
+            command, timeout=agent_timeout or AGENT_TIMEOUT), \
+            f"agent:{seat_name}"
     if "|" in spec:
         parts = [p.strip() for p in spec.split("|")]
         if len(parts) != 5:
@@ -264,7 +353,13 @@ _RETRYABLE_MARKERS = ("429", "500", "502", "503", "504", "401", "403",
 
 def is_retryable(exc):
     """Quota / availability / dead-key errors are worth rotating to
-    the next account for; a malformed request is not."""
+    the next account for; a malformed request is not. A typed
+    `retryable` flag on the error wins over the message heuristics
+    (an agent command's stderr mentioning "timeout" must not trigger
+    rotation — see the v0.7.0 external review, finding 6.3)."""
+    flag = getattr(exc, "retryable", None)
+    if flag is not None:
+        return flag
     msg = str(exc).lower()
     return any(m in msg for m in _RETRYABLE_MARKERS)
 
@@ -309,25 +404,43 @@ class AccountPool:
         raise last_exc
 
 
-def build_providers(specs, text_mode=False):
+def build_providers(specs, text_mode=False, agent_timeout=None):
     """specs -> {seat name: callable}. Repeating a seat (the same
     preset twice, or custom specs sharing a name) builds an
     AccountPool for that seat with one account per occurrence.
     Agent seats are the exception: each occurrence runs a different
     command, so occurrences become distinct seats (name, name-2,
-    ...) instead of accounts of one seat."""
+    ...) instead of accounts of one seat.
+
+    Seat names live in one namespace per KIND: an agent seat and an
+    API seat sharing a name (agent:gemini next to the gemini preset)
+    is a configuration error, raised loudly in either spec order —
+    silently merging them into one pool would drop a configured
+    reviewer (v0.7.0 external review, finding 4)."""
     seats = {}
     counts = {}
+    name_kind = {}
     for spec in specs:
         if spec.startswith("agent:"):
-            seat_key = spec.split(":", 2)[1].strip().lower()
+            kind = "agent"
+            base = spec.split(":", 2)[1].strip().lower()
         elif "|" in spec:
-            seat_key = spec.split("|")[0].strip().lower()
+            kind = "api"
+            base = spec.split("|")[0].strip().lower()
         else:
-            seat_key = spec.strip().lower()
+            kind = "api"
+            base = spec.strip().lower()
+        seat_key = (kind, base)
         counts[seat_key] = counts.get(seat_key, 0) + 1
-        name, fn, label = build_provider(spec, counts[seat_key],
-                                         text_mode=text_mode)
+        name, fn, label = build_provider(
+            spec, counts[seat_key], text_mode=text_mode,
+            agent_timeout=agent_timeout)
+        owner = name_kind.setdefault(name, kind)
+        if owner != kind:
+            raise ProviderError(
+                f"seat name {name!r} is used by both an agent seat "
+                f"and an API seat; rename the agent seat "
+                f"(e.g. agent:{base}-cli:<command>)")
         seats.setdefault(name, []).append((label, fn))
     providers = {}
     for name, accounts in seats.items():
@@ -336,8 +449,14 @@ def build_providers(specs, text_mode=False):
     return providers
 
 
-def build_solvers(specs):
+def build_solvers(specs, agent_timeout=None):
     """specs -> {seat name: solver callable} for intake mode: same
     seats and account pools as build_providers, but each callable
-    answers in plain Markdown (see build_provider's text_mode)."""
-    return build_providers(specs, text_mode=True)
+    answers in plain Markdown (see build_provider's text_mode).
+    Agent solver seats default to a 300s timeout — the intake
+    deadline — so a hung agent dies with its run instead of keeping
+    the process alive past it (finding 5)."""
+    if agent_timeout is None:
+        agent_timeout = 300
+    return build_providers(specs, text_mode=True,
+                           agent_timeout=agent_timeout)

@@ -341,7 +341,7 @@ def _intake_main(argv, solvers_override=None):
             specs = [s.strip() for s in env.split(",") if s.strip()] \
                 or ["gemini", "nvidia"]
         try:
-            solvers = build_solvers(specs)
+            solvers = build_solvers(specs, agent_timeout=args.timeout)
         except Exception as exc:  # noqa: BLE001
             print(f"codereview: solver setup failed: {exc}",
                   file=sys.stderr)

@@ -1,5 +1,20 @@
 # Review notes — CodeReview (prepared for external review, 2026-11-03)
 
+**Update — external review of v0.7.0 (2026-11-04): verdict APPROVE
+WITH REQUIRED FIXES. Four findings the internal gate had not caught
+— agent seats inheriting every provider API key; a verification
+round passing on one surviving reviewer labelled "consensus" (our
+own shipped v0.7.0 record did exactly this); agent seats running in
+the repo working tree, outside the redaction boundary; cross-kind
+seat-name collisions merging into one pool — plus the intake
+deadline not ending the process. All verified against the code and
+fixed in v0.7.1; gate records in `review-v8/` and
+`review-v8-verify/`. The v0.1.0-era reports referenced below as
+`review-evidence/` belong to the original self-review package and
+are not part of this archive; the gate records included here are
+the `review-v6*/`, `review-v7*/` and `review-v8*/` folders and the
+`review-*-response-2026-11-03.md` documents.**
+
 **Rename (v0.5.0, 2026-11-03): this project was called ReviewLoop
 through v0.4.2 and is now CodeReview. The notes and response
 documents in this archive describe the earlier releases under
@@ -27,7 +42,9 @@ The notes below describe the original v0.1.0 self-review.**
 
 This package was reviewed BEFORE packaging by ReviewLoop itself
 (the tool reviewing its own source), with Gemini + NVIDIA as the
-reviewer panel. Full reports are in `review-evidence/`.
+reviewer panel. Full reports were in `review-evidence/` in the
+original v0.1.0 package (not included in this archive — see the
+update note at the top).
 
 ## What the self-review found, and what happened to each finding
 
@@ -64,12 +81,12 @@ Formal self-review gate: **BLOCKED** — on the two items above, not
 on any unexamined finding. Every finding was read, and each was
 fixed, invalidated with quoted evidence, or is disclosed here.
 
-## Fixture evidence (the loop on other code)
+## Fixture evidence (the loop on other code; from the v0.1.0 package, not in this archive)
 
-- `review-evidence/fixture-buggy-blocked.md` — a deliberately buggy
+- `fixture-buggy-blocked.md` — a deliberately buggy
   change (per-violation alert email, f-string DELETE, hardcoded
   password) blocked with 8 findings.
-- `review-evidence/fixture-clean-pass.md` — the guarded version of
+- `fixture-clean-pass.md` — the guarded version of
   the same change passing after a verification round.
 
 ## Known limits (also in README)

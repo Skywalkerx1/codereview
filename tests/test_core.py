@@ -235,7 +235,12 @@ class VerificationTests(unittest.TestCase):
             raise RuntimeError("provider down")
         relaxed = core.run_verification(
             CLEAN, {"a": fixed, "b": boom}, self._previous(), "fixed")
-        self.assertEqual(relaxed["gate"], "pass")
+        # v0.7.0 external review, finding 2 (supersedes the
+        # Review-1-era expectation): a verification PASS needs a
+        # quorum of 2 successful reviewers when 2 are configured —
+        # one surviving reviewer is INCONCLUSIVE, never a "pass",
+        # in relaxed mode too.
+        self.assertEqual(relaxed["gate"], "inconclusive")
         strict = core.run_verification(
             CLEAN, {"a": fixed, "b": boom}, self._previous(), "fixed",
             strict=True)

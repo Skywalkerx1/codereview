@@ -1,0 +1,56 @@
+{
+  "schema": "codereview.report/1",
+  "version": "0.7.1",
+  "mode": "review",
+  "created_at": "2026-11-04T05:36:49+00:00",
+  "patch_sha256": "5043de6c0d09df768545a0333f71f6c256c8a582adb3f0b40b6a7cc4c7562e5d",
+  "patch_chars": 44959,
+  "files": [
+    "CHANGELOG.md",
+    "README.md",
+    "REVIEW-NOTES.md",
+    "ROADMAP.md",
+    "examples/agent-seat-claude.sh",
+    "pyproject.toml",
+    "src/codereview/cli.py",
+    "src/codereview/core.py",
+    "src/codereview/providers.py",
+    "tests/test_core.py",
+    "tests/test_external_review_v070.py"
+  ],
+  "context": "v0.7.1 re-run of the review-v8 gate with both reviewers healthy (the review-v8 record is a degraded PASS: Gemini 429, NVIDIA clean, 0 findings). Same diff: external-review fixes for v0.7.0 - agent env allow-list, verification quorum + original-finder rule + DEGRADED labels, scratch-dir agent seats, seat namespaces, process-group lifetimes, 84/84 tests.",
+  "test_results": [
+    {
+      "command": "python3 -m unittest discover -s tests",
+      "ok": true,
+      "exit_code": 0,
+      "output_tail": "....................................................................................\n----------------------------------------------------------------------\nRan 84 tests in 9.196s\n\nOK\n"
+    }
+  ],
+  "deterministic_findings": [],
+  "reviewer_reports": [
+    {
+      "provider": "gemini",
+      "lens": "correctness",
+      "status": "error",
+      "error": "gemini quota: HTTP 429",
+      "summary": "",
+      "findings": []
+    },
+    {
+      "provider": "nvidia",
+      "lens": "operations",
+      "status": "ok",
+      "error": "",
+      "summary": "The v0.7.1 diff implements all required fixes from the external review: agent env allow-list, verification quorum with deterministic clearing, seat namespace isolation, process-group lifetimes with timeouts, and noisy-agent-output parsing. All new tests pass (84/84). No issues found.",
+      "findings": []
+    }
+  ],
+  "findings": [],
+  "degraded": true,
+  "truncated": false,
+  "gate": "pass",
+  "gate_reasons": [
+    "at least one reviewer failed (degraded review)"
+  ]
+}

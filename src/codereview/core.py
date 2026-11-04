@@ -39,7 +39,7 @@ import os
 import re
 import subprocess
 
-VERSION = "0.7.0"
+VERSION = "0.7.1"
 SCHEMA = "codereview.report/1"
 
 SEVERITIES = ("blocker", "major", "minor", "nit")
@@ -643,8 +643,13 @@ def _validate_resolution(raw_status, evidence, haystack_tokens):
 def run_verification(patch, providers, previous_report, builder_response,
                      test_results=None, max_patch_chars=80000,
                      allow_major=False, strict=False):
-    """Verification round: prior blockers clear only on reviewer
-    consensus (every successful reviewer: fixed or invalid)."""
+    """Verification round: a prior blocker clears only when every
+    successful reviewer marks it fixed/invalid AND the seat that
+    raised it is among them (deterministic findings clear when the
+    pattern no longer fires in the new scan). A PASS also needs a
+    quorum of at least 2 successful reviewers when 2+ are
+    configured; anything unconfirmed is INCONCLUSIVE, never a
+    one-reviewer "consensus"."""
     test_results = test_results or []
     blocking_sevs = ("blocker",) if allow_major else BLOCKING_DEFAULT
     prior = [f for f in previous_report.get("findings") or []
@@ -707,19 +712,49 @@ def run_verification(patch, providers, previous_report, builder_response,
                 degraded = True
             per_provider.append(rec)
 
-    cleared, remaining = [], []
+    cleared, remaining, unjudged = [], [], []
     ok_recs = [r for r in per_provider if r["status"] == "ok"]
+    ok_names = {r["provider"] for r in ok_recs}
+    det_open_ids = {f["id"] for f in new_findings
+                    if "deterministic" in (f.get("sources") or [])}
     for f in prior:
         fid = f.get("id")
         statuses = [r["resolutions"].get(fid, {}).get("status", "unclear")
                     for r in ok_recs]
-        if ok_recs and all(s in ("fixed", "invalid") for s in statuses):
-            cleared.append({**f, "cleared_by": statuses})
+        srcs = f.get("sources") or []
+        if "deterministic" in srcs:
+            # Mechanical truth: the pattern either still fires in
+            # the new deterministic scan or it does not.
+            finder_ok = fid not in det_open_ids
+            pattern_open = fid in det_open_ids
         else:
+            # The seat that raised a blocker must be among the
+            # reviewers confirming its clearance — a PASS may not
+            # rest on reviewers who never saw the finding, and
+            # "consensus" may not mean one surviving reviewer
+            # (v0.7.0 external review, finding 2). Findings with no
+            # recorded source fall back to any successful reviewer.
+            finder_ok = (any(s in ok_names for s in srcs)
+                         if srcs else bool(ok_recs))
+            pattern_open = False
+        if ok_recs and finder_ok and not pattern_open \
+                and all(s in ("fixed", "invalid") for s in statuses):
+            cleared.append({**f, "cleared_by": statuses})
+        elif pattern_open or any(s in ("still_present", "unclear")
+                                  for s in statuses):
+            # Judged and wanting: the pattern persists, a reviewer
+            # says the defect is still there, or the builder's proof
+            # was too weak to confirm (unclear) — the block stands.
             remaining.append({**f, "last_statuses": statuses})
+        else:
+            # Every responding reviewer said fixed/invalid, but the
+            # seat that raised the finding never spoke — unjudged,
+            # not cleared.
+            unjudged.append({**f, "last_statuses": statuses})
     merged_new = merge_findings(new_findings)
     all_open = remaining + [f for f in merged_new
                             if f["severity"] in blocking_sevs]
+    quorum_ok = len(ok_recs) >= 2 or len(providers) <= 1
     if not any_success:
         gate, reasons = "inconclusive", ["no reviewer succeeded"]
     elif all_open:
@@ -727,6 +762,15 @@ def run_verification(patch, providers, previous_report, builder_response,
         reasons = [f"{len(all_open)} blocking item(s) still open"]
         if truncated:
             reasons.append("new diff was truncated")
+    elif unjudged:
+        gate, reasons = "inconclusive", [
+            f"{len(unjudged)} prior blocker(s) not confirmed "
+            "cleared (original finder unavailable or resolution "
+            "unclear)"]
+    elif not quorum_ok:
+        gate, reasons = "inconclusive", [
+            f"verification quorum not met: {len(ok_recs)} of "
+            f"{len(providers)} reviewers succeeded (need at least 2)"]
     elif truncated and strict:
         gate, reasons = "inconclusive", ["new diff was truncated"]
     elif degraded and strict:
@@ -734,8 +778,11 @@ def run_verification(patch, providers, previous_report, builder_response,
             "strict mode: at least one reviewer failed "
             "(degraded verification)"]
     else:
-        gate, reasons = "pass", ["all prior blockers cleared by "
-                                 "reviewer consensus"]
+        gate = "pass"
+        reasons = [f"all prior blockers cleared by {len(ok_recs)} "
+                   f"of {len(providers)} reviewers"]
+        if degraded:
+            reasons[0] += " — DEGRADED"
     return {
         "schema": SCHEMA, "version": VERSION, "mode": "verify",
         "created_at": _now_iso(),
@@ -743,6 +790,7 @@ def run_verification(patch, providers, previous_report, builder_response,
             patch.encode("utf-8")).hexdigest(),
         "previous_gate": previous_report.get("gate"),
         "cleared": cleared, "remaining": remaining,
+        "unjudged": unjudged,
         "reviewer_reports": per_provider,
         "findings": merged_new,
         "degraded": degraded, "truncated": truncated,
@@ -1334,11 +1382,18 @@ def run_workflow(steps, providers, repo, out_dir, max_rounds=3,
 # ------------------------------------------------------------------ output
 
 def render_markdown(report):
+    degraded_note = ""
+    if report.get("degraded"):
+        rr = report.get("reviewer_reports") or []
+        ok = sum(1 for r in rr if r.get("status") == "ok")
+        degraded_note = (f" — ⚠ DEGRADED ({ok} of {len(rr)} "
+                         "reviewers succeeded)")
     lines = [f"# CodeReview report — {report.get('mode', 'review')}",
              "",
              f"**Gate: {report.get('gate', '?').upper()}**"
              + (f" — {'; '.join(report.get('gate_reasons') or [])}"
-                if report.get("gate_reasons") else ""),
+                if report.get("gate_reasons") else "")
+             + degraded_note,
              f"Created: {report.get('created_at', '')} · "
              f"Patch sha256: `{(report.get('patch_sha256') or '')[:16]}…`",
              ""]
@@ -1346,12 +1401,19 @@ def render_markdown(report):
         lines += [f"Cleared prior blockers: "
                   f"{len(report.get('cleared') or [])}",
                   f"Still open: {len(report.get('remaining') or [])}",
+                  f"Not confirmed cleared: "
+                  f"{len(report.get('unjudged') or [])}",
                   ""]
         for f in report.get("remaining") or []:
             lines.append(f"- ⛔ [{f.get('severity')}] {f.get('title')} "
                          f"({f.get('file')}) — statuses: "
                          f"{f.get('last_statuses')}")
-        if report.get("remaining"):
+        for f in report.get("unjudged") or []:
+            lines.append(f"- ❔ [{f.get('severity')}] {f.get('title')} "
+                         f"({f.get('file')}) — not confirmed "
+                         f"cleared; statuses: "
+                         f"{f.get('last_statuses')}")
+        if report.get("remaining") or report.get("unjudged"):
             lines.append("")
     findings = report.get("findings") or []
     if findings:
