@@ -559,6 +559,29 @@ def run_bench(corpus_dir, config_specs, out_dir, split="all",
                 records.append(record)
                 done.add(key)
         if force:
+            # The swap is earned by a HEALTHY run only: run_review
+            # absorbs provider failures into degraded records
+            # instead of raising, so a force run made while a
+            # provider is down would otherwise replace good stored
+            # results with all-degraded ones (review-v14 finding
+            # [2] — the crash leg was already safe: an exception
+            # mid-run never reaches this line and the previous file
+            # stays intact). Refuse the swap, drop the temp file,
+            # and say so loudly; the operator re-runs when the
+            # providers are back.
+            degraded = [r for r in records if r.get("degraded")]
+            if degraded:
+                try:
+                    os.remove(write_path)
+                except OSError:
+                    pass
+                raise ValueError(
+                    f"bench --force: {len(degraded)} of "
+                    f"{len(records)} case(s) for config "
+                    f"{cfg['name']!r} came back degraded (a "
+                    "provider failed); the previous results file "
+                    "was left intact — re-run when the providers "
+                    "are healthy")
             os.replace(write_path, path)
         results[cfg["name"]] = records
     return results

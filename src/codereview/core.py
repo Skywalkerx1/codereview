@@ -573,19 +573,32 @@ def _classify_error(exc):
     if typed is not None:
         return "provider", 3 if typed else 1
     msg = str(exc).lower()
-    if "resource_exhausted" in msg or (
-            "429" in msg and ("quota" in msg or "daily" in msg)):
+
+    def has_code(code):
+        # Status codes match as whole tokens only: a bare substring
+        # search conflates classes whenever an unrelated number in
+        # the message contains the digits (a 503 body mentioning
+        # "4030 tokens" or "req_4014" classified as auth, so a
+        # transient failure got no retry — review-v14 finding [9]).
+        return re.search(rf"\b{code}\b", msg) is not None
+
+    # Provider error codes/types first, message text last
+    # (review-v14 finding [9]): the typed quota codes decide the
+    # quota class with or without a 429 in the string.
+    if "resource_exhausted" in msg or "insufficient_quota" in msg or (
+            has_code("429") and ("quota" in msg or "daily" in msg)):
         return "quota", 1
     if ("api_key" in msg or "api key" in msg or "not set" in msg
-            or "unauthorized" in msg or "401" in msg
-            or "403" in msg):
+            or "unauthorized" in msg or has_code("401")
+            or has_code("403")):
         return "auth", 1
-    if "429" in msg:
+    if has_code("429"):
         return "rate_limit", 3
     if isinstance(exc, TimeoutError) or any(
-            k in msg for k in ("503", "502", "500", "overloaded",
-                               "timed out", "timeout", "temporar",
-                               "unavailable", "connection")):
+            k in msg for k in ("overloaded", "timed out", "timeout",
+                               "temporar", "unavailable",
+                               "connection")) or any(
+            has_code(c) for c in ("500", "502", "503", "504")):
         return "transient", 3
     return "unknown", 1
 

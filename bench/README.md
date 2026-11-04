@@ -130,3 +130,6 @@ Holdout cases score in the full (internal) report only.
 `bench report --public` drops every holdout record **before**
 scoring: no holdout id, title, row, or per-case number can appear
 in public output. Public claims quote public-split numbers.
+(Which split a run executes is a separate knob: `bench run
+--split public|holdout|all` — see the usage examples at the top
+of this file.)

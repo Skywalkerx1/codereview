@@ -161,6 +161,13 @@ _AGENT_ENV_BASE = (
 
 
 def _agent_env(prompt_path):
+    # By design (v0.7.0 external review requirement; review-v14
+    # finding [14] asked for the intent to be visible here): an
+    # agent seat NEVER inherits the operator's provider API keys or
+    # tokens by default — it authenticates as itself, with its own
+    # account. The allow-list above is the whole inheritance; the
+    # only way in for anything else is an explicit operator opt-in
+    # via CODEREVIEW_AGENT_ENV.
     names = [n for n in _AGENT_ENV_BASE if n in os.environ]
     extra = [n.strip() for n in
              os.environ.get("CODEREVIEW_AGENT_ENV", "").split(",")
