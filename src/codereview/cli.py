@@ -68,6 +68,24 @@ def _load_patch(args):
                                   staged=args.staged)
 
 
+def _is_within(path, root):
+    """True when `path` resolves inside `root` — failing closed.
+
+    os.path.commonpath raises ValueError for paths on different
+    drives (Windows) or when mixing absolute and relative paths;
+    a containment question that cannot be evaluated is a
+    containment failure, never a pass (v0.9.6, disputed findings
+    eae8137a6db3 / 3cecf66f6ce5: the mechanism was real, the
+    severity was not — one shared helper, used at both loader
+    call sites, so the two cannot drift apart again)."""
+    try:
+        p = os.path.realpath(path)
+        r = os.path.realpath(root)
+        return os.path.commonpath([p, r]) == r
+    except ValueError:
+        return False
+
+
 def _load_fixture_scope(path, repo="."):
     """Load a versioned fixture manifest (clean-gate solution §3):
     returns the fixture_scope dict run_review records and
@@ -80,7 +98,7 @@ def _load_fixture_scope(path, repo="."):
     full = os.path.realpath(
         path if os.path.isabs(path)
         else os.path.join(repo_abs, path))
-    if os.path.commonpath([full, repo_abs]) != repo_abs:
+    if not _is_within(full, repo_abs):
         # The recorded manifest path is replayed by record-verify
         # as a repo-relative object name; a manifest outside the
         # repo could neither be recorded honestly nor verified.
@@ -150,7 +168,7 @@ def _load_precedents(path, repo="."):
     full = os.path.realpath(
         path if os.path.isabs(path)
         else os.path.join(repo_abs, path))
-    if os.path.commonpath([full, repo_abs]) != repo_abs:
+    if not _is_within(full, repo_abs):
         raise ValueError(
             f"precedent store {path}: resolves outside the "
             f"repository ({full})")
@@ -988,7 +1006,11 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
                          "recomputed by record-verify")
     ap.add_argument("--attempts-log",
                     help="append one JSON line describing this run "
-                         "(seats, error classes, gate) to this file")
+                         "(seats, error classes, gate) to this file. "
+                         "Trust level: operator-supplied — the path "
+                         "comes from the command line only, never "
+                         "from repo content, policy, or config files "
+                         "(same trust as --out)")
     ap.add_argument("--private", action="store_true",
                     help="the repository is private: seats tagged "
                          "with a free tier are refused (free tiers "

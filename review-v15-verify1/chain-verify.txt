@@ -1,0 +1,12 @@
+  [ok ] chain_shape: 2 record(s): round 1 mode='review', verification rounds=1
+  [FAIL] ranges_contiguous: record 1 head field != its range head; record 2 head field != its range head; record 2 starts at e3fc6a8… but the previous round ended at e3fc6a8c12ba… (gap or overlap)
+  [ok ] patch_hashes_match: every round's patch hash recomputes from its range
+  [FAIL] rounds_not_degraded: round(s) degraded: [1, 2]
+  [FAIL] rounds_two_families: record 2 served by ['nvidia'] known families
+  [ok ] round1_lens_coverage: round 1 lenses served: ['correctness', 'operations']
+  [FAIL] round1_coverage_complete: round 1 has no complete coverage accounting — Form B requires the coverage proof on the round-1 record
+  [FAIL] round1_findings_dispositioned: round-1 blocking finding(s) never cleared on the record: ['320b878c6253']
+  [FAIL] final_gate_pass: final gate='inconclusive'
+  [ok ] tests_passed: 1/1 test commands ok in the final round
+  [ok ] head_current: commits after the final head touch only the chain's record directories
+codereview: chain of 2 record(s) NOT eligible

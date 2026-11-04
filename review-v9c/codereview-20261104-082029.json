@@ -1,0 +1,161 @@
+{
+  "schema": "codereview.report/1",
+  "version": "0.7.2",
+  "mode": "review",
+  "created_at": "2026-11-04T08:20:29+00:00",
+  "patch_sha256": "ed3ecff38c58a862bd5f01b6835b974f5dbb25ddbc82565f40195feec6257ce9",
+  "patch_chars": 75322,
+  "files": [
+    "CHANGELOG.md",
+    "README.md",
+    "REVIEW-NOTES.md",
+    "ROADMAP.md",
+    "examples/agent-seat-claude.sh",
+    "pyproject.toml",
+    "review-v8/codereview-20261104-053500.json",
+    "review-v8/codereview-20261104-053500.md",
+    "review-v8b/codereview-20261104-053649.json",
+    "review-v8b/codereview-20261104-053649.md",
+    "review-v9/codereview-20261104-054751.json",
+    "review-v9/codereview-20261104-054751.md",
+    "src/codereview/cli.py",
+    "src/codereview/core.py",
+    "src/codereview/providers.py",
+    "tests/test_core.py",
+    "tests/test_external_review_v070.py",
+    "tests/test_external_review_v071.py"
+  ],
+  "context": "Clean-record re-run for the v0.7.1+v0.7.2 span (external-review fixes: agent env allow-list, verification quorum + finder rule, seat isolation/namespaces, unique agent names, process-group kill on exit, lens coverage, write caps, private-HOME seats). All prior runs were degraded by the Gemini 429 quota wall; this run is the two-healthy-reviewer record.",
+  "test_results": [
+    {
+      "command": "python3 -m unittest discover -s tests",
+      "ok": true,
+      "exit_code": 0,
+      "output_tail": "................................................................................................\n----------------------------------------------------------------------\nRan 96 tests in 10.834s\n\nOK\n"
+    }
+  ],
+  "deterministic_findings": [
+    {
+      "id": "6938d28c87b5",
+      "rule": "disabled-test",
+      "severity": "minor",
+      "category": "testing",
+      "file": "review-v9/codereview-20261104-054751.json",
+      "line": 36,
+      "title": "Test disabled in added code",
+      "evidence": "\"evidence\": \"@unittest.skipUnless(os.name == \\\"posix\\\", \\\"process groups are POSIX\\\")\",",
+      "recommendation": "A skipped test is unreviewed behaviour; justify it in the change description or remove the skip.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "c7f952d7c96f",
+      "rule": "disabled-test",
+      "severity": "minor",
+      "category": "testing",
+      "file": "review-v9/codereview-20261104-054751.md",
+      "line": 8,
+      "title": "Test disabled in added code",
+      "evidence": "- evidence: `@unittest.skipUnless(os.name == \"posix\", \"process groups are POSIX\")`",
+      "recommendation": "A skipped test is unreviewed behaviour; justify it in the change description or remove the skip.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "ce560a25266e",
+      "rule": "disabled-test",
+      "severity": "minor",
+      "category": "testing",
+      "file": "tests/test_external_review_v071.py",
+      "line": 62,
+      "title": "Test disabled in added code",
+      "evidence": "@unittest.skipUnless(os.name == \"posix\", \"process groups are POSIX\")",
+      "recommendation": "A skipped test is unreviewed behaviour; justify it in the change description or remove the skip.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    }
+  ],
+  "reviewer_reports": [
+    {
+      "provider": "gemini",
+      "lens": "correctness",
+      "status": "error",
+      "error": "GEMINI_API_KEY is not set",
+      "summary": "",
+      "findings": []
+    },
+    {
+      "provider": "nvidia",
+      "lens": "operations",
+      "status": "error",
+      "error": "NVIDIA_API_KEY is not set",
+      "summary": "",
+      "findings": []
+    }
+  ],
+  "findings": [
+    {
+      "id": "6938d28c87b5",
+      "rule": "disabled-test",
+      "severity": "minor",
+      "category": "testing",
+      "file": "review-v9/codereview-20261104-054751.json",
+      "line": 36,
+      "title": "Test disabled in added code",
+      "evidence": "\"evidence\": \"@unittest.skipUnless(os.name == \\\"posix\\\", \\\"process groups are POSIX\\\")\",",
+      "recommendation": "A skipped test is unreviewed behaviour; justify it in the change description or remove the skip.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "c7f952d7c96f",
+      "rule": "disabled-test",
+      "severity": "minor",
+      "category": "testing",
+      "file": "review-v9/codereview-20261104-054751.md",
+      "line": 8,
+      "title": "Test disabled in added code",
+      "evidence": "- evidence: `@unittest.skipUnless(os.name == \"posix\", \"process groups are POSIX\")`",
+      "recommendation": "A skipped test is unreviewed behaviour; justify it in the change description or remove the skip.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "ce560a25266e",
+      "rule": "disabled-test",
+      "severity": "minor",
+      "category": "testing",
+      "file": "tests/test_external_review_v071.py",
+      "line": 62,
+      "title": "Test disabled in added code",
+      "evidence": "@unittest.skipUnless(os.name == \"posix\", \"process groups are POSIX\")",
+      "recommendation": "A skipped test is unreviewed behaviour; justify it in the change description or remove the skip.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    }
+  ],
+  "degraded": true,
+  "truncated": false,
+  "gate": "inconclusive",
+  "gate_reasons": [
+    "no reviewer succeeded and no deterministic blocker was found"
+  ]
+}

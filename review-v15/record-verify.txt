@@ -1,0 +1,13 @@
+  [FAIL] gate_pass: gate='blocked'
+  [FAIL] not_degraded: degraded=True
+  [ok ] tests_passed: 1/1 test commands ok
+  [ok ] lens_coverage: lenses served: ['correctness', 'operations']
+  [ok ] two_families: distinct known families: ['nvidia', 'openai']
+  [FAIL] coverage_complete: coverage incomplete: section(s) truncated
+  [ok ] tier_policy: run attested non-private (private=false); free-tier seats permitted
+  [ok ] range_recorded: 3013656..e3fc6a8
+  [ok ] patch_matches_range: recomputed patch hash matches
+  [ok ] head_current: commits after the recorded head touch only the record directory
+  [ok ] fixture_scope_valid: manifest hash, policy version, classified paths and fixture findings all recompute
+  [ok ] precedent_scope_valid: precedent store hash, entry links and cited-file blobs all recompute
+codereview: record (review-v15/codereview-20261104-224759.json) NOT eligible

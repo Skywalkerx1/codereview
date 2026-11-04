@@ -1,0 +1,204 @@
+{
+  "schema": "codereview.report/1",
+  "version": "0.9.4",
+  "mode": "verify",
+  "created_at": "2026-11-04T22:54:24+00:00",
+  "patch_sha256": "eab028023ad131a0e882b805d7605a23411a7dc5ef5d699e821a6f02a8f0acea",
+  "previous_gate": "blocked",
+  "private": false,
+  "test_results": [
+    {
+      "command": "python3 -m unittest discover -s tests",
+      "ok": true,
+      "exit_code": 0,
+      "output_tail": "ad())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:373: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/providers.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n./home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/__init__.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/__main__.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/bench.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/cli.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/core.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/github.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/intake.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/providers.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n........................................../home/hatch/workspace/codereview/tests/test_v094_probes.py:127: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/cli.py' mode='r' encoding='utf-8'>\n  \"core.py\", \"cli.py\"), encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n...../home/hatch/workspace/codereview/tests/test_v094_probes.py:91: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/providers.py' mode='r' encoding='utf-8'>\n  encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n....\n----------------------------------------------------------------------\nRan 264 tests in 29.206s\n\nOK\n"
+    }
+  ],
+  "cleared": [
+    {
+      "id": "636ba66423e7",
+      "rule": "",
+      "severity": "major",
+      "category": "reliability",
+      "file": "src/codereview/cli.py",
+      "line": 951,
+      "title": "Fallback seats ignore configured agent timeout during review runs",
+      "evidence": "build_providers([pspec.strip()])",
+      "evidence_quote": "build_providers([pspec.strip()])",
+      "recommendation": "Forward agent_timeout=args.timeout to both primary and fallback constructions in review command, mirroring doctor's forwarding.",
+      "confidence": 0.95,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false,
+      "grounding": "grounded",
+      "cross_family": "confirmed",
+      "cleared_by": [
+        "invalid"
+      ]
+    },
+    {
+      "id": "ec5d130cc37e",
+      "rule": "",
+      "severity": "major",
+      "category": "reliability",
+      "file": "src/codereview/core.py",
+      "line": 425,
+      "title": "No timeout guard on provider calls",
+      "evidence": "    return _call_and_parse(fn, prompt)",
+      "evidence_quote": "    return _call_and_parse(fn, prompt)",
+      "recommendation": "Add a timeout parameter to _call_with_retry and _review_job so provider calls do not hang indefinitely; set a default (e.g., 30s) and inject via sleep or provider-level hooks.",
+      "confidence": 0.85,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false,
+      "grounding": "grounded",
+      "cross_family": "confirmed",
+      "cleared_by": [
+        "invalid"
+      ]
+    },
+    {
+      "id": "ca7b6fb25b54",
+      "rule": "",
+      "severity": "major",
+      "category": "reliability",
+      "file": "src/codereview/core.py",
+      "line": 411,
+      "title": "Retry policy lacks hard per-job attempt cap",
+      "evidence": "    while True:",
+      "evidence_quote": "    while True:",
+      "recommendation": "Add a maximum attempt counter that breaks the loop after the configured max_attempts limit, and ensure _MAX_JOB_ATTEMPTS (6) is enforced as a hard cap across primary+fallback calls.",
+      "confidence": 0.9,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false,
+      "grounding": "grounded",
+      "cross_family": "confirmed",
+      "cleared_by": [
+        "invalid"
+      ]
+    },
+    {
+      "id": "3fbb6b031f51",
+      "rule": "",
+      "severity": "major",
+      "category": "correctness",
+      "file": "src/codereview/core.py",
+      "line": 435,
+      "title": "_classify_error regex may misclassify error codes",
+      "evidence": "    return re.search(rf\"\\b{code}\\b\", msg) is not None",
+      "evidence_quote": "    return re.search(rf\"\\b{code}\\b\", msg) is not None",
+      "recommendation": "Ensure error-code matching uses exact token boundaries that avoid partial matches (e.g., '4030' should not match '403'). Consider matching the full status line or using a more precise regex pattern.",
+      "confidence": 0.85,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false,
+      "grounding": "grounded",
+      "cross_family": "confirmed",
+      "cleared_by": [
+        "invalid"
+      ]
+    }
+  ],
+  "remaining": [],
+  "unjudged": [
+    {
+      "id": "320b878c6253",
+      "rule": "",
+      "severity": "major",
+      "category": "correctness",
+      "file": "src/codereview/providers.py",
+      "line": 278,
+      "title": "Successful agent runs can be reported as failures due to unconditional post-exit kill",
+      "evidence": "The process group is killed in the finally block for every run, then the code checks 'if proc.returncode != 0' without refreshing the return code after that kill. A fast command can finish, be SIGKILLed in the finally block before 'proc.returncode' is set, and then be treated as a non-zero exit.",
+      "evidence_quote": "                    _kill_tree(proc, pgid)",
+      "recommendation": "Only kill the process group on timeout/error, or first wait for the child to exit and capture its return code before any cleanup kill of background descendants. If you need to reap stray children after normal completion, avoid sending SIGKILL to the main process once it has exited.",
+      "confidence": 0.95,
+      "sources": [
+        "openai"
+      ],
+      "consensus": false,
+      "grounding": "grounded",
+      "cross_family": "unresolved",
+      "last_statuses": [
+        "invalid"
+      ]
+    }
+  ],
+  "reviewer_reports": [
+    {
+      "provider": "gemini",
+      "status": "error",
+      "error": "gemini quota: HTTP 429",
+      "resolutions": {},
+      "attempts": 1,
+      "error_classes": [
+        "quota"
+      ],
+      "family": "google",
+      "tier": "free"
+    },
+    {
+      "provider": "nvidia",
+      "status": "ok",
+      "error": "",
+      "resolutions": {
+        "636ba66423e7": {
+          "status": "invalid",
+          "evidence": "The new diff shows cli.py:698-699 `build_providers([pspec.strip()], agent_timeout=args.timeout)` forwarding the timeout to fallback construction. The builder's rebuttal confirms all three review command sites (primary, fallback, verify) forward the timeout. The original finding claimed fallback seat"
+        },
+        "ec5d130cc37e": {
+          "status": "invalid",
+          "evidence": "The new diff and builder's rebuttal confirm every provider call path carries a timeout. API calls go through `_post_json(url, headers, payload, timeout=DEFAULT_TIMEOUT)` with `DEFAULT_TIMEOUT = 240` (providers.py:37, 58-65), and the agent seam rejects non-positive values (providers.py:250-255). The "
+        },
+        "ca7b6fb25b54": {
+          "status": "invalid",
+          "evidence": "The new diff and builder's rebuttal confirm `_call_with_retry` is hard-bounded on every path: per-class caps from `_classify_error` (quota/auth/unknown=1, rate_limit/transient=3), min'd with `max_attempts` when given, raising as soon as `tally[\"attempts\"] >= max_tries`; the job level enforces `_MAX_"
+        },
+        "3fbb6b031f51": {
+          "status": "invalid",
+          "evidence": "The new diff and builder's rebuttal confirm `_classify_error`'s regex uses whole-token matching (`\\b{code}\\b`) and typed provider codes are checked before message text. Probes verify a 503 body mentioning \"4030 tokens\" stays transient, \"req_4014\" is not a 401, and `insufficient_quota` classifies quo"
+        },
+        "320b878c6253": {
+          "status": "invalid",
+          "evidence": "The new diff and builder's rebuttal confirm `_kill_tree` cannot raise on a dead group (catches ProcessLookupError, PermissionError, OSError; fallback proc.kill() is separately guarded). `communicate()` has already captured `proc.returncode` before the finally runs, so the kill cannot change the verd"
+        }
+      },
+      "attempts": 1,
+      "error_classes": [],
+      "family": "nvidia",
+      "tier": "free"
+    }
+  ],
+  "findings": [
+    {
+      "id": "68b8818bb3dd",
+      "rule": "disabled-test",
+      "severity": "minor",
+      "category": "testing",
+      "file": "tests/test_v094_probes.py",
+      "line": 107,
+      "title": "Test disabled in added code",
+      "evidence": "@unittest.skipUnless(os.name == \"posix\", \"POSIX process groups\")",
+      "evidence_quote": "@unittest.skipUnless(os.name == \"posix\", \"POSIX process groups\")",
+      "recommendation": "A skipped test is unreviewed behaviour; justify it in the change description or remove the skip.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    }
+  ],
+  "degraded": true,
+  "truncated": false,
+  "gate": "inconclusive",
+  "gate_reasons": [
+    "1 prior blocker(s) not confirmed cleared: the seat that raised each was not among the successful reviewers (run a fresh review with the finder present, or record a human waiver)"
+  ],
+  "range": "e3fc6a8..a731a96",
+  "head": "a731a9661aff0ec1b7a5a89d9d4643dcbf4663fc"
+}

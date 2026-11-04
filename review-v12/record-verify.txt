@@ -1,0 +1,10 @@
+  [FAIL] gate_pass: gate='blocked'
+  [ok ] not_degraded: degraded=False
+  [ok ] tests_passed: 1/1 test commands ok
+  [ok ] lens_coverage: lenses served: ['correctness', 'operations']
+  [ok ] two_families: distinct known families: ['nvidia', 'openai']
+  [ok ] range_recorded: 3013656..9eecd1d
+  [ok ] patch_matches_range: recomputed patch hash matches
+  [ok ] head_current: commits after the recorded head touch only the record directory
+  [ok ] fixture_scope_valid: manifest hash, policy version, classified paths and fixture findings all recompute
+codereview: record NOT eligible (review-v12/codereview-20261104-180317.json)

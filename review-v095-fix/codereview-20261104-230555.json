@@ -1,0 +1,257 @@
+{
+  "schema": "codereview.report/1",
+  "version": "0.9.5",
+  "mode": "review",
+  "created_at": "2026-11-04T23:05:55+00:00",
+  "patch_sha256": "04972cecd29d6c24bb3d394b6d408149af3692dbf524133a15ae8565c3867832",
+  "patch_chars": 45728,
+  "files": [
+    "CHANGELOG.md",
+    "pyproject.toml",
+    "src/codereview/cli.py",
+    "src/codereview/core.py",
+    "tests/test_core.py",
+    "tests/test_v093_phase2.py",
+    "tests/test_v095_fixes.py"
+  ],
+  "context": "v0.9.5: the three machinery fixes from the review-v15 successor report — (1) _batch_sections_detailed sub-splits oversized sections at hunk/line boundaries instead of truncating; (2) run_verification honors the lens-keyed fallback map and the CLI forwards it in verify mode; (3) verify_chain normalizes abbreviated SHAs to full before contiguity comparison. 12 new tests in tests/test_v095_fixes.py; two legacy truncation tests updated to the new semantics.",
+  "private": false,
+  "coverage": {
+    "batch_count": 1,
+    "truncated": false,
+    "complete": true,
+    "omissions": [],
+    "files": {
+      "CHANGELOG.md": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "pyproject.toml": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "src/codereview/cli.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "src/codereview/core.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "tests/test_core.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "tests/test_v093_phase2.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "tests/test_v095_fixes.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      }
+    }
+  },
+  "test_results": [
+    {
+      "command": "python3 -m unittest discover -s tests",
+      "ok": true,
+      "exit_code": 0,
+      "output_tail": "ceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:373: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/providers.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n./home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/__init__.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/__main__.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/bench.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/cli.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/core.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/github.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/intake.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/providers.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n........................................../home/hatch/workspace/codereview/tests/test_v094_probes.py:127: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/cli.py' mode='r' encoding='utf-8'>\n  \"core.py\", \"cli.py\"), encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n...../home/hatch/workspace/codereview/tests/test_v094_probes.py:91: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/providers.py' mode='r' encoding='utf-8'>\n  encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n................\n----------------------------------------------------------------------\nRan 276 tests in 29.521s\n\nOK\n"
+    }
+  ],
+  "deterministic_findings": [],
+  "reviewer_reports": [
+    {
+      "provider": "openai",
+      "lens": "correctness",
+      "batch": 1,
+      "status": "ok",
+      "error": "",
+      "summary": "The new batching logic can emit over-budget batches in a non-edge case, which breaks the stated size contract and can regress provider calls. I also found a verification fallback routing bug where a 2-seat panel can choose the wrong lens fallback for the second seat.",
+      "findings": [
+        {
+          "id": "6219e04d4c00",
+          "rule": "",
+          "severity": "major",
+          "category": "correctness",
+          "file": "src/codereview/core.py",
+          "line": 789,
+          "title": "Unplaceable oversized piece is appended to a fresh batch without any size guard",
+          "evidence": "When `_split_section` returns an unplaceable whole section, `_batch_sections_detailed` still does `current += piece` after only checking `if current and len(current) + len(piece) > max_chars`, so an oversized `piece` is accepted into an empty batch and exceeds the budget.",
+          "evidence_quote": "            current += piece",
+          "recommendation": "Before appending a piece, also handle the empty-batch case: if `len(piece) > max_chars`, mark batching incomplete and either return a dedicated failure path or keep the over-budget piece out of normal batches so downstream provider requests never exceed `max_chars`.",
+          "confidence": 0.95,
+          "sources": [
+            "openai"
+          ],
+          "consensus": false,
+          "grounding": "grounded"
+        },
+        {
+          "id": "35dbb7d20941",
+          "rule": "",
+          "severity": "major",
+          "category": "correctness",
+          "file": "src/codereview/core.py",
+          "line": 1658,
+          "title": "Verification fallback lens mapping is wrong for the second seat in a 2-provider panel",
+          "evidence": "The new mapping assigns each provider only `list(LENSES)[_i % len(LENSES)]`, but the comment says two seats split the lenses. With two providers and more than two lenses, seat 0 gets only the first lens and seat 1 gets only the second, so findings from other lenses raised by those seats will look up the wrong fallback or none at all.",
+          "evidence_quote": "            else [list(LENSES)[_i % len(LENSES)]])",
+          "recommendation": "Reuse the exact review-round seat-to-lens assignment logic from `_reviewer_tasks` instead of reconstructing it here. In particular, for 2 seats each seat should own the same lens set it would in review, not a single modulo-selected lens.",
+          "confidence": 0.89,
+          "sources": [
+            "openai"
+          ],
+          "consensus": false,
+          "grounding": "grounded"
+        }
+      ],
+      "attempts": 2,
+      "error_classes": [
+        "quota"
+      ],
+      "fallback_for": "gemini",
+      "primary_error": "gemini quota: HTTP 429",
+      "family": "openai",
+      "tier": "paid"
+    },
+    {
+      "provider": "nvidia",
+      "lens": "operations",
+      "batch": 1,
+      "status": "ok",
+      "error": "",
+      "summary": "All three v0.9.5 fixes are correctly implemented and all 276 tests pass, including the 12 new v0.9.5 fix tests.",
+      "findings": [],
+      "attempts": 1,
+      "error_classes": [],
+      "family": "nvidia",
+      "tier": "free"
+    }
+  ],
+  "findings": [],
+  "degraded": false,
+  "truncated": false,
+  "gate": "inconclusive",
+  "gate_reasons": [
+    "human decision required: disputed or ungrounded finding(s) are recorded in the record",
+    "correctness lens served by fallback seat 'openai' (primary 'gemini' failed: quota)",
+    "2 disputed finding(s): refuted by a second vendor family with quote evidence — routed to the human gate in disputed_findings; neither cleared nor blocking"
+  ],
+  "disputed_findings": [
+    {
+      "id": "6219e04d4c00",
+      "rule": "",
+      "severity": "major",
+      "category": "correctness",
+      "file": "src/codereview/core.py",
+      "line": 789,
+      "title": "Unplaceable oversized piece is appended to a fresh batch without any size guard",
+      "evidence": "When `_split_section` returns an unplaceable whole section, `_batch_sections_detailed` still does `current += piece` after only checking `if current and len(current) + len(piece) > max_chars`, so an oversized `piece` is accepted into an empty batch and exceeds the budget.",
+      "evidence_quote": "            current += piece",
+      "recommendation": "Before appending a piece, also handle the empty-batch case: if `len(piece) > max_chars`, mark batching incomplete and either return a dedicated failure path or keep the over-budget piece out of normal batches so downstream provider requests never exceed `max_chars`.",
+      "confidence": 0.95,
+      "sources": [
+        "openai"
+      ],
+      "consensus": false,
+      "grounding": "grounded",
+      "cross_family": "refuted",
+      "status": "disputed",
+      "dispute": {
+        "by": "nvidia",
+        "evidence_quote": "            current += piece",
+        "reason": "The quoted line `current += piece` is inside the `for piece in pieces:` loop, which iterates over pieces already generated by `_split_section`. The oversize guard `if current and len(current) + len(piece) > max_chars` runs before this append, and `_split_section` already enforces that no individual "
+      }
+    },
+    {
+      "id": "35dbb7d20941",
+      "rule": "",
+      "severity": "major",
+      "category": "correctness",
+      "file": "src/codereview/core.py",
+      "line": 1658,
+      "title": "Verification fallback lens mapping is wrong for the second seat in a 2-provider panel",
+      "evidence": "The new mapping assigns each provider only `list(LENSES)[_i % len(LENSES)]`, but the comment says two seats split the lenses. With two providers and more than two lenses, seat 0 gets only the first lens and seat 1 gets only the second, so findings from other lenses raised by those seats will look up the wrong fallback or none at all.",
+      "evidence_quote": "            else [list(LENSES)[_i % len(LENSES)]])",
+      "recommendation": "Reuse the exact review-round seat-to-lens assignment logic from `_reviewer_tasks` instead of reconstructing it here. In particular, for 2 seats each seat should own the same lens set it would in review, not a single modulo-selected lens.",
+      "confidence": 0.89,
+      "sources": [
+        "openai"
+      ],
+      "consensus": false,
+      "grounding": "grounded",
+      "cross_family": "refuted",
+      "status": "disputed",
+      "dispute": {
+        "by": "nvidia",
+        "evidence_quote": "            else [list(LENSES)[_i % len(LENSES)]])",
+        "reason": "The code assigns each provider a full lens list (LENSES) when there is only one provider, and a modulo-selected single lens per provider when there are multiple. The claim that two seats split lenses with each getting only one modulo-selected lens is incorrect; the assignment logic here gives each p"
+      }
+    }
+  ]
+}

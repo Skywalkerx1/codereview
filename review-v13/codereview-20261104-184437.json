@@ -1,0 +1,1399 @@
+{
+  "schema": "codereview.report/1",
+  "version": "0.9.1",
+  "mode": "review",
+  "created_at": "2026-11-04T18:44:37+00:00",
+  "patch_sha256": "0a547b1f20424dc75d929cdb245c694341a29ca812e832f40f991c4d4219de0a",
+  "patch_chars": 401747,
+  "files": [
+    "CHANGELOG.md",
+    "README.md",
+    "REVIEW-NOTES.md",
+    "ROADMAP.md",
+    "bench/README.md",
+    "bench/configs/blind.json",
+    "bench/configs/noisy.json",
+    "bench/configs/oracle.json",
+    "bench/configs/panel-gemini-nvidia.json",
+    "bench/corpus/auth-admin-or-true/case.json",
+    "bench/corpus/auth-admin-or-true/diff.patch",
+    "bench/corpus/auth-check-removed/case.json",
+    "bench/corpus/auth-check-removed/diff.patch",
+    "bench/corpus/clean-add-tests/case.json",
+    "bench/corpus/clean-add-tests/diff.patch",
+    "bench/corpus/clean-add-timeout-retry/case.json",
+    "bench/corpus/clean-add-timeout-retry/diff.patch",
+    "bench/corpus/clean-auth-check-added/case.json",
+    "bench/corpus/clean-auth-check-added/diff.patch",
+    "bench/corpus/clean-health-guard-fix/case.json",
+    "bench/corpus/clean-health-guard-fix/diff.patch",
+    "bench/corpus/clean-input-validation/case.json",
+    "bench/corpus/clean-input-validation/diff.patch",
+    "bench/corpus/clean-parameterized-query/case.json",
+    "bench/corpus/clean-parameterized-query/diff.patch",
+    "bench/corpus/clean-refactor-rename/case.json",
+    "bench/corpus/clean-refactor-rename/diff.patch",
+    "bench/corpus/command-injection-shell/case.json",
+    "bench/corpus/command-injection-shell/diff.patch",
+    "bench/corpus/debug-breakpoint/case.json",
+    "bench/corpus/debug-breakpoint/diff.patch",
+    "bench/corpus/delete-no-where/case.json",
+    "bench/corpus/delete-no-where/diff.patch",
+    "bench/corpus/disabled-test/case.json",
+    "bench/corpus/disabled-test/diff.patch",
+    "bench/corpus/drop-table-migration/case.json",
+    "bench/corpus/drop-table-migration/diff.patch",
+    "bench/corpus/error-swallow-bare-except/case.json",
+    "bench/corpus/error-swallow-bare-except/diff.patch",
+    "bench/corpus/eval-user-input/case.json",
+    "bench/corpus/eval-user-input/diff.patch",
+    "bench/corpus/float-money-total/case.json",
+    "bench/corpus/float-money-total/diff.patch",
+    "bench/corpus/http-no-timeout/case.json",
+    "bench/corpus/http-no-timeout/diff.patch",
+    "bench/corpus/manifest.json",
+    "bench/corpus/off-by-one-pagination/case.json",
+    "bench/corpus/off-by-one-pagination/diff.patch",
+    "bench/corpus/path-traversal-upload/case.json",
+    "bench/corpus/path-traversal-upload/diff.patch",
+    "bench/corpus/payment-amount-dollars-cents/case.json",
+    "bench/corpus/payment-amount-dollars-cents/diff.patch",
+    "bench/corpus/payment-quantity-dropped/case.json",
+    "bench/corpus/payment-quantity-dropped/diff.patch",
+    "bench/corpus/payment-refund-partial/case.json",
+    "bench/corpus/payment-refund-partial/diff.patch",
+    "bench/corpus/plaintext-password-store/case.json",
+    "bench/corpus/plaintext-password-store/diff.patch",
+    "bench/corpus/race-check-then-act/case.json",
+    "bench/corpus/race-check-then-act/diff.patch",
+    "bench/corpus/race-counter-increment/case.json",
+    "bench/corpus/race-counter-increment/diff.patch",
+    "bench/corpus/real-buggy-alert-flood/case.json",
+    "bench/corpus/real-buggy-alert-flood/diff.patch",
+    "bench/corpus/secret-aws-key/case.json",
+    "bench/corpus/secret-aws-key/diff.patch",
+    "bench/corpus/secret-hardcoded-api-key/case.json",
+    "bench/corpus/secret-hardcoded-api-key/diff.patch",
+    "bench/corpus/secret-private-key/case.json",
+    "bench/corpus/secret-private-key/diff.patch",
+    "bench/corpus/sensitive-data-logging/case.json",
+    "bench/corpus/sensitive-data-logging/diff.patch",
+    "bench/corpus/sql-injection-concat/case.json",
+    "bench/corpus/sql-injection-concat/diff.patch",
+    "bench/corpus/sql-injection-fstring/case.json",
+    "bench/corpus/sql-injection-fstring/diff.patch",
+    "bench/corpus/ssrf-fetch/case.json",
+    "bench/corpus/ssrf-fetch/diff.patch",
+    "bench/corpus/unbounded-query/case.json",
+    "bench/corpus/unbounded-query/diff.patch",
+    "bench/corpus/xss-innerhtml/case.json",
+    "bench/corpus/xss-innerhtml/diff.patch",
+    "bench/scripts/blind.json",
+    "bench/scripts/noisy.json",
+    "bench/scripts/oracle.json",
+    "examples/agent-seat-claude.sh",
+    "fixtures-manifest.json",
+    "gate-attempts.md",
+    "pyproject.toml",
+    "review-v10/codereview-20261104-122908.json",
+    "review-v10/codereview-20261104-122908.md",
+    "review-v11-dispositions.md",
+    "review-v12-dispositions.md",
+    "review-v8/codereview-20261104-053500.json",
+    "review-v8/codereview-20261104-053500.md",
+    "review-v8b/codereview-20261104-053649.json",
+    "review-v8b/codereview-20261104-053649.md",
+    "review-v9/codereview-20261104-054751.json",
+    "review-v9/codereview-20261104-054751.md",
+    "src/codereview/bench.py",
+    "src/codereview/cli.py",
+    "src/codereview/core.py",
+    "src/codereview/providers.py",
+    "tests/test_bench.py",
+    "tests/test_core.py",
+    "tests/test_external_review_v070.py",
+    "tests/test_external_review_v071.py",
+    "tests/test_solution_v073.py",
+    "tests/test_v090_fixes.py",
+    "tests/test_v091_fixes.py"
+  ],
+  "context": "# Disposition table — review-v12 findings (span 3013656..9eecd1d)\n\nEvery one of the 16 findings in `review-v12/codereview-20261104-180317.json` (patch sha256 5a9dd1c1647cbbc918b921e4041bc75c3a349f31e700f6665e9b3ed8c4cac0fd), adjudicated against the code before anything was changed, per the closure criteria in the governing issue report (`~/workspace/issue-reports/2026-11-04-codereview-v12-gate-findings.md`). Outcomes: 3 fixed as real product defects, 6 rebutted as false positives with evidence, ",
+  "test_results": [
+    {
+      "command": "python3 -m unittest discover -s tests",
+      "ok": true,
+      "exit_code": 0,
+      "output_tail": "codereview bench: oracle: 3 case record(s) in /tmp/tmpvh282dk0/out (gates: {\"blocked\": 2, \"pass\": 1})\n# CodeReview benchmark report\n\nGenerated: 2026-11-04T18:43:15+00:00 · corpus cases known: 3\n**Public report — holdout split excluded.** Holdout cases are the overfit guard; their ids, rows, and scores never appear here.\n\n| Config | Cases | Recall | Escaped-defect rate | Precision | Clean-case FP rate | Cost/verdict | p50 | p95 |\n|---|---:|---:|---:|---:|---:|---:|---:|---:|\n| oracle | 2 | 1.000 | 0.000 | 1.000 | 0.000 | $0.0000 | 0 ms | 1 ms |\n\n## oracle\n\nDefects: 1/1 matched, 0 escaped · findings: 1 (0 false positives) · gates: {\"blocked\": 1, \"pass\": 1} · degraded cases: 0\n\n| Case | Split | Category | Gate | Matched | Escaped | FPs | ms |\n|---|---|---|---|---:|---:|---:|---:|\n| clean-one | public | clean | pass | 0/0 | 0 | 0 | 1 |\n| pay-bug | public | payments | blocked | 1/1 | 0 | 0 | 0 |\n\n{\n \"ok\": true,\n \"seats\": [\n  {\n   \"name\": \"x\",\n   \"ok\": true,\n   \"error_class\": \"\",\n   \"error\": \"\",\n   \"role\": \"primary\"\n  }\n ]\n}\n{\n \"ok\": true,\n \"seats\": [\n  {\n   \"name\": \"prim\",\n   \"ok\": true,\n   \"error_class\": \"\",\n   \"error\": \"\",\n   \"role\": \"primary\"\n  },\n  {\n   \"name\": \"fb\",\n   \"ok\": true,\n   \"error_class\": \"\",\n   \"error\": \"\",\n   \"role\": \"fallback\",\n   \"lens\": \"correctness\"\n  }\n ]\n}\ncodereview: gate = PASS (solo panel — no independent review)\n  findings: 0 (0 blocking-severity)\n  report: /tmp/tmpo_3nw73n/out/codereview-20261104-184343.md\n  data:   /tmp/tmpo_3nw73n/out/codereview-20261104-184343.json\ncodereview: gate = PASS (solo panel — no independent review)\n  findings: 0 (0 blocking-severity)\n  report: /tmp/tmpqy1banoz/out/codereview-20261104-184343.md\n  data:   /tmp/tmpqy1banoz/out/codereview-20261104-184343.json\n{\"ok\": false, \"seats\": [], \"error\": \"--timeout must be a positive number of seconds\"}\n......................................................................................................................................................................................../home/hatch/workspace/codereview/tests/test_v091_fixes.py:142: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/cli.py' mode='r' encoding='utf-8'>\n  encoding=\"utf-8\").read(), node) or \"\"\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n.......codereview intake: --timeout must be a positive number of seconds\n.codereview: --timeout must be a positive number of seconds\ncodereview: --timeout must be a positive number of seconds\n.\n----------------------------------------------------------------------\nRan 193 tests in 28.715s\n\nOK\n"
+    }
+  ],
+  "deterministic_findings": [
+    {
+      "id": "f1f39e30f5c6",
+      "rule": "sql-string-build",
+      "severity": "major",
+      "category": "security",
+      "file": "bench/corpus/clean-parameterized-query/diff.patch",
+      "line": 4,
+      "title": "SQL statement built by string formatting/concatenation",
+      "evidence": "-    return db.execute(\"SELECT * FROM users WHERE name = '\" + name + \"'\")",
+      "recommendation": "Use parameterized queries / bound parameters for every value.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "3440e167fcd7",
+      "rule": "shell-exec",
+      "severity": "major",
+      "category": "security",
+      "file": "bench/corpus/command-injection-shell/diff.patch",
+      "line": 8,
+      "title": "Shell execution in added code",
+      "evidence": "-    return os.popen(\"ping -c 1 \" + host).read()",
+      "recommendation": "Verify no untrusted input can reach the command; prefer argv lists with shell=False.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "bf2cae73e65b",
+      "rule": "debug-left",
+      "severity": "minor",
+      "category": "quality",
+      "file": "bench/corpus/debug-breakpoint/diff.patch",
+      "line": 5,
+      "title": "Debug statement left in added code",
+      "evidence": "+    breakpoint()",
+      "recommendation": "Remove debugging leftovers before shipping.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "b5a81aeefc4e",
+      "rule": "delete-no-where",
+      "severity": "major",
+      "category": "data-loss",
+      "file": "bench/corpus/delete-no-where/diff.patch",
+      "line": 5,
+      "title": "DELETE without a WHERE clause",
+      "evidence": "+    cursor.execute(\"DELETE FROM sessions\")",
+      "recommendation": "Add a precise WHERE clause or confirm a deliberate full-table wipe.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "09796413c693",
+      "rule": "disabled-test",
+      "severity": "minor",
+      "category": "testing",
+      "file": "bench/corpus/disabled-test/diff.patch",
+      "line": 6,
+      "title": "Test disabled in added code",
+      "evidence": "+@pytest.mark.skip(reason=\"flaky on CI\")",
+      "recommendation": "A skipped test is unreviewed behaviour; justify it in the change description or remove the skip.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "2fc16badb25e",
+      "rule": "drop-table",
+      "severity": "blocker",
+      "category": "data-loss",
+      "file": "bench/corpus/drop-table-migration/case.json",
+      "line": 14,
+      "title": "DROP TABLE in added code",
+      "evidence": "\"title\": \"DROP TABLE destroys the legacy users table in a migration\",",
+      "recommendation": "Confirm this is a deliberate, backed-up migration; otherwise remove.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "b05dc49142ff",
+      "rule": "drop-table",
+      "severity": "blocker",
+      "category": "data-loss",
+      "file": "bench/corpus/drop-table-migration/diff.patch",
+      "line": 7,
+      "title": "DROP TABLE in added code",
+      "evidence": "+    conn.execute(\"DROP TABLE legacy_users\")",
+      "recommendation": "Confirm this is a deliberate, backed-up migration; otherwise remove.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "77bdc2099503",
+      "rule": "eval-exec",
+      "severity": "blocker",
+      "category": "security",
+      "file": "bench/corpus/eval-user-input/case.json",
+      "line": 14,
+      "title": "eval/exec call in added code",
+      "evidence": "\"title\": \"eval() executes user-supplied input\",",
+      "recommendation": "Replace dynamic evaluation with a safe, explicit code path.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "d05fd6ba47fa",
+      "rule": "eval-exec",
+      "severity": "blocker",
+      "category": "security",
+      "file": "bench/corpus/eval-user-input/diff.patch",
+      "line": 7,
+      "title": "eval/exec call in added code",
+      "evidence": "+    return eval(expr)",
+      "recommendation": "Replace dynamic evaluation with a safe, explicit code path.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "61976948e7f1",
+      "rule": "sql-string-build",
+      "severity": "major",
+      "category": "security",
+      "file": "bench/corpus/real-buggy-alert-flood/diff.patch",
+      "line": 10,
+      "title": "SQL statement built by string formatting/concatenation",
+      "evidence": "+        db.execute(f\"DELETE FROM jobs WHERE id = {v.job_id}\")",
+      "recommendation": "Use parameterized queries / bound parameters for every value.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "489b52d73951",
+      "rule": "hardcoded-secret",
+      "severity": "blocker",
+      "category": "security",
+      "file": "bench/corpus/real-buggy-alert-flood/diff.patch",
+      "line": 17,
+      "title": "Possible hardcoded secret in added code",
+      "evidence": "+SMTP_PASSWORD = '[REDACTED]'",
+      "recommendation": "Move the value to the secret store / environment and rotate it if it was ever real.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "d6d4fe316d81",
+      "rule": "aws-access-key",
+      "severity": "blocker",
+      "category": "security",
+      "file": "bench/corpus/secret-aws-key/diff.patch",
+      "line": 7,
+      "title": "AWS access key id in added code",
+      "evidence": "+AWS_ACCESS_KEY_ID = \"[REDACTED-AWS-KEY]\"",
+      "recommendation": "Remove and rotate the key; load credentials from the environment.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "473464b31a98",
+      "rule": "hardcoded-secret",
+      "severity": "blocker",
+      "category": "security",
+      "file": "bench/corpus/secret-hardcoded-api-key/diff.patch",
+      "line": 8,
+      "title": "Possible hardcoded secret in added code",
+      "evidence": "+API_KEY = '[REDACTED]'",
+      "recommendation": "Move the value to the secret store / environment and rotate it if it was ever real.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "b4437fa1e4a3",
+      "rule": "private-key",
+      "severity": "blocker",
+      "category": "security",
+      "file": "bench/corpus/secret-private-key/diff.patch",
+      "line": 6,
+      "title": "Private key material in added code",
+      "evidence": "+PRIVATE_KEY_PEM = \"\"\"[REDACTED-PRIVATE-KEY]",
+      "recommendation": "Remove the key material and rotate it.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "f561618dd84e",
+      "rule": "sql-string-build",
+      "severity": "major",
+      "category": "security",
+      "file": "bench/corpus/sql-injection-concat/diff.patch",
+      "line": 6,
+      "title": "SQL statement built by string formatting/concatenation",
+      "evidence": "+    q = \"SELECT * FROM docs WHERE title LIKE '%\" + term + \"%'\"",
+      "recommendation": "Use parameterized queries / bound parameters for every value.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "57c306369828",
+      "rule": "sql-string-build",
+      "severity": "major",
+      "category": "security",
+      "file": "bench/corpus/sql-injection-fstring/diff.patch",
+      "line": 10,
+      "title": "SQL statement built by string formatting/concatenation",
+      "evidence": "+    return db.execute(f\"SELECT * FROM users WHERE name = '{name}'\")",
+      "recommendation": "Use parameterized queries / bound parameters for every value.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "c1ae8b91c191",
+      "rule": "eval-exec",
+      "severity": "blocker",
+      "category": "security",
+      "file": "bench/scripts/oracle.json",
+      "line": 75,
+      "title": "eval/exec call in added code",
+      "evidence": "\"title\": \"eval() executes user-supplied input\",",
+      "recommendation": "Replace dynamic evaluation with a safe, explicit code path.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "f098a86dfae3",
+      "rule": "drop-table",
+      "severity": "blocker",
+      "category": "data-loss",
+      "file": "bench/scripts/oracle.json",
+      "line": 488,
+      "title": "DROP TABLE in added code",
+      "evidence": "\"title\": \"DROP TABLE destroys the legacy users table in a migration\",",
+      "recommendation": "Confirm this is a deliberate, backed-up migration; otherwise remove.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "0d81ded1de5e",
+      "rule": "disabled-test",
+      "severity": "minor",
+      "category": "testing",
+      "file": "review-v12-dispositions.md",
+      "line": 19,
+      "title": "Test disabled in added code",
+      "evidence": "| 2 | 934db5187cf3 | major | src/codereview/cli.py:62 | Disabled test blocks correctness lens coverage in bench harness (the `@unittest.skipUnless(os.name == \"posix\", …)` platform guard) | Repeat — rebuttal stands; guard unchanged | Same substance as review-v11 findings [36]–[39], rebutted with evid",
+      "recommendation": "A skipped test is unreviewed behaviour; justify it in the change description or remove the skip.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "6938d28c87b5",
+      "rule": "disabled-test",
+      "severity": "minor",
+      "category": "testing",
+      "file": "review-v9/codereview-20261104-054751.json",
+      "line": 36,
+      "title": "Test disabled in added code",
+      "evidence": "\"evidence\": \"@unittest.skipUnless(os.name == \\\"posix\\\", \\\"process groups are POSIX\\\")\",",
+      "recommendation": "A skipped test is unreviewed behaviour; justify it in the change description or remove the skip.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "c7f952d7c96f",
+      "rule": "disabled-test",
+      "severity": "minor",
+      "category": "testing",
+      "file": "review-v9/codereview-20261104-054751.md",
+      "line": 8,
+      "title": "Test disabled in added code",
+      "evidence": "- evidence: `@unittest.skipUnless(os.name == \"posix\", \"process groups are POSIX\")`",
+      "recommendation": "A skipped test is unreviewed behaviour; justify it in the change description or remove the skip.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "ce560a25266e",
+      "rule": "disabled-test",
+      "severity": "minor",
+      "category": "testing",
+      "file": "tests/test_external_review_v071.py",
+      "line": 62,
+      "title": "Test disabled in added code",
+      "evidence": "@unittest.skipUnless(os.name == \"posix\", \"process groups are POSIX\")",
+      "recommendation": "A skipped test is unreviewed behaviour; justify it in the change description or remove the skip.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "0aada5c69aab",
+      "rule": "disabled-test",
+      "severity": "minor",
+      "category": "testing",
+      "file": "tests/test_v091_fixes.py",
+      "line": 416,
+      "title": "Test disabled in added code",
+      "evidence": "@unittest.skipUnless(os.name == \"posix\", \"process groups are POSIX\")",
+      "recommendation": "A skipped test is unreviewed behaviour; justify it in the change description or remove the skip.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    }
+  ],
+  "reviewer_reports": [
+    {
+      "provider": "openai",
+      "lens": "correctness",
+      "status": "ok",
+      "error": "",
+      "summary": "The diff adds benchmark fixtures, canned review data, metadata, and release records. I did not find a correctness or security issue in the product code changes themselves that is supportable from this diff.",
+      "findings": [],
+      "attempts": 2,
+      "error_classes": [
+        "quota"
+      ],
+      "fallback_for": "gemini",
+      "primary_error": "gemini quota: HTTP 429",
+      "family": "openai",
+      "tier": "paid"
+    },
+    {
+      "provider": "openai",
+      "lens": "correctness",
+      "status": "ok",
+      "error": "",
+      "summary": "I found one correctness issue in the new bench harness that can silently produce duplicate or conflicting scores for the same case after a config rename or alias change.",
+      "findings": [
+        {
+          "id": "ef8b8b9ca701",
+          "rule": "",
+          "severity": "major",
+          "category": "correctness",
+          "file": "src/codereview/bench.py",
+          "line": 478,
+          "title": "Resume logic keys prior results by stored config name instead of the current output file",
+          "evidence": "'done = {(r['config'], r['case_id']) for r in records}' and later 'key = (cfg['name'], case['id'])'",
+          "recommendation": "When resuming from '<out>/<config>.jsonl', treat every retained record in that file as belonging to the current config file regardless of its embedded 'config' field, or normalize retained records to 'cfg['name']' before building 'done'. Otherwise a config rename or alias change with identical 'config_sha256' will bypass deduplication and append a second record for the same case into the same results file.",
+          "confidence": 0.95,
+          "sources": [
+            "openai"
+          ],
+          "consensus": false
+        }
+      ],
+      "attempts": 2,
+      "error_classes": [
+        "quota"
+      ],
+      "fallback_for": "gemini",
+      "primary_error": "gemini quota: HTTP 429",
+      "family": "openai",
+      "tier": "paid"
+    },
+    {
+      "provider": "openai",
+      "lens": "correctness",
+      "status": "ok",
+      "error": "",
+      "summary": "The new benchmark corpus manifest is internally inconsistent with the files added in this diff. That will break any loader that validates the manifest against on-disk case directories, which the new docs explicitly say it does.",
+      "findings": [
+        {
+          "id": "fb58dad35b96",
+          "rule": "",
+          "severity": "major",
+          "category": "correctness",
+          "file": "bench/README.md",
+          "line": 43,
+          "title": "Benchmark docs promise manifest validation, but the added manifest references many missing case directories",
+          "evidence": "'(the loader refuses a corpus whose manifest and directories disagree).'",
+          "recommendation": "Either add all case directories referenced by `bench/corpus/manifest.json` in this change, or trim the manifest to only the cases actually present. Also add a test that loads the shipped corpus from disk so this mismatch cannot regress.",
+          "confidence": 0.98,
+          "sources": [
+            "openai"
+          ],
+          "consensus": false
+        },
+        {
+          "id": "e56d2d141503",
+          "rule": "",
+          "severity": "major",
+          "category": "correctness",
+          "file": "bench/corpus/manifest.json",
+          "line": 6,
+          "title": "Corpus manifest lists case ids that are not added in this patch, making the shipped corpus invalid",
+          "evidence": "'      \"id\": \"secret-hardcoded-api-key\",' ; '      \"id\": \"secret-private-key\",' ; '      \"id\": \"sql-injection-fstring\",' ; '      \"id\": \"race-counter-increment\",' ; '      \"id\": \"ssrf-fetch\",' ; '      \"id\": \"sensitive-data-logging\",' ; '      \"id\": \"unbounded-query\",' ; '      \"id\": \"real-buggy-alert-flood\",' ; '      \"id\": \"secret-aws-key\",' ; '      \"id\": \"sql-injection-concat\",' ; '      \"id\":",
+          "recommendation": "Make `bench/corpus/manifest.json` match the actual contents of `bench/corpus/` in this release, or include the missing case directories and files in the patch. A corpus self-check in CI should verify every manifest id has both `case.json` and `diff.patch`.",
+          "confidence": 0.99,
+          "sources": [
+            "openai"
+          ],
+          "consensus": false
+        }
+      ],
+      "attempts": 2,
+      "error_classes": [
+        "quota"
+      ],
+      "fallback_for": "gemini",
+      "primary_error": "gemini quota: HTTP 429",
+      "family": "openai",
+      "tier": "paid"
+    },
+    {
+      "provider": "nvidia",
+      "lens": "operations",
+      "status": "ok",
+      "error": "",
+      "summary": "The diff adds a dispositions file summarizing review-v12 findings and their resolutions; all code changes in the diff are either documentation or already-rebutted findings with fixes applied. No new reliability risks are introduced.",
+      "findings": [],
+      "attempts": 1,
+      "error_classes": [],
+      "family": "nvidia",
+      "tier": "free"
+    },
+    {
+      "provider": "openai",
+      "lens": "correctness",
+      "status": "ok",
+      "error": "",
+      "summary": "The new agent timeout plumbing has a correctness regression: explicitly passing 0 or another falsey timeout value is ignored and replaced with the default. I did not find a diff-supported security issue beyond that.",
+      "findings": [
+        {
+          "id": "782c2c02bb16",
+          "rule": "",
+          "severity": "major",
+          "category": "correctness",
+          "file": "src/codereview/providers.py",
+          "line": 384,
+          "title": "Falsey agent_timeout values are silently replaced with the default",
+          "evidence": "'command, timeout=agent_timeout or AGENT_TIMEOUT,'",
+          "recommendation": "Use an explicit None check so only an omitted timeout falls back to the default, e.g. compute 'timeout = AGENT_TIMEOUT if agent_timeout is None else agent_timeout' before calling command_agent.",
+          "confidence": 0.96,
+          "sources": [
+            "openai"
+          ],
+          "consensus": false
+        }
+      ],
+      "attempts": 2,
+      "error_classes": [
+        "quota"
+      ],
+      "fallback_for": "gemini",
+      "primary_error": "gemini quota: HTTP 429",
+      "family": "openai",
+      "tier": "paid"
+    },
+    {
+      "provider": "nvidia",
+      "lens": "operations",
+      "status": "ok",
+      "error": "",
+      "summary": "The diff adds changelog, README, bench infrastructure, and test coverage for the v0.9.1 release; all changes are consistent with the adjudicated v12 findings and the enumeration test validates every build_providers/build_solvers path. No new reliability or safety issues are introduced.",
+      "findings": [],
+      "attempts": 1,
+      "error_classes": [],
+      "family": "nvidia",
+      "tier": "free"
+    },
+    {
+      "provider": "openai",
+      "lens": "correctness",
+      "status": "ok",
+      "error": "",
+      "summary": "The diff introduces a release-record verification bypass for private-repo policy and a correctness regression in fixture path matching that can misclassify unrelated files as fixtures.",
+      "findings": [
+        {
+          "id": "a5b9d8c19af3",
+          "rule": "",
+          "severity": "major",
+          "category": "security",
+          "file": "src/codereview/core.py",
+          "line": 1170,
+          "title": "Record verification does not enforce the private-repo free-tier policy",
+          "evidence": "'known = {r.get('family') for r in ok_reports' ... 'add('two_families', len(known) >= 2,' ... 'return {'eligible': all(c['ok'] for c in checks),'",
+          "recommendation": "Extend 'verify_record' to validate the recorded seat tiers against the repository privacy policy, e.g. fail eligibility when any successful reviewer report has tier 'free' for a private repository, or record and verify an explicit 'private' flag in the report.",
+          "confidence": 0.91,
+          "sources": [
+            "openai"
+          ],
+          "consensus": false
+        },
+        {
+          "id": "9a34f77ec4d6",
+          "rule": "",
+          "severity": "major",
+          "category": "correctness",
+          "file": "src/codereview/core.py",
+          "line": 117,
+          "title": "Plain fixture paths match sibling prefixes and can hide non-fixture findings",
+          "evidence": "'base = pat.rstrip('/')' and 'if path == base or path.startswith(base + '/'):'",
+          "recommendation": "For plain paths, distinguish files from directories instead of treating every pattern as a directory prefix. Match exact file paths only, and only apply prefix matching when the manifest explicitly denotes a directory such as with a trailing slash or '/**'.",
+          "confidence": 0.95,
+          "sources": [
+            "openai"
+          ],
+          "consensus": false
+        }
+      ],
+      "attempts": 2,
+      "error_classes": [
+        "quota"
+      ],
+      "fallback_for": "gemini",
+      "primary_error": "gemini quota: HTTP 429",
+      "family": "openai",
+      "tier": "paid"
+    },
+    {
+      "provider": "openai",
+      "lens": "correctness",
+      "status": "ok",
+      "error": "",
+      "summary": "The diff only adds tests, and I did not find a correctness or security issue introduced by these additions that is supportable from the diff itself.",
+      "findings": [],
+      "attempts": 4,
+      "error_classes": [
+        "quota",
+        "transient",
+        "transient"
+      ],
+      "fallback_for": "gemini",
+      "primary_error": "gemini quota: HTTP 429",
+      "family": "openai",
+      "tier": "paid"
+    },
+    {
+      "provider": "nvidia",
+      "lens": "operations",
+      "status": "ok",
+      "error": "",
+      "summary": "The diff adds a comprehensive test suite (test_v091_fixes.py) covering timeout enumeration, forwarding, validation, bench force rerun, fixture inner paths, and subprocess ordering — all aligned with the v12 closure criteria. No production code changes are present; the change is purely test infrastructure that enforces the guards the v12 panel documented. All cited findings from the prior round are either fixed, rebutted, or recorded as repeats with mechanisms. The new tests provide executable ev",
+      "findings": [],
+      "attempts": 1,
+      "error_classes": [],
+      "family": "nvidia",
+      "tier": "free"
+    },
+    {
+      "provider": "nvidia",
+      "lens": "operations",
+      "status": "ok",
+      "error": "",
+      "summary": "The diff introduces robust agent isolation, timeout handling, retryable error classification, cross-kind seat-name collision detection, and a full test suite covering the new functionality. No blockers, majors, or minors were found; only a nit regarding the unused `re` import.",
+      "findings": [
+        {
+          "id": "0e08541a39d4",
+          "rule": "",
+          "severity": "nit",
+          "category": "quality",
+          "file": "src/codereview/providers.py",
+          "line": 27,
+          "title": "Unused `re` import",
+          "evidence": "import re  (line 27)",
+          "recommendation": "Remove the `import re` line if `re` is not used in this file, or add `re` usage.",
+          "confidence": 0.9,
+          "sources": [
+            "nvidia"
+          ],
+          "consensus": false
+        }
+      ],
+      "attempts": 1,
+      "error_classes": [],
+      "family": "nvidia",
+      "tier": "free"
+    },
+    {
+      "provider": "nvidia",
+      "lens": "operations",
+      "status": "ok",
+      "error": "",
+      "summary": "The diff introduces a race-condition vulnerability (check-then-act) and a read-modify-write counter race in benchmark corpus files; these are intentional defect-injection fixtures but must be flagged per the operations & reliability lens.",
+      "findings": [
+        {
+          "id": "deef236a0043",
+          "rule": "",
+          "severity": "major",
+          "category": "correctness",
+          "file": "app/files.py",
+          "line": 11,
+          "title": "Check-then-act race: existence check and create are not atomic",
+          "evidence": "if not os.path.exists(path):\\n    return open(path, \"w\")\\nraise FileExistsError(path)",
+          "recommendation": "Replace the non-atomic check-then-act pattern with an atomic file creation (os.open with O_CREAT|O_EXCL) or use a lock to ensure the existence check and creation happen without a gap.",
+          "confidence": 0.95,
+          "sources": [
+            "nvidia"
+          ],
+          "consensus": false
+        },
+        {
+          "id": "19ce112d7d76",
+          "rule": "",
+          "severity": "major",
+          "category": "correctness",
+          "file": "app/metrics.py",
+          "line": 17,
+          "title": "Read-modify-write counter races under concurrent requests",
+          "evidence": "count = store.get(f\"views:{page_id}\") or 0\\nstore.set(f\"views:{page_id}\", count + 1)\\n\\ndef record_click(store, page_id):\\n    count = store.get(f\"clicks:{page_id}\") or 0\\n    store.set(f\"clicks:{page_id}\", count + 1)",
+          "recommendation": "Use an atomic increment operation provided by the store (e.g., INCR in Redis) or add a threading lock around the read-modify-write cycle.",
+          "confidence": 0.95,
+          "sources": [
+            "nvidia"
+          ],
+          "consensus": false
+        }
+      ],
+      "attempts": 1,
+      "error_classes": [],
+      "family": "nvidia",
+      "tier": "free"
+    },
+    {
+      "provider": "nvidia",
+      "lens": "operations",
+      "status": "ok",
+      "error": "",
+      "summary": "The diff adds timeout forwarding, fixture-scope classification, retry policies, fallback handling, seat metadata, and record-verify enhancements. All new code paths forward `agent_timeout` consistently; the enumeration test logic is compatible; no unbounded loops, resource leaks, or missing guards are introduced. The change is sound under the operations & reliability lens.",
+      "findings": [],
+      "attempts": 1,
+      "error_classes": [],
+      "family": "nvidia",
+      "tier": "free"
+    }
+  ],
+  "findings": [
+    {
+      "id": "fb58dad35b96",
+      "rule": "",
+      "severity": "major",
+      "category": "correctness",
+      "file": "bench/README.md",
+      "line": 43,
+      "title": "Benchmark docs promise manifest validation, but the added manifest references many missing case directories",
+      "evidence": "'(the loader refuses a corpus whose manifest and directories disagree).'",
+      "recommendation": "Either add all case directories referenced by `bench/corpus/manifest.json` in this change, or trim the manifest to only the cases actually present. Also add a test that loads the shipped corpus from disk so this mismatch cannot regress.",
+      "confidence": 0.98,
+      "sources": [
+        "openai"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "e56d2d141503",
+      "rule": "",
+      "severity": "major",
+      "category": "correctness",
+      "file": "bench/corpus/manifest.json",
+      "line": 6,
+      "title": "Corpus manifest lists case ids that are not added in this patch, making the shipped corpus invalid",
+      "evidence": "'      \"id\": \"secret-hardcoded-api-key\",' ; '      \"id\": \"secret-private-key\",' ; '      \"id\": \"sql-injection-fstring\",' ; '      \"id\": \"race-counter-increment\",' ; '      \"id\": \"ssrf-fetch\",' ; '      \"id\": \"sensitive-data-logging\",' ; '      \"id\": \"unbounded-query\",' ; '      \"id\": \"real-buggy-alert-flood\",' ; '      \"id\": \"secret-aws-key\",' ; '      \"id\": \"sql-injection-concat\",' ; '      \"id\":",
+      "recommendation": "Make `bench/corpus/manifest.json` match the actual contents of `bench/corpus/` in this release, or include the missing case directories and files in the patch. A corpus self-check in CI should verify every manifest id has both `case.json` and `diff.patch`.",
+      "confidence": 0.99,
+      "sources": [
+        "openai"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "ef8b8b9ca701",
+      "rule": "",
+      "severity": "major",
+      "category": "correctness",
+      "file": "src/codereview/bench.py",
+      "line": 478,
+      "title": "Resume logic keys prior results by stored config name instead of the current output file",
+      "evidence": "'done = {(r['config'], r['case_id']) for r in records}' and later 'key = (cfg['name'], case['id'])'",
+      "recommendation": "When resuming from '<out>/<config>.jsonl', treat every retained record in that file as belonging to the current config file regardless of its embedded 'config' field, or normalize retained records to 'cfg['name']' before building 'done'. Otherwise a config rename or alias change with identical 'config_sha256' will bypass deduplication and append a second record for the same case into the same results file.",
+      "confidence": 0.95,
+      "sources": [
+        "openai"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "9a34f77ec4d6",
+      "rule": "",
+      "severity": "major",
+      "category": "correctness",
+      "file": "src/codereview/core.py",
+      "line": 117,
+      "title": "Plain fixture paths match sibling prefixes and can hide non-fixture findings",
+      "evidence": "'base = pat.rstrip('/')' and 'if path == base or path.startswith(base + '/'):'",
+      "recommendation": "For plain paths, distinguish files from directories instead of treating every pattern as a directory prefix. Match exact file paths only, and only apply prefix matching when the manifest explicitly denotes a directory such as with a trailing slash or '/**'.",
+      "confidence": 0.95,
+      "sources": [
+        "openai"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "a5b9d8c19af3",
+      "rule": "",
+      "severity": "major",
+      "category": "security",
+      "file": "src/codereview/core.py",
+      "line": 1170,
+      "title": "Record verification does not enforce the private-repo free-tier policy",
+      "evidence": "'known = {r.get('family') for r in ok_reports' ... 'add('two_families', len(known) >= 2,' ... 'return {'eligible': all(c['ok'] for c in checks),'",
+      "recommendation": "Extend 'verify_record' to validate the recorded seat tiers against the repository privacy policy, e.g. fail eligibility when any successful reviewer report has tier 'free' for a private repository, or record and verify an explicit 'private' flag in the report.",
+      "confidence": 0.91,
+      "sources": [
+        "openai"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "782c2c02bb16",
+      "rule": "",
+      "severity": "major",
+      "category": "correctness",
+      "file": "src/codereview/providers.py",
+      "line": 384,
+      "title": "Falsey agent_timeout values are silently replaced with the default",
+      "evidence": "'command, timeout=agent_timeout or AGENT_TIMEOUT,'",
+      "recommendation": "Use an explicit None check so only an omitted timeout falls back to the default, e.g. compute 'timeout = AGENT_TIMEOUT if agent_timeout is None else agent_timeout' before calling command_agent.",
+      "confidence": 0.96,
+      "sources": [
+        "openai"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "0d81ded1de5e",
+      "rule": "disabled-test",
+      "severity": "minor",
+      "category": "testing",
+      "file": "review-v12-dispositions.md",
+      "line": 19,
+      "title": "Test disabled in added code",
+      "evidence": "| 2 | 934db5187cf3 | major | src/codereview/cli.py:62 | Disabled test blocks correctness lens coverage in bench harness (the `@unittest.skipUnless(os.name == \"posix\", …)` platform guard) | Repeat — rebuttal stands; guard unchanged | Same substance as review-v11 findings [36]–[39], rebutted with evid",
+      "recommendation": "A skipped test is unreviewed behaviour; justify it in the change description or remove the skip.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "6938d28c87b5",
+      "rule": "disabled-test",
+      "severity": "minor",
+      "category": "testing",
+      "file": "review-v9/codereview-20261104-054751.json",
+      "line": 36,
+      "title": "Test disabled in added code",
+      "evidence": "\"evidence\": \"@unittest.skipUnless(os.name == \\\"posix\\\", \\\"process groups are POSIX\\\")\",",
+      "recommendation": "A skipped test is unreviewed behaviour; justify it in the change description or remove the skip.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "c7f952d7c96f",
+      "rule": "disabled-test",
+      "severity": "minor",
+      "category": "testing",
+      "file": "review-v9/codereview-20261104-054751.md",
+      "line": 8,
+      "title": "Test disabled in added code",
+      "evidence": "- evidence: `@unittest.skipUnless(os.name == \"posix\", \"process groups are POSIX\")`",
+      "recommendation": "A skipped test is unreviewed behaviour; justify it in the change description or remove the skip.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "ce560a25266e",
+      "rule": "disabled-test",
+      "severity": "minor",
+      "category": "testing",
+      "file": "tests/test_external_review_v071.py",
+      "line": 62,
+      "title": "Test disabled in added code",
+      "evidence": "@unittest.skipUnless(os.name == \"posix\", \"process groups are POSIX\")",
+      "recommendation": "A skipped test is unreviewed behaviour; justify it in the change description or remove the skip.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "0aada5c69aab",
+      "rule": "disabled-test",
+      "severity": "minor",
+      "category": "testing",
+      "file": "tests/test_v091_fixes.py",
+      "line": 416,
+      "title": "Test disabled in added code",
+      "evidence": "@unittest.skipUnless(os.name == \"posix\", \"process groups are POSIX\")",
+      "recommendation": "A skipped test is unreviewed behaviour; justify it in the change description or remove the skip.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "0e08541a39d4",
+      "rule": "",
+      "severity": "nit",
+      "category": "quality",
+      "file": "src/codereview/providers.py",
+      "line": 27,
+      "title": "Unused `re` import",
+      "evidence": "import re  (line 27)",
+      "recommendation": "Remove the `import re` line if `re` is not used in this file, or add `re` usage.",
+      "confidence": 0.9,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false
+    }
+  ],
+  "degraded": false,
+  "truncated": false,
+  "gate": "blocked",
+  "gate_reasons": [
+    "6 blocking finding(s) (major)",
+    "correctness lens served by fallback seat 'openai' (primary 'gemini' failed: quota)",
+    "correctness lens served by fallback seat 'openai' (primary 'gemini' failed: quota)",
+    "correctness lens served by fallback seat 'openai' (primary 'gemini' failed: quota)",
+    "correctness lens served by fallback seat 'openai' (primary 'gemini' failed: quota)",
+    "correctness lens served by fallback seat 'openai' (primary 'gemini' failed: quota)",
+    "correctness lens served by fallback seat 'openai' (primary 'gemini' failed: quota)",
+    "20 expected fixture finding(s) classified under fixture manifest policy v1 (fixtures-manifest.json, sha256 0633809d0cec…) — preserved in fixture_findings, not blocking"
+  ],
+  "fixture_findings": [
+    {
+      "id": "2fc16badb25e",
+      "rule": "drop-table",
+      "severity": "blocker",
+      "category": "data-loss",
+      "file": "bench/corpus/drop-table-migration/case.json",
+      "line": 14,
+      "title": "DROP TABLE in added code",
+      "evidence": "\"title\": \"DROP TABLE destroys the legacy users table in a migration\",",
+      "recommendation": "Confirm this is a deliberate, backed-up migration; otherwise remove.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "b05dc49142ff",
+      "rule": "drop-table",
+      "severity": "blocker",
+      "category": "data-loss",
+      "file": "bench/corpus/drop-table-migration/diff.patch",
+      "line": 7,
+      "title": "DROP TABLE in added code",
+      "evidence": "+    conn.execute(\"DROP TABLE legacy_users\")",
+      "recommendation": "Confirm this is a deliberate, backed-up migration; otherwise remove.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "77bdc2099503",
+      "rule": "eval-exec",
+      "severity": "blocker",
+      "category": "security",
+      "file": "bench/corpus/eval-user-input/case.json",
+      "line": 14,
+      "title": "eval/exec call in added code",
+      "evidence": "\"title\": \"eval() executes user-supplied input\",",
+      "recommendation": "Replace dynamic evaluation with a safe, explicit code path.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "d05fd6ba47fa",
+      "rule": "eval-exec",
+      "severity": "blocker",
+      "category": "security",
+      "file": "bench/corpus/eval-user-input/diff.patch",
+      "line": 7,
+      "title": "eval/exec call in added code",
+      "evidence": "+    return eval(expr)",
+      "recommendation": "Replace dynamic evaluation with a safe, explicit code path.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "489b52d73951",
+      "rule": "hardcoded-secret",
+      "severity": "blocker",
+      "category": "security",
+      "file": "bench/corpus/real-buggy-alert-flood/diff.patch",
+      "line": 17,
+      "title": "Possible hardcoded secret in added code",
+      "evidence": "+SMTP_PASSWORD = '[REDACTED]'",
+      "recommendation": "Move the value to the secret store / environment and rotate it if it was ever real.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "d6d4fe316d81",
+      "rule": "aws-access-key",
+      "severity": "blocker",
+      "category": "security",
+      "file": "bench/corpus/secret-aws-key/diff.patch",
+      "line": 7,
+      "title": "AWS access key id in added code",
+      "evidence": "+AWS_ACCESS_KEY_ID = \"[REDACTED-AWS-KEY]\"",
+      "recommendation": "Remove and rotate the key; load credentials from the environment.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "473464b31a98",
+      "rule": "hardcoded-secret",
+      "severity": "blocker",
+      "category": "security",
+      "file": "bench/corpus/secret-hardcoded-api-key/diff.patch",
+      "line": 8,
+      "title": "Possible hardcoded secret in added code",
+      "evidence": "+API_KEY = '[REDACTED]'",
+      "recommendation": "Move the value to the secret store / environment and rotate it if it was ever real.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "b4437fa1e4a3",
+      "rule": "private-key",
+      "severity": "blocker",
+      "category": "security",
+      "file": "bench/corpus/secret-private-key/diff.patch",
+      "line": 6,
+      "title": "Private key material in added code",
+      "evidence": "+PRIVATE_KEY_PEM = \"\"\"[REDACTED-PRIVATE-KEY]",
+      "recommendation": "Remove the key material and rotate it.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "f098a86dfae3",
+      "rule": "drop-table",
+      "severity": "blocker",
+      "category": "data-loss",
+      "file": "bench/scripts/oracle.json",
+      "line": 488,
+      "title": "DROP TABLE in added code",
+      "evidence": "\"title\": \"DROP TABLE destroys the legacy users table in a migration\",",
+      "recommendation": "Confirm this is a deliberate, backed-up migration; otherwise remove.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "c1ae8b91c191",
+      "rule": "eval-exec",
+      "severity": "blocker",
+      "category": "security",
+      "file": "bench/scripts/oracle.json",
+      "line": 75,
+      "title": "eval/exec call in added code",
+      "evidence": "\"title\": \"eval() executes user-supplied input\",",
+      "recommendation": "Replace dynamic evaluation with a safe, explicit code path.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "deef236a0043",
+      "rule": "",
+      "severity": "major",
+      "category": "correctness",
+      "file": "app/files.py",
+      "line": 11,
+      "title": "Check-then-act race: existence check and create are not atomic",
+      "evidence": "if not os.path.exists(path):\\n    return open(path, \"w\")\\nraise FileExistsError(path)",
+      "recommendation": "Replace the non-atomic check-then-act pattern with an atomic file creation (os.open with O_CREAT|O_EXCL) or use a lock to ensure the existence check and creation happen without a gap.",
+      "confidence": 0.95,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "19ce112d7d76",
+      "rule": "",
+      "severity": "major",
+      "category": "correctness",
+      "file": "app/metrics.py",
+      "line": 17,
+      "title": "Read-modify-write counter races under concurrent requests",
+      "evidence": "count = store.get(f\"views:{page_id}\") or 0\\nstore.set(f\"views:{page_id}\", count + 1)\\n\\ndef record_click(store, page_id):\\n    count = store.get(f\"clicks:{page_id}\") or 0\\n    store.set(f\"clicks:{page_id}\", count + 1)",
+      "recommendation": "Use an atomic increment operation provided by the store (e.g., INCR in Redis) or add a threading lock around the read-modify-write cycle.",
+      "confidence": 0.95,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "f1f39e30f5c6",
+      "rule": "sql-string-build",
+      "severity": "major",
+      "category": "security",
+      "file": "bench/corpus/clean-parameterized-query/diff.patch",
+      "line": 4,
+      "title": "SQL statement built by string formatting/concatenation",
+      "evidence": "-    return db.execute(\"SELECT * FROM users WHERE name = '\" + name + \"'\")",
+      "recommendation": "Use parameterized queries / bound parameters for every value.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "3440e167fcd7",
+      "rule": "shell-exec",
+      "severity": "major",
+      "category": "security",
+      "file": "bench/corpus/command-injection-shell/diff.patch",
+      "line": 8,
+      "title": "Shell execution in added code",
+      "evidence": "-    return os.popen(\"ping -c 1 \" + host).read()",
+      "recommendation": "Verify no untrusted input can reach the command; prefer argv lists with shell=False.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "b5a81aeefc4e",
+      "rule": "delete-no-where",
+      "severity": "major",
+      "category": "data-loss",
+      "file": "bench/corpus/delete-no-where/diff.patch",
+      "line": 5,
+      "title": "DELETE without a WHERE clause",
+      "evidence": "+    cursor.execute(\"DELETE FROM sessions\")",
+      "recommendation": "Add a precise WHERE clause or confirm a deliberate full-table wipe.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "61976948e7f1",
+      "rule": "sql-string-build",
+      "severity": "major",
+      "category": "security",
+      "file": "bench/corpus/real-buggy-alert-flood/diff.patch",
+      "line": 10,
+      "title": "SQL statement built by string formatting/concatenation",
+      "evidence": "+        db.execute(f\"DELETE FROM jobs WHERE id = {v.job_id}\")",
+      "recommendation": "Use parameterized queries / bound parameters for every value.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "f561618dd84e",
+      "rule": "sql-string-build",
+      "severity": "major",
+      "category": "security",
+      "file": "bench/corpus/sql-injection-concat/diff.patch",
+      "line": 6,
+      "title": "SQL statement built by string formatting/concatenation",
+      "evidence": "+    q = \"SELECT * FROM docs WHERE title LIKE '%\" + term + \"%'\"",
+      "recommendation": "Use parameterized queries / bound parameters for every value.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "57c306369828",
+      "rule": "sql-string-build",
+      "severity": "major",
+      "category": "security",
+      "file": "bench/corpus/sql-injection-fstring/diff.patch",
+      "line": 10,
+      "title": "SQL statement built by string formatting/concatenation",
+      "evidence": "+    return db.execute(f\"SELECT * FROM users WHERE name = '{name}'\")",
+      "recommendation": "Use parameterized queries / bound parameters for every value.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "bf2cae73e65b",
+      "rule": "debug-left",
+      "severity": "minor",
+      "category": "quality",
+      "file": "bench/corpus/debug-breakpoint/diff.patch",
+      "line": 5,
+      "title": "Debug statement left in added code",
+      "evidence": "+    breakpoint()",
+      "recommendation": "Remove debugging leftovers before shipping.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "09796413c693",
+      "rule": "disabled-test",
+      "severity": "minor",
+      "category": "testing",
+      "file": "bench/corpus/disabled-test/diff.patch",
+      "line": 6,
+      "title": "Test disabled in added code",
+      "evidence": "+@pytest.mark.skip(reason=\"flaky on CI\")",
+      "recommendation": "A skipped test is unreviewed behaviour; justify it in the change description or remove the skip.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    }
+  ],
+  "fixture_scope": {
+    "manifest_path": "fixtures-manifest.json",
+    "manifest_sha256": "0633809d0cec09dc3f917c25847e4bc4ca516fc3e81760c130ec6d58c094f208",
+    "policy_version": 1,
+    "classified_paths": [
+      "bench/corpus/auth-admin-or-true/**",
+      "bench/corpus/auth-check-removed/**",
+      "bench/corpus/clean-add-tests/**",
+      "bench/corpus/clean-add-timeout-retry/**",
+      "bench/corpus/clean-auth-check-added/**",
+      "bench/corpus/clean-health-guard-fix/**",
+      "bench/corpus/clean-input-validation/**",
+      "bench/corpus/clean-parameterized-query/**",
+      "bench/corpus/clean-refactor-rename/**",
+      "bench/corpus/command-injection-shell/**",
+      "bench/corpus/debug-breakpoint/**",
+      "bench/corpus/delete-no-where/**",
+      "bench/corpus/disabled-test/**",
+      "bench/corpus/drop-table-migration/**",
+      "bench/corpus/error-swallow-bare-except/**",
+      "bench/corpus/eval-user-input/**",
+      "bench/corpus/float-money-total/**",
+      "bench/corpus/http-no-timeout/**",
+      "bench/corpus/off-by-one-pagination/**",
+      "bench/corpus/path-traversal-upload/**",
+      "bench/corpus/payment-amount-dollars-cents/**",
+      "bench/corpus/payment-quantity-dropped/**",
+      "bench/corpus/payment-refund-partial/**",
+      "bench/corpus/plaintext-password-store/**",
+      "bench/corpus/race-check-then-act/**",
+      "bench/corpus/race-counter-increment/**",
+      "bench/corpus/real-buggy-alert-flood/**",
+      "bench/corpus/secret-aws-key/**",
+      "bench/corpus/secret-hardcoded-api-key/**",
+      "bench/corpus/secret-private-key/**",
+      "bench/corpus/sensitive-data-logging/**",
+      "bench/corpus/sql-injection-concat/**",
+      "bench/corpus/sql-injection-fstring/**",
+      "bench/corpus/ssrf-fetch/**",
+      "bench/corpus/unbounded-query/**",
+      "bench/corpus/xss-innerhtml/**",
+      "bench/scripts/oracle.json",
+      "bench/scripts/noisy.json",
+      "bench/scripts/blind.json"
+    ],
+    "fixture_finding_count": 20
+  },
+  "range": "3013656..1f4c38d",
+  "head": "1f4c38d6db2039453cdb2942cd5604aa0b13341e"
+}

@@ -42,7 +42,7 @@ import re
 import subprocess
 import time
 
-VERSION = "0.9.5"
+VERSION = "0.9.6"
 SCHEMA = "codereview.report/1"
 
 SEVERITIES = ("blocker", "major", "minor", "nit")
@@ -1835,6 +1835,18 @@ def run_verification(patch, providers, previous_report, builder_response,
         if degraded:
             reasons[0] += " — DEGRADED"
     reasons = reasons + fallback_notes
+    if len(providers) <= 1:
+        # Solo-panel label (v0.9.6, disputed finding c5f02551d077):
+        # the quorum exception above deliberately lets a one-seat
+        # verification pass its own gate, but the record must SAY
+        # the panel was solo in every outcome — previously only a
+        # clean PASS carried the wording (embedded in the pass
+        # sentence), so a solo round that ended blocked or
+        # inconclusive read like a panel verdict. The standalone
+        # reason mirrors the review path's label. A solo round
+        # still cannot make a chain eligible: verify_chain's
+        # rounds_two_families check fails it there.
+        reasons = reasons + ["solo panel — no independent review"]
     report = {
         "schema": SCHEMA, "version": VERSION, "mode": "verify",
         "created_at": _now_iso(),
