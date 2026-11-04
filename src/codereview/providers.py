@@ -216,6 +216,13 @@ def _read_tail(path, limit):
 def command_agent(command, timeout=AGENT_TIMEOUT, private_home=False):
     """Callable backed by a local agent command.
 
+    `timeout` is the per-call ceiling in seconds: None means the
+    AGENT_TIMEOUT default; an explicit value is honored verbatim,
+    and a non-positive value is refused HERE, at construction —
+    never silently swapped for the default (review-v13 finding:
+    the library seam used `agent_timeout or AGENT_TIMEOUT`, so a
+    caller's explicit 0 became 900 without a word).
+
     Isolation contract (v0.7.0 external review, findings 1/3/5/6;
     v0.7.1 review, findings 3.2/3.3/3.5): the agent runs in a fresh
     scratch directory containing ONLY the prompt file (its cwd —
@@ -233,6 +240,13 @@ def command_agent(command, timeout=AGENT_TIMEOUT, private_home=False):
     Every failure is a ProviderError with retryable=False — the
     seat degrades honestly in the run report, like any provider
     failure, and never triggers account rotation."""
+    if timeout is None:
+        timeout = AGENT_TIMEOUT
+    if timeout <= 0:
+        raise ProviderError(
+            f"agent timeout must be a positive number of seconds, "
+            f"got {timeout!r}", retryable=False)
+
     def call(prompt):
         try:
             argv = shlex.split(command)
@@ -381,7 +395,9 @@ def build_provider(spec, occurrence=1, text_mode=False,
         # the final, globally-unique seat names, which only it can
         # see (v0.7.1 external review, finding 3.1).
         return agent_name, command_agent(
-            command, timeout=agent_timeout or AGENT_TIMEOUT,
+            command,
+            timeout=(AGENT_TIMEOUT if agent_timeout is None
+                     else agent_timeout),
             private_home=options.get("home") == "private"), \
             f"agent:{agent_name}"
     if "|" in spec:
