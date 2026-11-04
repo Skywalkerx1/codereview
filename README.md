@@ -170,6 +170,28 @@ codereview bench report            # full report; --public excludes the holdout 
 
 Corpus v0 ships in `bench/corpus/`: 36 cases (29 defect cases with 31 ground-truth defects, 7 clean controls; 27 public / 9 holdout), mixing authored defect injections (secrets, injection, auth regressions, payment bugs, races) with cases converted from this repo's own run records. The headline metric is the **escaped-defect rate**: defects no finding blocked on — unseen, or reported only as a minor/nit so the gate would have shipped them. Reports also carry recall, precision, clean-case false-positive rate, cost per verdict, and p50/p95 latency; `bench report --max-escaped-rate R` works as a CI regression gate. Scripted replay seats (`oracle` / `blind` / `noisy` configs) run the whole harness deterministically with zero provider calls — their scores validate the harness, not any model. Definitions, corpus provenance, and the growth path to 50–100 cases live in `bench/README.md`. Anything public quotes the public split only: holdout records are dropped before scoring in `--public` reports, so no holdout case can leak into a claim.
 
+## Policy: supported platforms, severity rubric, disputes
+
+**Supported platforms.** The project supports POSIX operating systems with Python 3.11 or newer:
+
+```toml
+supported = { os = ["posix"], python = ">=3.11" }
+```
+
+A finding that depends only on an unsupported platform (for example Windows drive-letter path behaviour) is auto-labelled `out-of-scope (documented)` in the record: it stays visible in `out_of_scope_findings`, with the reason recorded, and it never blocks the gate. A finding that also claims impact on a supported platform is never labelled.
+
+**Severity rubric.** A `blocker` or `major` requires a demonstrated, reachable defect with impact in a supported configuration, and the finding's evidence must cite the reachable path — the input, state, or call sequence that reaches the defect. Claims that cannot be traced to a reachable path, or that depend on unsupported platforms, on operator-supplied input being malicious, or on hypothetical future seat kinds, are `minor` or `nit` at most. The rubric is stated in the reviewer prompts; any label the rubric drives is recorded on the finding with its reason — severities are never silently downgraded.
+
+**Dispute ladder and the Tech Lead.** When one vendor family refutes another family's blocking finding with quote evidence, the refutation is first graded for *adequacy*: a refutation whose quote merely repeats the line the finding itself cites carries no counter-evidence and is recorded as `refutation-weak` — a routing state, not a verdict. Every refuted finding (disputed or refutation-weak) then goes to the **Tech Lead**: a seat from a family that neither raised nor refuted the finding, which makes the *final* decision — there is no majority vote, and the project owner is the appeal, not the routine judge. The Tech Lead receives the claim, the cited code region, both positions with their quotes, and any builder-probe results, and decides one of:
+
+- `sustain_finding` — the defect stands (the Tech Lead may *downgrade* its severity under the rubric above, never raise it);
+- `sustain_refutation` — the claim is wrong and the refutation stands;
+- `escalate` — the evidence is genuinely insufficient, or the panel degraded, and the case goes to the owner as an appeal/exception, with the reason recorded.
+
+A sustain decision counts only with a quote that validates against the cited region. The Tech Lead may first send a case back for a **builder probe** (`needs_probe`) and then decide on the combined evidence; a probe can only rebut, never decide alone. The decision, the Tech Lead's family and tier, and all positions are stored on the record, and a sustained refutation or a rubric downgrade is precedent-eligible (it feeds the precedent store below). A seat can be designated for the role with `--tech-lead`; a designation whose family raised or refuted the finding is rejected and substituted — loudly, on the record, never silently accepted. When no independent Tech Lead served, the finding keeps its disputed/refutation-weak state for the human gate, and a run with such findings cannot auto-PASS.
+
+**Precedents.** A dispositioned finding can be stored as a precedent keyed to content, not names: file-level entries hold the cited file's git blob at disposition time, and an entry may additionally key to the *enclosing function's* normalized AST hash (plus its direct callees' hashes). A function-level precedent survives unrelated edits elsewhere in the file; an edit inside the judged function — or one of its callees — re-opens the finding for fresh adjudication. When the function cannot be resolved, matching falls back to the file blob. Standing precedents are shown in the record, never hidden.
+
 ## Gate semantics
 
 | Gate | Meaning |

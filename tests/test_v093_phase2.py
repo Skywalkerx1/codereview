@@ -169,8 +169,13 @@ class CrossFamilyTests(unittest.TestCase):
         return review_with(a, b, seat_meta=meta or META)
 
     def test_refuted_with_quote_is_disputed_and_inconclusive(self):
+        # Strong refutation: the quote is a DIFFERENT line from
+        # the region than the one the finding cites. A refutation
+        # quoting the cited line itself is refutation-weak under
+        # the dispute ladder (§5a.1) and routes to
+        # refutation_weak_findings instead (test_step4_ladder.py).
         b = Seat(xconfirm={"verdict": "refute",
-                           "evidence_quote": GOOD_QUOTE,
+                           "evidence_quote": "print(VALUE)",
                            "reason": "the caller guards it"})
         report = self._report(b)
         self.assertEqual(report["gate"], "inconclusive")
