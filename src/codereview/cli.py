@@ -1046,7 +1046,8 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
                     help="per-seat timeout in seconds for agent "
                          "seats (forwarded to provider construction "
                          "for primary AND fallback seats, like "
-                         "doctor/intake)")
+                         "doctor/intake); also the wait bound for "
+                         "Tech Lead adjudication calls")
     args = ap.parse_args(argv)
 
     if args.timeout is not None and args.timeout <= 0:
@@ -1200,7 +1201,8 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
             record_extra=record_extra,
             fixture_scope=fixture_scope, private=args.private,
             precedents=precedents,
-            tech_lead=args.tech_lead or None)
+            tech_lead=args.tech_lead or None,
+            tech_lead_timeout=args.timeout)
 
     jpath, mpath = core.write_report(report, args.out)
     if args.attempts_log:

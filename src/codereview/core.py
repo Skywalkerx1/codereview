@@ -38,9 +38,11 @@ import fnmatch
 import hashlib
 import json
 import os
+import queue
 import random
 import re
 import subprocess
+import threading
 import time
 
 VERSION = "0.9.6"
@@ -315,8 +317,8 @@ def deterministic_scan(patch, test_results=None):
         findings.append({
             "id": fp, "rule": rule_id, "severity": severity,
             "category": category, "file": file, "line": line,
-            "title": title, "evidence": redact_secrets(evidence)[:300],
-            "evidence_quote": redact_secrets(evidence)[:300],
+            "title": title, "evidence": redact_secrets(evidence),
+            "evidence_quote": redact_secrets(evidence),
             "recommendation": recommendation,
             "confidence": confidence, "sources": ["deterministic"],
             "consensus": False,
@@ -349,7 +351,7 @@ def deterministic_scan(patch, test_results=None):
         if not tr.get("ok"):
             add("test-failure", "blocker", "testing", "", None,
                 f"Test command failed: {tr.get('command', '')}",
-                (tr.get("output_tail") or "")[:300],
+                tr.get("output_tail") or "",
                 "Fix the failing tests; a red suite is a blocking finding.",
                 confidence=1.0)
     return findings
@@ -463,10 +465,17 @@ def _normalize_finding(raw, source):
         "id": fingerprint(file, category, title),
         "rule": "", "severity": sev, "category": category,
         "file": file, "line": line, "title": title,
-        "evidence": str(raw.get("evidence") or "")[:400],
+        # Evidence is stored FULL-TEXT (refutation-process
+        # solution §4 Q7): the record's evidence sidecars carry
+        # the complete text, hash-verified; display caps apply
+        # only at record-write time. Capping here would destroy
+        # the text before any adjudicator could see it — the
+        # 400/300-char mid-word truncations in the v15/v095
+        # records are exactly what the sidecar design retires.
+        "evidence": str(raw.get("evidence") or ""),
         "evidence_quote": str(
             raw.get("evidence_quote") or raw.get("evidence")
-            or "")[:400],
+            or ""),
         "recommendation": str(raw.get("recommendation") or "")[:500],
         "confidence": max(0.0, min(1.0, conf)),
         "sources": [source], "consensus": False,
@@ -533,12 +542,17 @@ Code region (the cited file's section from the diff):
 
 
 def _finding_public(finding):
-    """The finding fields a confirmation/re-ground prompt may see."""
-    return json.dumps(
-        {k: finding.get(k) for k in
-         ("id", "severity", "category", "file", "line", "title",
-          "evidence", "evidence_quote", "recommendation")},
-        ensure_ascii=False, indent=1)
+    """The finding fields a confirmation/re-ground prompt may see.
+    Evidence is stored full-text in the record (sidecars, §4 Q7);
+    what a PROMPT shows is display, so it is sliced here — the
+    stored text is never cut by prompt construction."""
+    shown = {k: finding.get(k) for k in
+             ("id", "severity", "category", "file", "line", "title",
+              "evidence", "evidence_quote", "recommendation")}
+    shown["evidence"] = str(shown.get("evidence") or "")[:2000]
+    shown["evidence_quote"] = str(
+        shown.get("evidence_quote") or "")[:1000]
+    return json.dumps(shown, ensure_ascii=False, indent=1)
 
 
 def _reground_call(fn, finding, region):
@@ -553,8 +567,8 @@ def _reground_call(fn, finding, region):
         return "unresolved", "", f"re-ground call failed: {res['error']}"
     parsed = res["parsed"] or {}
     status = str(parsed.get("status") or "").strip().lower()
-    quote = str(parsed.get("evidence_quote") or "")[:400]
-    reason = str(parsed.get("reason") or "")[:300]
+    quote = str(parsed.get("evidence_quote") or "")
+    reason = str(parsed.get("reason") or "")
     if status == "confirmed" and _quote_grounded(quote, region):
         return "confirmed", quote, reason
     if status == "withdrawn":
@@ -577,8 +591,8 @@ def _xconfirm_call(fn, finding, region):
         return "unresolved", "", f"confirmation call failed: {res['error']}"
     parsed = res["parsed"] or {}
     verdict = str(parsed.get("verdict") or "").strip().lower()
-    quote = str(parsed.get("evidence_quote") or "")[:400]
-    reason = str(parsed.get("reason") or "")[:300]
+    quote = str(parsed.get("evidence_quote") or "")
+    reason = str(parsed.get("reason") or "")
     if verdict == "refute":
         if _quote_grounded(quote, region):
             return "refuted", quote, reason
@@ -591,6 +605,15 @@ def _xconfirm_call(fn, finding, region):
 
 
 # ------------- dispute ladder (§5a: adequacy + Tech Lead)
+
+# Hard bound on builder-probe rounds per adjudicated case
+# (owner amendment 2026-11-04: the Tech Lead "may send a case
+# back for ONE probe round"). Enforced by an explicit counter
+# in run_review's adjudication loop, not by the shape of the
+# code — a second needs_probe escalates, always (step4
+# amendment review, confirmed major f6064fc5e515).
+MAX_PROBE_ROUNDS = 1
+
 
 def _norm_quote(text):
     """Normalize a quote for the adequacy comparison: strip, drop
@@ -649,7 +672,7 @@ Code region (the cited file's section from the diff):
 
 
 def _tech_lead_call(fn, finding, region, dispute, probe=None,
-                    panel_degraded=False):
+                    panel_degraded=False, timeout=None):
     """One Tech Lead adjudication call (owner amendment
     2026-11-04: a refuted finding goes to a third, independent
     Tech Lead role whose decision is the gate disposition — not
@@ -660,7 +683,14 @@ def _tech_lead_call(fn, finding, region, dispute, probe=None,
     rationale, probe_request, and error (for invalid). A sustain
     decision counts only with a quote that validates against
     the region — the adjudicator's authority carries the same
-    evidence discipline as every other seat."""
+    evidence discipline as every other seat. The call runs
+    under a hard wait bound (`timeout`, default
+    TECH_LEAD_CALL_TIMEOUT): a seat that does not answer in
+    time returns invalid with the timeout as its error, and
+    the case escalates on the record instead of blocking the
+    pipeline. Outputs are stored FULL-TEXT (the evidence
+    sidecars carry them into the record; display caps apply
+    only at record-write time)."""
     dispute = dispute or {}
     probe_block = ""
     if probe is not None:
@@ -685,17 +715,18 @@ def _tech_lead_call(fn, finding, region, dispute, probe=None,
     out = {"decision": "invalid", "severity": None,
            "evidence_quote": "", "rationale": "",
            "probe_request": "", "error": ""}
-    res = _review_job(fn, prompt, max_attempts=2)
+    res = _review_job_bounded(fn, prompt, max_attempts=2,
+                              timeout=timeout)
     if not res["ok"]:
         out["error"] = f"Tech Lead call failed: {res['error']}"
         return out
     parsed = res["parsed"] or {}
     decision = str(parsed.get("decision") or "").strip().lower()
     out["evidence_quote"] = str(
-        parsed.get("evidence_quote") or "")[:400]
-    out["rationale"] = str(parsed.get("rationale") or "")[:600]
+        parsed.get("evidence_quote") or "")
+    out["rationale"] = str(parsed.get("rationale") or "")
     out["probe_request"] = str(
-        parsed.get("probe_request") or "")[:600]
+        parsed.get("probe_request") or "")
     sev = str(parsed.get("severity") or "").strip().lower()
     out["severity"] = sev if sev in _SEV_RANK else None
     if decision in ("sustain_finding", "sustain_refutation"):
@@ -1400,6 +1431,56 @@ def _review_job(fn, prompt, sleep=None, max_attempts=None):
                 "error_classes": tally.get("error_classes", [])}
 
 
+# Per-call ceiling for a Tech Lead adjudication call (seconds).
+# The panel's seats carry their own per-call ceilings (API
+# transport timeout; agent seats' --timeout, default 900s), but
+# the adjudication call runs synchronously inside run_review —
+# before this bound existed, a hanging adjudicator seat could
+# block the whole review pipeline indefinitely (step4 amendment
+# review, confirmed major 1321bec43a24). The bound is a WAIT
+# bound enforced on a daemon worker thread: on expiry the call
+# returns as a failed job and the case escalates on the record;
+# the stray thread is never joined and dies with the process.
+TECH_LEAD_CALL_TIMEOUT = 900
+
+
+def _review_job_bounded(fn, prompt, max_attempts=None, timeout=None):
+    """_review_job under a hard wait bound: returns the job's
+    result dict, or a failed-job dict whose error names the
+    timeout when the seat does not answer within `timeout`
+    seconds. Never blocks longer than the bound (plus queue
+    overhead) and never raises."""
+    if timeout is None:
+        timeout = TECH_LEAD_CALL_TIMEOUT
+    if timeout <= 0:
+        return {"ok": False, "parsed": None,
+                "error": (f"invalid adjudication timeout "
+                          f"{timeout!r}: must be positive"),
+                "attempts": 0, "error_classes": []}
+    box = queue.Queue(maxsize=1)
+
+    def _work():
+        try:
+            box.put(_review_job(fn, prompt,
+                                max_attempts=max_attempts))
+        except Exception as exc:  # noqa: BLE001 — _review_job
+            # is documented never to raise; belt and braces so
+            # the waiter can never hang on an empty queue.
+            box.put({"ok": False, "parsed": None, "error": exc,
+                     "attempts": 0, "error_classes": []})
+
+    worker = threading.Thread(target=_work, daemon=True,
+                              name="codereview-tech-lead-call")
+    worker.start()
+    try:
+        return box.get(timeout=timeout)
+    except queue.Empty:
+        return {"ok": False, "parsed": None,
+                "error": (f"Tech Lead call timed out after "
+                          f"{timeout}s"),
+                "attempts": 0, "error_classes": ["timeout"]}
+
+
 def _seat_meta(seat_meta, name):
     """Family/tier metadata for one seat (v0.7.3): recorded on
     every reviewer report so a release record can PROVE its panel
@@ -1455,7 +1536,8 @@ def run_review(patch, providers, context="", test_results=None,
                max_patch_chars=80000, allow_major=False, strict=False,
                seat_meta=None, fallbacks=None, sleep=None,
                record_extra=None, fixture_scope=None, private=False,
-               precedents=None, tech_lead=None, probe_fn=None):
+               precedents=None, tech_lead=None, probe_fn=None,
+               tech_lead_timeout=None):
     """One review round. `providers` maps name -> callable(prompt)->str.
 
     Returns the report dict. Never raises for provider failures; they
@@ -1499,7 +1581,11 @@ def run_review(patch, providers, context="", test_results=None,
     probe_request) -> {"outcome", "evidence_quote", "detail"} —
     the Tech Lead may send a case back for one probe round and
     then decides on the combined evidence; a probe can only
-    rebut, never decide."""
+    rebut, never decide. `tech_lead_timeout` bounds each
+    adjudication call's wait in seconds (default
+    TECH_LEAD_CALL_TIMEOUT) — the panel timeout wired through
+    adjudication (step4 amendment review, confirmed major
+    1321bec43a24)."""
     test_results = test_results or []
     det = deterministic_scan(patch, test_results)
     clean_patch = redact_secrets(patch)
@@ -1872,6 +1958,9 @@ def run_review(patch, providers, context="", test_results=None,
         seat_fns.setdefault(name, fn)
     for _lens, (fb_name, fb_fn) in (fallbacks or {}).items():
         seat_fns.setdefault(fb_name, fb_fn)
+    tl_timeout = (TECH_LEAD_CALL_TIMEOUT
+                  if tech_lead_timeout is None
+                  else tech_lead_timeout)
     blocking_sevs_x = ("blocker",) if allow_major else BLOCKING_DEFAULT
     kept = []
     for f in merged:
@@ -1949,9 +2038,16 @@ def run_review(patch, providers, context="", test_results=None,
             continue
         decision = _tech_lead_call(
             tl_fn, f, region, f["dispute"],
-            panel_degraded=degraded)
+            panel_degraded=degraded, timeout=tl_timeout)
         probe_record = None
-        if decision["decision"] == "needs_probe":
+        probe_rounds = 0
+        # The probe loop's bound is EXPLICIT (step4 amendment
+        # review, confirmed major f6064fc5e515): at most
+        # MAX_PROBE_ROUNDS probe rounds per case, enforced by
+        # this counter — a Tech Lead (or a probe channel) that
+        # keeps answering needs_probe cannot loop the run; the
+        # case escalates on the combined evidence instead.
+        while decision["decision"] == "needs_probe":
             if probe_fn is None:
                 decision = {
                     **decision, "decision": "escalate",
@@ -1962,43 +2058,48 @@ def run_review(patch, providers, context="", test_results=None,
                         + ") but no probe channel is wired in "
                           "this run — escalated: the evidence "
                           "shown could not settle the claim")}
-            else:
-                try:
-                    raw_probe = probe_fn(
-                        f, decision.get("probe_request") or "")
-                    if isinstance(raw_probe, dict):
-                        probe_record = {
-                            "outcome": str(raw_probe.get(
-                                "outcome")
-                                or "inconclusive")[:40],
-                            "evidence_quote": str(raw_probe.get(
-                                "evidence_quote") or "")[:400],
-                            "detail": str(raw_probe.get(
-                                "detail") or "")[:600]}
-                    else:
-                        probe_record = {
-                            "outcome": "inconclusive",
-                            "evidence_quote": "",
-                            "detail": str(raw_probe)[:600]}
-                except Exception as exc:  # noqa: BLE001
+                break
+            if probe_rounds >= MAX_PROBE_ROUNDS:
+                decision = {
+                    **decision, "decision": "escalate",
+                    "rationale": (
+                        f"Tech Lead requested probe round "
+                        f"{probe_rounds + 1}; the probe loop "
+                        f"is bounded at {MAX_PROBE_ROUNDS} — "
+                        f"escalated on the combined evidence")}
+                break
+            probe_rounds += 1
+            try:
+                raw_probe = probe_fn(
+                    f, decision.get("probe_request") or "")
+                if isinstance(raw_probe, dict):
                     probe_record = {
-                        "outcome": "error", "evidence_quote": "",
-                        "detail": f"probe raised: {exc}"[:600]}
-                decision = _tech_lead_call(
-                    tl_fn, f, region, f["dispute"],
-                    probe=probe_record, panel_degraded=degraded)
-                if decision["decision"] == "needs_probe":
-                    decision = {
-                        **decision, "decision": "escalate",
-                        "rationale": (
-                            "Tech Lead requested a second probe "
-                            "round; the probe loop is bounded at "
-                            "one — escalated on the combined "
-                            "evidence")}
+                        "outcome": str(raw_probe.get(
+                            "outcome")
+                            or "inconclusive")[:40],
+                        "evidence_quote": str(raw_probe.get(
+                            "evidence_quote") or ""),
+                        "detail": str(raw_probe.get(
+                            "detail") or "")}
+                else:
+                    probe_record = {
+                        "outcome": "inconclusive",
+                        "evidence_quote": "",
+                        "detail": str(raw_probe)}
+            except Exception as exc:  # noqa: BLE001
+                probe_record = {
+                    "outcome": "error", "evidence_quote": "",
+                    "detail": f"probe raised: {exc}"}
+            decision = _tech_lead_call(
+                tl_fn, f, region, f["dispute"],
+                probe=probe_record, panel_degraded=degraded,
+                timeout=tl_timeout)
         adj = {
             "role": "tech_lead",
             "seat": tl_name, "family": tl_fam,
             "tier": _seat_meta(seat_meta, tl_name)["tier"],
+            "call_timeout": tl_timeout,
+            "probe_rounds": probe_rounds,
             "decision": decision["decision"],
             "rationale": decision.get("rationale") or "",
             "evidence_quote": decision.get("evidence_quote")
@@ -2414,7 +2515,7 @@ def run_verification(patch, providers, previous_report, builder_response,
                 for r in parsed.get("resolutions") or []:
                     if isinstance(r, dict) and r.get("finding_id"):
                         raw_status = str(r.get("status") or "unclear")
-                        evidence = str(r.get("evidence") or "")[:300]
+                        evidence = str(r.get("evidence") or "")
                         status, downgraded = _validate_resolution(
                             raw_status, evidence, haystack_tokens)
                         entry = {"status": status, "evidence": evidence}
