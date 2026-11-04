@@ -1,0 +1,87 @@
+{
+  "schema": "codereview.precedents/1",
+  "purpose": "Content-addressed rebuttal precedent (owner-adopted 2026-11-04, v14-hold solution §2e). An entry links a finding fingerprint + cited path to the git blob the cited file had when the disposition was made. A later review classifies a matching finding as standing ONLY while the cited file's blob is unchanged; any edit to the file retires the precedent automatically and the finding is adjudicated fresh. Seeded with the five guard-minor dispositions sustained across review-v11..v14.",
+  "entries": [
+    {
+      "finding_id": "0d81ded1de5e",
+      "path": "review-v12-dispositions.md",
+      "blob": "5e466e94d88a16433b69aec2dff6d1bedeb8053f",
+      "blob_basis": "git blob id at HEAD; the cited file's only touching commit is 1f4c38d — unchanged since before its first disposition",
+      "seen_in": [
+        "review-v13",
+        "review-v14"
+      ],
+      "disposition": {
+        "round": "review-v14",
+        "file": "review-v14-dispositions.md",
+        "summary": "Standing repeat [11]: Deterministic 'test disabled' rule hits the POSIX platform-guard line (unittest.skipUnless(os.name == 'posix', ...)) — a platform guard with its reason in the line itself, not a disabled test. Rebutted with executable evidence in review-v11-dispositions.md and recorded as a standing repeat in every round since; the guard is not removed, renamed, or scoped out."
+      }
+    },
+    {
+      "finding_id": "6938d28c87b5",
+      "path": "review-v9/codereview-20261104-054751.json",
+      "blob": "a134261955be15bbe54a3b610f93af7f4e30d3e1",
+      "blob_basis": "git blob id at HEAD; the cited file's only touching commit is 6dae35f — unchanged since before its first disposition",
+      "seen_in": [
+        "review-v11",
+        "review-v12",
+        "review-v13",
+        "review-v14"
+      ],
+      "disposition": {
+        "round": "review-v14",
+        "file": "review-v14-dispositions.md",
+        "summary": "Standing repeat [12]: Deterministic 'test disabled' rule hits the POSIX platform-guard line (unittest.skipUnless(os.name == 'posix', ...)) — a platform guard with its reason in the line itself, not a disabled test. Rebutted with executable evidence in review-v11-dispositions.md and recorded as a standing repeat in every round since; the guard is not removed, renamed, or scoped out."
+      }
+    },
+    {
+      "finding_id": "c7f952d7c96f",
+      "path": "review-v9/codereview-20261104-054751.md",
+      "blob": "250663904dd1b41b4a1590e692be7dc16cf18b13",
+      "blob_basis": "git blob id at HEAD; the cited file's only touching commit is 6dae35f — unchanged since before its first disposition",
+      "seen_in": [
+        "review-v11",
+        "review-v12",
+        "review-v13",
+        "review-v14"
+      ],
+      "disposition": {
+        "round": "review-v14",
+        "file": "review-v14-dispositions.md",
+        "summary": "Standing repeat [13]: Deterministic 'test disabled' rule hits the POSIX platform-guard line (unittest.skipUnless(os.name == 'posix', ...)) — a platform guard with its reason in the line itself, not a disabled test. Rebutted with executable evidence in review-v11-dispositions.md and recorded as a standing repeat in every round since; the guard is not removed, renamed, or scoped out."
+      }
+    },
+    {
+      "finding_id": "ce560a25266e",
+      "path": "tests/test_external_review_v071.py",
+      "blob": "fe3aad00815dbf21f0f5157e1ee4a7a68e424d5d",
+      "blob_basis": "git blob id at HEAD; the cited file's only touching commit is 6dae35f — unchanged since before its first disposition",
+      "seen_in": [
+        "review-v11",
+        "review-v12",
+        "review-v13",
+        "review-v14"
+      ],
+      "disposition": {
+        "round": "review-v14",
+        "file": "review-v14-dispositions.md",
+        "summary": "Standing repeat [15]: Deterministic 'test disabled' rule hits the POSIX platform-guard line (unittest.skipUnless(os.name == 'posix', ...)) — a platform guard with its reason in the line itself, not a disabled test. Rebutted with executable evidence in review-v11-dispositions.md and recorded as a standing repeat in every round since; the guard is not removed, renamed, or scoped out."
+      }
+    },
+    {
+      "finding_id": "0aada5c69aab",
+      "path": "tests/test_v091_fixes.py",
+      "blob": "2658fe8e10b123f9066eeffbbdc121e364756d9f",
+      "blob_basis": "git blob id at HEAD; the cited file's only touching commit is 1f4c38d — unchanged since before its first disposition",
+      "seen_in": [
+        "review-v13",
+        "review-v14"
+      ],
+      "disposition": {
+        "round": "review-v14",
+        "file": "review-v14-dispositions.md",
+        "summary": "Standing repeat [16]: Deterministic 'test disabled' rule hits the POSIX platform-guard line (unittest.skipUnless(os.name == 'posix', ...)) — a platform guard with its reason in the line itself, not a disabled test. Rebutted with executable evidence in review-v11-dispositions.md and recorded as a standing repeat in every round since; the guard is not removed, renamed, or scoped out."
+      }
+    }
+  ]
+}

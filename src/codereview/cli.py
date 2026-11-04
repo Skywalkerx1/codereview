@@ -110,12 +110,83 @@ def _load_fixture_scope(path, repo="."):
             f"fixture manifest {path}: 'fixtures' must be a "
             f"non-empty list of objects each naming a 'path'")
     patterns = [str(e["path"]) for e in entries]
+    # Optional per-path expected finding counts (v0.9.3, §2f):
+    # when an entry declares one, findings on that path beyond
+    # the count are NOT classified as expected — they stay in
+    # the record as product findings and the excess is noted.
+    # Absent = no count expectation (the policy-v1 behaviour).
+    expected_counts = {}
+    for e in entries:
+        if "expected_finding_count" in e:
+            v = e.get("expected_finding_count")
+            if not isinstance(v, int) or isinstance(v, bool) or v < 0:
+                raise ValueError(
+                    f"fixture manifest {path}: entry "
+                    f"{e.get('path')!r} has a bad "
+                    f"expected_finding_count {v!r} (want a "
+                    f"non-negative integer)")
+            expected_counts[str(e["path"])] = v
     return {
         "manifest_path": os.path.relpath(full, repo_abs).replace(
             os.sep, "/"),
         "manifest_sha256": hashlib.sha256(raw).hexdigest(),
         "policy_version": manifest.get("policy_version"),
         "patterns": patterns,
+        "expected_counts": expected_counts,
+    }
+
+
+def _load_precedents(path, repo="."):
+    """Load the content-addressed precedent store (v0.9.3, §2e):
+    returns the precedents dict run_review consumes — entries,
+    a blob_lookup resolving a cited path's CURRENT git blob id
+    at HEAD, and the store's repo-relative path + content hash
+    for the record (record-verify recomputes both, exactly like
+    the fixture manifest). The store declares findings already
+    adjudicated; classification additionally requires the cited
+    file's blob to be unchanged, so a stale store entry is
+    inert, never wrong."""
+    repo_abs = os.path.realpath(repo)
+    full = os.path.realpath(
+        path if os.path.isabs(path)
+        else os.path.join(repo_abs, path))
+    if os.path.commonpath([full, repo_abs]) != repo_abs:
+        raise ValueError(
+            f"precedent store {path}: resolves outside the "
+            f"repository ({full})")
+    with open(full, "rb") as fh:
+        raw = fh.read()
+    store = json.loads(raw.decode("utf-8"))
+    if not isinstance(store, dict) \
+            or store.get("schema") != core.PRECEDENTS_SCHEMA:
+        raise ValueError(
+            f"precedent store {path}: schema must be "
+            f"{core.PRECEDENTS_SCHEMA!r}")
+    entries = store.get("entries")
+    if not isinstance(entries, list) or any(
+            not isinstance(e, dict)
+            or not str(e.get("finding_id") or "").strip()
+            or not str(e.get("path") or "").strip()
+            or not str(e.get("blob") or "").strip()
+            for e in entries):
+        raise ValueError(
+            f"precedent store {path}: 'entries' must be a list "
+            f"of objects each naming finding_id, path and blob")
+
+    def blob_lookup(p):
+        out = subprocess.run(
+            ["git", "-C", repo_abs, "rev-parse", f"HEAD:{p}"],
+            capture_output=True, timeout=120, check=False)
+        if out.returncode != 0:
+            return None
+        return out.stdout.decode("utf-8", "replace").strip() or None
+
+    return {
+        "entries": entries,
+        "blob_lookup": blob_lookup,
+        "store_path": os.path.relpath(full, repo_abs).replace(
+            os.sep, "/"),
+        "store_sha256": hashlib.sha256(raw).hexdigest(),
     }
 
 
@@ -638,50 +709,88 @@ def _doctor_main(argv, providers_override=None,
     return 0 if result["ok"] else 2
 
 
+def _load_record_arg(path, repo):
+    """Resolve a record argument (directory or JSON file) to
+    (record, record_dir, jpath). record_dir is repo-relative —
+    the head-currency checks allow later commits that touch only
+    the record directories."""
+    if os.path.isdir(path):
+        candidates = sorted(
+            (os.path.join(path, f) for f in os.listdir(path)
+             if f.endswith(".json")),
+            key=lambda p: os.path.getmtime(p))
+        if not candidates:
+            raise ValueError(f"no record JSON in {path}")
+        jpath = candidates[-1]
+        record_dir = os.path.relpath(
+            os.path.abspath(path),
+            os.path.abspath(repo)).replace(os.sep, "/")
+    else:
+        jpath = path
+        record_dir = os.path.relpath(
+            os.path.abspath(os.path.dirname(path) or "."),
+            os.path.abspath(repo)).replace(os.sep, "/")
+    with open(jpath, encoding="utf-8") as fh:
+        record = json.load(fh)
+    return record, record_dir, jpath
+
+
+def _print_verify_result(result, label):
+    for check in result["checks"]:
+        mark = "ok " if check["ok"] else "FAIL"
+        print(f"  [{mark}] {check['name']}: {check['detail']}")
+    for warning in result.get("warnings") or []:
+        print(f"  [WARN] {warning['name']}: {warning['detail']}")
+    print(f"codereview: {label} "
+          f"{'ELIGIBLE' if result['eligible'] else 'NOT eligible'}")
+
+
 def _record_verify_main(argv):
     ap = argparse.ArgumentParser(
         prog="codereview record-verify",
         description="Check whether a saved review record is "
                     "eligible as a release record (clean gate, "
                     "full panel, current range).")
-    ap.add_argument("path",
+    ap.add_argument("path", nargs="?",
                     help="record directory or record JSON file")
     ap.add_argument("--repo", default=".",
                     help="repository the record belongs to")
+    ap.add_argument("--chain", nargs="+", metavar="RECORD",
+                    help="Form B: verify an ordered chain of "
+                         "records (round-1 review followed by "
+                         "verification rounds) as one "
+                         "round-structured record. Convergence-"
+                         "budget breaches are reported as WARN "
+                         "lines — process flags for the owner — "
+                         "and do not by themselves change the "
+                         "exit code; eligibility is decided by "
+                         "the checks alone.")
     args = ap.parse_args(argv)
-    path = args.path
     try:
-        if os.path.isdir(path):
-            candidates = sorted(
-                (os.path.join(path, f) for f in os.listdir(path)
-                 if f.endswith(".json")),
-                key=lambda p: os.path.getmtime(p))
-            if not candidates:
-                print(f"codereview: no record JSON in {path}",
-                      file=sys.stderr)
-                return 2
-            jpath = candidates[-1]
-            record_dir = os.path.relpath(
-                os.path.abspath(path),
-                os.path.abspath(args.repo)).replace(os.sep, "/")
-        else:
-            jpath = path
-            record_dir = os.path.relpath(
-                os.path.abspath(os.path.dirname(path) or "."),
-                os.path.abspath(args.repo)).replace(os.sep, "/")
-        with open(jpath, encoding="utf-8") as fh:
-            record = json.load(fh)
+        if args.chain:
+            records, dirs = [], []
+            for p in args.chain:
+                record, record_dir, _jp = _load_record_arg(
+                    p, args.repo)
+                records.append(record)
+                dirs.append(record_dir)
+            result = core.verify_chain(records, repo=args.repo,
+                                       record_dirs=dirs)
+            _print_verify_result(
+                result,
+                f"chain of {len(records)} record(s)")
+            return 0 if result["eligible"] else 1
+        if not args.path:
+            ap.error("a record path is required (or --chain)")
+        record, record_dir, jpath = _load_record_arg(
+            args.path, args.repo)
     except Exception as exc:  # noqa: BLE001
         print(f"codereview: could not read the record: {exc}",
               file=sys.stderr)
         return 2
     result = core.verify_record(record, repo=args.repo,
                                 record_dir=record_dir)
-    for check in result["checks"]:
-        mark = "ok " if check["ok"] else "FAIL"
-        print(f"  [{mark}] {check['name']}: {check['detail']}")
-    print(f"codereview: record {'ELIGIBLE' if result['eligible'] else 'NOT eligible'} "
-          f"({jpath})")
+    _print_verify_result(result, f"record ({jpath})")
     return 0 if result["eligible"] else 1
 
 
@@ -867,6 +976,16 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
                          "gate. The manifest's hash, policy version "
                          "and paths are recorded and recomputed by "
                          "record-verify")
+    ap.add_argument("--precedents",
+                    help="content-addressed precedent store "
+                         "(JSON): findings already adjudicated "
+                         "whose cited file is UNCHANGED (git blob "
+                         "identical to the disposition) are "
+                         "classified in the record as standing "
+                         "findings linked to their disposition "
+                         "instead of blocking again. The store's "
+                         "hash and every link are recorded and "
+                         "recomputed by record-verify")
     ap.add_argument("--attempts-log",
                     help="append one JSON line describing this run "
                          "(seats, error classes, gate) to this file")
@@ -915,6 +1034,21 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
               f"{fixture_scope['manifest_sha256'][:12]}…) — "
               f"fixture findings will be classified separately, "
               f"not dropped", file=sys.stderr)
+    precedents = None
+    if args.precedents:
+        try:
+            precedents = _load_precedents(
+                args.precedents, repo=args.repo or ".")
+        except Exception as exc:  # noqa: BLE001
+            print(f"codereview: could not load the precedent "
+                  f"store: {exc}", file=sys.stderr)
+            return 2
+        print(f"codereview: precedent store: "
+              f"{len(precedents['entries'])} entr(ies) from "
+              f"{precedents['store_path']} (sha256 "
+              f"{precedents['store_sha256'][:12]}…) — standing "
+              f"findings will be classified separately, not "
+              f"dropped", file=sys.stderr)
     if not patch.strip():
         print("codereview: the change is empty — nothing to review.",
               file=sys.stderr)
@@ -1004,7 +1138,8 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
             test_results=test_results,
             max_patch_chars=args.max_patch_chars,
             allow_major=args.allow_major, strict=args.strict,
-            seat_meta=seat_meta)
+            seat_meta=seat_meta, record_extra=record_extra,
+            private=args.private)
     else:
         report = core.run_review(
             patch, providers, context=_maybe_file(args.context),
@@ -1013,7 +1148,8 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
             allow_major=args.allow_major, strict=args.strict,
             seat_meta=seat_meta, fallbacks=fallbacks,
             record_extra=record_extra,
-            fixture_scope=fixture_scope)
+            fixture_scope=fixture_scope, private=args.private,
+            precedents=precedents)
 
     jpath, mpath = core.write_report(report, args.out)
     if args.attempts_log:
