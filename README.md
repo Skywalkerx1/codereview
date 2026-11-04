@@ -144,6 +144,14 @@ The contract is the one the builder already uses: the prompt (diff + instruction
 
 **The agent-seat boundary, plainly.** CodeReview runs each agent in a fresh scratch directory containing only the prompt file, with an allow-listed environment: your provider API keys are **not** passed to agent processes (only PATH/HOME/locale/proxy basics, plus any names you opt in via `CODEREVIEW_AGENT_ENV`). The seat's process group is killed when the call ends — timeout or not — and on POSIX its file writes are capped at 8 MB per file (on Windows only the direct child is killed). A seat that doesn't need login state in HOME can shed that exposure too: `agent:claude[home=private]:...` points HOME at the scratch directory. What CodeReview cannot do is govern the agent itself: a seated agent runs with **its own permissions**, and the redaction guarantee covers the prompt CodeReview sends — not files the agent chooses to read on its own. Seat only agents you would trust at your keyboard, keep their tools restricted (the example wrapper runs Claude Code with `--tools ""` — the brief is self-contained, so a reviewer seat needs no tools at all), and remember that the diff under review is untrusted input to a tool-enabled process.
 
+## Release records — preflight, fallbacks, verification
+
+A gate verdict you intend to *publish* (a release record) has to survive its own panel being flaky. Three mechanisms keep that honest:
+
+- **Preflight.** `codereview doctor [--provider ...]` probes every seat with one minimal call and prints per-seat health as JSON — a dead quota or a missing key shows up *before* a run, not inside a wasted record.
+- **Fallback seats.** Provider failures are classified (daily quota and auth errors are never retried; per-minute rate limits and 5xx/overloads get bounded backoff — every attempt is recorded). If a lens's primary seat still fails, a configured fallback serves it: `--fallback correctness=openai`. The substitution is printed on the report and in the gate reasons, never silent.
+- **Machine-checked eligibility.** Every reviewer report records its seat's vendor **family** and pricing **tier** (`--seat-meta gemini:google:paid`). `codereview record-verify <record-dir> --repo .` then decides whether a record may be called clean: gate PASS, not degraded, tests passed, every lens served, at least two distinct vendor families, the reviewed range's patch hash unchanged, and no later commits except the one filing the record. Relatedly, `--private` refuses seats tagged with a free tier — free tiers may train on submitted code, so they don't review private repositories.
+
 ## Gate semantics
 
 | Gate | Meaning |

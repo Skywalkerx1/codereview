@@ -36,10 +36,12 @@ import datetime
 import hashlib
 import json
 import os
+import random
 import re
 import subprocess
+import time
 
-VERSION = "0.7.2"
+VERSION = "0.7.3"
 SCHEMA = "codereview.report/1"
 
 SEVERITIES = ("blocker", "major", "minor", "nit")
@@ -497,6 +499,96 @@ def _call_and_parse(fn, prompt):
     return parse_json_object(fn(prompt))
 
 
+def _classify_error(exc):
+    """Classify a provider failure for the retry policy (v0.7.3,
+    clean-record solution §4.2). Returns (kind, max_tries):
+      quota      daily quota / RESOURCE_EXHAUSTED — never retried
+                 inside a run; the seat is done for the day.
+      auth       missing key / 401 / 403 — fail fast, no retry.
+      rate_limit per-minute 429 — short backoff, up to 3 tries.
+      transient  5xx / overloaded / timeouts — backoff, up to 3.
+      provider   a typed error (v0.7.1's retryable flag): the flag
+                 decides, ahead of any string matching.
+      unknown    anything else — a single try; do not guess."""
+    typed = getattr(exc, "retryable", None)
+    if typed is not None:
+        return "provider", 3 if typed else 1
+    msg = str(exc).lower()
+    if "resource_exhausted" in msg or (
+            "429" in msg and ("quota" in msg or "daily" in msg)):
+        return "quota", 1
+    if ("api_key" in msg or "api key" in msg or "not set" in msg
+            or "unauthorized" in msg or "401" in msg
+            or "403" in msg):
+        return "auth", 1
+    if "429" in msg:
+        return "rate_limit", 3
+    if isinstance(exc, TimeoutError) or any(
+            k in msg for k in ("503", "502", "500", "overloaded",
+                               "timed out", "timeout", "temporar",
+                               "unavailable", "connection")):
+        return "transient", 3
+    return "unknown", 1
+
+
+_RETRY_DELAYS = (0.5, 1.5)
+
+
+def _call_with_retry(fn, prompt, sleep=None, tally=None):
+    """_call_and_parse with error-class-aware bounded retries
+    (§4.2). Returns the parsed object; re-raises the final exception
+    when the seat never answers. Every attempt is counted into
+    `tally` ({"attempts": n, "error_classes": [...]}) so retries are
+    recorded, never silent. JSON parse failures are NOT retried
+    here — _call_and_parse already has its own repair attempts, and
+    a parse failure is not a capacity signal."""
+    sleep = sleep or time.sleep
+    tally = tally if tally is not None else {}
+    tally.setdefault("attempts", 0)
+    tally.setdefault("error_classes", [])
+    while True:
+        tally["attempts"] += 1
+        try:
+            return _call_and_parse(fn, prompt)
+        except (ValueError, json.JSONDecodeError):
+            raise
+        except Exception as exc:  # noqa: BLE001 — classified above
+            kind, max_tries = _classify_error(exc)
+            tally["error_classes"].append(kind)
+            if tally["attempts"] >= max_tries:
+                raise
+            delay = _RETRY_DELAYS[min(tally["attempts"] - 1,
+                                      len(_RETRY_DELAYS) - 1)]
+            sleep(delay + random.uniform(0, 0.25))
+
+
+def _review_job(fn, prompt, sleep=None):
+    """One reviewer call, never raising: returns a result dict the
+    caller folds into a reviewer report."""
+    tally = {}
+    try:
+        parsed = _call_with_retry(fn, prompt, sleep=sleep,
+                                  tally=tally)
+        return {"ok": True, "parsed": parsed, "error": None,
+                "attempts": tally.get("attempts", 1),
+                "error_classes": tally.get("error_classes", [])}
+    except Exception as exc:  # noqa: BLE001 — recorded by caller
+        return {"ok": False, "parsed": None, "error": exc,
+                "attempts": tally.get("attempts", 1),
+                "error_classes": tally.get("error_classes", [])}
+
+
+def _seat_meta(seat_meta, name):
+    """Family/tier metadata for one seat (v0.7.3): recorded on
+    every reviewer report so a release record can PROVE its panel
+    was two independent vendor families, and which pricing tier
+    served (§4.4, §4.6). Untagged seats record 'unknown' — and an
+    unknown family can never satisfy record verification."""
+    meta = (seat_meta or {}).get(name) or {}
+    return {"family": str(meta.get("family") or "unknown"),
+            "tier": str(meta.get("tier") or "unknown")}
+
+
 def _reviewer_tasks(provider_items):
     """Assign lenses: two providers split the lenses; a single
     provider is called twice, once per lens; 3+ cycle."""
@@ -537,11 +629,21 @@ def _gate(findings, allow_major=False, degraded=False, incomplete=False,
 
 
 def run_review(patch, providers, context="", test_results=None,
-               max_patch_chars=80000, allow_major=False, strict=False):
+               max_patch_chars=80000, allow_major=False, strict=False,
+               seat_meta=None, fallbacks=None, sleep=None,
+               record_extra=None):
     """One review round. `providers` maps name -> callable(prompt)->str.
 
     Returns the report dict. Never raises for provider failures; they
-    are recorded in the report."""
+    are recorded in the report.
+
+    v0.7.3 additions (clean-record solution §4): `seat_meta` tags
+    each seat with {family, tier} for the record; `fallbacks` maps a
+    lens to a (name, callable) seat that serves the lens when the
+    primary seat fails after its retries — the substitution is
+    recorded on the report and in the gate reasons, never silent;
+    `sleep` is injectable for tests; `record_extra` merges caller
+    facts (range, head) into the record."""
     test_results = test_results or []
     det = deterministic_scan(patch, test_results)
     clean_patch = redact_secrets(patch)
@@ -565,29 +667,59 @@ def run_review(patch, providers, context="", test_results=None,
                 batch=f"batch {bi + 1}/{len(batches)}", patch=batch)
             jobs.append((name, lens, fn, prompt))
 
+    fallback_notes = []
     with concurrent.futures.ThreadPoolExecutor(
             max_workers=max(2, min(6, len(jobs) or 1))) as ex:
-        futs = {ex.submit(_call_and_parse, fn, prompt): (name, lens)
+        futs = {ex.submit(_review_job, fn, prompt, sleep):
+                (name, lens, fn, prompt)
                 for name, lens, fn, prompt in jobs}
         for fut in concurrent.futures.as_completed(futs):
-            name, lens = futs[fut]
+            name, lens, fn, prompt = futs[fut]
+            res = fut.result()
+            serving_name, serving_fn = name, fn
             rec = {"provider": name, "lens": lens, "status": "error",
-                   "error": "", "summary": "", "findings": []}
-            try:
-                parsed = fut.result()
+                   "error": "", "summary": "", "findings": [],
+                   "attempts": res["attempts"],
+                   "error_classes": res["error_classes"]}
+            if not res["ok"] and fallbacks and lens in fallbacks:
+                fb_name, fb_fn = fallbacks[lens]
+                if fb_name != name:
+                    fb = _review_job(fb_fn, prompt, sleep)
+                    if fb["ok"]:
+                        fallback_notes.append(
+                            f"{lens} lens served by fallback seat "
+                            f"{fb_name!r} (primary {name!r} failed: "
+                            f"{res['error_classes'][-1] if res['error_classes'] else 'error'})")
+                        rec.update({
+                            "provider": fb_name,
+                            "fallback_for": name,
+                            "primary_error": str(res["error"])[:300],
+                            "attempts": fb["attempts"],
+                            "error_classes":
+                                res["error_classes"]
+                                + fb["error_classes"]})
+                        serving_name, serving_fn = fb_name, fb_fn
+                        res = fb
+                    else:
+                        rec["error"] = (
+                            f"{res['error']} | fallback {fb_name!r} "
+                            f"also failed: {fb['error']}")[:300]
+            if res["ok"]:
+                parsed = res["parsed"]
                 rec["status"] = "ok"
+                rec["error"] = ""
                 rec["summary"] = str(parsed.get("summary") or "")[:500]
                 for raw_f in parsed.get("findings") or []:
-                    nf = _normalize_finding(raw_f, name)
+                    nf = _normalize_finding(raw_f, serving_name)
                     if nf:
                         rec["findings"].append(nf)
                         all_findings.append(nf)
-                rec.update(_provider_meta(providers[name]))
                 any_success = True
-            except Exception as exc:  # noqa: BLE001 — record, never crash
-                rec["error"] = str(exc)[:300]
-                rec.update(_provider_meta(providers[name]))
+            else:
+                rec["error"] = rec["error"] or str(res["error"])[:300]
                 degraded = True
+            rec.update(_provider_meta(serving_fn))
+            rec.update(_seat_meta(seat_meta, serving_name))
             reviewer_reports.append(rec)
     if not jobs:
         degraded = True
@@ -596,6 +728,7 @@ def run_review(patch, providers, context="", test_results=None,
     gate, reasons = _gate(merged, allow_major=allow_major,
                           degraded=degraded, incomplete=truncated,
                           strict=strict, any_success=any_success)
+    reasons = reasons + fallback_notes
     if gate == "pass":
         # Lens coverage (v0.7.1 external review, finding 3.4): a
         # PASS must not rest on a partial panel. If any configured
@@ -613,7 +746,7 @@ def run_review(patch, providers, context="", test_results=None,
                 f"for the {', '.join(missing)} lens"] + reasons
         elif len(providers) <= 1:
             reasons = reasons + ["solo panel — no independent review"]
-    return {
+    report = {
         "schema": SCHEMA, "version": VERSION, "mode": "review",
         "created_at": _now_iso(),
         "patch_sha256": hashlib.sha256(
@@ -628,6 +761,10 @@ def run_review(patch, providers, context="", test_results=None,
         "degraded": degraded, "truncated": truncated,
         "gate": gate, "gate_reasons": reasons,
     }
+    if record_extra:
+        report.update({k: v for k, v in record_extra.items()
+                       if v is not None})
+    return report
 
 
 _RESOLUTION_STATUSES = ("fixed", "still_present", "invalid", "unclear")
@@ -659,7 +796,8 @@ def _validate_resolution(raw_status, evidence, haystack_tokens):
 
 def run_verification(patch, providers, previous_report, builder_response,
                      test_results=None, max_patch_chars=80000,
-                     allow_major=False, strict=False):
+                     allow_major=False, strict=False, seat_meta=None,
+                     sleep=None):
     """Verification round: a prior blocker clears only when every
     successful reviewer marks it fixed/invalid AND the seat that
     raised it is among them (deterministic findings clear when the
@@ -694,14 +832,19 @@ def run_verification(patch, providers, previous_report, builder_response,
     degraded = False
     with concurrent.futures.ThreadPoolExecutor(
             max_workers=max(2, len(providers) or 1)) as ex:
-        futs = {ex.submit(_call_and_parse, fn, prompt): name
+        futs = {ex.submit(_review_job, fn, prompt, sleep): name
                 for name, fn in providers.items()}
         for fut in concurrent.futures.as_completed(futs):
             name = futs[fut]
+            res = fut.result()
             rec = {"provider": name, "status": "error", "error": "",
-                   "resolutions": {}}
+                   "resolutions": {},
+                   "attempts": res["attempts"],
+                   "error_classes": res["error_classes"]}
             try:
-                parsed = fut.result()
+                if not res["ok"]:
+                    raise res["error"]
+                parsed = res["parsed"]
                 for r in parsed.get("resolutions") or []:
                     if isinstance(r, dict) and r.get("finding_id"):
                         raw_status = str(r.get("status") or "unclear")
@@ -722,10 +865,12 @@ def run_verification(patch, providers, previous_report, builder_response,
                         new_findings.append(nf)
                 rec["status"] = "ok"
                 rec.update(_provider_meta(providers[name]))
+                rec.update(_seat_meta(seat_meta, name))
                 any_success = True
             except Exception as exc:  # noqa: BLE001
                 rec["error"] = str(exc)[:300]
                 rec.update(_provider_meta(providers[name]))
+                rec.update(_seat_meta(seat_meta, name))
                 degraded = True
             per_provider.append(rec)
 
@@ -818,6 +963,127 @@ def run_verification(patch, providers, previous_report, builder_response,
         "degraded": degraded, "truncated": truncated,
         "gate": gate, "gate_reasons": reasons,
     }
+
+
+_DOCTOR_PROMPT = "Reply with the single word OK."
+
+
+def run_doctor(providers):
+    """Preflight health probe (§4.1): one minimal call per seat.
+    Returns {"ok": bool, "seats": [{name, ok, error_class, error}]}.
+    Writes nothing — a scheduler reads the result and aborts BEFORE
+    a doomed run creates a record directory, instead of discovering
+    a missing key or a dead quota inside the record itself."""
+    seats = []
+    for name, fn in providers.items():
+        try:
+            fn(_DOCTOR_PROMPT)
+            seats.append({"name": name, "ok": True,
+                          "error_class": "", "error": ""})
+        except Exception as exc:  # noqa: BLE001 — the probe's point
+            kind, _tries = _classify_error(exc)
+            seats.append({"name": name, "ok": False,
+                          "error_class": kind,
+                          "error": str(exc)[:200]})
+    return {"ok": all(s["ok"] for s in seats), "seats": seats}
+
+
+def check_tier_policy(seat_meta, private=False):
+    """Free-tier data policy (§4.6): free-tier credentials must not
+    review private repositories — on the free tiers the providers
+    may use submitted content to improve their products. Returns a
+    list of violations (empty = allowed). Only an explicit tier of
+    'free' violates; 'unknown' is recorded in the run record, where
+    the operator can see it, rather than blocked on a guess."""
+    if not private:
+        return []
+    return [
+        f"seat {name!r} runs on a free-tier credential, which "
+        f"must not review private repositories"
+        for name, meta in sorted((seat_meta or {}).items())
+        if str((meta or {}).get("tier") or "").lower() == "free"]
+
+
+def verify_record(record, repo=None, record_dir=None):
+    """Machine-checked release-record eligibility (§4.4): the
+    announcement hold is a checkable condition, not a judgment
+    call. Returns {"eligible": bool, "checks": [{name, ok,
+    detail}]}. `record_dir` is the record's path relative to the
+    repo root, used by the head-currency check: commits after the
+    recorded head are allowed only if they touch nothing outside
+    the record directory itself (i.e. the commit that files the
+    record)."""
+    checks = []
+
+    def add(name, ok, detail=""):
+        checks.append({"name": name, "ok": bool(ok),
+                       "detail": str(detail)[:200]})
+
+    add("gate_pass", record.get("gate") == "pass",
+        f"gate={record.get('gate')!r}")
+    add("not_degraded", record.get("degraded") is False,
+        f"degraded={record.get('degraded')!r}")
+    tests = record.get("test_results") or []
+    add("tests_passed",
+        bool(tests) and all(t.get("ok") for t in tests),
+        f"{sum(1 for t in tests if t.get('ok'))}/{len(tests)} "
+        f"test commands ok")
+    reports = record.get("reviewer_reports") or []
+    ok_reports = [r for r in reports if r.get("status") == "ok"]
+    covered = {r.get("lens") for r in ok_reports}
+    add("lens_coverage", set(LENSES) <= covered,
+        f"lenses served: {sorted(c for c in covered if c)}")
+    known = {r.get("family") for r in ok_reports
+             if r.get("family") not in (None, "", "unknown")}
+    add("two_families", len(known) >= 2,
+        f"distinct known families: {sorted(known)}")
+    rng, head = record.get("range"), record.get("head")
+    if not rng or not head:
+        add("range_recorded", False,
+            "record predates range/head tracking (v0.7.3); its "
+            "currency cannot be proven")
+        add("patch_matches_range", False, "no range recorded")
+        add("head_current", False, "no head recorded")
+    elif not repo:
+        add("range_recorded", True, rng)
+        add("patch_matches_range", False,
+            "no repo supplied to recompute the patch")
+        add("head_current", False, "no repo supplied")
+    else:
+        add("range_recorded", True, rng)
+        try:
+            digest = hashlib.sha256(
+                collect_git_patch(
+                    repo, range_spec=rng).encode("utf-8")
+            ).hexdigest()
+            add("patch_matches_range",
+                digest == record.get("patch_sha256"),
+                "recomputed patch hash "
+                + ("matches" if digest == record.get("patch_sha256")
+                   else "DIFFERS from the record"))
+        except Exception as exc:  # noqa: BLE001
+            add("patch_matches_range", False, str(exc))
+        try:
+            extra = _git(repo, "rev-list", f"{head}..HEAD").split()
+            outside = []
+            for commit in extra:
+                paths = _git(repo, "diff-tree", "--no-commit-id",
+                             "--name-only", "-r", commit).split()
+                for path in paths:
+                    if record_dir and (
+                            path == record_dir or path.startswith(
+                                record_dir.rstrip("/") + "/")):
+                        continue
+                    outside.append(path)
+            add("head_current", not outside,
+                "commits after the recorded head touch only the "
+                "record directory"
+                if not outside else
+                f"later commits touch: {sorted(set(outside))[:5]}")
+        except Exception as exc:  # noqa: BLE001
+            add("head_current", False, str(exc))
+    return {"eligible": all(c["ok"] for c in checks),
+            "checks": checks}
 
 
 def _patch_stats(patch):
@@ -1464,8 +1730,17 @@ def render_markdown(report):
             extra = (f" — {r.get('summary', '')}" if r.get("summary")
                      else (f" — ERROR: {r.get('error', '')}"
                            if r.get("status") != "ok" else ""))
+            seat = ""
+            if r.get("family") not in (None, "", "unknown"):
+                seat = f", family {r['family']}"
+            if r.get("tier") not in (None, "", "unknown"):
+                seat += f", {r['tier']} tier"
+            if r.get("fallback_for"):
+                seat += f", fallback for {r['fallback_for']}"
+            if (r.get("attempts") or 1) > 1:
+                seat += f", {r['attempts']} attempts"
             lines.append(f"- {r.get('provider')} "
-                         f"({r.get('lens', 'verify')}): "
+                         f"({r.get('lens', 'verify')}{seat}): "
                          f"{r.get('status')}{extra}")
         lines.append("")
     tr = report.get("test_results") or []

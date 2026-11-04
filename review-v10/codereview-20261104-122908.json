@@ -1,0 +1,63 @@
+{
+  "schema": "codereview.report/1",
+  "version": "0.7.3",
+  "mode": "review",
+  "created_at": "2026-11-04T12:29:08+00:00",
+  "patch_sha256": "c88bba2ea6f78c8a03bf40b7cc38ebc2e2d4d81b6c1b19d9c14a1cbd7cee01c1",
+  "patch_chars": 52668,
+  "files": [
+    "CHANGELOG.md",
+    "README.md",
+    "gate-attempts.md",
+    "src/codereview/cli.py",
+    "src/codereview/core.py",
+    "tests/test_solution_v073.py"
+  ],
+  "context": "v0.7.3: section-4 hardening from the owner's clean-record solution. (4.1) codereview doctor preflight: per-seat minimal probe, JSON health, error classes. (4.2) error-class-aware bounded retries inside reviewer calls: quota/auth never retried, per-minute 429 and 5xx/overload/timeout backoff to 3 tries, typed retryable flag wins; attempts + error classes recorded per report. (4.3) fallback seat per lens (--fallback lens=spec): serves the lens when the primary fails, recorded via fallback_for + ga",
+  "test_results": [
+    {
+      "command": "python3 -m unittest discover -s tests",
+      "ok": true,
+      "exit_code": 0,
+      "output_tail": "........................................................................................................................\n----------------------------------------------------------------------\nRan 120 tests in 25.121s\n\nOK\n"
+    }
+  ],
+  "deterministic_findings": [],
+  "reviewer_reports": [
+    {
+      "provider": "nvidia",
+      "lens": "operations",
+      "status": "ok",
+      "error": "",
+      "summary": "The diff implements v0.7.3 clean-record solution (§4) with error-class-aware retries, fallback seats, machine-checked record verification, doctor preflight, seat metadata, and free-tier policy. All changes are consistent and no production-harming issues were found.",
+      "findings": [],
+      "attempts": 1,
+      "error_classes": [],
+      "family": "nvidia",
+      "tier": "free"
+    },
+    {
+      "provider": "gemini",
+      "lens": "correctness",
+      "status": "error",
+      "error": "gemini quota: HTTP 429",
+      "summary": "",
+      "findings": [],
+      "attempts": 2,
+      "error_classes": [
+        "transient",
+        "quota"
+      ],
+      "family": "google",
+      "tier": "free"
+    }
+  ],
+  "findings": [],
+  "degraded": true,
+  "truncated": false,
+  "gate": "inconclusive",
+  "gate_reasons": [
+    "lens coverage incomplete: no successful reviewer for the correctness lens",
+    "at least one reviewer failed (degraded review)"
+  ]
+}

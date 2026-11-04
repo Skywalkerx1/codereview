@@ -461,9 +461,132 @@ def _pr_main(argv, providers_override=None):
         report["gate"], 2)
 
 
-def main(argv=None, providers_override=None):
+_FAMILY_BY_PRESET = {"gemini": "google", "openai": "openai",
+                     "xai": "xai", "nvidia": "nvidia",
+                     "deepseek": "deepseek",
+                     "anthropic": "anthropic"}
+
+
+def _default_seat_meta(providers):
+    """Baseline family tags from seat names (v0.7.3): a preset seat
+    carries its vendor family; an agent seat is family 'agent'.
+    Tier stays 'unknown' unless tagged — recorded, never guessed."""
+    meta = {}
+    for name in providers:
+        base = name.split("-")[0].lower() if name else ""
+        family = _FAMILY_BY_PRESET.get(base)
+        if family is None and name.startswith("agent:"):
+            family = "agent"
+        meta[name] = {"family": family or "unknown",
+                      "tier": "unknown"}
+    return meta
+
+
+def _parse_seat_meta(values, base=None):
+    """--seat-meta name:family[:tier] entries over a baseline."""
+    meta = dict(base or {})
+    for value in values or []:
+        parts = value.split(":")
+        if len(parts) < 2 or not parts[0] or not parts[1]:
+            raise ValueError(
+                f"bad --seat-meta {value!r}: want name:family[:tier]")
+        entry = dict(meta.get(parts[0]) or {})
+        entry["family"] = parts[1]
+        if len(parts) > 2 and parts[2]:
+            entry["tier"] = parts[2]
+        entry.setdefault("tier", "unknown")
+        meta[parts[0]] = entry
+    return meta
+
+
+def _doctor_main(argv, providers_override=None):
+    ap = argparse.ArgumentParser(
+        prog="codereview doctor",
+        description="Preflight: probe every configured seat with "
+                    "one minimal call and report its health as JSON "
+                    "before any review runs.")
+    ap.add_argument("--provider", action="append", default=[],
+                    help="provider spec (same syntax as review); "
+                         "repeatable. Default: $CODEREVIEW_PROVIDERS "
+                         "or gemini,openai")
+    args = ap.parse_args(argv)
+    if providers_override is not None:
+        providers = providers_override
+    else:
+        specs = args.provider
+        if not specs:
+            env = (os.environ.get("CODEREVIEW_PROVIDERS")
+                   or os.environ.get("REVIEWLOOP_PROVIDERS", ""))
+            specs = [s.strip() for s in env.split(",") if s.strip()] \
+                or ["gemini", "openai"]
+        try:
+            providers = build_providers(specs)
+        except Exception as exc:  # noqa: BLE001
+            print(json.dumps({"ok": False, "seats": [],
+                              "error": f"provider setup failed: "
+                                       f"{exc}"}))
+            return 2
+    result = core.run_doctor(providers)
+    print(json.dumps(result, ensure_ascii=False, indent=1))
+    return 0 if result["ok"] else 2
+
+
+def _record_verify_main(argv):
+    ap = argparse.ArgumentParser(
+        prog="codereview record-verify",
+        description="Check whether a saved review record is "
+                    "eligible as a release record (clean gate, "
+                    "full panel, current range).")
+    ap.add_argument("path",
+                    help="record directory or record JSON file")
+    ap.add_argument("--repo", default=".",
+                    help="repository the record belongs to")
+    args = ap.parse_args(argv)
+    path = args.path
+    try:
+        if os.path.isdir(path):
+            candidates = sorted(
+                (os.path.join(path, f) for f in os.listdir(path)
+                 if f.endswith(".json")),
+                key=lambda p: os.path.getmtime(p))
+            if not candidates:
+                print(f"codereview: no record JSON in {path}",
+                      file=sys.stderr)
+                return 2
+            jpath = candidates[-1]
+            record_dir = os.path.relpath(
+                os.path.abspath(path),
+                os.path.abspath(args.repo)).replace(os.sep, "/")
+        else:
+            jpath = path
+            record_dir = os.path.relpath(
+                os.path.abspath(os.path.dirname(path) or "."),
+                os.path.abspath(args.repo)).replace(os.sep, "/")
+        with open(jpath, encoding="utf-8") as fh:
+            record = json.load(fh)
+    except Exception as exc:  # noqa: BLE001
+        print(f"codereview: could not read the record: {exc}",
+              file=sys.stderr)
+        return 2
+    result = core.verify_record(record, repo=args.repo,
+                                record_dir=record_dir)
+    for check in result["checks"]:
+        mark = "ok " if check["ok"] else "FAIL"
+        print(f"  [{mark}] {check['name']}: {check['detail']}")
+    print(f"codereview: record {'ELIGIBLE' if result['eligible'] else 'NOT eligible'} "
+          f"({jpath})")
+    return 0 if result["eligible"] else 1
+
+
+def main(argv=None, providers_override=None, seat_meta_override=None,
+         fallbacks_override=None):
     if argv is None:
         argv = sys.argv[1:]
+    if argv and argv[0] == "doctor":
+        return _doctor_main(argv[1:],
+                            providers_override=providers_override)
+    if argv and argv[0] == "record-verify":
+        return _record_verify_main(argv[1:])
     if argv and argv[0] == "pr":
         return _pr_main(argv[1:],
                         providers_override=providers_override)
@@ -512,6 +635,20 @@ def main(argv=None, providers_override=None):
                     help="previous report JSON: run a verification round")
     ap.add_argument("--builder-response", default="",
                     help="builder's response to prior findings (or @file)")
+    ap.add_argument("--seat-meta", action="append", default=[],
+                    help="tag a seat for the record: name:family[:tier] "
+                         "(e.g. gemini:google:paid); repeatable")
+    ap.add_argument("--fallback", action="append", default=[],
+                    help="fallback seat for a lens when its primary "
+                         "fails: lens=provider-spec (e.g. "
+                         "correctness=openai); repeatable")
+    ap.add_argument("--attempts-log",
+                    help="append one JSON line describing this run "
+                         "(seats, error classes, gate) to this file")
+    ap.add_argument("--private", action="store_true",
+                    help="the repository is private: seats tagged "
+                         "with a free tier are refused (free tiers "
+                         "may train on submitted code)")
     args = ap.parse_args(argv)
 
     def _maybe_file(text):
@@ -547,6 +684,55 @@ def main(argv=None, providers_override=None):
                   file=sys.stderr)
             return 2
 
+    try:
+        seat_meta = _parse_seat_meta(
+            args.seat_meta, _default_seat_meta(providers))
+    except ValueError as exc:
+        print(f"codereview: {exc}", file=sys.stderr)
+        return 2
+    if seat_meta_override:
+        seat_meta.update(seat_meta_override)
+    violations = core.check_tier_policy(seat_meta,
+                                        private=args.private)
+    if violations:
+        for violation in violations:
+            print(f"codereview: tier policy: {violation}",
+                  file=sys.stderr)
+        return 2
+
+    fallbacks = fallbacks_override
+    if fallbacks is None and args.fallback:
+        fallbacks = {}
+        for spec in args.fallback:
+            lens, eq, pspec = spec.partition("=")
+            lens = lens.strip()
+            if not eq or lens not in core.LENSES or not pspec.strip():
+                print(f"codereview: bad --fallback {spec!r}: want "
+                      f"lens=provider-spec with lens one of "
+                      f"{sorted(core.LENSES)}", file=sys.stderr)
+                return 2
+            try:
+                built = build_providers([pspec.strip()])
+            except Exception as exc:  # noqa: BLE001
+                print(f"codereview: fallback setup failed: {exc}",
+                      file=sys.stderr)
+                return 2
+            (fb_name, fb_fn), = built.items()
+            if fb_name in providers:
+                print(f"codereview: fallback seat {fb_name!r} is "
+                      f"already a primary seat", file=sys.stderr)
+                return 2
+            fallbacks[lens] = (fb_name, fb_fn)
+
+    record_extra = None
+    if args.range:
+        record_extra = {"range": args.range}
+        try:
+            record_extra["head"] = core._git(
+                args.repo or ".", "rev-parse", "HEAD")
+        except Exception:  # noqa: BLE001 — head is best-effort
+            pass
+
     cwd = args.repo or "."
     test_results = _run_tests(args.test_command, cwd)
 
@@ -563,15 +749,45 @@ def main(argv=None, providers_override=None):
             _maybe_file(args.builder_response),
             test_results=test_results,
             max_patch_chars=args.max_patch_chars,
-            allow_major=args.allow_major, strict=args.strict)
+            allow_major=args.allow_major, strict=args.strict,
+            seat_meta=seat_meta)
     else:
         report = core.run_review(
             patch, providers, context=_maybe_file(args.context),
             test_results=test_results,
             max_patch_chars=args.max_patch_chars,
-            allow_major=args.allow_major, strict=args.strict)
+            allow_major=args.allow_major, strict=args.strict,
+            seat_meta=seat_meta, fallbacks=fallbacks,
+            record_extra=record_extra)
 
     jpath, mpath = core.write_report(report, args.out)
+    if args.attempts_log:
+        try:
+            entry = {
+                "ts": core._now_iso(), "mode": report.get("mode"),
+                "gate": report.get("gate"),
+                "degraded": report.get("degraded"),
+                "range": args.range,
+                "patch_sha256": report.get("patch_sha256"),
+                "seats": [{
+                    "provider": r.get("provider"),
+                    "lens": r.get("lens"),
+                    "status": r.get("status"),
+                    "family": r.get("family"),
+                    "tier": r.get("tier"),
+                    "fallback_for": r.get("fallback_for"),
+                    "attempts": r.get("attempts"),
+                    "error_class": (r.get("error_classes")
+                                    or [""])[-1],
+                } for r in report.get("reviewer_reports") or []],
+                "tests_ok": (all(t.get("ok") for t in test_results)
+                             if test_results else None),
+            }
+            with open(args.attempts_log, "a",
+                      encoding="utf-8") as fh:
+                fh.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        except Exception:  # noqa: BLE001 — bookkeeping never breaks
+            pass
     n_block = sum(1 for f in report.get("findings") or []
                   if f["severity"] in ("blocker", "major"))
     print(f"codereview: gate = {report['gate'].upper()} "
