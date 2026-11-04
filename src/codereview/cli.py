@@ -140,12 +140,14 @@ def _load_precedents(path, repo="."):
     """Load the content-addressed precedent store (v0.9.3, §2e):
     returns the precedents dict run_review consumes — entries,
     a blob_lookup resolving a cited path's CURRENT git blob id
-    at HEAD, and the store's repo-relative path + content hash
-    for the record (record-verify recomputes both, exactly like
-    the fixture manifest). The store declares findings already
-    adjudicated; classification additionally requires the cited
-    file's blob to be unchanged, so a stale store entry is
-    inert, never wrong."""
+    at HEAD, a source_lookup resolving its CURRENT text at HEAD
+    (for function-level entries, §5d), and the store's
+    repo-relative path + content hash for the record
+    (record-verify recomputes both, exactly like the fixture
+    manifest). The store declares findings already adjudicated;
+    classification additionally requires the cited file's blob
+    to be unchanged, so a stale store entry is inert, never
+    wrong."""
     repo_abs = os.path.realpath(repo)
     full = os.path.realpath(
         path if os.path.isabs(path)
@@ -167,11 +169,16 @@ def _load_precedents(path, repo="."):
             not isinstance(e, dict)
             or not str(e.get("finding_id") or "").strip()
             or not str(e.get("path") or "").strip()
-            or not str(e.get("blob") or "").strip()
+            or not (str(e.get("blob") or "").strip()
+                    or (str(e.get("function") or "").strip()
+                        and str(e.get("function_hash")
+                                or "").strip()))
             for e in entries):
         raise ValueError(
             f"precedent store {path}: 'entries' must be a list "
-            f"of objects each naming finding_id, path and blob")
+            f"of objects each naming finding_id, path and a "
+            f"content address (blob, or function + "
+            f"function_hash for a function-level entry, §5d)")
 
     def blob_lookup(p):
         out = subprocess.run(
@@ -181,9 +188,18 @@ def _load_precedents(path, repo="."):
             return None
         return out.stdout.decode("utf-8", "replace").strip() or None
 
+    def source_lookup(p):
+        out = subprocess.run(
+            ["git", "-C", repo_abs, "show", f"HEAD:{p}"],
+            capture_output=True, timeout=120, check=False)
+        if out.returncode != 0:
+            return None
+        return out.stdout.decode("utf-8", "replace")
+
     return {
         "entries": entries,
         "blob_lookup": blob_lookup,
+        "source_lookup": source_lookup,
         "store_path": os.path.relpath(full, repo_abs).replace(
             os.sep, "/"),
         "store_sha256": hashlib.sha256(raw).hexdigest(),

@@ -170,6 +170,22 @@ codereview bench report            # full report; --public excludes the holdout 
 
 Corpus v0 ships in `bench/corpus/`: 36 cases (29 defect cases with 31 ground-truth defects, 7 clean controls; 27 public / 9 holdout), mixing authored defect injections (secrets, injection, auth regressions, payment bugs, races) with cases converted from this repo's own run records. The headline metric is the **escaped-defect rate**: defects no finding blocked on — unseen, or reported only as a minor/nit so the gate would have shipped them. Reports also carry recall, precision, clean-case false-positive rate, cost per verdict, and p50/p95 latency; `bench report --max-escaped-rate R` works as a CI regression gate. Scripted replay seats (`oracle` / `blind` / `noisy` configs) run the whole harness deterministically with zero provider calls — their scores validate the harness, not any model. Definitions, corpus provenance, and the growth path to 50–100 cases live in `bench/README.md`. Anything public quotes the public split only: holdout records are dropped before scoring in `--public` reports, so no holdout case can leak into a claim.
 
+## Policy: supported platforms, severity rubric, disputes
+
+**Supported platforms.** The project supports POSIX operating systems with Python 3.11 or newer:
+
+```toml
+supported = { os = ["posix"], python = ">=3.11" }
+```
+
+A finding that depends only on an unsupported platform (for example Windows drive-letter path behaviour) is auto-labelled `out-of-scope (documented)` in the record: it stays visible in `out_of_scope_findings`, with the reason recorded, and it never blocks the gate. A finding that also claims impact on a supported platform is never labelled.
+
+**Severity rubric.** A `blocker` or `major` requires a demonstrated, reachable defect with impact in a supported configuration, and the finding's evidence must cite the reachable path — the input, state, or call sequence that reaches the defect. Claims that cannot be traced to a reachable path, or that depend on unsupported platforms, on operator-supplied input being malicious, or on hypothetical future seat kinds, are `minor` or `nit` at most. The rubric is stated in the reviewer prompts; any label the rubric drives is recorded on the finding with its reason — severities are never silently downgraded.
+
+**Dispute ladder.** When one vendor family refutes another family's blocking finding with quote evidence, the refutation is first graded for *adequacy*: a refutation whose quote merely repeats the line the finding itself cites carries no counter-evidence and is recorded as `refutation-weak` — a routing state, not a verdict. A disputed or refutation-weak finding is then offered a **third-family tiebreak**: a seat from a family that neither raised nor refuted it votes confirm/refute, and either vote counts only with a quote that validates against the cited region. Two of three families agreeing *with* valid quotes resolves the dispute on the record, which shows all three votes and quotes (`tiebreak_resolved_findings`, or the finding standing as `tiebreak_confirmed`). Anything unresolved stays in the disputed/refutation-weak lists for the human gate, and a run with such findings cannot auto-PASS.
+
+**Precedents.** A dispositioned finding can be stored as a precedent keyed to content, not names: file-level entries hold the cited file's git blob at disposition time, and an entry may additionally key to the *enclosing function's* normalized AST hash (plus its direct callees' hashes). A function-level precedent survives unrelated edits elsewhere in the file; an edit inside the judged function — or one of its callees — re-opens the finding for fresh adjudication. When the function cannot be resolved, matching falls back to the file blob. Standing precedents are shown in the record, never hidden.
+
 ## Gate semantics
 
 | Gate | Meaning |
