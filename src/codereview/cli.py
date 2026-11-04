@@ -361,6 +361,10 @@ def _intake_main(argv, solvers_override=None):
     ap.add_argument("--out", default="codereview-intake-out")
     args = ap.parse_args(argv)
 
+    if args.timeout <= 0:
+        print("codereview intake: --timeout must be a positive "
+              "number of seconds", file=sys.stderr)
+        return 2
     try:
         with open(os.path.expanduser(args.report), encoding="utf-8",
                   errors="replace") as fh:
@@ -582,6 +586,12 @@ def _doctor_main(argv, providers_override=None,
                          "seats (forwarded to provider "
                          "construction, like review/intake)")
     args = ap.parse_args(argv)
+    if args.timeout is not None and args.timeout <= 0:
+        print(json.dumps(
+            {"ok": False, "seats": [],
+             "error": "--timeout must be a positive number "
+                      "of seconds"}))
+        return 2
     if providers_override is not None:
         providers = providers_override
     else:
@@ -864,7 +874,17 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
                     help="the repository is private: seats tagged "
                          "with a free tier are refused (free tiers "
                          "may train on submitted code)")
+    ap.add_argument("--timeout", type=int, default=None,
+                    help="per-seat timeout in seconds for agent "
+                         "seats (forwarded to provider construction "
+                         "for primary AND fallback seats, like "
+                         "doctor/intake)")
     args = ap.parse_args(argv)
+
+    if args.timeout is not None and args.timeout <= 0:
+        print("codereview: --timeout must be a positive number "
+              "of seconds", file=sys.stderr)
+        return 2
 
     def _maybe_file(text):
         if text.startswith("@"):
@@ -909,7 +929,8 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
             specs = [s.strip() for s in env.split(",") if s.strip()] \
                 or ["gemini", "openai"]
         try:
-            providers = build_providers(specs)
+            providers = build_providers(
+                specs, agent_timeout=args.timeout)
         except Exception as exc:  # noqa: BLE001
             print(f"codereview: provider setup failed: {exc}",
                   file=sys.stderr)
@@ -943,7 +964,8 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
                       f"{sorted(core.LENSES)}", file=sys.stderr)
                 return 2
             try:
-                built = build_providers([pspec.strip()])
+                built = build_providers(
+                    [pspec.strip()], agent_timeout=args.timeout)
             except Exception as exc:  # noqa: BLE001
                 print(f"codereview: fallback setup failed: {exc}",
                       file=sys.stderr)

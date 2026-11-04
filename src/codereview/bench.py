@@ -499,7 +499,19 @@ def run_bench(corpus_dir, config_specs, out_dir, split="all",
                     for r in records:
                         fh.write(json.dumps(r) + "\n")
         done = {(r["config"], r["case_id"]) for r in records}
-        with open(path, "a", encoding="utf-8") as fh:
+        if force:
+            # --force means the stored records are REPLACED, not
+            # appended to (appending stacked a duplicate record
+            # per (config, case) on every forced rerun —
+            # review-v12 finding). The replacements stream to a
+            # sibling temp file, swapped in only when this
+            # config's run completes: a crash mid-run leaves the
+            # previous results file intact instead of a truncated
+            # stub (the fix diff's own internal review).
+            write_path, write_mode = path + ".tmp", "w"
+        else:
+            write_path, write_mode = path, "a"
+        with open(write_path, write_mode, encoding="utf-8") as fh:
             for case in cases:
                 key = (cfg["name"], case["id"])
                 if key in done:
@@ -546,6 +558,8 @@ def run_bench(corpus_dir, config_specs, out_dir, split="all",
                 fh.flush()
                 records.append(record)
                 done.add(key)
+        if force:
+            os.replace(write_path, path)
         results[cfg["name"]] = records
     return results
 

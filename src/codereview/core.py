@@ -42,7 +42,7 @@ import re
 import subprocess
 import time
 
-VERSION = "0.9.0"
+VERSION = "0.9.1"
 SCHEMA = "codereview.report/1"
 
 SEVERITIES = ("blocker", "major", "minor", "nit")
@@ -141,9 +141,13 @@ def _fixture_inner_paths(sections, patterns):
     in the case's own little world, and reviewers quite correctly
     report that file's planted defects under the inner path. Those
     findings belong to the fixture. A path that is ALSO a real
-    top-level section of the patch is never classified this way
-    (the caller checks): classification must not be able to hide
-    a product file behind a fixture's inner name."""
+    top-level section of the patch is never classified this way:
+    the subtraction happens HERE, inside the function, so no
+    caller can forget it (review-v12 finding) — classification
+    must not be able to hide a product file behind a fixture's
+    inner name. Callers keep their own top-level check as well;
+    it is now redundant defence in depth, not the only guard."""
+    top_files = {name for name, _ in sections}
     inner = set()
     for name, text in sections:
         if not path_matches(name, patterns):
@@ -153,7 +157,7 @@ def _fixture_inner_paths(sections, patterns):
                 or _NESTED_PLUS_RE.match(line)
             if m:
                 inner.add(m.group(1).strip())
-    return inner
+    return inner - top_files
 
 
 def build_pseudo_patch(paths, root="."):
