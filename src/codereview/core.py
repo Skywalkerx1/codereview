@@ -39,7 +39,7 @@ import os
 import re
 import subprocess
 
-VERSION = "0.7.1"
+VERSION = "0.7.2"
 SCHEMA = "codereview.report/1"
 
 SEVERITIES = ("blocker", "major", "minor", "nit")
@@ -596,6 +596,23 @@ def run_review(patch, providers, context="", test_results=None,
     gate, reasons = _gate(merged, allow_major=allow_major,
                           degraded=degraded, incomplete=truncated,
                           strict=strict, any_success=any_success)
+    if gate == "pass":
+        # Lens coverage (v0.7.1 external review, finding 3.4): a
+        # PASS must not rest on a partial panel. If any configured
+        # lens had no successful reviewer, the round is
+        # INCONCLUSIVE — the same standard verification rounds
+        # already enforce — and a one-seat panel says so plainly
+        # instead of borrowing the language of consensus.
+        covered = {r["lens"] for r in reviewer_reports
+                   if r["status"] == "ok"}
+        missing = sorted({t[2] for t in tasks} - covered)
+        if missing:
+            gate = "inconclusive"
+            reasons = [
+                "lens coverage incomplete: no successful reviewer "
+                f"for the {', '.join(missing)} lens"] + reasons
+        elif len(providers) <= 1:
+            reasons = reasons + ["solo panel — no independent review"]
     return {
         "schema": SCHEMA, "version": VERSION, "mode": "review",
         "created_at": _now_iso(),
@@ -765,8 +782,9 @@ def run_verification(patch, providers, previous_report, builder_response,
     elif unjudged:
         gate, reasons = "inconclusive", [
             f"{len(unjudged)} prior blocker(s) not confirmed "
-            "cleared (original finder unavailable or resolution "
-            "unclear)"]
+            "cleared: the seat that raised each was not among the "
+            "successful reviewers (run a fresh review with the "
+            "finder present, or record a human waiver)"]
     elif not quorum_ok:
         gate, reasons = "inconclusive", [
             f"verification quorum not met: {len(ok_recs)} of "
@@ -781,6 +799,10 @@ def run_verification(patch, providers, previous_report, builder_response,
         gate = "pass"
         reasons = [f"all prior blockers cleared by {len(ok_recs)} "
                    f"of {len(providers)} reviewers"]
+        if len(providers) <= 1:
+            reasons[0] = ("all prior blockers cleared by the only "
+                          "configured reviewer — solo panel, no "
+                          "independent review")
         if degraded:
             reasons[0] += " — DEGRADED"
     return {

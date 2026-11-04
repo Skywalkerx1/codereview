@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shlex
 import shutil
 import signal
@@ -169,12 +170,16 @@ def _agent_env(prompt_path):
     return env
 
 
-def _kill_tree(proc):
+def _kill_tree(proc, pgid=None):
     """Kill the agent's whole process group (it was started in its
-    own session), so a timeout leaves no orphaned grandchildren."""
+    own session), so no orphaned grandchildren survive — called on
+    timeout AND after a normal exit (an agent may leave daemons
+    behind; v0.7.1 external review, finding 3.2). A group that is
+    already gone is not an error."""
     try:
         if os.name == "posix":
-            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+            os.killpg(pgid if pgid is not None
+                      else os.getpgid(proc.pid), signal.SIGKILL)
         else:
             proc.kill()
     except (ProcessLookupError, PermissionError, OSError):
@@ -182,6 +187,19 @@ def _kill_tree(proc):
             proc.kill()
         except OSError:
             pass
+
+
+MAX_AGENT_FILE = 8 * 1024 * 1024
+
+
+def _limit_files():
+    """preexec_fn (POSIX): cap the size of any file the agent
+    writes, so a runaway agent cannot fill the disk while its
+    output is being captured (finding 3.3). The child dies with
+    SIGXFSZ past the cap; the read side keeps the verdict tail."""
+    import resource
+    resource.setrlimit(resource.RLIMIT_FSIZE,
+                       (MAX_AGENT_FILE, MAX_AGENT_FILE))
 
 
 def _read_tail(path, limit):
@@ -195,21 +213,26 @@ def _read_tail(path, limit):
         return ""
 
 
-def command_agent(command, timeout=AGENT_TIMEOUT):
+def command_agent(command, timeout=AGENT_TIMEOUT, private_home=False):
     """Callable backed by a local agent command.
 
-    Isolation contract (v0.7.0 external review, findings 1/3/5/6):
-    the agent runs in a fresh scratch directory containing ONLY the
-    prompt file (its cwd — never the repo), with an allow-listed
-    environment (no provider keys unless the operator opts names in
-    via CODEREVIEW_AGENT_ENV), in its own process group so a timeout
-    kills the whole tree, and its output is captured to files and
-    capped (the verdict tail is kept). The command line is split
-    with shlex and executed WITHOUT a shell: metacharacters are
-    literal; pipes/redirection belong in a wrapper script. Every
-    failure is a ProviderError with retryable=False — the seat
-    degrades honestly in the run report, like any provider failure,
-    and never triggers account rotation."""
+    Isolation contract (v0.7.0 external review, findings 1/3/5/6;
+    v0.7.1 review, findings 3.2/3.3/3.5): the agent runs in a fresh
+    scratch directory containing ONLY the prompt file (its cwd —
+    never the repo), with an allow-listed environment (no provider
+    keys unless the operator opts names in via CODEREVIEW_AGENT_ENV),
+    in its own process group — killed whole on timeout and after a
+    normal exit alike, so background children never leak — with a
+    per-file write cap (RLIMIT_FSIZE) on POSIX, and its output
+    captured to files outside the cwd with the read side capped
+    (the verdict tail is kept). With private_home=True the seat's
+    HOME is the scratch directory instead of the operator's (for
+    agents that need no login state in HOME). The command line is
+    split with shlex and executed WITHOUT a shell: metacharacters
+    are literal; pipes/redirection belong in a wrapper script.
+    Every failure is a ProviderError with retryable=False — the
+    seat degrades honestly in the run report, like any provider
+    failure, and never triggers account rotation."""
     def call(prompt):
         try:
             argv = shlex.split(command)
@@ -231,20 +254,29 @@ def command_agent(command, timeout=AGENT_TIMEOUT):
             err_fd, err_path = tempfile.mkstemp(
                 prefix="codereview-agent-err-")
             cap_fds = [out_path, err_path]
+            env = _agent_env(prompt_path)
+            if private_home:
+                env["HOME"] = workdir
+            proc = None
+            pgid = None
             try:
                 with os.fdopen(out_fd, "wb") as out_f, \
                         os.fdopen(err_fd, "wb") as err_f:
                     proc = subprocess.Popen(
                         argv, shell=False, stdin=subprocess.PIPE,
                         stdout=out_f, stderr=err_f,
-                        env=_agent_env(prompt_path), cwd=workdir,
-                        start_new_session=True)
+                        env=env, cwd=workdir,
+                        start_new_session=True,
+                        preexec_fn=_limit_files
+                        if os.name == "posix" else None)
+                    if os.name == "posix":
+                        pgid = os.getpgid(proc.pid)
                     try:
                         proc.communicate(
                             input=prompt.encode("utf-8"),
                             timeout=timeout)
                     except subprocess.TimeoutExpired:
-                        _kill_tree(proc)
+                        _kill_tree(proc, pgid)
                         proc.communicate()
                         raise ProviderError(
                             f"agent command timed out after {timeout}s",
@@ -253,7 +285,18 @@ def command_agent(command, timeout=AGENT_TIMEOUT):
                 raise ProviderError(
                     f"agent command failed to start: "
                     f"{exc.strerror or exc}", retryable=False)
+            finally:
+                if proc is not None:
+                    # Normal exit included: an agent's background
+                    # children die with their seat (finding 3.2).
+                    _kill_tree(proc, pgid)
             if proc.returncode != 0:
+                if os.name == "posix" and proc.returncode \
+                        == -signal.SIGXFSZ:
+                    raise ProviderError(
+                        "agent output exceeded the per-file size "
+                        f"limit ({MAX_AGENT_FILE} bytes)",
+                        retryable=False)
                 tail = _read_tail(err_path, 4096).strip()[-300:]
                 raise ProviderError(
                     f"agent command exited {proc.returncode}"
@@ -287,6 +330,37 @@ PRESETS = {
 }
 
 
+def _parse_agent_spec(spec):
+    """agent:<name>[<options>]:<command> -> (name, options, command).
+
+    The only option today is home=private (the seat's HOME is its
+    scratch directory instead of the operator's). Unknown options
+    are rejected loudly rather than ignored."""
+    parts = spec.split(":", 2)
+    if len(parts) != 3 or not parts[2].strip():
+        raise ProviderError(
+            f"bad agent spec {spec!r}: want agent:<name>:<command>")
+    raw_name, command = parts[1].strip(), parts[2].strip()
+    options = {}
+    if raw_name.endswith("]") and "[" in raw_name:
+        raw_name, _, opt_str = raw_name.partition("[")
+        for opt in opt_str.rstrip("]").split(","):
+            opt = opt.strip()
+            if not opt:
+                continue
+            if opt == "home=private":
+                options["home"] = "private"
+            else:
+                raise ProviderError(
+                    f"unknown agent seat option {opt!r} in {spec!r} "
+                    "(supported: home=private)")
+    name = raw_name.strip()
+    if not name:
+        raise ProviderError(
+            f"bad agent spec {spec!r}: empty seat name")
+    return name, options, command
+
+
 def build_provider(spec, occurrence=1, text_mode=False,
                    agent_timeout=None):
     """spec -> (name, callable, account_label).
@@ -299,23 +373,17 @@ def build_provider(spec, occurrence=1, text_mode=False,
     mode — the answer is a Markdown plan."""
     system = _SOLVER_SYSTEM if text_mode else _SYSTEM
     if spec.startswith("agent:"):
-        parts = spec.split(":", 2)
-        if len(parts) != 3 or not parts[1].strip() \
-                or not parts[2].strip():
-            raise ProviderError(
-                f"bad agent spec {spec!r}: want agent:<name>:<command>")
-        agent_name, command = parts[1].strip(), parts[2].strip()
+        agent_name, options, command = _parse_agent_spec(spec)
         # text_mode changes nothing here: the seat receives the
         # full prompt (reviewer JSON instructions or the solver's
-        # plan request) as its input document.
-        # Each occurrence is a DISTINCT agent (its own command), not
-        # another account of one seat — suffix the seat name so two
-        # same-named agent specs never collapse into one pool.
-        seat_name = agent_name if occurrence <= 1 \
-            else f"{agent_name}-{occurrence}"
-        return seat_name, command_agent(
-            command, timeout=agent_timeout or AGENT_TIMEOUT), \
-            f"agent:{seat_name}"
+        # plan request) as its input document. Naming: the name
+        # returned here is the BASE name — build_providers assigns
+        # the final, globally-unique seat names, which only it can
+        # see (v0.7.1 external review, finding 3.1).
+        return agent_name, command_agent(
+            command, timeout=agent_timeout or AGENT_TIMEOUT,
+            private_home=options.get("home") == "private"), \
+            f"agent:{agent_name}"
     if "|" in spec:
         parts = [p.strip() for p in spec.split("|")]
         if len(parts) != 5:
@@ -404,6 +472,15 @@ class AccountPool:
         raise last_exc
 
 
+def _bump_name(name):
+    """bot -> bot-2 -> bot-3: increment a trailing number if the
+    name has one, else start the suffix sequence."""
+    m = re.match(r"^(.*-)(\d+)$", name)
+    if m:
+        return f"{m.group(1)}{int(m.group(2)) + 1}"
+    return name + "-2"
+
+
 def build_providers(specs, text_mode=False, agent_timeout=None):
     """specs -> {seat name: callable}. Repeating a seat (the same
     preset twice, or custom specs sharing a name) builds an
@@ -416,25 +493,63 @@ def build_providers(specs, text_mode=False, agent_timeout=None):
     API seat sharing a name (agent:gemini next to the gemini preset)
     is a configuration error, raised loudly in either spec order —
     silently merging them into one pool would drop a configured
-    reviewer (v0.7.0 external review, finding 4)."""
+    reviewer (v0.7.0 external review, finding 4).
+
+    Agent final names are assigned in a pre-pass over ALL specs, so
+    a suffixed name can never collide with a name another seat owns
+    — including a literal agent name like bot-2 meeting the second
+    bot seat (v0.7.1 external review, finding 3.1): suffixes keep
+    incrementing until the name is unique, and a candidate owned by
+    an API seat raises the cross-kind error. Either way, no
+    configured seat is ever silently dropped or pooled."""
+    parsed = []
+    api_names = set()
+    for spec in specs:
+        if spec.startswith("agent:"):
+            base, _options, _cmd = _parse_agent_spec(spec)
+            parsed.append(("agent", base, spec))
+        elif "|" in spec:
+            nm = spec.split("|")[0].strip()
+            parsed.append(("api", nm, spec))
+            api_names.add(nm)
+        else:
+            nm = spec.strip().lower()
+            parsed.append(("api", nm, spec))
+            api_names.add(nm)
+    agent_final = {}
+    used = set()
+    counters = {}
+    for idx, (kind, base, _spec) in enumerate(parsed):
+        if kind != "agent":
+            continue
+        n = counters.get(base.lower(), 0) + 1
+        counters[base.lower()] = n
+        candidate = base if n == 1 else f"{base}-{n}"
+        while True:
+            if candidate in api_names:
+                raise ProviderError(
+                    f"seat name {candidate!r} is used by both an "
+                    f"agent seat and an API seat; rename the agent "
+                    f"seat (e.g. agent:{base}-cli:<command>)")
+            if candidate not in used:
+                break
+            candidate = _bump_name(candidate)
+        used.add(candidate)
+        agent_final[idx] = candidate
     seats = {}
     counts = {}
     name_kind = {}
-    for spec in specs:
-        if spec.startswith("agent:"):
-            kind = "agent"
-            base = spec.split(":", 2)[1].strip().lower()
-        elif "|" in spec:
-            kind = "api"
-            base = spec.split("|")[0].strip().lower()
-        else:
-            kind = "api"
-            base = spec.strip().lower()
-        seat_key = (kind, base)
+    for idx, (kind, base, spec) in enumerate(parsed):
+        seat_key = (kind, base.lower())
         counts[seat_key] = counts.get(seat_key, 0) + 1
         name, fn, label = build_provider(
             spec, counts[seat_key], text_mode=text_mode,
             agent_timeout=agent_timeout)
+        if kind == "agent":
+            name = agent_final[idx]
+            seats[name] = [(f"agent:{name}", fn)]
+            name_kind[name] = kind
+            continue
         owner = name_kind.setdefault(name, kind)
         if owner != kind:
             raise ProviderError(

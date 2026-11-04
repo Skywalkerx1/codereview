@@ -166,7 +166,14 @@ class EdgeCaseTests(unittest.TestCase):
         report = core.run_review(
             CLEAN, {"a": slow, "b": pass_provider})
         self.assertTrue(report["degraded"])
-        self.assertEqual(report["gate"], "pass")  # one reviewer served
+        # v0.7.1 external review, finding 3.4 (supersedes the old
+        # degraded-PASS expectation): seat "a" owns the correctness
+        # lens, so its timeout leaves the panel partially blind —
+        # the round is INCONCLUSIVE in every mode now, never a
+        # one-lens PASS. The surviving review is still recorded.
+        self.assertEqual(report["gate"], "inconclusive")
+        self.assertIn("lens coverage",
+                      " ".join(report["gate_reasons"]))
         strict = core.run_review(
             CLEAN, {"a": slow, "b": pass_provider}, strict=True)
         self.assertEqual(strict["gate"], "inconclusive")

@@ -112,7 +112,7 @@ class AgentLifetimeTests(unittest.TestCase):
         marker_dir = tempfile.mkdtemp(prefix="codereview-test-")
         marker = os.path.join(marker_dir, "survived")
         solvers = providers.build_solvers(
-            [f"agent:slow:sh -c 'sleep 5; touch {marker}'"],
+            [f"agent:slow:sh -c 'sleep 3; touch {marker}'"],
             agent_timeout=1)
         start = time.monotonic()
         result = intake.run_intake("an issue report", solvers,
@@ -120,7 +120,7 @@ class AgentLifetimeTests(unittest.TestCase):
         elapsed = time.monotonic() - start
         self.assertFalse(result["solutions"][0]["ok"])
         self.assertLess(elapsed, 4)
-        time.sleep(5.5)  # past the point a survivor would touch it
+        time.sleep(3.4)  # past the point a survivor would touch it
         self.assertFalse(os.path.exists(marker))
 
     def test_agent_error_is_not_retryable(self):

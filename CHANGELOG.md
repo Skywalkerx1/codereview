@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.7.2 — 2026-11-04
+External review of v0.7.1 (APPROVE the code; HOLD the announcement for a healthy two-reviewer gate record). Its two required items and all five recommended items are in:
+- **Unique agent names, always** (required, §3.1): final seat names are assigned in a pre-pass over all specs; suffixes bump the trailing number (bot → bot-2 → bot-3) until unique, so a literal `bot-2` seat can no longer merge with the second `bot` seat into a pool that never runs. All three seats in the reviewer's reproduction now run.
+- **Process group killed on every exit** (required, §3.2): the seat's group is killed after a normal exit too, not only on timeout — background children an agent spawns die with their seat.
+- **First-round lens coverage** (§3.4): a review PASS now requires every configured lens to have had a successful reviewer; a partially blind panel is INCONCLUSIVE, matching the verification standard. (Two older tests encoding the degraded-PASS behavior were updated to the new rule, with citations.)
+- **Write-side output cap** (§3.3): POSIX seats run under RLIMIT_FSIZE (8 MB per file); a runaway agent dies with SIGXFSZ and the seat reports the limit instead of filling the disk.
+- **Private-HOME seat option** (§3.5): `agent:<name>[home=private]:<command>` runs the seat with HOME set to its scratch directory, for agents that need no login state. Regression tests document the tension honestly: the default seat CAN read a planted key under HOME (subscription agents keep login state there); the private-HOME seat cannot. An obeying-stub injection test locks the scratch-cwd guarantee.
+- **Wording and labels** (§2, §3.6): the verification INCONCLUSIVE reason now says the way forward (fresh review with the finder present, or a human waiver); solo panels are labelled "solo panel — no independent review" in both review and verification pass reasons.
+- Gate record: tonight's runs are again degraded by the Gemini free-tier quota (the code is unchanged in the panel's eyes — NVIDIA clean); the publishable two-reviewer record for the 0.7.0→0.7.2 span is scheduled for ~03:20 ET, after the quota reset. Suite: 96 tests (12 new).
+
 ## 0.7.1 — 2026-11-04
 External review of v0.7.0 (APPROVE WITH REQUIRED FIXES): every required item verified against the code and fixed.
 - **Agent-seat environment is allow-listed** (finding 1): seats inherit only PATH/HOME/locale/proxy basics plus `CODEREVIEW_PROMPT`; provider API keys and tokens stay out unless the operator opts names in via `CODEREVIEW_AGENT_ENV`. Sentinel-key regression tests.
