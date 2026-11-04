@@ -1,5 +1,8 @@
 # Roadmap
 
+## v0.7 direction (adopted 2026-11-04)
+The revised plan (first-principles edition) now governs: one promise — *a verifiable verdict on AI-written code, with a public record* — proven by numbers, not adjectives. Launch scope narrows to CLI + GitHub Action + public benchmark + public run pages. Epic order: **A. Benchmark harness + corpus** (seeded from our own stored run records + programmatic defect injection) → B. Policy file (TOML) → C. Evidence runner + builder-claim verification → D. Action/SARIF/mirrors → E. Risk-tiered panels → F. Injection/redaction suites → G. Public run pages. Console and iOS are frozen as internal surfaces; hosted tier, editor extensions, and MCP/A2A wait for demonstrated demand (week-12 decision, data-chosen). Agent seats (v0.7.0) make any local agent CLI — Claude Code, Codex, Grok bots — a reviewer or solver, which is also how the panel gains vendor families without new API keys.
+
 ## v0.1 (now)
 - Core loop: diff in → deterministic checks → parallel multi-model review → deterministic gate → verification round with consensus clearing.
 - CLI with presets for Gemini, OpenAI, xAI, NVIDIA, DeepSeek + any OpenAI-compatible endpoint.

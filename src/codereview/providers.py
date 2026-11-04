@@ -9,16 +9,30 @@ authenticated requests.
 Presets: gemini, openai, xai, nvidia, deepseek.
 Custom:  name|openai-compatible|https://base.url/v1|model|KEY_ENV
          name|gemini|-|model|KEY_ENV
+Agent:   agent:<name>:<command> — a local agent CLI (Claude Code,
+         Codex, Gemini CLI, a wrapper script, ...) seated as a
+         reviewer or solver. The prompt is written to a temp file
+         whose path is in $CODEREVIEW_PROMPT and also piped to the
+         command's stdin; the agent's stdout is the response. The
+         command line is split like a shell line (shlex) and run
+         WITHOUT a shell — pipes and redirects belong in a wrapper
+         script. The command is operator-supplied — the same trust
+         level as the loop's --builder-cmd — and is never taken
+         from a repo or a diff under review.
 """
 
 from __future__ import annotations
 
 import json
 import os
+import shlex
+import subprocess
+import tempfile
 import urllib.error
 import urllib.request
 
 DEFAULT_TIMEOUT = 240
+AGENT_TIMEOUT = 900
 
 
 class ProviderError(Exception):
@@ -120,6 +134,59 @@ def gemini(model, key_env="GEMINI_API_KEY", system=_SYSTEM,
     return call
 
 
+def command_agent(command, timeout=AGENT_TIMEOUT):
+    """Callable backed by a local agent command.
+
+    The prompt goes to a temp file ($CODEREVIEW_PROMPT) and to the
+    command's stdin; stdout is the response. The command line is
+    split with shlex and executed WITHOUT a shell (shell=False):
+    shell metacharacters in it are literal, and anything needing
+    pipes or redirection belongs in a wrapper script. A bad command
+    line, a non-zero exit, a timeout, or empty output is a
+    ProviderError — the seat degrades honestly in the run report,
+    like any other provider failure."""
+    def call(prompt):
+        try:
+            argv = shlex.split(command)
+        except ValueError as exc:
+            raise ProviderError(f"bad agent command {command!r}: {exc}")
+        if not argv:
+            raise ProviderError("empty agent command")
+        fd, path = tempfile.mkstemp(prefix="codereview-prompt-",
+                                    suffix=".md")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                fh.write(prompt)
+            env = dict(os.environ, CODEREVIEW_PROMPT=path)
+            try:
+                out = subprocess.run(
+                    argv, shell=False, input=prompt,
+                    capture_output=True, text=True, timeout=timeout,
+                    env=env, check=False)
+            except subprocess.TimeoutExpired:
+                raise ProviderError(
+                    f"agent command timed out after {timeout}s")
+            except OSError as exc:
+                raise ProviderError(
+                    f"agent command failed to start: "
+                    f"{exc.strerror or exc}")
+            if out.returncode != 0:
+                tail = (out.stderr or "").strip()[-300:]
+                raise ProviderError(
+                    f"agent command exited {out.returncode}"
+                    + (f": {tail}" if tail else ""))
+            text = (out.stdout or "").strip()
+            if not text:
+                raise ProviderError("agent command produced no output")
+            return text
+        finally:
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
+    return call
+
+
 PRESETS = {
     "gemini": ("gemini", None, "gemini-2.5-flash", "GEMINI_API_KEY", None),
     "openai": ("openai-compatible", "https://api.openai.com/v1",
@@ -144,6 +211,22 @@ def build_provider(spec, occurrence=1, text_mode=False):
     solver-persona system prompt and, for Gemini, no JSON response
     mode — the answer is a Markdown plan."""
     system = _SOLVER_SYSTEM if text_mode else _SYSTEM
+    if spec.startswith("agent:"):
+        parts = spec.split(":", 2)
+        if len(parts) != 3 or not parts[1].strip() \
+                or not parts[2].strip():
+            raise ProviderError(
+                f"bad agent spec {spec!r}: want agent:<name>:<command>")
+        agent_name, command = parts[1].strip(), parts[2].strip()
+        # text_mode changes nothing here: the seat receives the
+        # full prompt (reviewer JSON instructions or the solver's
+        # plan request) as its input document.
+        # Each occurrence is a DISTINCT agent (its own command), not
+        # another account of one seat — suffix the seat name so two
+        # same-named agent specs never collapse into one pool.
+        seat_name = agent_name if occurrence <= 1 \
+            else f"{agent_name}-{occurrence}"
+        return seat_name, command_agent(command), f"agent:{seat_name}"
     if "|" in spec:
         parts = [p.strip() for p in spec.split("|")]
         if len(parts) != 5:
@@ -229,12 +312,19 @@ class AccountPool:
 def build_providers(specs, text_mode=False):
     """specs -> {seat name: callable}. Repeating a seat (the same
     preset twice, or custom specs sharing a name) builds an
-    AccountPool for that seat with one account per occurrence."""
+    AccountPool for that seat with one account per occurrence.
+    Agent seats are the exception: each occurrence runs a different
+    command, so occurrences become distinct seats (name, name-2,
+    ...) instead of accounts of one seat."""
     seats = {}
     counts = {}
     for spec in specs:
-        seat_key = spec.split("|")[0].strip().lower() \
-            if "|" in spec else spec.strip().lower()
+        if spec.startswith("agent:"):
+            seat_key = spec.split(":", 2)[1].strip().lower()
+        elif "|" in spec:
+            seat_key = spec.split("|")[0].strip().lower()
+        else:
+            seat_key = spec.strip().lower()
         counts[seat_key] = counts.get(seat_key, 0) + 1
         name, fn, label = build_provider(spec, counts[seat_key],
                                          text_mode=text_mode)

@@ -1,0 +1,120 @@
+{
+  "schema": "codereview.report/1",
+  "version": "0.7.0",
+  "mode": "review",
+  "created_at": "2026-11-04T05:19:29+00:00",
+  "patch_sha256": "def2dc8ac3399da1cfcc910be84b20f337385f7c2eb62f5d6fd3b5210c3ae2ca",
+  "patch_chars": 14833,
+  "files": [
+    "CHANGELOG.md",
+    "README.md",
+    "ROADMAP.md",
+    "examples/agent-seat-claude.sh",
+    "pyproject.toml",
+    "src/codereview/core.py",
+    "src/codereview/providers.py",
+    "tests/test_providers.py"
+  ],
+  "context": "v0.7.0: agent seats - any local agent CLI (Claude Code, Codex, Grok bot) as reviewer/solver provider via agent:<name>:<command> spec; prompt via $CODEREVIEW_PROMPT file + stdin, stdout is the verdict; failures degrade honestly. Plus version bump, docs, example wrapper. Suite 65/65.",
+  "test_results": [
+    {
+      "command": "python3 -m unittest discover -s tests",
+      "ok": true,
+      "exit_code": 0,
+      "output_tail": ".................................................................\n----------------------------------------------------------------------\nRan 65 tests in 2.605s\n\nOK\n"
+    }
+  ],
+  "deterministic_findings": [
+    {
+      "id": "9184644ce491",
+      "rule": "shell-exec",
+      "severity": "major",
+      "category": "security",
+      "file": "src/codereview/providers.py",
+      "line": 150,
+      "title": "Shell execution in added code",
+      "evidence": "command, shell=True, input=prompt,",
+      "recommendation": "Verify no untrusted input can reach the command; prefer argv lists with shell=False.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    }
+  ],
+  "reviewer_reports": [
+    {
+      "provider": "nvidia",
+      "lens": "operations",
+      "status": "ok",
+      "error": "",
+      "summary": "The change adds agent seat support with proper validation, timeout handling, cleanup, and test coverage; no reliability or safety issues detected.",
+      "findings": []
+    },
+    {
+      "provider": "gemini",
+      "lens": "correctness",
+      "status": "ok",
+      "error": "",
+      "summary": "Agent seat names ignore the occurrence count in build_provider, causing multiple agent seats with the same name to overwrite each other in the seats dictionary.",
+      "findings": [
+        {
+          "id": "105c178d71b1",
+          "rule": "",
+          "severity": "major",
+          "category": "correctness",
+          "file": "src/codereview/providers.py",
+          "line": 206,
+          "title": "Untitled finding",
+          "evidence": "return agent_name, command_agent(command), f'agent:{agent_name}'",
+          "recommendation": "Disambiguate the seat name and label when occurrence > 1 (e.g. name = f'{agent_name}#{occurrence}' if occurrence > 1 else agent_name) so duplicate agent seats are not overwritten in the build_providers dictionary.",
+          "confidence": 0.95,
+          "sources": [
+            "gemini"
+          ],
+          "consensus": false
+        }
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "9184644ce491",
+      "rule": "shell-exec",
+      "severity": "major",
+      "category": "security",
+      "file": "src/codereview/providers.py",
+      "line": 150,
+      "title": "Shell execution in added code",
+      "evidence": "command, shell=True, input=prompt,",
+      "recommendation": "Verify no untrusted input can reach the command; prefer argv lists with shell=False.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false
+    },
+    {
+      "id": "105c178d71b1",
+      "rule": "",
+      "severity": "major",
+      "category": "correctness",
+      "file": "src/codereview/providers.py",
+      "line": 206,
+      "title": "Untitled finding",
+      "evidence": "return agent_name, command_agent(command), f'agent:{agent_name}'",
+      "recommendation": "Disambiguate the seat name and label when occurrence > 1 (e.g. name = f'{agent_name}#{occurrence}' if occurrence > 1 else agent_name) so duplicate agent seats are not overwritten in the build_providers dictionary.",
+      "confidence": 0.95,
+      "sources": [
+        "gemini"
+      ],
+      "consensus": false
+    }
+  ],
+  "degraded": false,
+  "truncated": false,
+  "gate": "blocked",
+  "gate_reasons": [
+    "2 blocking finding(s) (major)"
+  ]
+}

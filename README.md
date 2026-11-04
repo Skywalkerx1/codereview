@@ -129,6 +129,19 @@ Any two (or more) independent models. Presets: `gemini`, `openai`, `xai` (Grok),
 
 Keys come from environment variables only. Secrets in the diff are redacted before anything is sent to a provider, and the diff is treated as untrusted data — reviewers are instructed to ignore instructions embedded in code and comments.
 
+### Agent seats — any agent as a reviewer
+
+A panel seat doesn't have to be a model API. Any local agent CLI can review (or solve), riding on the subscription you already have for it — no vendor API key involved:
+
+```bash
+codereview --repo . \
+  --provider gemini \
+  --provider "agent:claude:sh examples/agent-seat-claude.sh" \
+  --provider "agent:grok:<your grok bot command>"
+```
+
+The contract is the one the builder already uses: the prompt (diff + instructions) is written to a file named by `$CODEREVIEW_PROMPT` and piped to the command's stdin; whatever the agent prints on stdout is its verdict. Claude Code, Codex, Gemini CLI, a Grok bot, or your own wrapper script all fit the same seat. The command line is split like a shell line and run **without a shell** — metacharacters are literal, so anything needing pipes or redirection goes in a wrapper script (as in the example). Repeating an agent name creates distinct seats (`claude`, `claude-2`, ...), because each spec is a different agent, not another account of one seat. A seat that exits non-zero, times out (900s), or prints nothing is recorded as failed in the report — degraded honestly, never silently replaced. Agent commands are operator-supplied configuration, like `--builder-cmd`; they are never read from the repo or the diff under review.
+
 ## Gate semantics
 
 | Gate | Meaning |

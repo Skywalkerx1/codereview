@@ -39,7 +39,7 @@ import os
 import re
 import subprocess
 
-VERSION = "0.6.0"
+VERSION = "0.7.0"
 SCHEMA = "codereview.report/1"
 
 SEVERITIES = ("blocker", "major", "minor", "nit")

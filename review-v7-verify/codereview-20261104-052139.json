@@ -1,0 +1,79 @@
+{
+  "schema": "codereview.report/1",
+  "version": "0.7.0",
+  "mode": "verify",
+  "created_at": "2026-11-04T05:21:39+00:00",
+  "patch_sha256": "c9a56aa06db2fc5fd1d315e8a3064ea2371c03d2f1e78b5288371045f00d26dd",
+  "previous_gate": "blocked",
+  "cleared": [
+    {
+      "id": "9184644ce491",
+      "rule": "shell-exec",
+      "severity": "major",
+      "category": "security",
+      "file": "src/codereview/providers.py",
+      "line": 150,
+      "title": "Shell execution in added code",
+      "evidence": "command, shell=True, input=prompt,",
+      "recommendation": "Verify no untrusted input can reach the command; prefer argv lists with shell=False.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false,
+      "cleared_by": [
+        "fixed"
+      ]
+    },
+    {
+      "id": "105c178d71b1",
+      "rule": "",
+      "severity": "major",
+      "category": "correctness",
+      "file": "src/codereview/providers.py",
+      "line": 206,
+      "title": "Untitled finding",
+      "evidence": "return agent_name, command_agent(command), f'agent:{agent_name}'",
+      "recommendation": "Disambiguate the seat name and label when occurrence > 1 (e.g. name = f'{agent_name}#{occurrence}' if occurrence > 1 else agent_name) so duplicate agent seats are not overwritten in the build_providers dictionary.",
+      "confidence": 0.95,
+      "sources": [
+        "gemini"
+      ],
+      "consensus": false,
+      "cleared_by": [
+        "fixed"
+      ]
+    }
+  ],
+  "remaining": [],
+  "reviewer_reports": [
+    {
+      "provider": "nvidia",
+      "status": "ok",
+      "error": "",
+      "resolutions": {
+        "9184644ce491": {
+          "status": "fixed",
+          "evidence": "New diff shows command_agent uses shlex.split() and subprocess.run(argv, shell=False, ...). The literal shell=True is gone. Test test_shell_metacharacters_are_literal confirms metacharacters are literal (printf '%s' 'a;b' returns a;b). Missing executable and unbalanced quotes are wrapped as Provider"
+        },
+        "105c178d71b1": {
+          "status": "fixed",
+          "evidence": "New diff shows build_provider's agent branch suffixes seat name when occurrence > 1 (bot, bot-2). New test test_same_named_agent_seats_stay_distinct confirms two same-named agent specs with different commands produce distinct seats (bot, bot-2) and each returns its own output. build_providers docstr"
+        }
+      }
+    },
+    {
+      "provider": "gemini",
+      "status": "error",
+      "error": "gemini overloaded: HTTP 503",
+      "resolutions": {}
+    }
+  ],
+  "findings": [],
+  "degraded": true,
+  "truncated": false,
+  "gate": "pass",
+  "gate_reasons": [
+    "all prior blockers cleared by reviewer consensus"
+  ]
+}
