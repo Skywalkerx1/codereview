@@ -60,7 +60,11 @@ pairs (vulnerable diff + its real fix as a clean control) written
 from public advisories, keeping only facts and our own code;
 (3) more languages (the corpus is Python-heavy today, with one JS
 case); (4) multi-file diffs and migration changes. Holdout grows
-in proportion and is never published.
+in proportion and is never published. **Owner:** the bench
+maintainer (whoever ships the current release). **Timeline:**
+at least 50 cases by the next minor release after 0.9.0, 100 by
+the release after that; the 48-hour public-miss rule in (1)
+applies continuously, not at release time.
 
 ## Metrics — exact definitions
 

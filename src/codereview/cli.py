@@ -23,6 +23,7 @@ Exit codes: 0 = gate PASS (intake: a solution was produced),
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import subprocess
@@ -65,6 +66,57 @@ def _load_patch(args):
         return core.build_pseudo_patch(args.files, root=repo)
     return core.collect_git_patch(repo, range_spec=args.range,
                                   staged=args.staged)
+
+
+def _load_fixture_scope(path, repo="."):
+    """Load a versioned fixture manifest (clean-gate solution §3):
+    returns the fixture_scope dict run_review records and
+    record-verify recomputes — manifest path (repo-relative),
+    content hash of the exact bytes, policy version, and the
+    enumerated fixture paths. The manifest declares which paths
+    are intentionally vulnerable test DATA; a review run only
+    classifies fixture findings when the operator passes one."""
+    repo_abs = os.path.realpath(repo)
+    full = os.path.realpath(
+        path if os.path.isabs(path)
+        else os.path.join(repo_abs, path))
+    if os.path.commonpath([full, repo_abs]) != repo_abs:
+        # The recorded manifest path is replayed by record-verify
+        # as a repo-relative object name; a manifest outside the
+        # repo could neither be recorded honestly nor verified.
+        raise ValueError(
+            f"fixture manifest {path}: resolves outside the "
+            f"repository ({full})")
+    with open(full, "rb") as fh:
+        raw = fh.read()
+    manifest = json.loads(raw.decode("utf-8"))
+    if not isinstance(manifest, dict) \
+            or manifest.get("schema") != core.FIXTURE_MANIFEST_SCHEMA:
+        raise ValueError(
+            f"fixture manifest {path}: schema must be "
+            f"{core.FIXTURE_MANIFEST_SCHEMA!r}")
+    if manifest.get("policy_version") \
+            not in core.FIXTURE_POLICY_VERSIONS:
+        raise ValueError(
+            f"fixture manifest {path}: unsupported policy_version "
+            f"{manifest.get('policy_version')!r} (supported: "
+            f"{core.FIXTURE_POLICY_VERSIONS})")
+    entries = manifest.get("fixtures")
+    if not isinstance(entries, list) or not entries or any(
+            not isinstance(e, dict)
+            or not str(e.get("path") or "").strip()
+            for e in entries):
+        raise ValueError(
+            f"fixture manifest {path}: 'fixtures' must be a "
+            f"non-empty list of objects each naming a 'path'")
+    patterns = [str(e["path"]) for e in entries]
+    return {
+        "manifest_path": os.path.relpath(full, repo_abs).replace(
+            os.sep, "/"),
+        "manifest_sha256": hashlib.sha256(raw).hexdigest(),
+        "policy_version": manifest.get("policy_version"),
+        "patterns": patterns,
+    }
 
 
 def _loop_main(argv, providers_override=None):
@@ -471,13 +523,22 @@ _FAMILY_BY_PRESET = {"gemini": "google", "openai": "openai",
 def _default_seat_meta(providers):
     """Baseline family tags from seat names (v0.7.3): a preset seat
     carries its vendor family; an agent seat is family 'agent'.
-    Tier stays 'unknown' unless tagged — recorded, never guessed."""
+    Tier stays 'unknown' unless tagged — recorded, never guessed.
+
+    Agent seats are detected by the kind tag build_providers puts
+    on the callable, NOT by name shape: resolved agent seat names
+    are bare (bot, bot-2, ...) and can collide with preset names,
+    so name-prefix guessing both missed suffixed agent seats and
+    could tag an agent named like a preset with the preset's
+    vendor family (review-v11 finding)."""
     meta = {}
-    for name in providers:
+    for name, fn in providers.items():
+        if getattr(fn, "_codereview_kind", None) == "agent" \
+                or name.startswith("agent:"):
+            meta[name] = {"family": "agent", "tier": "unknown"}
+            continue
         base = name.split("-")[0].lower() if name else ""
         family = _FAMILY_BY_PRESET.get(base)
-        if family is None and name.startswith("agent:"):
-            family = "agent"
         meta[name] = {"family": family or "unknown",
                       "tier": "unknown"}
     return meta
@@ -500,16 +561,26 @@ def _parse_seat_meta(values, base=None):
     return meta
 
 
-def _doctor_main(argv, providers_override=None):
+def _doctor_main(argv, providers_override=None,
+                 fallbacks_override=None):
     ap = argparse.ArgumentParser(
         prog="codereview doctor",
-        description="Preflight: probe every configured seat with "
-                    "one minimal call and report its health as JSON "
-                    "before any review runs.")
+        description="Preflight: probe every configured seat — "
+                    "primaries AND fallbacks — with the exact "
+                    "review request shape and report health as "
+                    "JSON before any review runs.")
     ap.add_argument("--provider", action="append", default=[],
                     help="provider spec (same syntax as review); "
                          "repeatable. Default: $CODEREVIEW_PROVIDERS "
                          "or gemini,openai")
+    ap.add_argument("--fallback", action="append", default=[],
+                    help="fallback seat to probe too: "
+                         "lens=provider-spec (same syntax as "
+                         "review); repeatable")
+    ap.add_argument("--timeout", type=int, default=None,
+                    help="per-seat timeout in seconds for agent "
+                         "seats (forwarded to provider "
+                         "construction, like review/intake)")
     args = ap.parse_args(argv)
     if providers_override is not None:
         providers = providers_override
@@ -521,13 +592,38 @@ def _doctor_main(argv, providers_override=None):
             specs = [s.strip() for s in env.split(",") if s.strip()] \
                 or ["gemini", "openai"]
         try:
-            providers = build_providers(specs)
+            providers = build_providers(
+                specs, agent_timeout=args.timeout)
         except Exception as exc:  # noqa: BLE001
             print(json.dumps({"ok": False, "seats": [],
                               "error": f"provider setup failed: "
                                        f"{exc}"}))
             return 2
-    result = core.run_doctor(providers)
+    fallbacks = fallbacks_override
+    if fallbacks is None and args.fallback:
+        fallbacks = {}
+        for spec in args.fallback:
+            lens, eq, pspec = spec.partition("=")
+            lens = lens.strip()
+            if not eq or lens not in core.LENSES \
+                    or not pspec.strip():
+                print(json.dumps(
+                    {"ok": False, "seats": [],
+                     "error": f"bad --fallback {spec!r}: want "
+                              f"lens=provider-spec with lens one "
+                              f"of {sorted(core.LENSES)}"}))
+                return 2
+            try:
+                built = build_providers(
+                    [pspec.strip()], agent_timeout=args.timeout)
+            except Exception as exc:  # noqa: BLE001
+                print(json.dumps(
+                    {"ok": False, "seats": [],
+                     "error": f"fallback setup failed: {exc}"}))
+                return 2
+            (fb_name, fb_fn), = built.items()
+            fallbacks[lens] = (fb_name, fb_fn)
+    result = core.run_doctor(providers, fallbacks=fallbacks)
     print(json.dumps(result, ensure_ascii=False, indent=1))
     return 0 if result["ok"] else 2
 
@@ -690,7 +786,8 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
         argv = sys.argv[1:]
     if argv and argv[0] == "doctor":
         return _doctor_main(argv[1:],
-                            providers_override=providers_override)
+                            providers_override=providers_override,
+                            fallbacks_override=fallbacks_override)
     if argv and argv[0] == "record-verify":
         return _record_verify_main(argv[1:])
     if argv and argv[0] == "bench":
@@ -751,6 +848,15 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
                     help="fallback seat for a lens when its primary "
                          "fails: lens=provider-spec (e.g. "
                          "correctness=openai); repeatable")
+    ap.add_argument("--fixture-manifest",
+                    help="versioned fixture manifest (JSON): the "
+                         "enumerated paths are intentionally "
+                         "vulnerable test DATA — their findings are "
+                         "classified in the record as expected "
+                         "fixture findings instead of blocking the "
+                         "gate. The manifest's hash, policy version "
+                         "and paths are recorded and recomputed by "
+                         "record-verify")
     ap.add_argument("--attempts-log",
                     help="append one JSON line describing this run "
                          "(seats, error classes, gate) to this file")
@@ -773,6 +879,22 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
         print(f"codereview: could not load the change: {exc}",
               file=sys.stderr)
         return 2
+    fixture_scope = None
+    if args.fixture_manifest:
+        try:
+            fixture_scope = _load_fixture_scope(
+                args.fixture_manifest, repo=args.repo or ".")
+        except Exception as exc:  # noqa: BLE001
+            print(f"codereview: could not load the fixture "
+                  f"manifest: {exc}", file=sys.stderr)
+            return 2
+        print(f"codereview: fixture scope: "
+              f"{len(fixture_scope['patterns'])} path(s) from "
+              f"{fixture_scope['manifest_path']} (policy "
+              f"v{fixture_scope['policy_version']}, sha256 "
+              f"{fixture_scope['manifest_sha256'][:12]}…) — "
+              f"fixture findings will be classified separately, "
+              f"not dropped", file=sys.stderr)
     if not patch.strip():
         print("codereview: the change is empty — nothing to review.",
               file=sys.stderr)
@@ -842,6 +964,7 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
         except Exception:  # noqa: BLE001 — head is best-effort
             pass
 
+
     cwd = args.repo or "."
     test_results = _run_tests(args.test_command, cwd)
 
@@ -867,7 +990,8 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
             max_patch_chars=args.max_patch_chars,
             allow_major=args.allow_major, strict=args.strict,
             seat_meta=seat_meta, fallbacks=fallbacks,
-            record_extra=record_extra)
+            record_extra=record_extra,
+            fixture_scope=fixture_scope)
 
     jpath, mpath = core.write_report(report, args.out)
     if args.attempts_log:

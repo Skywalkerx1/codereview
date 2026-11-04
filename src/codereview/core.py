@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import concurrent.futures
 import datetime
+import fnmatch
 import hashlib
 import json
 import os
@@ -41,7 +42,7 @@ import re
 import subprocess
 import time
 
-VERSION = "0.8.0"
+VERSION = "0.9.0"
 SCHEMA = "codereview.report/1"
 
 SEVERITIES = ("blocker", "major", "minor", "nit")
@@ -99,6 +100,60 @@ def collect_git_patch(repo, range_spec=None, staged=False, paths=None,
         raise RuntimeError(
             f"git diff failed: {out.stderr.decode('utf-8', 'replace')[:300]}")
     return out.stdout.decode("utf-8", errors="replace")
+
+
+def path_matches(path, patterns):
+    """True when a repo-relative path matches one of the patterns.
+
+    Pattern forms: ``dir/**`` (everything under a directory), a
+    plain directory or file path (exact, or a directory prefix),
+    or an fnmatch glob. Used for fixture-scope classification (see
+    run_review's `fixture_scope`): the patterns come from a
+    versioned fixture manifest, never from an ad-hoc skip list."""
+    for pat in patterns or []:
+        pat = (pat or "").strip()
+        if not pat:
+            continue
+        if pat.endswith("/**"):
+            base = pat[:-3]
+            if path == base or path.startswith(base + "/"):
+                return True
+        elif any(c in pat for c in "*?["):
+            if fnmatch.fnmatchcase(path, pat):
+                return True
+        else:
+            base = pat.rstrip("/")
+            if path == base or path.startswith(base + "/"):
+                return True
+    return False
+
+
+FIXTURE_MANIFEST_SCHEMA = "codereview.fixture-manifest/1"
+FIXTURE_POLICY_VERSIONS = (1,)
+
+_NESTED_GIT_RE = re.compile(r"^\+diff --git a/\S+ b/(\S+)$")
+_NESTED_PLUS_RE = re.compile(r"^\+\+\+\+ b/(.+)$")
+
+
+def _fixture_inner_paths(sections, patterns):
+    """File paths that exist only INSIDE fixture sections of a
+    patch — e.g. a benchmark case's diff.patch adds `app/search.py`
+    in the case's own little world, and reviewers quite correctly
+    report that file's planted defects under the inner path. Those
+    findings belong to the fixture. A path that is ALSO a real
+    top-level section of the patch is never classified this way
+    (the caller checks): classification must not be able to hide
+    a product file behind a fixture's inner name."""
+    inner = set()
+    for name, text in sections:
+        if not path_matches(name, patterns):
+            continue
+        for line in text.splitlines():
+            m = _NESTED_GIT_RE.match(line) \
+                or _NESTED_PLUS_RE.match(line)
+            if m:
+                inner.add(m.group(1).strip())
+    return inner
 
 
 def build_pseudo_patch(paths, root="."):
@@ -533,15 +588,25 @@ def _classify_error(exc):
 
 _RETRY_DELAYS = (0.5, 1.5)
 
+# Hard cap on provider calls spent on ONE reviewer job, primary
+# and fallback combined (clean-gate solution §4): a per-seat retry
+# policy allows at most 3 attempts, so 6 is the worst case for a
+# primary+fallback pair — and the fallback job is handed only the
+# REMAINING budget, so the cap is enforced by construction rather
+# than by trusting each seat's own policy.
+_MAX_JOB_ATTEMPTS = 6
 
-def _call_with_retry(fn, prompt, sleep=None, tally=None):
+
+def _call_with_retry(fn, prompt, sleep=None, tally=None,
+                     max_attempts=None):
     """_call_and_parse with error-class-aware bounded retries
     (§4.2). Returns the parsed object; re-raises the final exception
     when the seat never answers. Every attempt is counted into
     `tally` ({"attempts": n, "error_classes": [...]}) so retries are
     recorded, never silent. JSON parse failures are NOT retried
     here — _call_and_parse already has its own repair attempts, and
-    a parse failure is not a capacity signal."""
+    a parse failure is not a capacity signal. `max_attempts`, when
+    given, caps this call's attempts regardless of error class."""
     sleep = sleep or time.sleep
     tally = tally if tally is not None else {}
     tally.setdefault("attempts", 0)
@@ -554,6 +619,8 @@ def _call_with_retry(fn, prompt, sleep=None, tally=None):
             raise
         except Exception as exc:  # noqa: BLE001 — classified above
             kind, max_tries = _classify_error(exc)
+            if max_attempts is not None:
+                max_tries = min(max_tries, max_attempts)
             tally["error_classes"].append(kind)
             if tally["attempts"] >= max_tries:
                 raise
@@ -562,13 +629,14 @@ def _call_with_retry(fn, prompt, sleep=None, tally=None):
             sleep(delay + random.uniform(0, 0.25))
 
 
-def _review_job(fn, prompt, sleep=None):
+def _review_job(fn, prompt, sleep=None, max_attempts=None):
     """One reviewer call, never raising: returns a result dict the
     caller folds into a reviewer report."""
     tally = {}
     try:
         parsed = _call_with_retry(fn, prompt, sleep=sleep,
-                                  tally=tally)
+                                  tally=tally,
+                                  max_attempts=max_attempts)
         return {"ok": True, "parsed": parsed, "error": None,
                 "attempts": tally.get("attempts", 1),
                 "error_classes": tally.get("error_classes", [])}
@@ -631,7 +699,7 @@ def _gate(findings, allow_major=False, degraded=False, incomplete=False,
 def run_review(patch, providers, context="", test_results=None,
                max_patch_chars=80000, allow_major=False, strict=False,
                seat_meta=None, fallbacks=None, sleep=None,
-               record_extra=None):
+               record_extra=None, fixture_scope=None):
     """One review round. `providers` maps name -> callable(prompt)->str.
 
     Returns the report dict. Never raises for provider failures; they
@@ -684,8 +752,37 @@ def run_review(patch, providers, context="", test_results=None,
             if not res["ok"] and fallbacks and lens in fallbacks:
                 fb_name, fb_fn = fallbacks[lens]
                 if fb_name != name:
-                    fb = _review_job(fb_fn, prompt, sleep)
-                    if fb["ok"]:
+                    # The fallback re-runs this job's prompt on a
+                    # DIFFERENT seat — only with the reason recorded
+                    # (fallback_for + primary_error on the report,
+                    # a note in the gate reasons) and only with the
+                    # attempts the job budget has left (solution
+                    # §4): a fallback is a bounded second opinion,
+                    # never an unbounded second run.
+                    remaining = _MAX_JOB_ATTEMPTS - res["attempts"]
+                    fb = None
+                    if remaining <= 0:
+                        fallback_notes.append(
+                            f"{lens} lens fallback seat {fb_name!r} "
+                            f"not attempted: job attempt budget "
+                            f"({_MAX_JOB_ATTEMPTS}) exhausted by "
+                            f"primary {name!r}")
+                        rec["error"] = (
+                            f"{res['error']} | fallback {fb_name!r} "
+                            f"not attempted: job attempt budget "
+                            f"exhausted")[:300]
+                    else:
+                        fb = _review_job(fb_fn, prompt, sleep,
+                                         max_attempts=remaining)
+                        # The report's attempt count is the TOTAL
+                        # calls spent on this lens (primary +
+                        # fallback): cost accounting reads it, so
+                        # dropping the primary's attempts when the
+                        # fallback serves would understate the run
+                        # (review-v11 finding).
+                        rec["attempts"] = (res["attempts"]
+                                           + fb["attempts"])
+                    if fb is not None and fb["ok"]:
                         fallback_notes.append(
                             f"{lens} lens served by fallback seat "
                             f"{fb_name!r} (primary {name!r} failed: "
@@ -694,13 +791,12 @@ def run_review(patch, providers, context="", test_results=None,
                             "provider": fb_name,
                             "fallback_for": name,
                             "primary_error": str(res["error"])[:300],
-                            "attempts": fb["attempts"],
                             "error_classes":
                                 res["error_classes"]
                                 + fb["error_classes"]})
                         serving_name, serving_fn = fb_name, fb_fn
                         res = fb
-                    else:
+                    elif fb is not None:
                         rec["error"] = (
                             f"{res['error']} | fallback {fb_name!r} "
                             f"also failed: {fb['error']}")[:300]
@@ -725,10 +821,42 @@ def run_review(patch, providers, context="", test_results=None,
         degraded = True
 
     merged = merge_findings(all_findings)
+    fixture_findings = []
+    if fixture_scope:
+        # Fixture classification (clean-gate solution §3): the
+        # patch was reviewed IN FULL — nothing was dropped — but
+        # findings that belong to declared fixture DATA (a
+        # benchmark corpus of intentionally vulnerable specimens,
+        # per the versioned fixture manifest) are presented
+        # separately as expected fixture findings and do not block
+        # the gate. Their evidence and counts stay in the record.
+        # Without a declared scope, nothing is classified and
+        # fixtures scan exactly like product code.
+        patterns = [str(p) for p in
+                    fixture_scope.get("patterns") or []]
+        top_files = {name for name, _ in sections}
+        inner = _fixture_inner_paths(sections, patterns)
+
+        def _is_fixture(finding):
+            path = finding.get("file") or ""
+            if path_matches(path, patterns):
+                return True
+            return path in inner and path not in top_files
+
+        fixture_findings = [f for f in merged if _is_fixture(f)]
+        merged = [f for f in merged if not _is_fixture(f)]
     gate, reasons = _gate(merged, allow_major=allow_major,
                           degraded=degraded, incomplete=truncated,
                           strict=strict, any_success=any_success)
     reasons = reasons + fallback_notes
+    if fixture_scope:
+        reasons = reasons + [
+            f"{len(fixture_findings)} expected fixture finding(s) "
+            f"classified under fixture manifest policy "
+            f"v{fixture_scope.get('policy_version')} "
+            f"({fixture_scope.get('manifest_path')}, sha256 "
+            f"{str(fixture_scope.get('manifest_sha256') or '')[:12]}"
+            f"…) — preserved in fixture_findings, not blocking"]
     if gate == "pass":
         # Lens coverage (v0.7.1 external review, finding 3.4): a
         # PASS must not rest on a partial panel. If any configured
@@ -761,6 +889,20 @@ def run_review(patch, providers, context="", test_results=None,
         "degraded": degraded, "truncated": truncated,
         "gate": gate, "gate_reasons": reasons,
     }
+    if fixture_scope:
+        report["fixture_findings"] = fixture_findings
+        report["fixture_scope"] = {
+            "manifest_path":
+                fixture_scope.get("manifest_path"),
+            "manifest_sha256":
+                fixture_scope.get("manifest_sha256"),
+            "policy_version":
+                fixture_scope.get("policy_version"),
+            "classified_paths":
+                [str(p) for p in
+                 fixture_scope.get("patterns") or []],
+            "fixture_finding_count": len(fixture_findings),
+        }
     if record_extra:
         report.update({k: v for k, v in record_extra.items()
                        if v is not None})
@@ -965,26 +1107,72 @@ def run_verification(patch, providers, previous_report, builder_response,
     }
 
 
-_DOCTOR_PROMPT = "Reply with the single word OK."
+_DOCTOR_PATCH = (
+    "diff --git a/preflight.py b/preflight.py\n"
+    "--- a/preflight.py\n"
+    "+++ b/preflight.py\n"
+    "@@ -1,1 +1,1 @@\n"
+    "-TIMEOUT = 10\n"
+    "+TIMEOUT = 30\n")
 
 
-def run_doctor(providers):
-    """Preflight health probe (§4.1): one minimal call per seat.
-    Returns {"ok": bool, "seats": [{name, ok, error_class, error}]}.
-    Writes nothing — a scheduler reads the result and aborts BEFORE
-    a doomed run creates a record directory, instead of discovering
+def _doctor_prompt():
+    """The preflight probe uses the EXACT review request shape
+    (clean-gate solution §4): the real review prompt template over
+    a trivial diff. A toy prompt ("reply OK") is not a valid probe
+    for providers whose JSON mode only engages on a review-shaped
+    request — it produced a false-negative for a healthy seat
+    (the provider rejected the non-JSON-shaped probe with a 400
+    the seat would never see in a real review)."""
+    return _REVIEW_PROMPT.format(
+        lens=LENSES["correctness"],
+        context="(preflight probe — no change under review)",
+        tests="(no test results)", batch="preflight probe",
+        patch=_DOCTOR_PATCH)
+
+
+def run_doctor(providers, fallbacks=None):
+    """Preflight health probe (§4.1): one review-shaped call per
+    seat, including fallback seats when configured — a fallback
+    counts as healthy coverage only after this live probe with the
+    exact review call shape (solution §4). Returns {"ok": bool,
+    "seats": [{name, role, lens?, ok, error_class, error}]} with
+    error_class distinguishing quota/transient failures from
+    missing credentials and invalid configuration (auth). Writes
+    nothing — a scheduler reads the result and aborts BEFORE a
+    doomed run creates a record directory, instead of discovering
     a missing key or a dead quota inside the record itself."""
+    prompt = _doctor_prompt()
     seats = []
+    probed = {}
+
+    def probe(name, fn, role, lens=None):
+        if name in probed:
+            # The same seat configured as both primary and
+            # fallback is probed ONCE: a second identical call
+            # adds no information and a flaky seat could make the
+            # preflight contradict itself.
+            entry = dict(probed[name])
+        else:
+            entry = {"name": name, "ok": True,
+                     "error_class": "", "error": ""}
+            try:
+                fn(prompt)
+            except Exception as exc:  # noqa: BLE001 — probe's point
+                kind, _tries = _classify_error(exc)
+                entry.update({"ok": False, "error_class": kind,
+                              "error": str(exc)[:200]})
+            probed[name] = entry
+        entry = dict(entry)
+        entry["role"] = role
+        if lens:
+            entry["lens"] = lens
+        seats.append(entry)
+
     for name, fn in providers.items():
-        try:
-            fn(_DOCTOR_PROMPT)
-            seats.append({"name": name, "ok": True,
-                          "error_class": "", "error": ""})
-        except Exception as exc:  # noqa: BLE001 — the probe's point
-            kind, _tries = _classify_error(exc)
-            seats.append({"name": name, "ok": False,
-                          "error_class": kind,
-                          "error": str(exc)[:200]})
+        probe(name, fn, "primary")
+    for lens, (fb_name, fb_fn) in (fallbacks or {}).items():
+        probe(fb_name, fb_fn, "fallback", lens=lens)
     return {"ok": all(s["ok"] for s in seats), "seats": seats}
 
 
@@ -1051,11 +1239,11 @@ def verify_record(record, repo=None, record_dir=None):
         add("head_current", False, "no repo supplied")
     else:
         add("range_recorded", True, rng)
+        recomputed = None
         try:
+            recomputed = collect_git_patch(repo, range_spec=rng)
             digest = hashlib.sha256(
-                collect_git_patch(
-                    repo, range_spec=rng).encode("utf-8")
-            ).hexdigest()
+                recomputed.encode("utf-8")).hexdigest()
             add("patch_matches_range",
                 digest == record.get("patch_sha256"),
                 "recomputed patch hash "
@@ -1082,8 +1270,121 @@ def verify_record(record, repo=None, record_dir=None):
                 f"later commits touch: {sorted(set(outside))[:5]}")
         except Exception as exc:  # noqa: BLE001
             add("head_current", False, str(exc))
+        # Fixture scope (solution §3): when the record classifies
+        # fixture findings, the scope metadata must recompute
+        # against the reviewed range — the manifest as committed
+        # at the recorded head must hash to the recorded value,
+        # carry the recorded policy version, enumerate exactly the
+        # recorded classified paths, and cover every classified
+        # finding. Missing, stale, or mismatched scope FAILS.
+        fs = record.get("fixture_scope")
+        ffinds = record.get("fixture_findings") or []
+        if fs or ffinds:
+            # NB: `head` here is the RECORD's head (read from the
+            # record above), never the branch tip — the manifest
+            # is fetched as committed at the reviewed commit.
+            problems = _validate_fixture_scope(
+                record, fs, ffinds, repo, head, recomputed)
+            add("fixture_scope_valid", not problems,
+                "; ".join(problems) if problems else
+                "manifest hash, policy version, classified paths "
+                "and fixture findings all recompute")
     return {"eligible": all(c["ok"] for c in checks),
             "checks": checks}
+
+
+def _git_show_bytes(repo, ref_path):
+    """Exact bytes of a file as committed at a ref (for hashing —
+    the text-mode _git helper strips, which would corrupt a
+    content hash)."""
+    out = subprocess.run(["git", "-C", repo, "show", ref_path],
+                         capture_output=True, timeout=120,
+                         check=False)
+    if out.returncode != 0:
+        raise RuntimeError(
+            f"git show {ref_path} failed: "
+            f"{out.stderr.decode('utf-8', 'replace')[:200]}")
+    return out.stdout
+
+
+def _validate_fixture_scope(record, fs, ffinds, repo, head,
+                            recomputed_patch):
+    """Recompute a record's fixture-scope claims. Returns a list
+    of problems (empty = valid)."""
+    if not fs:
+        return ["fixture findings present but no fixture_scope "
+                "declared"]
+    if not repo or not head:
+        return ["no repo/head recorded to validate the fixture "
+                "scope against"]
+    missing = []
+    if not str(fs.get("manifest_path") or "").strip():
+        missing.append("manifest_path")
+    sha = str(fs.get("manifest_sha256") or "")
+    if len(sha) != 64 or any(
+            c not in "0123456789abcdef" for c in sha.lower()):
+        missing.append("manifest_sha256")
+    if fs.get("policy_version") is None:
+        missing.append("policy_version")
+    if not fs.get("classified_paths"):
+        missing.append("classified_paths")
+    if missing:
+        return ["fixture_scope is missing required field(s): "
+                + ", ".join(missing)]
+    problems = []
+    manifest = None
+    try:
+        raw = _git_show_bytes(
+            repo, f"{head}:{fs.get('manifest_path')}")
+        if hashlib.sha256(raw).hexdigest() \
+                != fs.get("manifest_sha256"):
+            problems.append("manifest content hash differs from "
+                            "the manifest committed at the "
+                            "recorded head (stale or edited "
+                            "manifest)")
+        else:
+            manifest = json.loads(raw.decode("utf-8"))
+    except Exception as exc:  # noqa: BLE001 — reported as a failure
+        problems.append(f"manifest unreadable at the recorded "
+                        f"head: {exc}")
+    patterns = []
+    if manifest is not None:
+        if manifest.get("schema") != FIXTURE_MANIFEST_SCHEMA:
+            problems.append(
+                f"manifest schema {manifest.get('schema')!r} is "
+                f"not {FIXTURE_MANIFEST_SCHEMA!r}")
+        if manifest.get("policy_version") \
+                != fs.get("policy_version"):
+            problems.append(
+                f"policy version differs: record "
+                f"{fs.get('policy_version')!r} vs manifest "
+                f"{manifest.get('policy_version')!r}")
+        patterns = [str(e.get("path") or "")
+                    for e in manifest.get("fixtures") or []]
+        if sorted(patterns) != sorted(
+                str(p) for p in fs.get("classified_paths") or []):
+            problems.append("classified paths in the record "
+                            "differ from the manifest's fixture "
+                            "paths")
+    if fs.get("fixture_finding_count") != len(ffinds):
+        problems.append(
+            f"fixture_finding_count {fs.get('fixture_finding_count')}"
+            f" != {len(ffinds)} fixture findings in the record")
+    if patterns and recomputed_patch is not None:
+        sections = split_patch_sections(recomputed_patch)
+        top_files = {name for name, _ in sections}
+        inner = _fixture_inner_paths(sections, patterns)
+        for f in ffinds:
+            path = f.get("file") or ""
+            if path_matches(path, patterns):
+                continue
+            if path in inner and path not in top_files:
+                continue
+            problems.append(
+                f"fixture finding on {path!r} is not covered by "
+                f"the manifest")
+            break
+    return problems
 
 
 def _patch_stats(patch):

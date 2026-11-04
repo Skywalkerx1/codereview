@@ -49,8 +49,12 @@ titles, and per-case rows never appear in a public report.
 
 Runs are resumable: results append to <out>/<config>.jsonl, and a
 (config, case) pair already recorded is skipped unless forced.
+Stored records are re-validated on resume against the current
+corpus and config (diff hash + config hash); stale ones are
+dropped and the file rewritten, never silently scored.
 """
 
+import hashlib
 import json
 import os
 import re
@@ -340,6 +344,18 @@ def load_config(path):
     }
 
 
+def _config_sha(cfg):
+    """Identity hash of a loaded bench config (the file path is
+    excluded — the same config at a different location is the same
+    config). Stored on every result record; on resume, records
+    whose config hash differs are stale and are dropped."""
+    identity = {k: cfg.get(k) for k in (
+        "name", "providers", "seat_meta", "allow_major", "strict",
+        "cost_per_call_usd")}
+    return hashlib.sha256(json.dumps(
+        identity, sort_keys=True).encode("utf-8")).hexdigest()
+
+
 _CASE_MARKER_RE = re.compile(r"\[bench-case:\s*([a-z0-9-]+)\]")
 
 
@@ -442,7 +458,17 @@ def run_bench(corpus_dir, config_specs, out_dir, split="all",
     prebuilt provider callables per config name."""
     if split not in ("all",) + SPLITS:
         raise ValueError(f"split must be all, public, or holdout")
-    cases = load_corpus(corpus_dir)
+    all_cases = load_corpus(corpus_dir)
+    # Hash of every case's diff, across all splits: a stored result
+    # record is only a valid resume point when the case it was
+    # produced for still exists with the SAME diff (its recorded
+    # patch_sha256 is the hash of the diff that was reviewed) and
+    # the config that produced it is unchanged. Anything else is
+    # stale — trusting it would score findings gathered against a
+    # different change or a different panel (review-v11 finding).
+    diff_shas = {c["id"]: hashlib.sha256(
+        c["diff"].encode("utf-8")).hexdigest() for c in all_cases}
+    cases = all_cases
     if split != "all":
         cases = [c for c in cases if c["split"] == split]
     os.makedirs(out_dir, exist_ok=True)
@@ -454,7 +480,24 @@ def run_bench(corpus_dir, config_specs, out_dir, split="all",
         else:
             seats = build_config_providers(cfg)
         path = os.path.join(out_dir, f"{cfg['name']}.jsonl")
-        records = _read_results(path) if not force else []
+        cfg_sha = _config_sha(cfg)
+        records = []
+        if not force:
+            stale = 0
+            for r in _read_results(path):
+                if r.get("patch_sha256") == diff_shas.get(
+                        r.get("case_id")) \
+                        and r.get("config_sha256") == cfg_sha:
+                    records.append(r)
+                else:
+                    stale += 1
+            if stale:
+                # Rewrite without the stale records so `bench
+                # report` never scores results produced for a
+                # different corpus or config than the current one.
+                with open(path, "w", encoding="utf-8") as fh:
+                    for r in records:
+                        fh.write(json.dumps(r) + "\n")
         done = {(r["config"], r["case_id"]) for r in records}
         with open(path, "a", encoding="utf-8") as fh:
             for case in cases:
@@ -481,6 +524,7 @@ def run_bench(corpus_dir, config_specs, out_dir, split="all",
                 record = {
                     "schema": RESULT_SCHEMA,
                     "config": cfg["name"],
+                    "config_sha256": cfg_sha,
                     "case_id": case["id"],
                     "split": case["split"],
                     "category": case["category"],
@@ -527,6 +571,21 @@ def build_report(results, corpus_dir, public_only=False):
     scoring: no holdout id, title, or row can appear in the report
     (Epic A5 — the holdout split is the overfit guard)."""
     cases = {c["id"]: c for c in load_corpus(corpus_dir)}
+    case_shas = {cid: hashlib.sha256(
+        c["diff"].encode("utf-8")).hexdigest()
+        for cid, c in cases.items()}
+    # Current config hashes, when the config file is resolvable:
+    # a standalone `bench report` must apply the same config
+    # staleness rule as a resumed run, or results produced under
+    # an older config get scored as if they were current.
+    cfg_shas = {}
+    for name in results:
+        try:
+            cfg_shas[name] = _config_sha(load_config(
+                resolve_config_path(name, corpus_dir)))
+        except Exception:  # noqa: BLE001 — unresolvable: unjudged
+            cfg_shas[name] = None
+    stale_dropped = 0
     configs = {}
     for name, records in sorted(results.items()):
         rows = []
@@ -542,6 +601,21 @@ def build_report(results, corpus_dir, public_only=False):
                     f"result references unknown corpus case "
                     f"{rec['case_id']!r}")
             if public_only and case["split"] == "holdout":
+                continue
+            if rec.get("patch_sha256") is not None \
+                    and rec.get("patch_sha256") != case_shas[case["id"]]:
+                # The record was produced for a different diff
+                # than the case's current one; scoring it would
+                # grade findings against the wrong change.
+                stale_dropped += 1
+                continue
+            if rec.get("config_sha256") is not None \
+                    and cfg_shas.get(name) is not None \
+                    and rec.get("config_sha256") != cfg_shas[name]:
+                # Same rule for the producing config: results
+                # gathered under a different panel definition are
+                # not this config's results.
+                stale_dropped += 1
                 continue
             scored = score_case(case, rec.get("findings"))
             scores.append(scored)
@@ -580,6 +654,7 @@ def build_report(results, corpus_dir, public_only=False):
         "public_only": bool(public_only),
         "holdout_excluded": bool(public_only),
         "corpus_cases": len(cases),
+        "stale_records_dropped": stale_dropped,
         "configs": configs,
     }
 

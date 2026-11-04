@@ -1,0 +1,279 @@
+{
+  "schema": "codereview.fixture-manifest/1",
+  "policy_version": 1,
+  "purpose": "Benchmark fixture scope for release-record reviews. The paths below are intentionally vulnerable (or intentionally trivial) TEST DATA. In a release-record review their findings are classified as expected fixture findings — preserved in the record, never blocking. Ordinary reviews without a declared fixture scope keep scanning them normally.",
+  "fixtures": [
+    {
+      "path": "bench/corpus/auth-admin-or-true/**",
+      "reason": "Benchmark case 'Admin gate short-circuited with or True': the diff is an intentionally vulnerable specimen; its planted defects are the ground truth the benchmark scores reviewers against.",
+      "expected_categories": [
+        "security"
+      ]
+    },
+    {
+      "path": "bench/corpus/auth-check-removed/**",
+      "reason": "Benchmark case 'Permission check dropped from the delete-user handler': the diff is an intentionally vulnerable specimen; its planted defects are the ground truth the benchmark scores reviewers against.",
+      "expected_categories": [
+        "security"
+      ]
+    },
+    {
+      "path": "bench/corpus/clean-add-tests/**",
+      "reason": "Benchmark control case 'Cart quantity behaviour covered by new tests': intentionally defect-free fixture; any finding on it is a measured false positive.",
+      "expected_categories": []
+    },
+    {
+      "path": "bench/corpus/clean-add-timeout-retry/**",
+      "reason": "Benchmark control case 'Feed poller gains a timeout and one retry': intentionally defect-free fixture; any finding on it is a measured false positive.",
+      "expected_categories": []
+    },
+    {
+      "path": "bench/corpus/clean-auth-check-added/**",
+      "reason": "Benchmark control case 'Delete handler gains the missing permission check': intentionally defect-free fixture; any finding on it is a measured false positive.",
+      "expected_categories": []
+    },
+    {
+      "path": "bench/corpus/clean-health-guard-fix/**",
+      "reason": "Benchmark control case 'Health alerts gain a signature state guard': intentionally defect-free fixture; any finding on it is a measured false positive.",
+      "expected_categories": []
+    },
+    {
+      "path": "bench/corpus/clean-input-validation/**",
+      "reason": "Benchmark control case 'Form field gains length and allowlist validation': intentionally defect-free fixture; any finding on it is a measured false positive.",
+      "expected_categories": []
+    },
+    {
+      "path": "bench/corpus/clean-parameterized-query/**",
+      "reason": "Benchmark control case 'User lookup switched to a parameterized query': intentionally defect-free fixture; any finding on it is a measured false positive.",
+      "expected_categories": []
+    },
+    {
+      "path": "bench/corpus/clean-refactor-rename/**",
+      "reason": "Benchmark control case 'Helper renamed for clarity, call sites updated': intentionally defect-free fixture; any finding on it is a measured false positive.",
+      "expected_categories": []
+    },
+    {
+      "path": "bench/corpus/command-injection-shell/**",
+      "reason": "Benchmark case 'Ping helper passes user input to a shell': the diff is an intentionally vulnerable specimen; its planted defects are the ground truth the benchmark scores reviewers against.",
+      "expected_categories": [
+        "security"
+      ]
+    },
+    {
+      "path": "bench/corpus/debug-breakpoint/**",
+      "reason": "Benchmark case 'Breakpoint left in the report builder': the diff is an intentionally vulnerable specimen; its planted defects are the ground truth the benchmark scores reviewers against.",
+      "expected_categories": [
+        "quality"
+      ]
+    },
+    {
+      "path": "bench/corpus/delete-no-where/**",
+      "reason": "Benchmark case 'Session cleanup deletes without a filter': the diff is an intentionally vulnerable specimen; its planted defects are the ground truth the benchmark scores reviewers against.",
+      "expected_categories": [
+        "data-loss"
+      ]
+    },
+    {
+      "path": "bench/corpus/disabled-test/**",
+      "reason": "Benchmark case 'Billing test silenced with a skip marker': the diff is an intentionally vulnerable specimen; its planted defects are the ground truth the benchmark scores reviewers against.",
+      "expected_categories": [
+        "testing"
+      ]
+    },
+    {
+      "path": "bench/corpus/drop-table-migration/**",
+      "reason": "Benchmark case 'Migration drops the legacy users table': the diff is an intentionally vulnerable specimen; its planted defects are the ground truth the benchmark scores reviewers against.",
+      "expected_categories": [
+        "data-loss"
+      ]
+    },
+    {
+      "path": "bench/corpus/error-swallow-bare-except/**",
+      "reason": "Benchmark case 'Ledger commit wrapped in a bare except': the diff is an intentionally vulnerable specimen; its planted defects are the ground truth the benchmark scores reviewers against.",
+      "expected_categories": [
+        "reliability"
+      ]
+    },
+    {
+      "path": "bench/corpus/eval-user-input/**",
+      "reason": "Benchmark case 'Calculator endpoint evals the expression parameter': the diff is an intentionally vulnerable specimen; its planted defects are the ground truth the benchmark scores reviewers against.",
+      "expected_categories": [
+        "security"
+      ]
+    },
+    {
+      "path": "bench/corpus/float-money-total/**",
+      "reason": "Benchmark case 'Invoice totals accumulated in a float': the diff is an intentionally vulnerable specimen; its planted defects are the ground truth the benchmark scores reviewers against.",
+      "expected_categories": [
+        "correctness"
+      ]
+    },
+    {
+      "path": "bench/corpus/http-no-timeout/**",
+      "reason": "Benchmark case 'Feed poller fetches without a timeout': the diff is an intentionally vulnerable specimen; its planted defects are the ground truth the benchmark scores reviewers against.",
+      "expected_categories": [
+        "reliability"
+      ]
+    },
+    {
+      "path": "bench/corpus/off-by-one-pagination/**",
+      "reason": "Benchmark case 'Listing loop stops one page early': the diff is an intentionally vulnerable specimen; its planted defects are the ground truth the benchmark scores reviewers against.",
+      "expected_categories": [
+        "correctness"
+      ]
+    },
+    {
+      "path": "bench/corpus/path-traversal-upload/**",
+      "reason": "Benchmark case 'Upload handler joins an unsanitized file name': the diff is an intentionally vulnerable specimen; its planted defects are the ground truth the benchmark scores reviewers against.",
+      "expected_categories": [
+        "security"
+      ]
+    },
+    {
+      "path": "bench/corpus/payment-amount-dollars-cents/**",
+      "reason": "Benchmark case 'Checkout passes the amount to a cents-based gateway': the diff is an intentionally vulnerable specimen; its planted defects are the ground truth the benchmark scores reviewers against.",
+      "expected_categories": [
+        "correctness"
+      ]
+    },
+    {
+      "path": "bench/corpus/payment-quantity-dropped/**",
+      "reason": "Benchmark case 'Cart total uses the unit price only': the diff is an intentionally vulnerable specimen; its planted defects are the ground truth the benchmark scores reviewers against.",
+      "expected_categories": [
+        "correctness"
+      ]
+    },
+    {
+      "path": "bench/corpus/payment-refund-partial/**",
+      "reason": "Benchmark case 'Partial refund pays out the full order total': the diff is an intentionally vulnerable specimen; its planted defects are the ground truth the benchmark scores reviewers against.",
+      "expected_categories": [
+        "correctness"
+      ]
+    },
+    {
+      "path": "bench/corpus/plaintext-password-store/**",
+      "reason": "Benchmark case 'Signup stores the password as submitted': the diff is an intentionally vulnerable specimen; its planted defects are the ground truth the benchmark scores reviewers against.",
+      "expected_categories": [
+        "security"
+      ]
+    },
+    {
+      "path": "bench/corpus/race-check-then-act/**",
+      "reason": "Benchmark case 'File creation guarded by an existence check': the diff is an intentionally vulnerable specimen; its planted defects are the ground truth the benchmark scores reviewers against.",
+      "expected_categories": [
+        "correctness"
+      ]
+    },
+    {
+      "path": "bench/corpus/race-counter-increment/**",
+      "reason": "Benchmark case 'View counter incremented with read-modify-write': the diff is an intentionally vulnerable specimen; its planted defects are the ground truth the benchmark scores reviewers against.",
+      "expected_categories": [
+        "correctness"
+      ]
+    },
+    {
+      "path": "bench/corpus/real-buggy-alert-flood/**",
+      "reason": "Benchmark case 'Health checker deletes rows and alerts per violation, with a hardcoded SMTP password': the diff is an intentionally vulnerable specimen; its planted defects are the ground truth the benchmark scores reviewers against.",
+      "expected_categories": [
+        "reliability",
+        "security"
+      ]
+    },
+    {
+      "path": "bench/corpus/secret-aws-key/**",
+      "reason": "Benchmark case 'Deploy script embeds an AWS access key': the diff is an intentionally vulnerable specimen; its planted defects are the ground truth the benchmark scores reviewers against.",
+      "expected_categories": [
+        "security"
+      ]
+    },
+    {
+      "path": "bench/corpus/secret-hardcoded-api-key/**",
+      "reason": "Benchmark case 'Config gains a hardcoded API key': the diff is an intentionally vulnerable specimen; its planted defects are the ground truth the benchmark scores reviewers against.",
+      "expected_categories": [
+        "security"
+      ]
+    },
+    {
+      "path": "bench/corpus/secret-private-key/**",
+      "reason": "Benchmark case 'TLS private key pasted into source': the diff is an intentionally vulnerable specimen; its planted defects are the ground truth the benchmark scores reviewers against.",
+      "expected_categories": [
+        "security"
+      ]
+    },
+    {
+      "path": "bench/corpus/sensitive-data-logging/**",
+      "reason": "Benchmark case 'Login handler logs the submitted password': the diff is an intentionally vulnerable specimen; its planted defects are the ground truth the benchmark scores reviewers against.",
+      "expected_categories": [
+        "security"
+      ]
+    },
+    {
+      "path": "bench/corpus/sql-injection-concat/**",
+      "reason": "Benchmark case 'Search builds SQL by string concatenation': the diff is an intentionally vulnerable specimen; its planted defects are the ground truth the benchmark scores reviewers against.",
+      "expected_categories": [
+        "security"
+      ]
+    },
+    {
+      "path": "bench/corpus/sql-injection-fstring/**",
+      "reason": "Benchmark case 'User lookup builds SQL with an f-string': the diff is an intentionally vulnerable specimen; its planted defects are the ground truth the benchmark scores reviewers against.",
+      "expected_categories": [
+        "security"
+      ]
+    },
+    {
+      "path": "bench/corpus/ssrf-fetch/**",
+      "reason": "Benchmark case 'Link preview fetches any URL the user submits': the diff is an intentionally vulnerable specimen; its planted defects are the ground truth the benchmark scores reviewers against.",
+      "expected_categories": [
+        "security"
+      ]
+    },
+    {
+      "path": "bench/corpus/unbounded-query/**",
+      "reason": "Benchmark case 'Audit endpoint loads the whole table': the diff is an intentionally vulnerable specimen; its planted defects are the ground truth the benchmark scores reviewers against.",
+      "expected_categories": [
+        "performance"
+      ]
+    },
+    {
+      "path": "bench/corpus/xss-innerhtml/**",
+      "reason": "Benchmark case 'Comment body rendered through innerHTML': the diff is an intentionally vulnerable specimen; its planted defects are the ground truth the benchmark scores reviewers against.",
+      "expected_categories": [
+        "security"
+      ]
+    },
+    {
+      "path": "bench/scripts/oracle.json",
+      "reason": "Scripted 'oracle' seat: canned reviewer responses that replay corpus ground truth, quoting the fixtures' vulnerable lines as evidence.",
+      "expected_categories": [
+        "security",
+        "data-loss",
+        "reliability",
+        "testing",
+        "quality"
+      ]
+    },
+    {
+      "path": "bench/scripts/noisy.json",
+      "reason": "Scripted 'noisy' seat: canned generic complaints returned for every case; benchmark data, not provider code.",
+      "expected_categories": [
+        "security",
+        "data-loss",
+        "reliability",
+        "testing",
+        "quality"
+      ]
+    },
+    {
+      "path": "bench/scripts/blind.json",
+      "reason": "Scripted 'blind' seat: canned empty verdict returned for every case; benchmark data, not provider code.",
+      "expected_categories": [
+        "security",
+        "data-loss",
+        "reliability",
+        "testing",
+        "quality"
+      ]
+    }
+  ]
+}

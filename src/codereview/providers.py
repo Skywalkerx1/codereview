@@ -509,7 +509,7 @@ def build_providers(specs, text_mode=False, agent_timeout=None):
             base, _options, _cmd = _parse_agent_spec(spec)
             parsed.append(("agent", base, spec))
         elif "|" in spec:
-            nm = spec.split("|")[0].strip()
+            nm = spec.split("|")[0].strip().lower()
             parsed.append(("api", nm, spec))
             api_names.add(nm)
         else:
@@ -526,15 +526,21 @@ def build_providers(specs, text_mode=False, agent_timeout=None):
         counters[base.lower()] = n
         candidate = base if n == 1 else f"{base}-{n}"
         while True:
-            if candidate in api_names:
+            # Cross-kind and uniqueness checks compare on the
+            # canonical (lowercased) name: seat identity is
+            # case-insensitive, so an agent named 'Bot' must not
+            # slip past an API seat named 'bot' (review-v11
+            # finding — the custom-spec branch above once kept
+            # its case while preset names were lowered).
+            if candidate.lower() in api_names:
                 raise ProviderError(
                     f"seat name {candidate!r} is used by both an "
                     f"agent seat and an API seat; rename the agent "
                     f"seat (e.g. agent:{base}-cli:<command>)")
-            if candidate not in used:
+            if candidate.lower() not in used:
                 break
             candidate = _bump_name(candidate)
-        used.add(candidate)
+        used.add(candidate.lower())
         agent_final[idx] = candidate
     seats = {}
     counts = {}
@@ -561,6 +567,18 @@ def build_providers(specs, text_mode=False, agent_timeout=None):
     for name, accounts in seats.items():
         providers[name] = accounts[0][1] if len(accounts) == 1 \
             else AccountPool(accounts)
+        if name_kind.get(name) == "agent":
+            # Tag the seat callable so consumers that only see the
+            # providers dict (the CLI's default seat metadata) can
+            # still tell an agent seat from a preset seat — even
+            # when the agent's name matches a preset's, and after
+            # suffixing (bot, bot-2, ...). Resolved seat names
+            # carry no 'agent:' prefix, so the kind has to travel
+            # with the callable (review-v11 finding).
+            try:
+                providers[name]._codereview_kind = "agent"
+            except Exception:  # noqa: BLE001 — tagging is advisory
+                pass
     return providers
 
 
