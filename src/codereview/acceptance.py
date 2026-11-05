@@ -16,6 +16,21 @@ The machinery stratum's isolation rule is honoured by
 construction: shadow adjudication never consults the
 precedent store, and every (case, variant) run uses a fresh
 decision cache.
+
+Protocol v2 (`run_acceptance_v2`) scores the redesigned
+adjudicator (techlead.adjudicate) through the SAME scorer
+and the SAME metric computation (`_scorecard_metrics`) —
+M1 is counted by scored decision over the scorecard's
+real-finding set, exactly as the scorecard's
+counting_rules define a false dismissal; the per-case
+`false_dismissal` flag score_case returns is never set
+by the scorer and is not used (it disagreed with the M1
+metric in the v1 run record — the metric follows the
+scorecard, the flag is vestigial). The two adjudication
+paths are reported separately in the v2 record, never
+blended: deterministic-path cases are decided by the
+probe, so they take no verdict draws and fall outside
+M6's measured set, which is stated on the record.
 """
 
 from __future__ import annotations
@@ -24,6 +39,7 @@ import json
 import os
 
 from . import core
+from . import techlead
 
 
 def load_corpus(corpus_dir):
@@ -192,6 +208,138 @@ def _paraphrase(seat_fn, text, timeout):
     return str(out).strip() or text
 
 
+def _scorecard_metrics(cases, baseline, scores, scorecard,
+                       *, flips, do_mutations, log):
+    """The M1–M6 measurements against the scorecard's own
+    sets and thresholds — the single counting implementation
+    both protocol runners share, so a v1 and a v2 record can
+    never drift apart in what the numbers mean. M1 counts
+    false dismissals BY SCORED DECISION over the scorecard's
+    real-finding set (the scorecard's counting_rules), never
+    by score_case's per-case false_dismissal flag, which the
+    scorer never sets. With do_mutations False, M4 is
+    measured None and passes False: an unmeasured gate does
+    not pass."""
+    metrics_spec = {m["id"]: m
+                    for m in scorecard.get("metrics") or []}
+
+    def metric_set(mid):
+        spec = metrics_spec.get(mid) or {}
+        s = spec.get("set")
+        if isinstance(s, list):
+            return s
+        return sorted(cases)
+
+    def threshold(mid):
+        spec = metrics_spec.get(mid) or {}
+        return spec.get("threshold") or {}
+
+    def passes(value, mid):
+        th = threshold(mid)
+        op, want = th.get("op"), th.get("value")
+        if op == "==":
+            return value == want
+        if op == ">=":
+            return value >= want
+        if op == "<=":
+            return value <= want
+        return False
+
+    def present(mid, ids, table):
+        """The scorecard's metric set restricted to case ids
+        this run actually produced. An explicit set naming
+        cases absent from the corpus (mismatch, or an empty
+        corpus under the shipped scorecard) must score over
+        what exists — with the gap logged — never die on a
+        bare KeyError (633acb885291)."""
+        kept = [cid for cid in ids if cid in table]
+        if len(kept) != len(ids):
+            log(f"scorecard {mid}: {len(ids) - len(kept)} "
+                f"set case id(s) absent from the corpus — "
+                f"scored over {len(kept)} present case(s)")
+        return kept
+
+    # M1: false dismissals on the real-finding set.
+    m1_set = present("M1_false_dismissals_on_real_findings",
+                     metric_set(
+                         "M1_false_dismissals_on_real_findings"),
+                     baseline)
+    m1 = sum(1 for cid in m1_set
+             if scored_decision(baseline[cid])
+             == "sustain_refutation")
+    # M2: accuracy on the probe-settled set.
+    m2_set = present("M2_probe_settled_accuracy",
+                     metric_set("M2_probe_settled_accuracy"),
+                     scores)
+    m2 = (sum(1 for cid in m2_set if scores[cid]["correct"])
+          / len(m2_set)) if m2_set else 0.0
+    # M3: overall accuracy — guarded like M2/M5: an empty
+    # corpus measures 0.0, it does not divide by zero.
+    m3 = (sum(1 for c in scores.values() if c["correct"])
+          / len(scores)) if scores else 0.0
+    # M4: mutation flip rate.
+    total_flips = sum(len(v) for v in flips.values())
+    denom = len(cases) * len(flips) if do_mutations else 0
+    m4 = (total_flips / denom) if denom else None
+    # M5: protected + insufficient all escalated.
+    m5_set = present(
+        "M5_protected_and_insufficient_escalated",
+        metric_set("M5_protected_and_insufficient_escalated"),
+        baseline)
+    m5 = (sum(1 for cid in m5_set
+              if scored_decision(baseline[cid]) == "escalate")
+          / len(m5_set)) if m5_set else 0.0
+    # M6: double-draw agreement on majors.
+    major_ids = [cid for cid, c in cases.items()
+                 if (c["finding"].get("severity_as_raised")
+                     in ("blocker", "major"))]
+    agreed = [cid for cid in major_ids
+              if baseline[cid].get("draws_agree") is True]
+    measured = [cid for cid in major_ids
+                if baseline[cid].get("draws_agree") is not None]
+    m6 = (len(agreed) / len(measured)) if measured else None
+
+    metrics = {
+        "M1_false_dismissals_on_real_findings": {
+            "measured": m1, "threshold": threshold(
+                "M1_false_dismissals_on_real_findings"),
+            "pass": passes(
+                m1, "M1_false_dismissals_on_real_findings"),
+            "set_size": len(m1_set)},
+        "M2_probe_settled_accuracy": {
+            "measured": m2, "threshold": threshold(
+                "M2_probe_settled_accuracy"),
+            "pass": passes(m2, "M2_probe_settled_accuracy"),
+            "set_size": len(m2_set)},
+        "M3_overall_accuracy": {
+            "measured": m3,
+            "threshold": threshold("M3_overall_accuracy"),
+            "pass": passes(m3, "M3_overall_accuracy"),
+            "set_size": len(scores)},
+        "M4_mutation_flip_rate": {
+            "measured": m4,
+            "threshold": threshold("M4_mutation_flip_rate"),
+            "pass": bool(do_mutations) and m4 is not None
+            and passes(m4, "M4_mutation_flip_rate"),
+            "flips": flips, "denominator": denom},
+        "M5_protected_and_insufficient_escalated": {
+            "measured": m5, "threshold": threshold(
+                "M5_protected_and_insufficient_escalated"),
+            "pass": passes(
+                m5, "M5_protected_and_insufficient_escalated"),
+            "set_size": len(m5_set)},
+        "M6_double_draw_agreement_on_majors": {
+            "measured": m6, "threshold": threshold(
+                "M6_double_draw_agreement_on_majors"),
+            "pass": m6 is not None and passes(
+                m6, "M6_double_draw_agreement_on_majors"),
+            "majors": len(major_ids),
+            "measured_cases": len(measured),
+            "agreed_cases": len(agreed)},
+    }
+    return metrics
+
+
 def run_acceptance(corpus_dir, seat_fn, *, seat_family,
                    seat_name="acceptance-tech-lead",
                    do_mutations=True, timeout=180, log=None):
@@ -276,121 +424,10 @@ def run_acceptance(corpus_dir, seat_fn, *, seat_family,
                 log(f"mutation {mid} {cid}: {now[0]} "
                     f"(flip={now != base})")
 
-    def metric_set(mid):
-        spec = metrics_spec.get(mid) or {}
-        s = spec.get("set")
-        if isinstance(s, list):
-            return s
-        return sorted(cases)
-
-    def threshold(mid):
-        spec = metrics_spec.get(mid) or {}
-        return spec.get("threshold") or {}
-
-    def passes(value, mid):
-        th = threshold(mid)
-        op, want = th.get("op"), th.get("value")
-        if op == "==":
-            return value == want
-        if op == ">=":
-            return value >= want
-        if op == "<=":
-            return value <= want
-        return False
-
-    def present(mid, ids, table):
-        """The scorecard's metric set restricted to case ids
-        this run actually produced. An explicit set naming
-        cases absent from the corpus (mismatch, or an empty
-        corpus under the shipped scorecard) must score over
-        what exists — with the gap logged — never die on a
-        bare KeyError (633acb885291)."""
-        kept = [cid for cid in ids if cid in table]
-        if len(kept) != len(ids):
-            log(f"scorecard {mid}: {len(ids) - len(kept)} "
-                f"set case id(s) absent from the corpus — "
-                f"scored over {len(kept)} present case(s)")
-        return kept
-
-    # M1: false dismissals on the real-finding set.
-    m1_set = present("M1_false_dismissals_on_real_findings",
-                     metric_set(
-                         "M1_false_dismissals_on_real_findings"),
-                     baseline)
-    m1 = sum(1 for cid in m1_set
-             if scored_decision(baseline[cid])
-             == "sustain_refutation")
-    # M2: accuracy on the probe-settled set.
-    m2_set = present("M2_probe_settled_accuracy",
-                     metric_set("M2_probe_settled_accuracy"),
-                     scores)
-    m2 = (sum(1 for cid in m2_set if scores[cid]["correct"])
-          / len(m2_set)) if m2_set else 0.0
-    # M3: overall accuracy — guarded like M2/M5: an empty
-    # corpus measures 0.0, it does not divide by zero.
-    m3 = (sum(1 for c in scores.values() if c["correct"])
-          / len(scores)) if scores else 0.0
-    # M4: mutation flip rate.
-    total_flips = sum(len(v) for v in flips.values())
-    denom = len(cases) * len(mutation_ids) if do_mutations \
-        else 0
-    m4 = (total_flips / denom) if denom else None
-    # M5: protected + insufficient all escalated.
-    m5_set = present(
-        "M5_protected_and_insufficient_escalated",
-        metric_set("M5_protected_and_insufficient_escalated"),
-        baseline)
-    m5 = (sum(1 for cid in m5_set
-              if scored_decision(baseline[cid]) == "escalate")
-          / len(m5_set)) if m5_set else 0.0
-    # M6: double-draw agreement on majors.
-    major_ids = [cid for cid, c in cases.items()
-                 if (c["finding"].get("severity_as_raised")
-                     in ("blocker", "major"))]
-    agreed = [cid for cid in major_ids
-              if baseline[cid].get("draws_agree") is True]
-    measured = [cid for cid in major_ids
-                if baseline[cid].get("draws_agree") is not None]
-    m6 = (len(agreed) / len(measured)) if measured else None
-
-    metrics = {
-        "M1_false_dismissals_on_real_findings": {
-            "measured": m1, "threshold": threshold(
-                "M1_false_dismissals_on_real_findings"),
-            "pass": passes(
-                m1, "M1_false_dismissals_on_real_findings"),
-            "set_size": len(m1_set)},
-        "M2_probe_settled_accuracy": {
-            "measured": m2, "threshold": threshold(
-                "M2_probe_settled_accuracy"),
-            "pass": passes(m2, "M2_probe_settled_accuracy"),
-            "set_size": len(m2_set)},
-        "M3_overall_accuracy": {
-            "measured": m3,
-            "threshold": threshold("M3_overall_accuracy"),
-            "pass": passes(m3, "M3_overall_accuracy"),
-            "set_size": len(scores)},
-        "M4_mutation_flip_rate": {
-            "measured": m4,
-            "threshold": threshold("M4_mutation_flip_rate"),
-            "pass": bool(do_mutations) and m4 is not None
-            and passes(m4, "M4_mutation_flip_rate"),
-            "flips": flips, "denominator": denom},
-        "M5_protected_and_insufficient_escalated": {
-            "measured": m5, "threshold": threshold(
-                "M5_protected_and_insufficient_escalated"),
-            "pass": passes(
-                m5, "M5_protected_and_insufficient_escalated"),
-            "set_size": len(m5_set)},
-        "M6_double_draw_agreement_on_majors": {
-            "measured": m6, "threshold": threshold(
-                "M6_double_draw_agreement_on_majors"),
-            "pass": m6 is not None and passes(
-                m6, "M6_double_draw_agreement_on_majors"),
-            "majors": len(major_ids),
-            "measured_cases": len(measured),
-            "agreed_cases": len(agreed)},
-    }
+    metrics = _scorecard_metrics(
+        cases, baseline, scores, scorecard,
+        flips=flips, do_mutations=do_mutations,
+        log=log)
     # An empty corpus unlocks nothing, whatever the vacuous
     # metrics say (633acb885291).
     unlock = bool(cases) and all(
@@ -405,4 +442,208 @@ def run_acceptance(corpus_dir, seat_fn, *, seat_family,
                   for cid in sorted(cases)},
         "paraphrases": paraphrases,
         "metrics": metrics,
+        "unlock_all_gates_pass": unlock}
+
+
+# ------------------------------------------------------- protocol v2
+
+def adapt_v2_entry(entry):
+    """Map one protocol-v2 entry (techlead.adjudicate) onto
+    the shape score_case / _scorecard_metrics consume. The
+    mapping is field-for-field and invents nothing:
+
+      decision             <- entry decision (None unless the
+                              harness decided; the scorer
+                              normalises non-decisions to
+                              "escalate", as in v1)
+      severity_after_rubric<- entry severity_after_rubric
+      deciding_evidence    <- entry deciding_evidence (the
+                              dismissal-evidence scoring rule
+                              reads its quote)
+      draws_agree          <- entry draws_agree (None on the
+                              deterministic path and on
+                              routing escalations: those cases
+                              take no verdict draws)
+      reasoning_assessment <- entry reasoning_assessment —
+                              the seat's OWN two-field grading,
+                              recorded from the canonical draw.
+                              A v2 entry without one (the
+                              deterministic path takes no
+                              verdict draw) adapts to
+                              claim_valid False /
+                              refutation_validity None, which
+                              the two-field rule scores as a
+                              mismatch: the adapter reports the
+                              absence, it does not paper over it.
+
+    Every other v2 field (path, escalation rules, probe
+    adequacy, stage, draws) rides along untouched, so the run
+    record keeps the full v2 evidence next to the scores."""
+    out = dict(entry or {})
+    out["decision"] = out.get("decision")
+    sev = out.get("severity_after_rubric")
+    if not isinstance(sev, dict) or "level" not in sev:
+        out["severity_after_rubric"] = {
+            "level": None, "rubric_clause": None}
+    de = out.get("deciding_evidence")
+    if not isinstance(de, dict):
+        out["deciding_evidence"] = {"quote": ""}
+    assess = out.get("reasoning_assessment")
+    if not isinstance(assess, dict):
+        out["reasoning_assessment"] = {
+            "claim_valid": False, "refutation_validity": None}
+    else:
+        out["reasoning_assessment"] = {
+            "claim_valid": bool(assess.get("claim_valid")),
+            "refutation_validity":
+                assess.get("refutation_validity")}
+    return out
+
+
+def _path_metrics(cases, baseline, scores, scorecard):
+    """Per-path results for a v2 run record — reported
+    SEPARATELY, never blended (§3.3.2): the deterministic
+    path's numbers describe probe settlement + adequacy
+    grading; the model path's describe seat judgement.
+    Entries whose path is neither (protected-class and
+    independence routing escalations, seat unavailable) are
+    counted in their own bucket so the two path totals plus
+    the bucket reconcile to the corpus size."""
+    metrics_spec = {m["id"]: m
+                    for m in scorecard.get("metrics") or []}
+    spec = metrics_spec.get(
+        "M1_false_dismissals_on_real_findings") or {}
+    m1_set = spec.get("set")
+    if not isinstance(m1_set, list):
+        m1_set = []
+    out = {}
+    raw = [baseline[cid] for cid in sorted(baseline)]
+    for path in ("deterministic_probe", "model"):
+        sel = [cid for cid in sorted(baseline)
+               if baseline[cid].get("path") == path]
+        rules = {}
+        for cid in sel:
+            for rule in baseline[cid].get(
+                    "escalation_rules") or []:
+                rules[rule] = rules.get(rule, 0) + 1
+        out[path] = {
+            "total": len(sel),
+            "correct": sum(
+                1 for cid in sel if scores[cid]["correct"]),
+            "accuracy": (
+                sum(1 for cid in sel if scores[cid]["correct"])
+                / len(sel)) if sel else None,
+            "false_dismissals_on_m1_set": sum(
+                1 for cid in sel if cid in m1_set
+                and scored_decision(baseline[cid])
+                == "sustain_refutation"),
+            "escalated": sum(
+                1 for cid in sel
+                if scored_decision(baseline[cid])
+                == "escalate"),
+            "escalation_rules_fired": rules,
+            "cases": sel,
+        }
+    other = [cid for cid in sorted(baseline)
+             if baseline[cid].get("path")
+             not in ("deterministic_probe", "model")]
+    out["routing_or_unavailable"] = {
+        "total": len(other),
+        "correct": sum(
+            1 for cid in other if scores[cid]["correct"]),
+        "accuracy": (
+            sum(1 for cid in other if scores[cid]["correct"])
+            / len(other)) if other else None,
+        "cases": other,
+    }
+    out["summary"] = techlead.summarise_paths(raw)
+    return out
+
+
+def run_acceptance_v2(corpus_dir, seat_fn, *, seat_family,
+                      seat_name="acceptance-tech-lead-v2",
+                      confidence_threshold=(
+                          techlead.CONFIDENCE_THRESHOLD_DEFAULT),
+                      timeout=180, log=None):
+    """Run the acceptance corpus under adjudication protocol
+    v2 (techlead.adjudicate, evaluation mode: every model-path
+    case takes both A/B draws) and score it with the SAME
+    scorer and metric computation as the v1 runner.
+
+    Protocol differences from v1, all stated on the record:
+    corpus probe results are HARNESS-EXECUTED inputs here —
+    a settling probe decides deterministically (the seat only
+    grades its adequacy), where v1 presented probes as
+    context to the seat; protected-class cases are routed
+    by the harness before any seat call (the corpus owns the
+    tag); M4 is not run (mutations belong to the final
+    candidate's evaluation, not to baseline scoring — and
+    vendor-strip / family-swap are invariant by construction
+    under canonicalised packets), so M4 is measured None and
+    the unlock verdict is False on any v2 baseline run."""
+    log = log or (lambda _msg: None)
+    corpus = load_corpus(corpus_dir)
+    cases = corpus["cases"]
+    scorecard = corpus["scorecard"]
+
+    baseline = {}
+    scores = {}
+    for cid in sorted(cases):
+        case = cases[cid]
+        finding, dispute, region, _indep = case_inputs(
+            case, seat_family)
+        protected = \
+            case.get("case_class") == "protected_class"
+        reason = case.get("protected_class")
+        entry = techlead.adjudicate(
+            seat_fn, finding, region, dispute,
+            seat_name=seat_name, seat_family=seat_family,
+            probe_result=case.get("probe"),
+            protected=protected,
+            protected_reason=reason if isinstance(
+                reason, str) else None,
+            confidence_threshold=confidence_threshold,
+            evaluation_mode=True, timeout=timeout)
+        adapted = adapt_v2_entry(entry)
+        baseline[cid] = adapted
+        scores[cid] = score_case(case, adapted)
+        log(f"baseline {cid}: {scored_decision(adapted)} "
+            f"path={adapted.get('path')} "
+            f"(correct={scores[cid]['correct']})")
+
+    metrics = _scorecard_metrics(
+        cases, baseline, scores, scorecard,
+        flips={}, do_mutations=False, log=log)
+    # An empty corpus unlocks nothing, and an unmeasured M4
+    # passes nothing (633acb885291, as in v1).
+    unlock = bool(cases) and all(
+        m["pass"] for m in metrics.values())
+    return {
+        "seat_family": seat_family, "seat_name": seat_name,
+        "corpus": corpus_dir,
+        "protocol": "v2",
+        "protocol_version": techlead.TL_PROTOCOL_VERSION,
+        "rubric_version": techlead.TL_RUBRIC_VERSION,
+        "confidence_threshold": confidence_threshold,
+        "evaluation_mode": True,
+        "cases": {cid: {"entry": baseline[cid],
+                        "score": scores[cid]}
+                  for cid in sorted(cases)},
+        "metrics": metrics,
+        "paths": _path_metrics(
+            cases, baseline, scores, scorecard),
+        "counting_rules_note": (
+            "M1 counted by scored decision over the "
+            "scorecard's real-finding set (the scorecard's "
+            "counting_rules.false_dismissal); score_case's "
+            "per-case false_dismissal flag is never set by "
+            "the scorer and was NOT used — in the v1 run "
+            "record the flag read false on cases the M1 "
+            "metric counted. M6 is measured over majors "
+            "with two verdict draws (the model path in "
+            "evaluation mode); deterministic-path majors "
+            "are decided by their probe, take no draws, and "
+            "are outside M6's measured set — see the "
+            "per-path report. M4 not run in v2 baseline "
+            "mode (measured None, pass False)."),
         "unlock_all_gates_pass": unlock}
