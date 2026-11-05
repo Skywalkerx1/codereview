@@ -1,0 +1,1 @@
+self.assertLessEqual(section["score"], 100)

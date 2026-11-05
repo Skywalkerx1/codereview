@@ -3671,6 +3671,20 @@ def run_review(patch, providers, context="", test_results=None,
     to the pre-L1 construction, which the bench and
     registered confirmation runs rely on: they never pass it.
 
+    Risk score (Epic E1): when the project policy enables
+    the `[risk]` table, the finished record gains a `risk`
+    section — the deterministic score, band, and reasons
+    risk.score_sections computes from the kept diff sections
+    (paths, size, touched sensitive patterns, dependency
+    changes) under the policy's thresholds. The scorer is a
+    pure function of the sections; the score is descriptive
+    in E1 and never feeds the gate (tiering and escalation
+    consume it in E2/E4). With no policy or `[risk]` disabled
+    the record carries no `risk` key and is byte-identical
+    to the pre-E1 construction, which the bench and
+    registered confirmation runs rely on: they never enable
+    it.
+
     Attention notifications (Epic L4): `notify` is a
     notify.Notifier built from the operator's USER SETUP
     ([notify] command — never the project policy). When
@@ -4821,6 +4835,20 @@ def run_review(patch, providers, context="", test_results=None,
                 f"({policy.get('path') or policy_mod.POLICY_FILENAME}): "
                 f"{len(policy_outcome['applied'])} rule(s) "
                 f"applied — see the record's policy section"]
+    risk_section = None
+    if policy is not None:
+        # Epic E1: the deterministic risk score over the kept
+        # sections (the same sections the panel reviewed),
+        # when the policy's [risk] table enables it. Pure and
+        # descriptive — computed after the gate, read by
+        # nothing in it. The function-level import keeps the
+        # module graph one-directional (risk imports core,
+        # not the reverse, beyond this point).
+        from . import risk as _risk
+        _risk_config = _risk.risk_config(policy)
+        if _risk_config is not None:
+            risk_section = _risk.score_sections(
+                sections, _risk_config)
     if evidence is not None:
         # Epic C gate rule (C3), applied last so it composes
         # with every adjustment above: a blocked gate stays
@@ -4957,6 +4985,10 @@ def run_review(patch, providers, context="", test_results=None,
             "applied": policy_outcome["applied"],
             "violations": policy_outcome["violations"],
         }
+    if risk_section is not None:
+        # E1: the deterministic risk score for this change
+        # (score + band + reasons) — see risk.py.
+        report["risk"] = risk_section
     if evidence is not None:
         report["evidence"] = evidence
     if record_extra:

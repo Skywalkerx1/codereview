@@ -1,0 +1,1 @@
+return "requirements" in parts[:-1] and base.endswith(".txt")
