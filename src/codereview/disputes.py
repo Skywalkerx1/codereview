@@ -482,6 +482,7 @@ def build_inventory(root, entries=(), overrides=None):
     disp = dispositioned_ids(entries)
     open_rows, done_rows = [], []
     scanned = 0
+    seen = set()
     for path in iter_record_files(root):
         record = load_record(path)
         if record is None:
@@ -490,6 +491,16 @@ def build_inventory(root, entries=(), overrides=None):
         rel = os.path.relpath(path, root).replace(os.sep, "/")
         for f in _record_disputes(record):
             row = dispute_summary(record, f, rel)
+            if row["id"] in seen:
+                # The same dispute serialized into a second
+                # record (a copied or re-exported record file)
+                # is ONE dispute: the inventory counts distinct
+                # disputes, not record files (0bb1b939ab67 —
+                # a duplicated record doubled the computed
+                # inventory and would have doubled freshness
+                # violations).
+                continue
+            seen.add(row["id"])
             if row["id"] in disp:
                 done_rows.append(row)
             else:

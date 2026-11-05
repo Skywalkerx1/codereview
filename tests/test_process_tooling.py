@@ -319,6 +319,21 @@ class InventoryTests(unittest.TestCase):
         self.assertEqual(
             [r["id"] for r in inv["dispositioned"]], [FID_A])
 
+    def test_inventory_dedupes_across_records(self):
+        # The same record file present under two review-*/
+        # directories (a copied record) is one set of disputes,
+        # not two (0bb1b939ab67).
+        rdir = os.path.join(self.tmp, "review-t2")
+        os.makedirs(rdir)
+        with open(os.path.join(rdir, "rec.json"), "w",
+                  encoding="utf-8") as fh:
+            json.dump(_dispute_record(), fh)
+        inv = disputes.build_inventory(self.tmp, [])
+        self.assertEqual(inv["records_scanned"], 2)
+        self.assertEqual({r["id"] for r in inv["open"]},
+                         {FID_A, FID_B})
+        self.assertEqual(len(inv["open"]), 2)
+
 
 # ------------------------------------------------------------ freshness
 
