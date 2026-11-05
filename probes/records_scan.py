@@ -118,6 +118,31 @@ def targets():
     return files
 
 
+def parse_attempt_rows(path):
+    """Parse a gate-attempts.jsonl file defensively. Blank lines
+    are skipped silently; a non-blank line that does not parse
+    as a JSON object is skipped AND counted, never raised — one
+    malformed row must not abort the whole scan (99fe18f50ec3:
+    the telemetry inventory crashed on exactly that shape).
+    Returns (rows, malformed_count)."""
+    import json as _json
+    rows, malformed = [], 0
+    with open(path, encoding="utf-8") as fh:
+        for ln in fh:
+            if not ln.strip():
+                continue
+            try:
+                row = _json.loads(ln)
+            except ValueError:
+                malformed += 1
+                continue
+            if not isinstance(row, dict):
+                malformed += 1
+                continue
+            rows.append(row)
+    return rows, malformed
+
+
 def main():
     lines = ["PUBLIC-RECORD EXPOSURE SCAN — a3a2d492b51a",
              "Scope: gate-attempts.* + all committed review "
@@ -170,9 +195,7 @@ def main():
     ga = os.path.join(REPO, "gate-attempts.jsonl")
     if os.path.exists(ga):
         import collections
-        import json as _json
-        rows = [_json.loads(ln) for ln in open(
-            ga, encoding="utf-8") if ln.strip()]
+        rows, malformed = parse_attempt_rows(ga)
         seat_fields = collections.Counter()
         distinct = collections.defaultdict(collections.Counter)
         for r in rows:
@@ -188,6 +211,10 @@ def main():
                   "  seat fields: " + ", ".join(
                       f"{k} x{n}" for k, n in
                       sorted(seat_fields.items()))]
+        if malformed:
+            lines.append(
+                f"  malformed rows skipped: {malformed} "
+                "(counted, never fatal — 99fe18f50ec3)")
         for k in ("provider", "family", "tier", "error_class",
                   "fallback_for", "status", "lens"):
             if k in distinct:
