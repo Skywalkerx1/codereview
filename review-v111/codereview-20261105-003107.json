@@ -1,0 +1,321 @@
+{
+  "schema": "codereview.report/1",
+  "version": "0.11.1",
+  "mode": "review",
+  "created_at": "2026-11-05T00:31:07+00:00",
+  "patch_sha256": "e33c6d30105d643b3d4e04ccea03a509c16056723af44ef951704375ba526138",
+  "patch_chars": 28454,
+  "files": [
+    "CHANGELOG.md",
+    "pyproject.toml",
+    "src/codereview/cli.py",
+    "src/codereview/core.py",
+    "src/codereview/setup_wizard.py",
+    "tests/test_core.py",
+    "tests/test_external_review_v070.py",
+    "tests/test_fixture_secret_hygiene.py",
+    "tests/test_role_providers.py",
+    "tests/test_user_setup.py",
+    "tests/test_v090_fixes.py"
+  ],
+  "context": "v0.11.1 fix step for the v0.11.0 internal review's standing items (record review-v110): (1) blocker 44a6ae2d215a fixture-secret class closed durably — whole tests/ tree audited, three fixture strings neutralized (placeholder-exemption value in test_user_setup.py; runtime-assembled values in test_core.py and test_external_review_v070.py), new regression guard tests/test_fixture_secret_hygiene.py runs the product's own deterministic scan over all test lines; the deterministic rule itself is untouc",
+  "private": false,
+  "supported_platforms": {
+    "os": [
+      "posix"
+    ],
+    "python": ">=3.11"
+  },
+  "coverage": {
+    "batch_count": 1,
+    "truncated": false,
+    "complete": true,
+    "omissions": [],
+    "files": {
+      "CHANGELOG.md": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "pyproject.toml": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "src/codereview/cli.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "src/codereview/core.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "src/codereview/setup_wizard.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "tests/test_core.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "tests/test_external_review_v070.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "tests/test_fixture_secret_hygiene.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "tests/test_role_providers.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "tests/test_user_setup.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "tests/test_v090_fixes.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      }
+    }
+  },
+  "test_results": [
+    {
+      "command": "python3 -m unittest discover -s tests",
+      "ok": true,
+      "exit_code": 0,
+      "output_tail": "o.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/bench.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/cli.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/core.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/github.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/intake.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/providers.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/registry.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/setup_wizard.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/userconfig.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n........................................../home/hatch/workspace/codereview/tests/test_v094_probes.py:127: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/cli.py' mode='r' encoding='utf-8'>\n  \"core.py\", \"cli.py\"), encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n...../home/hatch/workspace/codereview/tests/test_v094_probes.py:91: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/providers.py' mode='r' encoding='utf-8'>\n  encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n.................................codereview: tier policy: seat 'stubfree' runs on a free-tier credential, which must not review private repositories\n.............................\n----------------------------------------------------------------------\nRan 400 tests in 34.813s\n\nOK\n"
+    }
+  ],
+  "deterministic_findings": [],
+  "reviewer_reports": [
+    {
+      "provider": "openai",
+      "lens": "correctness",
+      "batch": 1,
+      "status": "ok",
+      "error": "",
+      "summary": "I found one correctness regression in the updated test fixture: the intended environment value was not actually changed, so the new assertion no longer matches the setup and the test will fail.",
+      "findings": [
+        {
+          "id": "a1982210ce99",
+          "rule": "",
+          "severity": "major",
+          "category": "correctness",
+          "file": "tests/test_user_setup.py",
+          "line": 102,
+          "title": "Environment fixture still sets the old redacted value while the test now asserts against a different string",
+          "evidence": "The fixture comment says the value was changed to a placeholder token, but the actual added assignment still sets DEEPSEEK_API_KEY to '[REDACTED]', while the assertion below was changed to expect that 'placeholder-deepseek-key-never-stored' is absent from the saved config. Since that placeholder is never present in the environment or output path, the test no longer verifies the intended behavior a",
+          "evidence_quote": "                DEEPSEEK_API_KEY='[REDACTED]')",
+          "recommendation": "Update the fixture assignment to the intended placeholder value, or keep the assertion aligned with the actual environment value being supplied so the test exercises the real path it claims to cover.",
+          "confidence": 0.98,
+          "sources": [
+            "openai"
+          ],
+          "consensus": false,
+          "grounding": "grounded",
+          "evidence_ref": {
+            "sha256": "0ede7ff62911a4e6a960a2e1b24e211caab9d5aa1cdddb201403ebcb1ebb4c86",
+            "length": 459,
+            "truncated": true
+          },
+          "evidence_quote_ref": {
+            "sha256": "3772fb51850b2ef8bac9943691e8907bafc091a0179a9c7a66a59ff913c9cdb7",
+            "length": 46,
+            "truncated": false
+          }
+        }
+      ],
+      "attempts": 2,
+      "error_classes": [
+        "quota"
+      ],
+      "fallback_for": "gemini",
+      "primary_error": "gemini quota: HTTP 429",
+      "family": "openai",
+      "tier": "paid"
+    },
+    {
+      "provider": "nvidia",
+      "lens": "operations",
+      "batch": 1,
+      "status": "ok",
+      "error": "",
+      "summary": "The v0.11.1 change batch addresses all four standing items from the v0.11.0 internal review: the blocker fixture-secret hygiene is closed durably across the whole tests/ tree, the major doctor probe is wait-bounded with the same ceiling the review path uses, and both minors add retry bounds and duplicate-lens-role coverage. All new tests pass, and no demonstrated defect or reachable risk remains in the supported POSIX+Python 3.11+ configuration.",
+      "findings": [],
+      "attempts": 1,
+      "error_classes": [],
+      "family": "nvidia",
+      "tier": "free"
+    }
+  ],
+  "findings": [],
+  "degraded": false,
+  "truncated": false,
+  "gate": "inconclusive",
+  "gate_reasons": [
+    "human decision required: disputed, refutation-weak, escalated or ungrounded finding(s) are recorded in the record",
+    "correctness lens served by fallback seat 'openai' (primary 'gemini' failed: quota)",
+    "1 refutation-weak finding(s): the refuting quote repeats the line the finding cites and carries no counter-evidence from another line — a routing state under the dispute ladder (§5a.1), preserved in refutation_weak_findings; no independent Tech Lead served to adjudicate, so the human gate decides"
+  ],
+  "refutation_weak_findings": [
+    {
+      "id": "a1982210ce99",
+      "rule": "",
+      "severity": "major",
+      "category": "correctness",
+      "file": "tests/test_user_setup.py",
+      "line": 102,
+      "title": "Environment fixture still sets the old redacted value while the test now asserts against a different string",
+      "evidence": "The fixture comment says the value was changed to a placeholder token, but the actual added assignment still sets DEEPSEEK_API_KEY to '[REDACTED]', while the assertion below was changed to expect that 'placeholder-deepseek-key-never-stored' is absent from the saved config. Since that placeholder is never present in the environment or output path, the test no longer verifies the intended behavior a",
+      "evidence_quote": "                DEEPSEEK_API_KEY='[REDACTED]')",
+      "recommendation": "Update the fixture assignment to the intended placeholder value, or keep the assertion aligned with the actual environment value being supplied so the test exercises the real path it claims to cover.",
+      "confidence": 0.98,
+      "sources": [
+        "openai"
+      ],
+      "consensus": false,
+      "grounding": "grounded",
+      "dispute": {
+        "by": "nvidia",
+        "family": "nvidia",
+        "raiser_family": "openai",
+        "evidence_quote": "                DEEPSEEK_API_KEY='[REDACTED]')",
+        "reason": "The code region shows the fixture assignment sets DEEPSEEK_API_KEY to '[REDACTED]', and the assertion changed from checking for 'sentinel-value-never-stored' to 'placeholder-deepseek-key-never-stored'. The test now correctly asserts that the redacted placeholder is absent from the saved config, conf",
+        "adequacy": "weak",
+        "evidence_quote_ref": {
+          "sha256": "3772fb51850b2ef8bac9943691e8907bafc091a0179a9c7a66a59ff913c9cdb7",
+          "length": 46,
+          "truncated": false
+        },
+        "reason_ref": {
+          "sha256": "e90bbaed13d12664b21855e1e9400f8b78c98aa6da114b1077112d74e48d9e67",
+          "length": 386,
+          "truncated": true
+        }
+      },
+      "tech_lead": {
+        "status": "unavailable",
+        "reason": "no seat from a family independent of both the raiser and the refuter served on this panel"
+      },
+      "cross_family": "refuted_weak",
+      "status": "refutation_weak",
+      "evidence_ref": {
+        "sha256": "0ede7ff62911a4e6a960a2e1b24e211caab9d5aa1cdddb201403ebcb1ebb4c86",
+        "length": 459,
+        "truncated": true
+      },
+      "evidence_quote_ref": {
+        "sha256": "3772fb51850b2ef8bac9943691e8907bafc091a0179a9c7a66a59ff913c9cdb7",
+        "length": 46,
+        "truncated": false
+      },
+      "evidence_complete": true
+    }
+  ],
+  "range": "0ba2c17..2dd114e",
+  "head": "2dd114efc38d3f3df88a58f83c602064e5e61cd1",
+  "evidence_sidecars": {
+    "dir": "evidence",
+    "files": 3,
+    "refs": 6
+  }
+}
