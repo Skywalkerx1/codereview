@@ -1,0 +1,1 @@
+The role-assignment code records the seat name returned by a fresh one-item build, then reuses any existing provider with that name instead of the actual seat selected by the main panel build. With duplicate presets, the main panel renames seats, so the role can point at a different account than requested.

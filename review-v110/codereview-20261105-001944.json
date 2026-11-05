@@ -1,0 +1,1057 @@
+{
+  "schema": "codereview.report/1",
+  "version": "0.11.0",
+  "mode": "review",
+  "created_at": "2026-11-05T00:19:44+00:00",
+  "patch_sha256": "213d70f63257df75c8ebb268d5c2384a1be73bc9437b8b51dea2ad6e6b9deefb",
+  "patch_chars": 117884,
+  "files": [
+    "CHANGELOG.md",
+    "README.md",
+    "precedents.json",
+    "pyproject.toml",
+    "src/codereview/cli.py",
+    "src/codereview/core.py",
+    "src/codereview/providers.py",
+    "src/codereview/registry.py",
+    "src/codereview/setup_wizard.py",
+    "src/codereview/userconfig.py",
+    "tests/test_role_providers.py",
+    "tests/test_user_setup.py",
+    "tests/test_v090_fixes.py"
+  ],
+  "context": "v0.11.0 release diff: merge of role-model-choice (provider registry registry.py, per-role model assignment via --role + lens_seats, first-run setup userconfig.py + setup_wizard.py with no shipped default panel) onto v0.10.0, hand-merged cli.py/core.py seams, plus precedent-store minting of the owner's 2026-11-04 sustained-refutation rulings (14 entries) and the release bookkeeping. Verdict to be recorded as received; no closing attempt.",
+  "private": false,
+  "supported_platforms": {
+    "os": [
+      "posix"
+    ],
+    "python": ">=3.11"
+  },
+  "coverage": {
+    "batch_count": 2,
+    "truncated": false,
+    "complete": true,
+    "omissions": [],
+    "files": {
+      "CHANGELOG.md": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "README.md": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "precedents.json": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "pyproject.toml": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "src/codereview/cli.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "src/codereview/core.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "src/codereview/providers.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "src/codereview/registry.py": {
+        "batches": [
+          2
+        ],
+        "lenses": {
+          "correctness": [
+            2
+          ],
+          "operations": [
+            2
+          ]
+        }
+      },
+      "src/codereview/setup_wizard.py": {
+        "batches": [
+          2
+        ],
+        "lenses": {
+          "correctness": [
+            2
+          ],
+          "operations": [
+            2
+          ]
+        }
+      },
+      "src/codereview/userconfig.py": {
+        "batches": [
+          2
+        ],
+        "lenses": {
+          "correctness": [
+            2
+          ],
+          "operations": [
+            2
+          ]
+        }
+      },
+      "tests/test_role_providers.py": {
+        "batches": [
+          2
+        ],
+        "lenses": {
+          "correctness": [
+            2
+          ],
+          "operations": [
+            2
+          ]
+        }
+      },
+      "tests/test_user_setup.py": {
+        "batches": [
+          2
+        ],
+        "lenses": {
+          "correctness": [
+            2
+          ],
+          "operations": [
+            2
+          ]
+        }
+      },
+      "tests/test_v090_fixes.py": {
+        "batches": [
+          2
+        ],
+        "lenses": {
+          "correctness": [
+            2
+          ],
+          "operations": [
+            2
+          ]
+        }
+      }
+    }
+  },
+  "test_results": [
+    {
+      "command": "python3 -m unittest discover -s tests",
+      "ok": true,
+      "exit_code": 0,
+      "output_tail": "o.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/bench.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/cli.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/core.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/github.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/intake.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/providers.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/registry.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/setup_wizard.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/userconfig.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n........................................../home/hatch/workspace/codereview/tests/test_v094_probes.py:127: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/cli.py' mode='r' encoding='utf-8'>\n  \"core.py\", \"cli.py\"), encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n...../home/hatch/workspace/codereview/tests/test_v094_probes.py:91: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/providers.py' mode='r' encoding='utf-8'>\n  encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n.................................codereview: tier policy: seat 'stubfree' runs on a free-tier credential, which must not review private repositories\n.............................\n----------------------------------------------------------------------\nRan 390 tests in 32.889s\n\nOK\n"
+    }
+  ],
+  "deterministic_findings": [
+    {
+      "id": "44a6ae2d215a",
+      "rule": "hardcoded-secret",
+      "severity": "blocker",
+      "category": "security",
+      "file": "tests/test_user_setup.py",
+      "line": 96,
+      "title": "Possible hardcoded secret in added code",
+      "evidence": "DEEPSEEK_API_KEY='[REDACTED]')",
+      "evidence_quote": "DEEPSEEK_API_KEY='[REDACTED]')",
+      "recommendation": "Move the value to the secret store / environment and rotate it if it was ever real.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false,
+      "grounding": "grounded",
+      "evidence_ref": {
+        "sha256": "772734e7a6af0ef6581e025f870a1cc103ce2effbbd211c4e0d0263666289dc3",
+        "length": 30,
+        "truncated": false
+      },
+      "evidence_quote_ref": {
+        "sha256": "772734e7a6af0ef6581e025f870a1cc103ce2effbbd211c4e0d0263666289dc3",
+        "length": 30,
+        "truncated": false
+      }
+    }
+  ],
+  "reviewer_reports": [
+    {
+      "provider": "openai",
+      "lens": "correctness",
+      "batch": 2,
+      "status": "ok",
+      "error": "",
+      "summary": "I found one correctness regression in the new user-config loader that can crash supported runs when the config file contains a non-table roles value. The rest of the added paths are reasonably covered by tests.",
+      "findings": [
+        {
+          "id": "9a4415ddafa6",
+          "rule": "",
+          "severity": "major",
+          "category": "correctness",
+          "file": "src/codereview/userconfig.py",
+          "line": 54,
+          "title": "Malformed roles value now raises an uncaught AttributeError instead of the documented ValueError",
+          "evidence": "The loader assumes roles is a mapping and immediately calls .items() on whatever TOML parsed, so a reachable config like 'roles = []' will crash with AttributeError rather than the documented loud validation error path.",
+          "evidence_quote": "             for k, v in (data.get(\"roles\") or {}).items()}",
+          "recommendation": "Validate the parsed types before iterating, e.g. require providers to be a list and roles to be a dict, and raise ValueError with the config path when they are not. That preserves the documented contract for malformed configs and avoids an unexpected traceback in CLI flows that call load_user_config.",
+          "confidence": 0.95,
+          "sources": [
+            "openai"
+          ],
+          "consensus": false,
+          "grounding": "grounded",
+          "evidence_ref": {
+            "sha256": "4e9504039fc170a96129a91c31558cdef11a259749bb9e4e91f94f93b7966bb1",
+            "length": 219,
+            "truncated": false
+          },
+          "evidence_quote_ref": {
+            "sha256": "8abde6594070b719bd0db494a1948c90a12671f2b120d513621d2dc8ee772b0f",
+            "length": 59,
+            "truncated": false
+          }
+        }
+      ],
+      "attempts": 2,
+      "error_classes": [
+        "quota"
+      ],
+      "fallback_for": "gemini",
+      "primary_error": "gemini quota: HTTP 429",
+      "family": "openai",
+      "tier": "paid"
+    },
+    {
+      "provider": "openai",
+      "lens": "correctness",
+      "batch": 1,
+      "status": "ok",
+      "error": "",
+      "summary": "I found one reachable correctness regression in the new role-assignment path. It can silently assign a role to the wrong seat when the same preset is used more than once in the panel.",
+      "findings": [
+        {
+          "id": "78ddf4d5ea27",
+          "rule": "",
+          "severity": "major",
+          "category": "correctness",
+          "file": "src/codereview/cli.py",
+          "line": 751,
+          "title": "Role assignment can bind to the wrong account when the panel contains duplicate preset seats",
+          "evidence": "The role-assignment code records the seat name returned by a fresh one-item build, then reuses any existing provider with that name instead of the actual seat selected by the main panel build. With duplicate presets, the main panel renames seats, so the role can point at a different account than requested.",
+          "evidence_quote": "        seat_roles[role] = seat_name",
+          "recommendation": "Resolve role assignments against the already-built provider set instead of rebuilding the spec in isolation. For duplicate preset seats, either preserve the exact seat identity chosen during the main build or reject ambiguous role specs unless the user names a unique seat explicitly.",
+          "confidence": 0.95,
+          "sources": [
+            "openai"
+          ],
+          "consensus": false,
+          "grounding": "grounded",
+          "evidence_ref": {
+            "sha256": "4dc30908987b3e0ff2dad2b25e5a5ec0cc7efdf378f2a514e8a9f42c01603c91",
+            "length": 307,
+            "truncated": false
+          },
+          "evidence_quote_ref": {
+            "sha256": "78fa45e4df5bcde2adbbe9a291d15bda83554691331bc2bed00120f0a4395d27",
+            "length": 36,
+            "truncated": false
+          }
+        }
+      ],
+      "attempts": 2,
+      "error_classes": [
+        "quota"
+      ],
+      "fallback_for": "gemini",
+      "primary_error": "gemini quota: HTTP 429",
+      "family": "openai",
+      "tier": "paid"
+    },
+    {
+      "provider": "nvidia",
+      "lens": "operations",
+      "batch": 2,
+      "status": "ok",
+      "error": "",
+      "summary": "The diff introduces new modules without corresponding test coverage for edge cases in registry parsing, role assignment collision handling, and provider spec validation under the operations lens. Several code paths lack defensive guards for malformed input, unbounded iteration, and missing timeout propagation.",
+      "findings": [
+        {
+          "id": "e7fc93e0bb77",
+          "rule": "",
+          "severity": "major",
+          "category": "reliability",
+          "file": "src/codereview/registry.py",
+          "line": 111,
+          "title": "parse_role_assignments swallows empty spec after equals sign",
+          "evidence": "        for value in values or []:",
+          "evidence_quote": "        for value in values or []:",
+          "recommendation": "Add explicit check that spec is non-empty after partition, and raise ValueError if eq is missing or spec is empty, consistent with the function's documented validation contract.",
+          "confidence": 0.9,
+          "sources": [
+            "nvidia"
+          ],
+          "consensus": false,
+          "grounding": "grounded",
+          "evidence_ref": {
+            "sha256": "c3351c279ab17bb03e2f3d16657815fe8427c038cc060ebb276e42e8aea7fefe",
+            "length": 34,
+            "truncated": false
+          },
+          "evidence_quote_ref": {
+            "sha256": "c3351c279ab17bb03e2f3d16657815fe8427c038cc060ebb276e42e8aea7fefe",
+            "length": 34,
+            "truncated": false
+          }
+        },
+        {
+          "id": "2e4f001e7714",
+          "rule": "",
+          "severity": "major",
+          "category": "correctness",
+          "file": "src/codereview/registry.py",
+          "line": 145,
+          "title": "omit_temperature has no guard against missing preset",
+          "evidence": "    preset = PRESETS.get(preset_name or {}, {})",
+          "evidence_quote": "    preset = PRESETS.get(preset_name or {}, {})",
+          "recommendation": "Add an early return False (or raise ValueError) when preset_name does not map to a known preset, rather than silently returning False for unknown models.",
+          "confidence": 0.85,
+          "sources": [
+            "nvidia"
+          ],
+          "consensus": false,
+          "grounding": "withdrawn",
+          "reground_seat": "nvidia",
+          "withdrawn_reason": "The provided diff text does not contain the line `    preset = PRESETS.get(preset_name or {}, {})`. The function `omit_temperature` in the diff uses `preset = PRESETS.get(preset_name or {}, {})`, but the evidence quote in the finding references a different syntax `    preset = PRESETS.get(preset_nam",
+          "withdrawn_by": "nvidia",
+          "evidence_ref": {
+            "sha256": "a77aefe6f98783d96a7e3bd4d1a2467aa3907278cdd8bee059e8e30b908ea6d3",
+            "length": 47,
+            "truncated": false
+          },
+          "evidence_quote_ref": {
+            "sha256": "a77aefe6f98783d96a7e3bd4d1a2467aa3907278cdd8bee059e8e30b908ea6d3",
+            "length": 47,
+            "truncated": false
+          },
+          "withdrawn_reason_ref": {
+            "sha256": "15c52735472304fb33d89bf8293d87f71bfa033bc1f2373e28050a2a0c4caaea",
+            "length": 925,
+            "truncated": true
+          }
+        },
+        {
+          "id": "a509b806fda6",
+          "rule": "",
+          "severity": "minor",
+          "category": "quality",
+          "file": "src/codereview/setup_wizard.py",
+          "line": 53,
+          "title": "Wizard provider loop has no retry limit or invalid-input guard",
+          "evidence": "        while not providers:",
+          "evidence_quote": "        while not providers:",
+          "recommendation": "Add a maximum retry count or a clear 'invalid input, exiting' path so the wizard does not loop forever on bad user input.",
+          "confidence": 0.7,
+          "sources": [
+            "nvidia"
+          ],
+          "consensus": false,
+          "grounding": "grounded",
+          "evidence_ref": {
+            "sha256": "d38b386163cc32f0ee6d3e1ed05058938b7a582a9eedd994df067fe613e31a78",
+            "length": 28,
+            "truncated": false
+          },
+          "evidence_quote_ref": {
+            "sha256": "d38b386163cc32f0ee6d3e1ed05058938b7a582a9eedd994df067fe613e31a78",
+            "length": 28,
+            "truncated": false
+          }
+        },
+        {
+          "id": "a2cb09db28c4",
+          "rule": "",
+          "severity": "minor",
+          "category": "quality",
+          "file": "src/codereview/userconfig.py",
+          "line": 51,
+          "title": "env_provider_specs splits on comma without handling whitespace in spec",
+          "evidence": "    env = (environ.get(\"CODEREVIEW_PROVIDERS\")\n           or environ.get(\"REVIEWLOOP_PROVIDERS\", \"\"))",
+          "evidence_quote": "    env = (environ.get(\"CODEREVIEW_PROVIDERS\")\n           or environ.get(\"REVIEWLOOP_PROVIDERS\", \"\"))",
+          "recommendation": "Strip each resulting spec after split, and consider filtering out empty strings more robustly.",
+          "confidence": 0.6,
+          "sources": [
+            "nvidia"
+          ],
+          "consensus": false,
+          "grounding": "withdrawn",
+          "reground_seat": "openai",
+          "withdrawn_reason": "The file section shows the implementation already strips whitespace and filters empties: `return [s.strip() for s in env.split(\",\") if s.strip()]`. This does not support the claim that it splits on comma without handling whitespace.",
+          "withdrawn_by": "openai",
+          "evidence_ref": {
+            "sha256": "fbeac0a69f7884609e19c47e086619678cddedc5634348b03c003f71d450062a",
+            "length": 101,
+            "truncated": false
+          },
+          "evidence_quote_ref": {
+            "sha256": "fbeac0a69f7884609e19c47e086619678cddedc5634348b03c003f71d450062a",
+            "length": 101,
+            "truncated": false
+          },
+          "withdrawn_reason_ref": {
+            "sha256": "d37b90f077f2a131e3ad15f7739afea0e459ab3660935050182b71c143323d44",
+            "length": 232,
+            "truncated": false
+          }
+        },
+        {
+          "id": "84fc41a76d3f",
+          "rule": "",
+          "severity": "minor",
+          "category": "testing",
+          "file": "tests/test_role_providers.py",
+          "line": 1,
+          "title": "No test for parse_role_assignments with duplicate role across lens_seats",
+          "evidence": "    def test_parse_roles(self):",
+          "evidence_quote": "    def test_parse_roles(self):",
+          "recommendation": "Add a test case that verifies parse_role_assignments rejects a role assigned twice, especially when the second assignment would conflict with an existing lens_seat pin.",
+          "confidence": 0.6,
+          "sources": [
+            "nvidia"
+          ],
+          "consensus": false,
+          "grounding": "grounded",
+          "evidence_ref": {
+            "sha256": "468c6a0d4ee16a5645990124992e02ab6cf3f78ccc0e04e3bb51f2b8e26a7575",
+            "length": 31,
+            "truncated": false
+          },
+          "evidence_quote_ref": {
+            "sha256": "468c6a0d4ee16a5645990124992e02ab6cf3f78ccc0e04e3bb51f2b8e26a7575",
+            "length": 31,
+            "truncated": false
+          }
+        }
+      ],
+      "attempts": 1,
+      "error_classes": [],
+      "family": "nvidia",
+      "tier": "free"
+    },
+    {
+      "provider": "nvidia",
+      "lens": "operations",
+      "batch": 1,
+      "status": "ok",
+      "error": "",
+      "summary": "The diff introduces provider registry integration, role-model assignment, and first-run setup — overall sound but has a missing timeout in _doctor_main and a potential alert flood risk in _apply_role_assignments.",
+      "findings": [
+        {
+          "id": "3bbe648d8bfc",
+          "rule": "",
+          "severity": "major",
+          "category": "reliability",
+          "file": "src/codereview/cli.py",
+          "line": 912,
+          "title": "_doctor_main missing timeout guard on provider calls",
+          "evidence": "try:",
+          "evidence_quote": "try:",
+          "recommendation": "Add a timeout parameter or per-seat timeout to provider calls in _doctor_main to prevent indefinite hangs.",
+          "confidence": 0.85,
+          "sources": [
+            "nvidia"
+          ],
+          "consensus": false,
+          "grounding": "grounded",
+          "evidence_ref": {
+            "sha256": "8761c2f50a05555a9fa1d49305b92b83c2e0ce8ab14ba63c491eba8d0f52fb60",
+            "length": 4,
+            "truncated": false
+          },
+          "evidence_quote_ref": {
+            "sha256": "8761c2f50a05555a9fa1d49305b92b83c2e0ce8ab14ba63c491eba8d0f52fb60",
+            "length": 4,
+            "truncated": false
+          }
+        },
+        {
+          "id": "f56cd4a0b6c9",
+          "rule": "",
+          "severity": "major",
+          "category": "reliability",
+          "file": "src/codereview/cli.py",
+          "line": 839,
+          "title": "_apply_role_assignments no cooldown/dedup for role seat re-assignment",
+          "evidence": "for role, spec in assignments.items():",
+          "evidence_quote": "for role, spec in assignments.items():",
+          "recommendation": "Add dedup/cooldown logic so re-assigning a role seat does not repeatedly rebuild and re-merge the same provider, which could flood logs or exhaust resources.",
+          "confidence": 0.75,
+          "sources": [
+            "nvidia"
+          ],
+          "consensus": false,
+          "grounding": "grounded",
+          "evidence_ref": {
+            "sha256": "5a330f23f9c63cad62e44e70de76fb9215f4d40e2ef418e6f0d23b56b54b61d8",
+            "length": 38,
+            "truncated": false
+          },
+          "evidence_quote_ref": {
+            "sha256": "5a330f23f9c63cad62e44e70de76fb9215f4d40e2ef418e6f0d23b56b54b61d8",
+            "length": 38,
+            "truncated": false
+          }
+        }
+      ],
+      "attempts": 1,
+      "error_classes": [],
+      "family": "nvidia",
+      "tier": "free"
+    }
+  ],
+  "findings": [
+    {
+      "id": "44a6ae2d215a",
+      "rule": "hardcoded-secret",
+      "severity": "blocker",
+      "category": "security",
+      "file": "tests/test_user_setup.py",
+      "line": 96,
+      "title": "Possible hardcoded secret in added code",
+      "evidence": "DEEPSEEK_API_KEY='[REDACTED]')",
+      "evidence_quote": "DEEPSEEK_API_KEY='[REDACTED]')",
+      "recommendation": "Move the value to the secret store / environment and rotate it if it was ever real.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false,
+      "grounding": "grounded",
+      "evidence_ref": {
+        "sha256": "772734e7a6af0ef6581e025f870a1cc103ce2effbbd211c4e0d0263666289dc3",
+        "length": 30,
+        "truncated": false
+      },
+      "evidence_quote_ref": {
+        "sha256": "772734e7a6af0ef6581e025f870a1cc103ce2effbbd211c4e0d0263666289dc3",
+        "length": 30,
+        "truncated": false
+      }
+    },
+    {
+      "id": "3bbe648d8bfc",
+      "rule": "",
+      "severity": "major",
+      "category": "reliability",
+      "file": "src/codereview/cli.py",
+      "line": 912,
+      "title": "_doctor_main missing timeout guard on provider calls",
+      "evidence": "try:",
+      "evidence_quote": "try:",
+      "recommendation": "Add a timeout parameter or per-seat timeout to provider calls in _doctor_main to prevent indefinite hangs.",
+      "confidence": 0.85,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false,
+      "grounding": "grounded",
+      "cross_family": "confirmed",
+      "evidence_ref": {
+        "sha256": "8761c2f50a05555a9fa1d49305b92b83c2e0ce8ab14ba63c491eba8d0f52fb60",
+        "length": 4,
+        "truncated": false
+      },
+      "evidence_quote_ref": {
+        "sha256": "8761c2f50a05555a9fa1d49305b92b83c2e0ce8ab14ba63c491eba8d0f52fb60",
+        "length": 4,
+        "truncated": false
+      }
+    },
+    {
+      "id": "a509b806fda6",
+      "rule": "",
+      "severity": "minor",
+      "category": "quality",
+      "file": "src/codereview/setup_wizard.py",
+      "line": 53,
+      "title": "Wizard provider loop has no retry limit or invalid-input guard",
+      "evidence": "        while not providers:",
+      "evidence_quote": "        while not providers:",
+      "recommendation": "Add a maximum retry count or a clear 'invalid input, exiting' path so the wizard does not loop forever on bad user input.",
+      "confidence": 0.7,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false,
+      "grounding": "grounded",
+      "evidence_ref": {
+        "sha256": "d38b386163cc32f0ee6d3e1ed05058938b7a582a9eedd994df067fe613e31a78",
+        "length": 28,
+        "truncated": false
+      },
+      "evidence_quote_ref": {
+        "sha256": "d38b386163cc32f0ee6d3e1ed05058938b7a582a9eedd994df067fe613e31a78",
+        "length": 28,
+        "truncated": false
+      }
+    },
+    {
+      "id": "84fc41a76d3f",
+      "rule": "",
+      "severity": "minor",
+      "category": "testing",
+      "file": "tests/test_role_providers.py",
+      "line": 1,
+      "title": "No test for parse_role_assignments with duplicate role across lens_seats",
+      "evidence": "    def test_parse_roles(self):",
+      "evidence_quote": "    def test_parse_roles(self):",
+      "recommendation": "Add a test case that verifies parse_role_assignments rejects a role assigned twice, especially when the second assignment would conflict with an existing lens_seat pin.",
+      "confidence": 0.6,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false,
+      "grounding": "grounded",
+      "evidence_ref": {
+        "sha256": "468c6a0d4ee16a5645990124992e02ab6cf3f78ccc0e04e3bb51f2b8e26a7575",
+        "length": 31,
+        "truncated": false
+      },
+      "evidence_quote_ref": {
+        "sha256": "468c6a0d4ee16a5645990124992e02ab6cf3f78ccc0e04e3bb51f2b8e26a7575",
+        "length": 31,
+        "truncated": false
+      }
+    }
+  ],
+  "degraded": false,
+  "truncated": false,
+  "gate": "blocked",
+  "gate_reasons": [
+    "2 blocking finding(s) (blocker, major)",
+    "correctness lens served by fallback seat 'openai' (primary 'gemini' failed: quota)",
+    "correctness lens served by fallback seat 'openai' (primary 'gemini' failed: quota)",
+    "2 finding(s) withdrawn in the re-ground pass — preserved in withdrawn_findings",
+    "2 disputed finding(s): refuted by a second vendor family with quote evidence — routed to the human gate in disputed_findings; neither cleared nor blocking",
+    "2 refutation-weak finding(s): the refuting quote repeats the line the finding cites and carries no counter-evidence from another line — a routing state under the dispute ladder (§5a.1), preserved in refutation_weak_findings; no independent Tech Lead served to adjudicate, so the human gate decides",
+    "0 expected fixture finding(s) classified under fixture manifest policy v1 (fixtures-manifest.json, sha256 0633809d0cec…) — preserved in fixture_findings, not blocking"
+  ],
+  "withdrawn_findings": [
+    {
+      "id": "2e4f001e7714",
+      "rule": "",
+      "severity": "major",
+      "category": "correctness",
+      "file": "src/codereview/registry.py",
+      "line": 145,
+      "title": "omit_temperature has no guard against missing preset",
+      "evidence": "    preset = PRESETS.get(preset_name or {}, {})",
+      "evidence_quote": "    preset = PRESETS.get(preset_name or {}, {})",
+      "recommendation": "Add an early return False (or raise ValueError) when preset_name does not map to a known preset, rather than silently returning False for unknown models.",
+      "confidence": 0.85,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false,
+      "grounding": "withdrawn",
+      "reground_seat": "nvidia",
+      "withdrawn_reason": "The provided diff text does not contain the line `    preset = PRESETS.get(preset_name or {}, {})`. The function `omit_temperature` in the diff uses `preset = PRESETS.get(preset_name or {}, {})`, but the evidence quote in the finding references a different syntax `    preset = PRESETS.get(preset_nam",
+      "withdrawn_by": "nvidia",
+      "evidence_ref": {
+        "sha256": "a77aefe6f98783d96a7e3bd4d1a2467aa3907278cdd8bee059e8e30b908ea6d3",
+        "length": 47,
+        "truncated": false
+      },
+      "evidence_quote_ref": {
+        "sha256": "a77aefe6f98783d96a7e3bd4d1a2467aa3907278cdd8bee059e8e30b908ea6d3",
+        "length": 47,
+        "truncated": false
+      },
+      "withdrawn_reason_ref": {
+        "sha256": "15c52735472304fb33d89bf8293d87f71bfa033bc1f2373e28050a2a0c4caaea",
+        "length": 925,
+        "truncated": true
+      }
+    },
+    {
+      "id": "a2cb09db28c4",
+      "rule": "",
+      "severity": "minor",
+      "category": "quality",
+      "file": "src/codereview/userconfig.py",
+      "line": 51,
+      "title": "env_provider_specs splits on comma without handling whitespace in spec",
+      "evidence": "    env = (environ.get(\"CODEREVIEW_PROVIDERS\")\n           or environ.get(\"REVIEWLOOP_PROVIDERS\", \"\"))",
+      "evidence_quote": "    env = (environ.get(\"CODEREVIEW_PROVIDERS\")\n           or environ.get(\"REVIEWLOOP_PROVIDERS\", \"\"))",
+      "recommendation": "Strip each resulting spec after split, and consider filtering out empty strings more robustly.",
+      "confidence": 0.6,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false,
+      "grounding": "withdrawn",
+      "reground_seat": "openai",
+      "withdrawn_reason": "The file section shows the implementation already strips whitespace and filters empties: `return [s.strip() for s in env.split(\",\") if s.strip()]`. This does not support the claim that it splits on comma without handling whitespace.",
+      "withdrawn_by": "openai",
+      "evidence_ref": {
+        "sha256": "fbeac0a69f7884609e19c47e086619678cddedc5634348b03c003f71d450062a",
+        "length": 101,
+        "truncated": false
+      },
+      "evidence_quote_ref": {
+        "sha256": "fbeac0a69f7884609e19c47e086619678cddedc5634348b03c003f71d450062a",
+        "length": 101,
+        "truncated": false
+      },
+      "withdrawn_reason_ref": {
+        "sha256": "d37b90f077f2a131e3ad15f7739afea0e459ab3660935050182b71c143323d44",
+        "length": 232,
+        "truncated": false
+      }
+    }
+  ],
+  "disputed_findings": [
+    {
+      "id": "f56cd4a0b6c9",
+      "rule": "",
+      "severity": "major",
+      "category": "reliability",
+      "file": "src/codereview/cli.py",
+      "line": 839,
+      "title": "_apply_role_assignments no cooldown/dedup for role seat re-assignment",
+      "evidence": "for role, spec in assignments.items():",
+      "evidence_quote": "for role, spec in assignments.items():",
+      "recommendation": "Add dedup/cooldown logic so re-assigning a role seat does not repeatedly rebuild and re-merge the same provider, which could flood logs or exhaust resources.",
+      "confidence": 0.75,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false,
+      "grounding": "grounded",
+      "dispute": {
+        "by": "openai",
+        "family": "openai",
+        "raiser_family": "nvidia",
+        "evidence_quote": "            providers[seat_name] = seat_fn",
+        "reason": "The code only builds and merges a role seat when its seat name is not already present in the providers map, so repeated assignment does not repeatedly re-merge the same seat. The claim as stated about missing dedup for seat re-assignment is not supported by this region.",
+        "adequacy": "strong",
+        "evidence_quote_ref": {
+          "sha256": "7baa563d7ec691f6206e582215d0c2ef1548826c638db0aaebb12cf5e5c02db4",
+          "length": 42,
+          "truncated": false
+        },
+        "reason_ref": {
+          "sha256": "05d15b63502dd148161632adf8701bde00ab1299ad5458346641610b79f7be6b",
+          "length": 270,
+          "truncated": false
+        }
+      },
+      "tech_lead": {
+        "status": "unavailable",
+        "reason": "no seat from a family independent of both the raiser and the refuter served on this panel"
+      },
+      "cross_family": "refuted",
+      "status": "disputed",
+      "evidence_ref": {
+        "sha256": "5a330f23f9c63cad62e44e70de76fb9215f4d40e2ef418e6f0d23b56b54b61d8",
+        "length": 38,
+        "truncated": false
+      },
+      "evidence_quote_ref": {
+        "sha256": "5a330f23f9c63cad62e44e70de76fb9215f4d40e2ef418e6f0d23b56b54b61d8",
+        "length": 38,
+        "truncated": false
+      },
+      "evidence_complete": true
+    },
+    {
+      "id": "e7fc93e0bb77",
+      "rule": "",
+      "severity": "major",
+      "category": "reliability",
+      "file": "src/codereview/registry.py",
+      "line": 111,
+      "title": "parse_role_assignments swallows empty spec after equals sign",
+      "evidence": "        for value in values or []:",
+      "evidence_quote": "        for value in values or []:",
+      "recommendation": "Add explicit check that spec is non-empty after partition, and raise ValueError if eq is missing or spec is empty, consistent with the function's documented validation contract.",
+      "confidence": 0.9,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false,
+      "grounding": "grounded",
+      "dispute": {
+        "by": "openai",
+        "family": "openai",
+        "raiser_family": "nvidia",
+        "evidence_quote": "        if not eq or role not in ROLES or not spec:",
+        "reason": "The function explicitly rejects empty specs after the equals sign by checking `not spec` and raising `ValueError`, so an input like `role=` is not swallowed.",
+        "adequacy": "strong",
+        "evidence_quote_ref": {
+          "sha256": "1a47fc9c7cc3f6c77842f7b3967c1b37e11e8c6b2869a20e36b56a18553b14e6",
+          "length": 51,
+          "truncated": false
+        },
+        "reason_ref": {
+          "sha256": "682bd4845eee1110b265897064b5683ed229f2813fe89c885ff8d7cab7af1622",
+          "length": 157,
+          "truncated": false
+        }
+      },
+      "tech_lead": {
+        "status": "unavailable",
+        "reason": "no seat from a family independent of both the raiser and the refuter served on this panel"
+      },
+      "cross_family": "refuted",
+      "status": "disputed",
+      "evidence_ref": {
+        "sha256": "c3351c279ab17bb03e2f3d16657815fe8427c038cc060ebb276e42e8aea7fefe",
+        "length": 34,
+        "truncated": false
+      },
+      "evidence_quote_ref": {
+        "sha256": "c3351c279ab17bb03e2f3d16657815fe8427c038cc060ebb276e42e8aea7fefe",
+        "length": 34,
+        "truncated": false
+      },
+      "evidence_complete": true
+    }
+  ],
+  "refutation_weak_findings": [
+    {
+      "id": "78ddf4d5ea27",
+      "rule": "",
+      "severity": "major",
+      "category": "correctness",
+      "file": "src/codereview/cli.py",
+      "line": 751,
+      "title": "Role assignment can bind to the wrong account when the panel contains duplicate preset seats",
+      "evidence": "The role-assignment code records the seat name returned by a fresh one-item build, then reuses any existing provider with that name instead of the actual seat selected by the main panel build. With duplicate presets, the main panel renames seats, so the role can point at a different account than requested.",
+      "evidence_quote": "        seat_roles[role] = seat_name",
+      "recommendation": "Resolve role assignments against the already-built provider set instead of rebuilding the spec in isolation. For duplicate preset seats, either preserve the exact seat identity chosen during the main build or reject ambiguous role specs unless the user names a unique seat explicitly.",
+      "confidence": 0.95,
+      "sources": [
+        "openai"
+      ],
+      "consensus": false,
+      "grounding": "grounded",
+      "dispute": {
+        "by": "nvidia",
+        "family": "nvidia",
+        "raiser_family": "openai",
+        "evidence_quote": "        seat_roles[role] = seat_name",
+        "reason": "The code explicitly records seat_roles[role] = seat_name after building the provider from the role spec, ensuring the role maps to the seat built from that exact spec. The finding's claim that the role can point at a different account than requested is contradicted by this direct assignment, which o",
+        "adequacy": "weak",
+        "evidence_quote_ref": {
+          "sha256": "78fa45e4df5bcde2adbbe9a291d15bda83554691331bc2bed00120f0a4395d27",
+          "length": 36,
+          "truncated": false
+        },
+        "reason_ref": {
+          "sha256": "97ebf7c1bc68905fe0148e1e1220cf9376b344bb3735825c775639a1fd9acdc2",
+          "length": 360,
+          "truncated": true
+        }
+      },
+      "tech_lead": {
+        "status": "unavailable",
+        "reason": "no seat from a family independent of both the raiser and the refuter served on this panel"
+      },
+      "cross_family": "refuted_weak",
+      "status": "refutation_weak",
+      "evidence_ref": {
+        "sha256": "4dc30908987b3e0ff2dad2b25e5a5ec0cc7efdf378f2a514e8a9f42c01603c91",
+        "length": 307,
+        "truncated": false
+      },
+      "evidence_quote_ref": {
+        "sha256": "78fa45e4df5bcde2adbbe9a291d15bda83554691331bc2bed00120f0a4395d27",
+        "length": 36,
+        "truncated": false
+      },
+      "evidence_complete": true
+    },
+    {
+      "id": "9a4415ddafa6",
+      "rule": "",
+      "severity": "major",
+      "category": "correctness",
+      "file": "src/codereview/userconfig.py",
+      "line": 54,
+      "title": "Malformed roles value now raises an uncaught AttributeError instead of the documented ValueError",
+      "evidence": "The loader assumes roles is a mapping and immediately calls .items() on whatever TOML parsed, so a reachable config like 'roles = []' will crash with AttributeError rather than the documented loud validation error path.",
+      "evidence_quote": "             for k, v in (data.get(\"roles\") or {}).items()}",
+      "recommendation": "Validate the parsed types before iterating, e.g. require providers to be a list and roles to be a dict, and raise ValueError with the config path when they are not. That preserves the documented contract for malformed configs and avoids an unexpected traceback in CLI flows that call load_user_config.",
+      "confidence": 0.95,
+      "sources": [
+        "openai"
+      ],
+      "consensus": false,
+      "grounding": "grounded",
+      "dispute": {
+        "by": "nvidia",
+        "family": "nvidia",
+        "raiser_family": "openai",
+        "evidence_quote": "             for k, v in (data.get(\"roles\") or {}).items()}",
+        "reason": "The code explicitly guards against a missing roles key with `(data.get(\"roles\") or {})`, and the `.items()` call operates on the default empty dict, which does not raise an AttributeError. The claim that a list value for roles would cause an uncaught AttributeError is incorrect because the code path",
+        "adequacy": "weak",
+        "evidence_quote_ref": {
+          "sha256": "8abde6594070b719bd0db494a1948c90a12671f2b120d513621d2dc8ee772b0f",
+          "length": 59,
+          "truncated": false
+        },
+        "reason_ref": {
+          "sha256": "e37ecd4a15c2b7e6c531f6c03721c6d151d8c084132b24d837f62a038f2d24ae",
+          "length": 358,
+          "truncated": true
+        }
+      },
+      "tech_lead": {
+        "status": "unavailable",
+        "reason": "no seat from a family independent of both the raiser and the refuter served on this panel"
+      },
+      "cross_family": "refuted_weak",
+      "status": "refutation_weak",
+      "evidence_ref": {
+        "sha256": "4e9504039fc170a96129a91c31558cdef11a259749bb9e4e91f94f93b7966bb1",
+        "length": 219,
+        "truncated": false
+      },
+      "evidence_quote_ref": {
+        "sha256": "8abde6594070b719bd0db494a1948c90a12671f2b120d513621d2dc8ee772b0f",
+        "length": 59,
+        "truncated": false
+      },
+      "evidence_complete": true
+    }
+  ],
+  "precedent_scope": {
+    "store_path": "precedents.json",
+    "store_sha256": "438c5f6a9c6c33e9bd01929a52793066997da250d905c0fa7404abfdd0930fa1",
+    "entries_applied": 0
+  },
+  "fixture_findings": [],
+  "fixture_scope": {
+    "manifest_path": "fixtures-manifest.json",
+    "manifest_sha256": "0633809d0cec09dc3f917c25847e4bc4ca516fc3e81760c130ec6d58c094f208",
+    "policy_version": 1,
+    "classified_paths": [
+      "bench/corpus/auth-admin-or-true/**",
+      "bench/corpus/auth-check-removed/**",
+      "bench/corpus/clean-add-tests/**",
+      "bench/corpus/clean-add-timeout-retry/**",
+      "bench/corpus/clean-auth-check-added/**",
+      "bench/corpus/clean-health-guard-fix/**",
+      "bench/corpus/clean-input-validation/**",
+      "bench/corpus/clean-parameterized-query/**",
+      "bench/corpus/clean-refactor-rename/**",
+      "bench/corpus/command-injection-shell/**",
+      "bench/corpus/debug-breakpoint/**",
+      "bench/corpus/delete-no-where/**",
+      "bench/corpus/disabled-test/**",
+      "bench/corpus/drop-table-migration/**",
+      "bench/corpus/error-swallow-bare-except/**",
+      "bench/corpus/eval-user-input/**",
+      "bench/corpus/float-money-total/**",
+      "bench/corpus/http-no-timeout/**",
+      "bench/corpus/off-by-one-pagination/**",
+      "bench/corpus/path-traversal-upload/**",
+      "bench/corpus/payment-amount-dollars-cents/**",
+      "bench/corpus/payment-quantity-dropped/**",
+      "bench/corpus/payment-refund-partial/**",
+      "bench/corpus/plaintext-password-store/**",
+      "bench/corpus/race-check-then-act/**",
+      "bench/corpus/race-counter-increment/**",
+      "bench/corpus/real-buggy-alert-flood/**",
+      "bench/corpus/secret-aws-key/**",
+      "bench/corpus/secret-hardcoded-api-key/**",
+      "bench/corpus/secret-private-key/**",
+      "bench/corpus/sensitive-data-logging/**",
+      "bench/corpus/sql-injection-concat/**",
+      "bench/corpus/sql-injection-fstring/**",
+      "bench/corpus/ssrf-fetch/**",
+      "bench/corpus/unbounded-query/**",
+      "bench/corpus/xss-innerhtml/**",
+      "bench/scripts/oracle.json",
+      "bench/scripts/noisy.json",
+      "bench/scripts/blind.json"
+    ],
+    "fixture_finding_count": 0
+  },
+  "range": "6a83265..e35d64b",
+  "head": "e35d64b2a81f7af20e64e3662c79c2c16217a936",
+  "evidence_sidecars": {
+    "dir": "evidence",
+    "files": 20,
+    "refs": 46
+  }
+}

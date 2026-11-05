@@ -1,0 +1,1 @@
+The code explicitly guards against a missing roles key with `(data.get("roles") or {})`, and the `.items()` call operates on the default empty dict, which does not raise an AttributeError. The claim that a list value for roles would cause an uncaught AttributeError is incorrect because the code path handles the missing-key case gracefully before iteration.

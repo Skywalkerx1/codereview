@@ -1,0 +1,1 @@
+The code only builds and merges a role seat when its seat name is not already present in the providers map, so repeated assignment does not repeatedly re-merge the same seat. The claim as stated about missing dedup for seat re-assignment is not supported by this region.

@@ -1,0 +1,1 @@
+The file section shows the implementation already strips whitespace and filters empties: `return [s.strip() for s in env.split(",") if s.strip()]`. This does not support the claim that it splits on comma without handling whitespace.

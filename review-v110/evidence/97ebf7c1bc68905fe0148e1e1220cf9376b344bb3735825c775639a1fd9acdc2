@@ -1,0 +1,1 @@
+The code explicitly records seat_roles[role] = seat_name after building the provider from the role spec, ensuring the role maps to the seat built from that exact spec. The finding's claim that the role can point at a different account than requested is contradicted by this direct assignment, which occurs after the provider is built and merged into the panel.

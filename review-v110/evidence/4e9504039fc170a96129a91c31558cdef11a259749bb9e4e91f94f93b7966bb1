@@ -1,0 +1,1 @@
+The loader assumes roles is a mapping and immediately calls .items() on whatever TOML parsed, so a reachable config like 'roles = []' will crash with AttributeError rather than the documented loud validation error path.

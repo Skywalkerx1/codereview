@@ -1,0 +1,2 @@
+    env = (environ.get("CODEREVIEW_PROVIDERS")
+           or environ.get("REVIEWLOOP_PROVIDERS", ""))
