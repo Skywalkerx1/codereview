@@ -248,6 +248,36 @@ A sustain decision counts only with a quote that validates against the cited reg
 
 Provider failure degrades the review (noted in the report); it never silently passes a change, and in `--strict` mode it blocks the pass.
 
+## Project policy — `.codereview.toml`
+
+A repository can carry its own review contract in `.codereview.toml` at its root (the review command discovers it there; `--policy PATH` overrides). The policy is the *project's* rules — distinct from your per-user setup, which only chooses your models. The gate enforces it on every review, and the record lists every rule that applied and every violation found. A blocking violation turns a PASS into BLOCKED; an `advisory` path-rule violation is recorded only.
+
+```toml
+[panel]
+min_seats = 2                    # successful seats required
+min_families = 2                 # distinct vendor families required
+required_families = ["google"]   # families that must serve
+require_lenses = ["correctness", "operations"]
+
+[evidence]
+require_tests_pass = true        # tests must run and pass
+
+[[paths]]                        # extra rules for sensitive paths
+match = "auth/**"
+require_full_panel = true        # every configured seat must serve
+require_tests_pass = true
+
+[waivers]
+require_reason = true            # a waiver must say why
+max_age_days = 30                # ... and it expires
+```
+
+Every key is optional; omitted keys take the defaults (no requirement). An invalid file stops the run with a line-referenced error — a broken policy is never silently ignored. Check a file and see the effective policy with defaults filled in:
+
+```console
+$ codereview policy check
+```
+
 ## Deterministic checks (no model required)
 
 Hardcoded secrets · AWS keys · private keys · `eval`/`exec` · `DROP TABLE` · string-built SQL · `DELETE` without `WHERE` · shell execution · alerts/notifications with no dedup/cooldown/state guard · disabled tests · debug leftovers · your own test commands as blockers.
