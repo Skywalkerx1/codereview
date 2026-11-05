@@ -110,6 +110,135 @@ def collect_git_patch(repo, range_spec=None, staged=False, paths=None,
     return out.stdout.decode("utf-8", errors="replace")
 
 
+FILE_CONTEXT_PER_FILE_CAP = 24000
+FILE_CONTEXT_TOTAL_CAP = 60000
+
+
+def _range_target_ref(range_spec):
+    """The ref whose tree is a diff range's post-change state:
+    the right side of ``A..B`` / ``A...B``, or the ref itself
+    for a single-ref range. None when there is no range."""
+    if not range_spec:
+        return None
+    spec = str(range_spec).strip()
+    for sep in ("...", ".."):
+        if sep in spec:
+            rhs = spec.rsplit(sep, 1)[1].strip()
+            return rhs or None
+    return spec or None
+
+
+def collect_file_context(repo, patch, range_spec=None, staged=False,
+                         per_file_cap=FILE_CONTEXT_PER_FILE_CAP,
+                         total_cap=FILE_CONTEXT_TOTAL_CAP):
+    """Post-change contents of the files a patch touches
+    (acceptance D1).
+
+    Reviewers judge a diff far better when they can check the
+    definitions a hunk references but does not contain — the
+    shipped diff-only path drew confident false "undefined
+    symbol" majors on correct code because a definition above
+    the hunk was invisible. This collects, for every file the
+    patch modifies, the file's post-change text: from the
+    range target's tree for a range review, from the index for
+    a staged review, from the working tree otherwise.
+
+    Returns (mapping, entries): mapping is {path: text} ready
+    for run_review's `file_context`; entries is the ledger —
+    one dict per patch file stating its source, size, how much
+    was sent, and any truncation or skip reason. Nothing is
+    silently dropped: new files are skipped because their
+    whole content already IS the diff section; deleted and
+    binary files have no post-change text to show; oversized
+    files are truncated with an explicit marker inside the
+    attached text. The total budget is allocated to the
+    most-changed files first (largest diff sections first):
+    patch order would let an early doc file starve the code
+    the review is actually about."""
+    sections = split_patch_sections(patch)
+    if staged:
+        source_kind, ref = "index", None
+    else:
+        ref = _range_target_ref(range_spec)
+        source_kind = "ref" if ref else "worktree"
+    entries = []
+    candidates = []  # (section_chars, entry, content)
+    for name, text in sections:
+        entry = {"file": name, "source": None, "chars": 0,
+                 "sent_chars": 0, "truncated": None,
+                 "skipped": None}
+        entries.append(entry)
+        if not name or name == "unknown":
+            entry["skipped"] = "unresolved_path"
+            continue
+        if "+++ /dev/null" in text:
+            entry["skipped"] = "deleted"
+            continue
+        if "Binary files" in text or "GIT binary patch" in text:
+            entry["skipped"] = "binary"
+            continue
+        if "--- /dev/null" in text:
+            entry["skipped"] = "new_file"
+            continue
+        if _archived_rule(name):
+            entry["skipped"] = "archived"
+            continue
+        try:
+            if source_kind == "index":
+                content = _git_show_bytes(
+                    repo, f":{name}").decode("utf-8", "replace")
+                entry["source"] = "index"
+            elif source_kind == "ref":
+                content = _git_show_bytes(
+                    repo, f"{ref}:{name}").decode(
+                        "utf-8", "replace")
+                entry["source"] = f"ref:{ref}"
+            else:
+                full = os.path.realpath(os.path.join(repo, name))
+                root = os.path.realpath(repo)
+                if os.path.commonpath([full, root]) != root:
+                    entry["skipped"] = "outside_repo"
+                    continue
+                with open(full, encoding="utf-8",
+                          errors="replace") as fh:
+                    content = fh.read()
+                entry["source"] = "worktree"
+        except Exception:  # noqa: BLE001 — a missing file is a
+            # skip with a reason, never a failed review.
+            entry["skipped"] = "unreadable"
+            continue
+        if "\x00" in content:
+            entry["skipped"] = "binary"
+            continue
+        entry["chars"] = len(content)
+        candidates.append((len(text), entry, content))
+    mapping = {}
+    total_sent = 0
+    for _sec_chars, entry, content in sorted(
+            candidates, key=lambda c: -c[0]):
+        sent = content
+        if len(sent) > per_file_cap:
+            sent = sent[:per_file_cap] + (
+                "\n[codereview: file context truncated — "
+                f"showing the first {per_file_cap} of "
+                f"{len(content)} chars]")
+            entry["truncated"] = "file_cap"
+        room = total_cap - total_sent
+        if len(sent) > room:
+            if room < 1000:
+                entry["truncated"] = "budget"
+                continue
+            sent = content[:room] + (
+                "\n[codereview: file context truncated — "
+                f"showing the first {room} of {len(content)} "
+                "chars]")
+            entry["truncated"] = "budget"
+        mapping[entry["file"]] = sent
+        entry["sent_chars"] = len(sent)
+        total_sent += len(sent)
+    return mapping, entries
+
+
 def path_matches(path, patterns):
     """True when a repo-relative path matches one of the patterns.
 
@@ -538,6 +667,18 @@ Test results:
 
 Diff under review ({batch}):
 {patch}
+"""
+
+# Acceptance D1: when the caller attaches post-change file
+# contents (run_review's `file_context`), each batch's prompt
+# gains this section AFTER the diff. The diff stays the only
+# groundable evidence; the context exists so a reviewer can
+# check a definition the hunks reference but do not contain
+# before claiming it is missing.
+_FILE_CONTEXT_HEADER = """
+
+File context — the post-change contents of the changed file(s) in this batch, attached so definitions outside the diff hunks can be checked. REFERENCE ONLY: this text is not part of the change. Do not raise findings about lines the diff does not change, and evidence quotes must still come from the diff above.
+
 """
 
 _VERIFY_PROMPT = """You are an independent code reviewer doing the VERIFICATION round of a multi-model review loop. A previous review blocked this change with the findings below. The builder has now responded and produced a new diff. Decide, for each prior finding, whether it is genuinely resolved.
@@ -2500,10 +2641,19 @@ def _apply_gate_profile(findings, profile):
 def merge_findings(findings):
     """Merge near-duplicate findings across reviewers.
 
-    Two findings merge when they share a file and category and their
-    titles overlap substantially. Merging keeps the worst severity
-    and the highest confidence, and marks consensus when more than
-    one source reported it."""
+    Two findings merge when they share a file and category and
+    either their titles overlap substantially (Jaccard >= 0.5),
+    or they cite the SAME line and their titles identify the
+    same claim (overlap coefficient — shared tokens over the
+    smaller title — >= 0.5; acceptance D4: two families raised
+    one defect at one line under paraphrased titles whose
+    Jaccard was only 0.23, and the gate counted it twice).
+    The line route stays narrow by construction: an exact
+    line match plus half of the shorter title in common, so
+    two distinct defects that merely share a line do not
+    merge. Merging keeps the worst severity and the highest
+    confidence, and marks consensus when more than one source
+    reported it."""
     merged = []
     for f in findings:
         placed = False
@@ -2516,7 +2666,13 @@ def merge_findings(findings):
                                m["title"].lower()).split())
             union = ftoks | mtoks
             overlap = (len(ftoks & mtoks) / len(union)) if union else 0
-            if overlap >= 0.5:
+            same_line = (f.get("line") is not None
+                         and m.get("line") is not None
+                         and f["line"] == m["line"])
+            containment = (
+                len(ftoks & mtoks) / min(len(ftoks), len(mtoks))
+                if ftoks and mtoks else 0)
+            if overlap >= 0.5 or (same_line and containment >= 0.5):
                 if _SEV_RANK[f["severity"]] < _SEV_RANK[m["severity"]]:
                     m["severity"] = f["severity"]
                 m["confidence"] = max(m["confidence"], f["confidence"])
@@ -2865,6 +3021,45 @@ def _http_status_of(error):
     return None
 
 
+_TB_EXC_RE = re.compile(
+    r"(?m)^([A-Za-z_][\w.]*?(?:Error|Exception|Timeout|"
+    r"Interrupt|Exit|Failure)):\s")
+
+
+def _stored_error(error, cap=300):
+    """The record's short stored form of a seat error
+    (acceptance D2).
+
+    The old form — ``str(exc)[:300]`` — head-truncated long
+    errors mid-token: for an agent seat the string is a wrapped
+    subprocess traceback whose informative tail (the real
+    exception type and its HTTP status) sat past the cut, so
+    the record could not distinguish a 429 from a crash. This
+    form LEADS with the exception type and, when the error
+    carries one, its HTTP status, and fits as much of the
+    message as the cap leaves. For a wrapped traceback the
+    type is the traceback's own exception line, not the
+    wrapper's. The FULL string is never altered here — it
+    stays available in the report's error_detail (step-3
+    error persistence), whose http_status field this mirrors."""
+    if error is None:
+        return ""
+    msg = str(error)
+    etype = type(error).__name__
+    if "Traceback (most recent call last)" in msg:
+        tails = _TB_EXC_RE.findall(msg)
+        if tails:
+            etype = tails[-1]
+    status = _http_status_of(error)
+    head = etype
+    if status is not None:
+        head += f" (HTTP {status})"
+    head += ": "
+    if len(head) >= cap:
+        return head[:cap]
+    return head + msg[:cap - len(head)]
+
+
 def reviewer_report_entry(report):
     """The persisted form of one reviewer report, shared by every
     record writer (bench result records, generation attempt
@@ -3177,7 +3372,7 @@ def run_review(patch, providers, context="", test_results=None,
                seat_lenses=None,
                policy=None, waivers=None, evidence=None,
                tech_lead_shadow=False, tech_lead_shadow_seat=None,
-               gate_profile=None):
+               gate_profile=None, file_context=None):
     """One review round. `providers` maps name -> callable(prompt)->str.
 
     Returns the report dict. Never raises for provider failures; they
@@ -3290,7 +3485,20 @@ def run_review(patch, providers, context="", test_results=None,
     effective profile, its source, and every demotion are
     recorded in the report's gate_profile section. The
     default stays "strict" until Baseline v2 confirms B1
-    once on the holdout (step 7)."""
+    once on the holdout (step 7).
+
+    File context (acceptance D1): `file_context` optionally
+    maps a changed file's path to its post-change contents
+    (see collect_file_context). When given, each batch's
+    prompt gains a clearly-delimited reference section with
+    the contents of that batch's files, so reviewers can
+    check definitions outside the hunks; the diff remains
+    the only groundable evidence. The record's `file_context`
+    section lists exactly which files were attached and
+    their sizes. Default None — the prompt is then
+    byte-identical to the pre-D1 construction, which the
+    bench and registered confirmation runs rely on: they
+    never pass it."""
     test_results = test_results or []
     # Gate profile resolution (step 6): explicit argument >
     # policy file's [gate] profile > "strict" default. An
@@ -3395,12 +3603,25 @@ def run_review(patch, providers, context="", test_results=None,
 
     job_fallback_for = {}
     jobs = []
+    context_attached = {}
     for bi, batch in enumerate(batches):
+        suffix = ""
+        if file_context:
+            blocks = []
+            for fname in batch_files[bi]:
+                ftext = file_context.get(fname)
+                if ftext:
+                    blocks.append(f"===== {fname} =====\n{ftext}")
+                    context_attached[fname] = len(ftext)
+            if blocks:
+                suffix = _FILE_CONTEXT_HEADER + "\n\n".join(blocks)
         for name, fn, lens in tasks:
             prompt = _REVIEW_PROMPT.format(
                 lens=LENSES[lens], context=(context or "(none)")[:4000],
                 tests=tests_txt,
                 batch=f"batch {bi + 1}/{len(batches)}", patch=batch)
+            if suffix:
+                prompt = prompt + suffix
             jobs.append((name, lens, fn, prompt, bi, batch))
             if lens in unserved_fallback \
                     and name == unserved_fallback[lens]["served_by"]:
@@ -3453,7 +3674,8 @@ def run_review(patch, providers, context="", test_results=None,
                             f"({_MAX_JOB_ATTEMPTS}) exhausted by "
                             f"primary {name!r}")
                         rec["error"] = (
-                            f"{res['error']} | fallback {fb_name!r} "
+                            f"{_stored_error(res['error'], 170)} "
+                            f"| fallback {fb_name!r} "
                             f"not attempted: job attempt budget "
                             f"exhausted")[:300]
                     else:
@@ -3479,7 +3701,8 @@ def run_review(patch, providers, context="", test_results=None,
                         rec.update({
                             "provider": fb_name,
                             "fallback_for": name,
-                            "primary_error": str(res["error"])[:300],
+                            "primary_error": _stored_error(
+                                res["error"]),
                             "error_classes":
                                 res["error_classes"]
                                 + fb["error_classes"]})
@@ -3487,8 +3710,11 @@ def run_review(patch, providers, context="", test_results=None,
                         res = fb
                     elif fb is not None:
                         rec["error"] = (
-                            f"{res['error']} | fallback {fb_name!r} "
-                            f"also failed: {fb['error']}")[:300]
+                            f"{_stored_error(res['error'], 150)} "
+                            f"| fallback {fb_name!r} "
+                            f"also failed: "
+                            f"{_stored_error(fb['error'], 110)}"
+                            )[:300]
             if res["ok"]:
                 parsed = res["parsed"]
                 rec["status"] = "ok"
@@ -3513,7 +3739,8 @@ def run_review(patch, providers, context="", test_results=None,
                         all_findings.append(nf)
                 any_success = True
             else:
-                rec["error"] = rec["error"] or str(res["error"])[:300]
+                rec["error"] = rec["error"] or _stored_error(
+                    res["error"])
                 degraded = True
                 if "reviewer failure" not in degraded_causes:
                     degraded_causes.append("reviewer failure")
@@ -4403,6 +4630,13 @@ def run_review(patch, providers, context="", test_results=None,
                          "source": profile_source,
                          "demotions": profile_demotions},
     }
+    if file_context:
+        # D1: the record states exactly which files' post-change
+        # contents were attached to the reviewer prompts.
+        report["file_context"] = {
+            "attached": [{"file": f, "chars": c}
+                         for f, c in sorted(
+                             context_attached.items())]}
     if binding is not None:
         # S1: the record proves the panel's seat->lens binding
         # and any lens it left unserved.
@@ -4701,7 +4935,8 @@ def run_verification(patch, providers, previous_report, builder_response,
                         f"({_MAX_JOB_ATTEMPTS}) exhausted by "
                         f"the primary")
                     out["error"] = (
-                        f"{res['error']} | fallback "
+                        f"{_stored_error(res['error'], 170)} "
+                        f"| fallback "
                         f"{fb_name!r} not attempted: job "
                         f"attempt budget exhausted")[:300]
                 else:
@@ -4718,20 +4953,22 @@ def run_verification(patch, providers, previous_report, builder_response,
                     out["serving_name"] = fb_name
                     out["serving_fn"] = fb_fn
                     out["fallback_for"] = name
-                    out["primary_error"] = str(res["error"])[:300]
+                    out["primary_error"] = _stored_error(
+                        res["error"])
                     out["error_classes"] = (
                         res["error_classes"] + fb["error_classes"])
                     res = fb
                 elif fb is not None:
                     out["error"] = (
-                        f"{res['error']} | fallback "
+                        f"{_stored_error(res['error'], 150)} "
+                        f"| fallback "
                         f"{fb_name!r} also failed: "
-                        f"{fb['error']}")[:300]
+                        f"{_stored_error(fb['error'], 110)}")[:300]
         if res["ok"]:
             out["ok"] = True
             out["parsed"] = res["parsed"]
         elif not out["error"]:
-            out["error"] = str(res["error"])[:300]
+            out["error"] = _stored_error(res["error"])
         return out
 
     jobs = []

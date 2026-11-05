@@ -1752,7 +1752,31 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
     ap = argparse.ArgumentParser(
         prog="codereview",
         description="Multi-model code review loop with a "
-                    "deterministic gate.")
+                    "deterministic gate.",
+        epilog="Subcommands (each has its own --help; running "
+               "one replaces the review flags above): "
+               "setup — first-run wizard: pick providers, keys "
+               "and per-role models; "
+               "doctor — probe the configured seats; "
+               "policy — validate and print the effective "
+               "project policy; "
+               "record-verify — verify a stored run record "
+               "offline; "
+               "disputes — list and record rulings on disputed "
+               "findings; "
+               "bench — run the benchmark corpus and reports; "
+               "intake — turn an issue report into a reviewed "
+               "solution; "
+               "pr — review a GitHub pull request in place; "
+               "workflow — run a saved multi-step review "
+               "workflow; "
+               "loop — repeat review rounds until the gate "
+               "passes; "
+               "sarif — export a record's findings as SARIF; "
+               "evidence — run an evidence config standalone; "
+               "locate — resolve a cited quote to blob "
+               "positions; "
+               "acceptance — run the acceptance harness.")
     src = ap.add_argument_group("change source (pick one)")
     src.add_argument("--patch", help="unified diff file")
     src.add_argument("--repo", help="git repository path (default: .)")
@@ -1809,6 +1833,17 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
                          "confirms B1 on the holdout (step 7)")
     ap.add_argument("--max-patch-chars", type=int, default=80000,
                     help="per-batch diff budget (default 80000)")
+    ap.add_argument("--no-file-context", action="store_true",
+                    help="do not attach post-change file contents "
+                         "to the reviewer prompts (default for "
+                         "repo reviews: the contents of each "
+                         "changed file — from the range target, "
+                         "the index, or the working tree — ride "
+                         "along as reference so definitions "
+                         "outside the diff hunks can be checked; "
+                         "capped per file and in total, with "
+                         "truncation marked in the text and "
+                         "listed in the record)")
     ap.add_argument("--verify-previous",
                     help="previous report JSON: run a verification round")
     ap.add_argument("--builder-response", default="",
@@ -2163,6 +2198,43 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
         if shadow_seat:
             review_kwargs["tech_lead_shadow_seat"] = shadow_seat
 
+    file_context = None
+    if not args.verify_previous and not args.patch \
+            and not args.files and not args.no_file_context:
+        # Acceptance D1: attach the post-change contents of the
+        # changed files so reviewers can check definitions the
+        # hunks reference but do not contain. A collection
+        # problem degrades to the old diff-only behaviour with
+        # the reason on stderr — context is an aid, never a
+        # reason to fail a review.
+        try:
+            file_context, fc_entries = core.collect_file_context(
+                args.repo or ".", patch, range_spec=args.range,
+                staged=args.staged)
+        except Exception as exc:  # noqa: BLE001
+            print(f"codereview: file context unavailable "
+                  f"({exc}); reviewing the diff alone",
+                  file=sys.stderr)
+            file_context = None
+        if file_context is not None:
+            attached = [e for e in fc_entries
+                        if e.get("sent_chars")]
+            skipped = [e for e in fc_entries if e.get("skipped")]
+            notes = []
+            for e in fc_entries:
+                if e.get("truncated"):
+                    notes.append(
+                        f"{e['file']} truncated "
+                        f"({e['truncated']})")
+            print(f"codereview: file context: "
+                  f"{len(attached)} file(s) attached "
+                  f"({sum(e['sent_chars'] for e in attached)} "
+                  f"chars), {len(skipped)} skipped"
+                  + (f"; {'; '.join(notes)}" if notes else ""),
+                  file=sys.stderr)
+            if not file_context:
+                file_context = None
+
     if args.verify_previous:
         try:
             with open(args.verify_previous, encoding="utf-8") as fh:
@@ -2191,6 +2263,7 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
             fixture_scope=fixture_scope, private=args.private,
             precedents=precedents, policy=project_policy,
             gate_profile=args.gate_profile,
+            file_context=file_context,
             tech_lead_timeout=args.timeout, **review_kwargs)
 
     jpath, mpath = core.write_report(report, args.out)
