@@ -1392,7 +1392,26 @@ def shadow_adjudicate(fn, finding, region, dispute, *,
         spec = draw.get("probe_spec")
         if probe_fn is not None and spec is not None:
             try:
-                probe_result = probe_fn(json.dumps(spec))
+                probe_result = probe_fn(finding,
+                                        json.dumps(spec))
+            except TypeError as exc:
+                # A TypeError at this call boundary means the
+                # wired callable does not implement the
+                # probe_fn(finding, request) contract — a
+                # WIRING failure in the harness setup, not a
+                # probe result (finding 833912a09fa3: the
+                # one-arg call's TypeError was swallowed here
+                # and recorded as "probe failed", then fed to
+                # draw 2 as evidence). Record it distinctly,
+                # marked can_rebut False, so neither draw 2
+                # nor a reader of the record can mistake it
+                # for evidence a probe produced.
+                probe_result = {"status": "wiring_error",
+                                "outcome": "error",
+                                "detail": f"probe wiring "
+                                          f"error: {exc}",
+                                "can_rebut": False,
+                                "can_support": False}
             except Exception as exc:  # noqa: BLE001
                 probe_result = {"status": "error",
                                 "detail": f"probe failed: "

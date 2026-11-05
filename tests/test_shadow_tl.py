@@ -136,8 +136,8 @@ class ShadowDecisionTests(unittest.TestCase):
     def test_probe_round_then_decision(self):
         calls = []
 
-        def probe_fn(spec_text):
-            calls.append(spec_text)
+        def probe_fn(finding, request):
+            calls.append((finding, request))
             return {"status": "supported",
                     "detail": "probe output",
                     "evidence_quote": "probe output"}
@@ -149,12 +149,61 @@ class ShadowDecisionTests(unittest.TestCase):
             payload(), payload()])
         e = adjudicate(seat, probe_fn=probe_fn)
         self.assertEqual(len(calls), 1)
-        self.assertIn('"python"', calls[0])
+        # The documented contract: probe_fn(finding, request).
+        self.assertEqual(calls[0][0]["id"], FINDING["id"])
+        self.assertIn('"python"', calls[0][1])
         self.assertEqual(e["probe_result"]["status"],
                          "supported")
         self.assertEqual(e["state"],
                          "shadow_sustained_refutation")
         self.assertEqual(len(e["draws"]), 3)
+
+    def test_probe_round_through_production_wiring(self):
+        # Regression for 833912a09fa3: the shadow probe round
+        # driven through the REAL harness (probe.make_probe_fn,
+        # the CLI's default wiring) must actually EXECUTE the
+        # spec — the old one-arg call swallowed a TypeError
+        # into a "probe failed" record and the spec never ran.
+        import tempfile
+
+        from codereview import probe as probe_mod
+
+        seat = ShadowSeat([
+            payload(decision="needs_probe",
+                    probe_request={
+                        "kind": "python",
+                        "code": "print('PROBE_EXECUTED_MARKER')"}),
+            payload(), payload()])
+        with tempfile.TemporaryDirectory() as tree:
+            e = adjudicate(
+                seat, probe_fn=probe_mod.make_probe_fn(
+                    tree, timeout=30))
+        pr = e["probe_result"]
+        self.assertEqual(pr["outcome"], "pass")
+        self.assertIn("PROBE_EXECUTED_MARKER", pr["output"])
+        self.assertEqual(e["state"],
+                         "shadow_sustained_refutation")
+
+    def test_miswired_probe_fn_is_not_probe_evidence(self):
+        # A callable that does not implement the two-arg
+        # contract (the pre-fix suite stub's shape) must be
+        # recorded as a WIRING error — distinguishable from,
+        # and never readable as, a probe result.
+        def one_arg_stub(spec_text):  # the old broken shape
+            return {"status": "supported",
+                    "detail": "probe output"}
+
+        seat = ShadowSeat([
+            payload(decision="needs_probe",
+                    probe_request={"kind": "python",
+                                   "code": "print(1)"}),
+            payload(), payload()])
+        e = adjudicate(seat, probe_fn=one_arg_stub)
+        pr = e["probe_result"]
+        self.assertEqual(pr["status"], "wiring_error")
+        self.assertFalse(pr["can_rebut"])
+        self.assertFalse(pr["can_support"])
+        self.assertIn("wiring", pr["detail"])
 
     def test_needs_probe_without_channel_escalates(self):
         seat = ShadowSeat([payload(
