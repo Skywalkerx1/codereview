@@ -1,0 +1,8 @@
+rows.append(("pre-registration body hash (post-fill state, "
+                     "Baseline v2 §6)",
+                     REGISTRATION_BODY_SHA256_SUPERSEDED,
+                     "superseded by the §3 Addendum A append "
+                     "(2026-11-05)",
+                     "SUPERSEDED"
+                     if body_hash == REGISTRATION_BODY_SHA256_CURRENT
+                     else "FAIL"))

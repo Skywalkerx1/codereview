@@ -1,0 +1,291 @@
+{
+  "schema": "codereview.report/1",
+  "version": "0.12.1",
+  "mode": "review",
+  "created_at": "2026-11-05T20:21:08+00:00",
+  "patch_sha256": "9091def503d6bcfeae088a27c257d41a3510d1c61aeb48f5553750652f18e1c1",
+  "patch_chars": 6226,
+  "files": [
+    "CHANGELOG.md",
+    "bench/scripts/verify_registration.py"
+  ],
+  "context": "Bench tooling only: verify_registration.py learns the Addendum A section-3 append (2026-11-05, signed; addendum body hash d83c9397...). The Baseline-v2-section-6 post-fill body hash (9e38217e...) becomes a SUPERSEDED row (the file's existing A5 pattern), reported SUPERSEDED only when the body recomputes to the new post-append state (5d9bea16...), which a new row verifies by strict equality. Negative controls run by the builder: byte-flipped body and extra-line body both FAIL both rows, exit 1. N",
+  "private": false,
+  "supported_platforms": {
+    "os": [
+      "posix"
+    ],
+    "python": ">=3.11"
+  },
+  "coverage": {
+    "batch_count": 1,
+    "truncated": false,
+    "complete": false,
+    "omissions": [
+      "CHANGELOG.md: no successful correctness review of batch(es) [1]",
+      "bench/scripts/verify_registration.py: no successful correctness review of batch(es) [1]"
+    ],
+    "files": {
+      "CHANGELOG.md": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "bench/scripts/verify_registration.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [],
+          "operations": [
+            1
+          ]
+        }
+      }
+    }
+  },
+  "test_results": [],
+  "deterministic_findings": [],
+  "reviewer_reports": [
+    {
+      "provider": "gemini",
+      "lens": "correctness",
+      "batch": 1,
+      "status": "error",
+      "error": "ProviderError (HTTP 429): gemini quota: HTTP 429 | fallback 'openai' also failed: ProviderError (HTTP 429): openai quota: HTTP 429",
+      "summary": "",
+      "findings": [],
+      "attempts": 2,
+      "error_classes": [
+        "quota"
+      ],
+      "duration_ms": 3099,
+      "prompt_chars": 45273,
+      "error_detail": {
+        "error": "gemini quota: HTTP 429",
+        "http_status": 429,
+        "error_classes": [
+          "quota"
+        ],
+        "fallback_error": "openai quota: HTTP 429",
+        "fallback_http_status": 429
+      },
+      "family": "google",
+      "tier": "free",
+      "seat_state": {
+        "state": "blocked",
+        "class": "quota",
+        "evidence": {
+          "error_class": "quota"
+        },
+        "transitions": [
+          {
+            "state": "pending",
+            "class": null,
+            "at_ms": 0
+          },
+          {
+            "state": "working",
+            "class": null,
+            "at_ms": 0
+          },
+          {
+            "state": "blocked",
+            "class": "quota",
+            "at_ms": 2002,
+            "evidence": {
+              "error_class": "quota"
+            },
+            "terminal": true
+          }
+        ]
+      },
+      "seat_state_primary": {
+        "state": "blocked",
+        "class": "quota",
+        "evidence": {
+          "error_class": "quota"
+        },
+        "transitions": [
+          {
+            "state": "pending",
+            "class": null,
+            "at_ms": 0
+          },
+          {
+            "state": "working",
+            "class": null,
+            "at_ms": 0
+          },
+          {
+            "state": "blocked",
+            "class": "quota",
+            "at_ms": 1097,
+            "evidence": {
+              "error_class": "quota"
+            },
+            "terminal": true
+          }
+        ]
+      }
+    },
+    {
+      "provider": "nvidia",
+      "lens": "operations",
+      "batch": 1,
+      "status": "ok",
+      "error": "",
+      "summary": "The verify_registration.py script has a logic inversion in check 6: when body_hash equals the current post-append hash, it reports SUPERSEDED, but it should report FAIL since the post-fill state is now superseded and the current state is the post-append hash.",
+      "findings": [
+        {
+          "id": "c531bd57f5aa",
+          "rule": "",
+          "severity": "major",
+          "category": "correctness",
+          "file": "bench/scripts/verify_registration.py",
+          "line": 210,
+          "title": "Logic inversion in superseded/FAIL determination for body hash check 6",
+          "evidence": "rows.append((\"pre-registration body hash (post-fill state, \"\n                     \"Baseline v2 §6)\",\n                     REGISTRATION_BODY_SHA256_SUPERSEDED,\n                     \"superseded by the §3 Addendum A append \"\n                     \"(2026-11-05)\",\n                     \"SUPERSEDED\"\n                     if body_hash == REGISTRATION_BODY_SHA256_CURRENT\n                     else \"FAIL\"))",
+          "evidence_quote": "SUPERSEDED if body_hash == REGISTRATION_BODY_SHA256_CURRENT else \"FAIL\"",
+          "recommendation": "Invert the condition: report FAIL when body_hash equals the current post-append hash, and SUPERSEDED otherwise. The post-fill state should be SUPERSEDED only when the body has NOT recomputed to the current post-append state.",
+          "confidence": 0.95,
+          "sources": [
+            "nvidia"
+          ],
+          "consensus": false,
+          "source_lenses": {
+            "nvidia": [
+              "operations"
+            ]
+          },
+          "grounding": "unresolved",
+          "reground_note": "no seat could re-ground this finding (tried: nvidia, gemini, openai): re-ground call failed: openai quota: HTTP 429",
+          "evidence_ref": {
+            "sha256": "4ef0700042d039325b1733a881e729ca09ec7a07fe3d1e7dbc5b983328e26f5d",
+            "length": 397,
+            "truncated": false
+          },
+          "evidence_quote_ref": {
+            "sha256": "4dadd64bcd3bfd335a99002229a6c0d9d24480bd0dcba7e4b84ed676ecf88b4a",
+            "length": 71,
+            "truncated": false
+          }
+        }
+      ],
+      "attempts": 1,
+      "error_classes": [],
+      "duration_ms": 14935,
+      "prompt_chars": 45344,
+      "family": "nvidia",
+      "tier": "free",
+      "seat_state": {
+        "state": "done",
+        "class": null,
+        "evidence": {},
+        "transitions": [
+          {
+            "state": "pending",
+            "class": null,
+            "at_ms": 0
+          },
+          {
+            "state": "working",
+            "class": null,
+            "at_ms": 0
+          },
+          {
+            "state": "done",
+            "class": null,
+            "at_ms": 14935,
+            "terminal": true
+          }
+        ]
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "c531bd57f5aa",
+      "rule": "",
+      "severity": "major",
+      "category": "correctness",
+      "file": "bench/scripts/verify_registration.py",
+      "line": 210,
+      "title": "Logic inversion in superseded/FAIL determination for body hash check 6",
+      "evidence": "rows.append((\"pre-registration body hash (post-fill state, \"\n                     \"Baseline v2 §6)\",\n                     REGISTRATION_BODY_SHA256_SUPERSEDED,\n                     \"superseded by the §3 Addendum A append \"\n                     \"(2026-11-05)\",\n                     \"SUPERSEDED\"\n                     if body_hash == REGISTRATION_BODY_SHA256_CURRENT\n                     else \"FAIL\"))",
+      "evidence_quote": "SUPERSEDED if body_hash == REGISTRATION_BODY_SHA256_CURRENT else \"FAIL\"",
+      "recommendation": "Invert the condition: report FAIL when body_hash equals the current post-append hash, and SUPERSEDED otherwise. The post-fill state should be SUPERSEDED only when the body has NOT recomputed to the current post-append state.",
+      "confidence": 0.95,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false,
+      "source_lenses": {
+        "nvidia": [
+          "operations"
+        ]
+      },
+      "grounding": "unresolved",
+      "reground_note": "no seat could re-ground this finding (tried: nvidia, gemini, openai): re-ground call failed: openai quota: HTTP 429",
+      "evidence_class": "E3",
+      "cross_family": "unavailable",
+      "evidence_ref": {
+        "sha256": "4ef0700042d039325b1733a881e729ca09ec7a07fe3d1e7dbc5b983328e26f5d",
+        "length": 397,
+        "truncated": false
+      },
+      "evidence_quote_ref": {
+        "sha256": "4dadd64bcd3bfd335a99002229a6c0d9d24480bd0dcba7e4b84ed676ecf88b4a",
+        "length": 71,
+        "truncated": false
+      }
+    }
+  ],
+  "degraded": true,
+  "truncated": false,
+  "degraded_causes": [
+    "reviewer failure",
+    "coverage incomplete"
+  ],
+  "gate": "blocked",
+  "gate_reasons": [
+    "coverage incomplete: 2 file/lens omission(s) — run marked degraded",
+    "1 blocking finding(s) (major)",
+    "at least one reviewer failed (degraded review)",
+    "1 finding(s) could not be re-grounded (evidence quote unverifiable) — a human must decide them"
+  ],
+  "gate_profile": {
+    "profile": "strict",
+    "source": "default",
+    "demotions": []
+  },
+  "file_context": {
+    "attached": [
+      {
+        "file": "CHANGELOG.md",
+        "chars": 24079
+      },
+      {
+        "file": "bench/scripts/verify_registration.py",
+        "chars": 10886
+      }
+    ]
+  },
+  "open_disputes": {
+    "count": 0,
+    "ids": []
+  },
+  "range": "6b7eb3a..HEAD",
+  "head": "7ed1cd45a19909f5645524a6085fe624cfface3a",
+  "evidence_sidecars": {
+    "dir": "evidence",
+    "files": 2,
+    "refs": 4
+  }
+}

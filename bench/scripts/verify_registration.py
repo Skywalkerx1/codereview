@@ -7,8 +7,9 @@ Implements solution finding S3 (codereview-baseline-v2-void-solution-
 2026-11-05.md §6): run this before any run under the registration or
 under Addendum A. Exit code is 0 only if every item verifies; an item
 whose registered construction is documented as superseded (the A5 set
-hash) is reported SUPERSEDED, not FAIL, and its replacement (the A5
-per-file manifest, Addendum A item 8) is verified instead.
+hash; the pre-append registration body hash, item 6) is reported
+SUPERSEDED, not FAIL, and its replacement (the A5 per-file manifest,
+Addendum A item 8; the post-append body hash) is verified instead.
 
 Items checked:
   1. Expanded-clean manifest — SLOT-CLEANHASH (§3 addendum):
@@ -30,8 +31,12 @@ Items checked:
      the registered value, and the body hash — sha256 of everything
      above the FOOTER-HASH line, the construction recorded in the
      registration and in Baseline v2 §6 — equals the documented
-     current value after the two authorised §3 fills
-     (SLOT-CLEANHASH, then SLOT-POLICY).
+     current value. The body state after the two authorised §3
+     fills (SLOT-CLEANHASH, then SLOT-POLICY) is SUPERSEDED by the
+     §3 Addendum A append of 2026-11-05 (Addendum A signed the same
+     day; addendum body hash d83c93977d66769c..., recorded in the
+     registration's §3); the post-append state is the current value
+     and is verified by strict equality.
 
 Stdlib only. No network, no seat calls, no scoring.
 """
@@ -64,9 +69,20 @@ REGISTRATION_FOOTER_HASH = \
     "258c7674f156cab4ddea0dda44f3faedff93646d8c9db523ed9eb974f766cd2d"
 # Body hash after the two authorised section-3 fills, as documented in
 # bench/BASELINE-V2-2026-11-05.md section 6 (the pre-fill body hashed
-# 4bf3b4b1... immediately before the SLOT-POLICY fill).
-REGISTRATION_BODY_SHA256_CURRENT = \
+# 4bf3b4b1... immediately before the SLOT-POLICY fill). Superseded by
+# the section-3 Addendum A append below; retained as the expected
+# value of the SUPERSEDED row in check 6.
+REGISTRATION_BODY_SHA256_SUPERSEDED = \
     "9e38217efbbd6d39a3513d06c200209d4355bddec3b07faaa146e2be0ece07ac"
+# Body hash after the section-3 Addendum A append of 2026-11-05 —
+# authorised by Addendum A itself (signed that day by the owner and
+# one independent reviewer; addendum body hash
+# d83c93977d66769c614f6510159c0713f3b2addf8ba3c7854a7d6b5bdeea528d,
+# recorded in the registration's section 3 alongside this append).
+# This is the current authoritative body state: Addendum A item 10
+# requires this script to exit 0 before any run under the addendum.
+REGISTRATION_BODY_SHA256_CURRENT = \
+    "5d9bea160d9ee93f2aebd9a194cef41e602b0d79e63f95ae10780115b12a74df"
 
 
 def sha256(data):
@@ -188,9 +204,23 @@ def main():
             if "`" in footer_line else footer_line
         check("pre-registration FOOTER-HASH line",
               REGISTRATION_FOOTER_HASH, footer_value.strip())
-        check("pre-registration body hash (post-fill state, "
-              "Baseline v2 §6)", REGISTRATION_BODY_SHA256_CURRENT,
-              body_hash)
+        # The post-fill body state (Baseline v2 section 6) is
+        # superseded by the section-3 Addendum A append of
+        # 2026-11-05 — reported SUPERSEDED only when the body
+        # actually recomputes to the current post-append state,
+        # which the next check verifies by strict equality; any
+        # other body state fails both rows (same pattern as the
+        # A5 set hash in check 3).
+        rows.append(("pre-registration body hash (post-fill state, "
+                     "Baseline v2 §6)",
+                     REGISTRATION_BODY_SHA256_SUPERSEDED,
+                     "superseded by the §3 Addendum A append "
+                     "(2026-11-05)",
+                     "SUPERSEDED"
+                     if body_hash == REGISTRATION_BODY_SHA256_CURRENT
+                     else "FAIL"))
+        check("pre-registration body hash (post-Addendum A append, "
+              "§3)", REGISTRATION_BODY_SHA256_CURRENT, body_hash)
     except (OSError, ValueError, IndexError) as exc:
         rows.append(("pre-registration integrity", "readable document",
                      f"error: {exc}", "FAIL"))
@@ -206,8 +236,8 @@ def main():
     if failures:
         print(f"RESULT: FAIL ({len(failures)} item(s) did not verify)")
         return 1
-    print("RESULT: PASS (all registered hashes verify; "
-          "A5 set hash superseded by its per-file manifest)")
+    print("RESULT: PASS (all registered hashes verify; superseded: "
+          "A5 set hash, pre-Addendum-A body hash)")
     return 0
 
 
