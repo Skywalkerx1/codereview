@@ -14,6 +14,8 @@ Examples:
   codereview pr --pr https://github.com/OWNER/REPO/pull/123 --post
   codereview intake issue-report.md --provider gemini \
       --provider nvidia --context src/alerts.py
+  codereview evidence --repo . --config evidence.json
+  codereview evidence --repo . --claims builder-report.md
 
 Exit codes: 0 = gate PASS (intake: a solution was produced),
 1 = gate BLOCKED, 2 = INCONCLUSIVE or usage/infrastructure error
@@ -33,6 +35,7 @@ import inspect
 
 from . import bench as bench_mod
 from . import core
+from . import evidence as evidence_mod
 from . import registry
 from . import setup_wizard, userconfig
 from .providers import (ProviderError, build_providers,
@@ -241,6 +244,88 @@ def _run_setup_wizard():
     seat probe; tests substitute this to script a setup."""
     return setup_wizard.run_wizard(
         probe_fn=lambda providers: core.run_doctor(providers))
+
+
+def _evidence_main(argv):
+    """codereview evidence — the Epic C evidence runner,
+    standalone: run a config's commands/adapters against a tree,
+    or verify the claimed commands in a builder's work report.
+    Exit codes mirror the gate: 0 = evidence stands (claims:
+    every claim confirmed), 1 = required evidence failed /
+    a claim was downgraded, 2 = inconclusive or usage error."""
+    ap = argparse.ArgumentParser(
+        prog="codereview evidence",
+        description="Run configured evidence (tests, lint, SAST, "
+                    "security adapters) in a sandboxed copy of "
+                    "the tree, or verify a builder report's "
+                    "claimed commands by re-running them.")
+    ap.add_argument("--repo", default=".",
+                    help="working tree to run evidence against "
+                         "(default: .)")
+    ap.add_argument("--config",
+                    help="evidence config JSON (commands + "
+                         "adapters + policy-required names)")
+    ap.add_argument("--claims",
+                    help="builder work report (markdown/text): "
+                         "re-run its claimed commands and compare")
+    ap.add_argument("--out", default="codereview-out",
+                    help="output directory for the JSON record "
+                         "(default: codereview-out)")
+    args = ap.parse_args(argv)
+    if bool(args.config) == bool(args.claims):
+        print("codereview evidence: pass exactly one of --config "
+              "or --claims", file=sys.stderr)
+        return 2
+    os.makedirs(args.out, exist_ok=True)
+    if args.claims:
+        try:
+            with open(os.path.expanduser(args.claims),
+                      encoding="utf-8", errors="replace") as fh:
+                text = fh.read()
+        except Exception as exc:  # noqa: BLE001
+            print(f"codereview evidence: could not read the "
+                  f"report: {exc}", file=sys.stderr)
+            return 2
+        result = evidence_mod.verify_claims(text, args.repo)
+        path = os.path.join(args.out, "claims.json")
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(result, fh, ensure_ascii=False, indent=2)
+            fh.write("\n")
+        for claim in result["claims"]:
+            print(f"  {claim['status']:<10} line "
+                  f"{claim['line']}: {claim['command']}"
+                  + (f" — {claim['detail']}"
+                     if claim.get("detail") else ""))
+        summary = result["summary"]
+        print(f"codereview evidence: {summary['confirmed']} "
+              f"confirmed, {summary['downgraded']} downgraded, "
+              f"{summary['error']} error(s) of "
+              f"{summary['total']} claim(s)")
+        print(f"  data:   {path}")
+        if summary["error"]:
+            return 2
+        return 1 if summary["downgraded"] else 0
+    try:
+        config = evidence_mod.load_config(args.config)
+    except ValueError as exc:
+        print(f"codereview: {exc}", file=sys.stderr)
+        return 2
+    record = evidence_mod.collect(config, args.repo)
+    path = os.path.join(args.out, "evidence.json")
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(record, fh, ensure_ascii=False, indent=2)
+        fh.write("\n")
+    for item in record["items"]:
+        print(f"  {item['status']:<11} {item['name']}"
+              + (" (required)" if item["required"] else "")
+              + (f" — {item['detail']}" if item.get("detail")
+                 else ""))
+    effect, reasons = evidence_mod.gate_effect(record["items"])
+    print(f"codereview evidence: gate effect = "
+          f"{(effect or 'none').upper()}"
+          + (f" ({'; '.join(reasons)})" if reasons else ""))
+    print(f"  data:   {path}")
+    return {"blocked": 1, "inconclusive": 2}.get(effect, 0)
 
 
 def _setup_main(argv):
@@ -1132,6 +1217,8 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
         argv = sys.argv[1:]
     if argv and argv[0] == "setup":
         return _setup_main(argv[1:])
+    if argv and argv[0] == "evidence":
+        return _evidence_main(argv[1:])
     if argv and argv[0] == "doctor":
         return _doctor_main(argv[1:],
                             providers_override=providers_override,
@@ -1178,6 +1265,17 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
                     help="builder's change description (or @file)")
     ap.add_argument("--test-command", action="append", default=[],
                     help="test command to run and include; repeatable")
+    ap.add_argument("--evidence-config",
+                    help="evidence runner config (JSON; Epic C): "
+                         "configured test/lint/SAST commands and "
+                         "security adapters run in a sandboxed copy "
+                         "of the tree (scrubbed environment, no "
+                         "network by default), the hashed evidence "
+                         "record is stored in the report, and "
+                         "required evidence that fails BLOCKS the "
+                         "gate (unavailable required evidence is "
+                         "INCONCLUSIVE). The config's shape matches "
+                         "the Epic B policy file's [evidence] table")
     ap.add_argument("--out", default="codereview-out",
                     help="output directory for the report (default: "
                          "codereview-out)")
@@ -1453,6 +1551,21 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
         # --role/saved-setup assignment can; the command line wins
         # (the same precedence --role has over the saved setup).
         review_kwargs["tech_lead"] = args.tech_lead
+    if args.evidence_config:
+        # Epic C: run the evidence config against a sandboxed
+        # copy of the tree and attach the record to the review;
+        # run_review stores it in the report and applies the C3
+        # gate rule. Verification rounds keep their own gate
+        # semantics and do not take evidence (review_kwargs only
+        # reaches run_review).
+        try:
+            evidence_cfg = evidence_mod.load_config(
+                args.evidence_config)
+        except ValueError as exc:
+            print(f"codereview: {exc}", file=sys.stderr)
+            return 2
+        review_kwargs["evidence"] = evidence_mod.collect(
+            evidence_cfg, cwd)
 
     if args.verify_previous:
         try:

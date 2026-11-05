@@ -1662,7 +1662,8 @@ def run_review(patch, providers, context="", test_results=None,
                seat_meta=None, fallbacks=None, sleep=None,
                record_extra=None, fixture_scope=None, private=False,
                precedents=None, tech_lead=None, probe_fn=None,
-               tech_lead_timeout=None, lens_seats=None):
+               tech_lead_timeout=None, lens_seats=None,
+               evidence=None):
     """One review round. `providers` maps name -> callable(prompt)->str.
 
     Returns the report dict. Never raises for provider failures; they
@@ -1725,7 +1726,17 @@ def run_review(patch, providers, context="", test_results=None,
     Role assignments (owner directive 2026-11-04): `lens_seats`
     pins a lens to a designated seat name ({lens: seat-name}) so
     the model the user assigned to a role is the model that
-    serves it; unassigned lenses keep the round-robin panel."""
+    serves it; unassigned lenses keep the round-robin panel.
+
+    Evidence (Epic C): `evidence` is an evidence-runner record
+    (codereview.evidence.collect) produced by the caller BEFORE
+    the review — the runner executes configured commands and
+    adapters in a sandbox, outside the review itself. The record
+    is stored verbatim in the report, and the C3 gate rule is
+    applied after every other gate adjustment: required evidence
+    that failed / timed out / errored / is missing BLOCKS the
+    gate; required evidence that is merely unavailable (tool not
+    installed) makes a passing gate INCONCLUSIVE."""
     test_results = test_results or []
     det = deterministic_scan(patch, test_results)
     clean_patch = redact_secrets(patch)
@@ -2476,6 +2487,25 @@ def run_review(patch, providers, context="", test_results=None,
             "human decision required: disputed, "
             "refutation-weak, escalated or ungrounded "
             "finding(s) are recorded in the record"] + reasons
+    if evidence is not None:
+        # Epic C gate rule (C3), applied last so it composes
+        # with every adjustment above: a blocked gate stays
+        # blocked; evidence can only move pass -> blocked /
+        # pass -> inconclusive, never clear anything. The
+        # function-level import keeps the module graph
+        # one-directional (evidence imports core, not the
+        # reverse).
+        from . import evidence as _evidence
+        _effect, _ev_reasons = _evidence.gate_effect(
+            evidence.get("items") or [])
+        if _effect == "blocked":
+            gate = "blocked"
+            reasons = _ev_reasons + reasons
+        elif _effect == "inconclusive" and gate == "pass":
+            gate = "inconclusive"
+            reasons = _ev_reasons + reasons
+        elif _ev_reasons:
+            reasons = reasons + _ev_reasons
     report = {
         "schema": SCHEMA, "version": VERSION, "mode": "review",
         "created_at": _now_iso(),
@@ -2539,6 +2569,8 @@ def run_review(patch, providers, context="", test_results=None,
         }
         if fixture_excess:
             report["fixture_scope"]["excess"] = fixture_excess
+    if evidence is not None:
+        report["evidence"] = evidence
     if record_extra:
         report.update({k: v for k, v in record_extra.items()
                        if v is not None})
