@@ -1,0 +1,3 @@
+A internal TypeError, correct signature: probe_result={'status': 'wiring_error', 'outcome': 'error', 'detail': "probe wiring error: unsupported operand type(s) for +: 'int' and 'str'", 'can_rebut': False, 'can_support': False}
+B internal RuntimeError, correct signature: probe_result={'status': 'error', 'detail': 'probe failed: probe implementation exploded'}
+C real make_probe_fn, spec code raises TypeError: probe_result status=None outcome='fail'

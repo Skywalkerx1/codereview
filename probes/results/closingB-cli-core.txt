@@ -1,0 +1,43 @@
+CLI CORE PROBE — 127ddee9be1b, 179ece0e030e, 7b4c5c8155ae, fd1ff955358e, ca9fcd9ca7c2, 32587160c9fc, 764e1d15a218, 934fab88a12e
+== 127ddee9be1b: _is_within (cli.py:85-100) ==
+  record supported_platforms: {'os': ['posix'], 'python': '>=3.11'} (closing-r1 record)
+  inside path -> True
+  outside path -> False
+  commonpath ValueError (the Windows cross-drive case) -> False (fail-closed, per the docstring at cli.py:86-94)
+
+== 179ece0e030e: _load_record_arg (cli.py:1066-1092) ==
+  dir holds aaa (mtime 1000000) and zzz (mtime 2000000); loader picked: zzz_older_name.json with content 'zzz' — newest MTIME wins, name and content recency ignored
+
+== 7b4c5c8155ae: _load_fixture_scope open (cli.py:124-126) ==
+  cli.py:124: manifest = json.loads(raw.decode("utf-8"))
+  cli.py:125: if not isinstance(manifest, dict) \
+  cli.py:126: or manifest.get("schema") != core.FIXTURE_MANIFEST_SCHEMA:
+  code-read: the manifest is opened in BINARY mode ('rb') and decoded explicitly with raw.decode('utf-8') — no locale-dependent default encoding is involved. Functional check:
+  non-ASCII manifest loaded under LC_ALL=C locale: fixtures={'manifest_path': 'fixtures.json', 'manifest_sha256': 'bb056fe343e188139b3d5d64ade700580fa29c514d7423cf9eeeeecb3fea59c6', 'policy_version': 1, 'patterns': ['tést-ü.py'], 'expected_counts': {}}
+
+== fd1ff955358e: probe harness timeout wiring ==
+  cli.py:1846: ap.add_argument("--probe-timeout", type=int, default=120,
+  cli.py:2064: args.repo or ".", timeout=args.probe_timeout)
+  make_probe_fn(timeout=1) on a 10s sleep spec: outcome='timeout' after 1.0s — the timeout the CLI passes is enforced by run_probe
+
+== ca9fcd9ca7c2: empty CODEREVIEW_PROVIDERS (cli.py:1932-1943) ==
+  CODEREVIEW_PROVIDERS='' (set but empty): main rc=2; saved-config lookup called=1 time(s); specs handed to build_providers=['savedprov:model-x'] — the empty env var is treated as unset and the saved setup supplies the panel
+
+== 32587160c9fc: first-run setup reachability (cli.py:1930-1962) ==
+  no config + non-tty stdin: rc=2, no exception (clean stop with the not-set-up instructions)
+  no config + tty stdin: wizard entered=True; main rc=2 (EOFError from the wizard is caught at cli.py:1952-1957 and becomes a clean return 2)
+
+== 764e1d15a218: fallback == primary seat ==
+  doctor path: rc=0; fallbacks handed to run_doctor={'correctness': 'dup'} — 'dup' is BOTH a primary (providers_override) and the correctness fallback; no rejection
+  cli.py:2024: return 2
+  cli.py:2025: (fb_name, fb_fn), = built.items()
+  cli.py:2026: if fb_name in providers:
+  cli.py:2027: print(f"codereview: fallback seat {fb_name!r} is "
+  cli.py:2028: f"already a primary seat", file=sys.stderr)
+  cli.py:2029: return 2
+  cli.py:2030: fallbacks[lens] = (fb_name, fb_fn)
+  cli.py:2031: 
+  review path: rc=2 (2 = rejected by the guard before any review ran)
+
+== 934fab88a12e: evidence subcommand failure handling (cli.py:315-319) ==
+  _evidence_main RAISED TypeError: unsupported operand type(s) for +: 'float' and 'str' — the exception propagates out of the subcommand (a real CLI invocation dies with a traceback + exit 1, not the documented exit 2)

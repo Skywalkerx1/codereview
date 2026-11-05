@@ -1,0 +1,17 @@
+grep tests/ '_attach_evidence_sidecars': ['test_v111_hardening.py:1']
+grep tests/ '_validate_evidence_sidecars': NO HITS
+grep tests/ '_iter_evidence_refs': ['test_v100_integration.py:1', 'test_v111_hardening.py:1']
+grep tests/ '_shadow_evidence_targets': NO HITS
+grep tests/ 'evidence_sidecars': ['test_v100_integration.py:6', 'test_v111_hardening.py:1']
+grep tests/ 'shadow_adjudications': ['test_shadow_tl.py:2']
+
+sidecar test cases found:
+  test_process_tooling.py: test_locate_resolves_sidecar_quote_to_blob_line
+  test_v100_integration.py: test_long_quote_round_trips_in_full_via_sidecar
+  test_v100_integration.py: test_tampered_sidecar_fails_verification
+  test_v100_integration.py: test_missing_sidecar_fails_verification
+  test_v100_integration.py: test_legacy_record_sidecar_check_not_applicable
+  test_v111_hardening.py: test_sidecar_walk_skips_non_dicts_and_serves_dicts
+
+files mentioning BOTH shadow_adjudications and sidecar: NONE
+unittest sidecar classes exit=0: OK (8 tests ok)

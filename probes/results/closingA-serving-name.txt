@@ -1,0 +1,4 @@
+LENSES order: {'correctness': 'CORRECTNESS & SECURITY lens: logic errors, wrong assumptions, edge cases, injection, auth/permission mistakes, data loss or corruption, race conditions, broken error handling, API contract breaks, and regressions the diff introduces.', 'operations': 'OPERATIONS & RELIABILITY lens: failure modes in production — retries/alerts without dedup, cooldown or state (alert floods), unbounded loops or queries, missing timeouts, resource leaks, missing observability, unsafe rollouts without a flag or rollback path, and missing or weakened tests for the change.'}
+reviewer report: provider='fbseat' fallback_for='primary' status='ok'
+new finding f6a6620e70b4: sources=['fbseat'] title='New defect from fallback'
+cleared: [] gate='blocked'

@@ -1,0 +1,9 @@
+A1 run_verification RETURNED (no exception escaped)
+A1 rec status='error' error='exceptions must derive from BaseException'
+A1 gate='inconclusive' degraded=True
+A2 _review_job error type: RuntimeError is_exception=True
+A2 _review_job_bounded(timeout=0) error type: str value='invalid adjudication timeout 0: must be positive'
+A2 real raising provider: RETURNED, rec error='seat blew up'
+B in-memory stored evidence length: 5000
+B written JSON display length: 300 ref={'sha256': 'c89bd2ffdf385295ce28a2b6a26036ab8657db8857f95993299842ed7b639512', 'length': 5000, 'truncated': True}
+B sidecar full-text length: 5000

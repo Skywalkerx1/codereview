@@ -1,0 +1,23 @@
+ACCEPTANCE M4/M6 PROBE — 60eb09183ee5, 1f64a6be5c10, e1570280c036
+code at HEAD: acceptance.py:314-318 (M4 denom/m4), acceptance.py:327-335 (M6), metrics blocks at 354-373
+
+[A do_mutations=False] returned a record (no exception)
+  M4: measured=None denominator=0 pass=False
+  M6: measured=1.0 measured_cases=2 majors=2 pass=True
+  unlock_all_gates_pass=False
+
+[B do_mutations=True, zero mutation ids] returned a record (no exception)
+  M4: measured=None denominator=0 pass=False
+  M6: measured=1.0 measured_cases=2 majors=2 pass=True
+  unlock_all_gates_pass=False
+
+[C do_mutations=True, normal (control)] returned a record (no exception)
+  M4: measured=0.0 denominator=8 pass=True
+  M6: measured=1.0 measured_cases=2 majors=2 pass=True
+  unlock_all_gates_pass=False
+
+[D M6 measured=0 forced via stub adjudicator]
+[D draws_agree=None on every case] returned a record (no exception)
+  M4: measured=None denominator=0 pass=False
+  M6: measured=None measured_cases=0 majors=2 pass=False
+  unlock_all_gates_pass=False

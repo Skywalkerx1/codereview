@@ -1,0 +1,6 @@
+[binop 200] exit=0 binop n=200: function_key -> key
+attach_function_keys -> keyed=1
+[binop 5000] exit=0 binop n=5000: function_key RAISED RecursionError: maximum recursion depth exceeded
+attach_function_keys RAISED RecursionError: maximum recursion depth exceeded
+[attr 5000] exit=0 attr n=5000: function_key RAISED RecursionError: maximum recursion depth exceeded
+[unary 5000] exit=0 unary n=5000: function_key RAISED RecursionError: maximum recursion depth exceeded

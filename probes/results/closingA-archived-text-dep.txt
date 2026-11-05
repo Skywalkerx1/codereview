@@ -1,0 +1,3 @@
+canonical diff: sections=['src/app.py', 'review-r1/rec.json'] archived_sections=['review-r1/rec.json'] -> finding kept=0 archived=1 basis={'rule': 'archived-text', 'basis': 'quote'}
+raw non-diff text: sections=['unknown'] archived_sections=[] -> finding kept=1 archived=0
+header without b/ target: sections=['unknown', 'unknown'] archived_sections=[] -> finding kept=1 archived=0

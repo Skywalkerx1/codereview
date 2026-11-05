@@ -1,0 +1,43 @@
+DISPUTES/REGISTRY PROBE — 69a23ebb9f27, 44ace5079160
+== 69a23ebb9f27: disputes --check with NO --inventory (cli.py:1270-1317; disputes.py:578-591) ==
+  span path, no inventory file: rc=0 (0/1 are verdicts; a crash would raise)
+  check_freshness direct, inventory_ids defaulted: returned violations=0 touching=0 unscoped=14
+  no-span path, no inventory file: rc=1
+
+== 44ace5079160: Tech Lead boundary assertion ==
+  registry.py:44-45 (the cited lines): ROLES = ("correctness", "operations", "verifier", "tech-lead", "tech-lead-shadow", "solver") — the ROLES tuple; registry.py contains no assertion
+  core.py:3250: if tl_name is not None and not _tech_lead_eligible(
+  core.py:3251: tl_fam, tl_name in ok_seats, fam, refuter_fam):
+  core.py:3252: # Boundary assertion (four-disputed solution §3):
+  core.py:3253: # at the point the adjudication would be recorded,
+  core.py:3254: # the seat must satisfy the SHARED eligibility
+  core.py:3255: # predicate against the finding's actual raiser and
+  core.py:3256: # refuter. Selection is supposed to guarantee this;
+  core.py:3257: # if a future refactor of the selection helper
+  core.py:3258: # breaks the guarantee, fail CLOSED — record the
+  core.py:3259: # unavailable state, route the case to the owner,
+  core.py:3260: # never proceed with the seat.
+  core.py:3261: assertion_failure = {
+  core.py:3262: "finding_id": f.get("id"), "seat": tl_name,
+  core.py:3263: "family": tl_fam, "raiser_family": fam,
+  core.py:3264: "refuter_family": refuter_fam,
+  core.py:3265: "detail": "the selected Tech Lead seat does "
+  core.py:3266: "not satisfy the eligibility "
+  core.py:3267: "predicate at the record point"}
+  core.py:3268: assertion_failures.append(assertion_failure)
+  core.py:3269: tl_unavailable = (
+  core.py:3270: "boundary assertion failed: the selected Tech "
+  core.py:3271: "Lead seat is not eligible for this finding "
+  core.py:3272: "(see tech_lead_assertion_failures)")
+  core.py:3273: tl_name = None
+  core.py:3274: if tl_name is None:
+  core.py:3275: # No independent adjudicator served: the case keeps
+  core.py:3276: # its pre-adjudication state for the owner, with the
+  core.py:3277: # reason (and any rejected designation) on the record.
+  core.py:3278: f["tech_lead"] = {"status": "unavailable",
+  core.py:3279: "reason": tl_unavailable}
+  core.py:3280: if assertion_failure is not None:
+  core.py:3281: f["tech_lead"]["assertion_failure"] = \
+  core.py:3282: assertion_failure
+  core.py:3283: if substitution is not None:
+  behaviour is pinned by the suite: tests/test_shadow_p2.py::BoundaryAssertionTests.test_mutant_selection_is_caught_at_the_boundary (run separately with unittest; result quoted in this probe's companion run) — selection-level substitution happens in _select_tech_lead BEFORE the assertion (core.py:3244-3250 records 'substitutions'); the assertion itself is the documented fail-closed last line: record unavailable, route to the owner, never proceed with an ineligible seat

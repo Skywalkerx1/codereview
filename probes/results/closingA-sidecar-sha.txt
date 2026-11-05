@@ -1,0 +1,5 @@
+sha=empty (''): problems=['evidence (sha256 …): sidecar file missing']
+sha=non-hex ('zz-not-a-hash'): problems=['evidence (sha256 zz-not-a-has…): sidecar file missing']
+sha=well-formed absent ('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'): problems=['evidence (sha256 aaaaaaaaaaaa…): sidecar file missing']
+sha=traversal to real file ('../outside.txt'): problems=['evidence (sha256 ../outside.t…): sidecar content does not hash to its ref (tampered or corrupt)']
+control (genuine ref): problems=[]

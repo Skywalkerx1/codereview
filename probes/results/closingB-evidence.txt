@@ -1,0 +1,6 @@
+EVIDENCE PROBE — 8f77565b56a4, 9489ee49db6f
+== 8f77565b56a4: per-item timeout ==
+  command 'sleep 10' with per-item timeout=1: status='timeout' after 1.0s (recorded duration_s=1.005) — the per-item timeout at evidence.py:407 was enforced by _execute (evidence.py:268-301)
+
+== 9489ee49db6f: timeout 0 via `or` fallback ==
+  command 'sleep 2' with per-item timeout=0: status='passed' after 2.0s — if 0 were honored the item would time out immediately; instead `entry.get('timeout') or default_timeout` (evidence.py:407) substituted the default (600s) and the command ran to completion

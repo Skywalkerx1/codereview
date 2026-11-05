@@ -1,0 +1,3 @@
+budget 0: exit=0 budget=0 detailed_batches=2 incomplete=True batch_sections incomplete=True split_pieces=1 unplaceable=True 
+budget -3: exit=0 budget=-3 detailed_batches=2 incomplete=True batch_sections incomplete=True split_pieces=1 unplaceable=True 
+budget 1: exit=0 budget=1 detailed_batches=400 incomplete=False batch_sections incomplete=False split_pieces=305 unplaceable=False 

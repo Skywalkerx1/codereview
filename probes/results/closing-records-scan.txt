@@ -1,0 +1,19 @@
+CLOSING RECORDS-SCAN PROBE
+
+== (a) IPv4/hostname pattern false positives ==
+  '10.0.0.1': match=10.0.0.1
+  '999.123.456.789': match=999.123.456.789
+  '256.256.256.256': match=256.256.256.256
+  '1.2.3.4.5': match=1.2.3.4
+  '300.300.300.300': match=300.300.300.300
+  'example.com': match=None
+  VERDICT: REPRODUCES at minor — dotted strings with octets >255 (and a 5-group string, matched on its first four groups) are reported as IPv4 hostnames.
+
+== (b) telemetry inventory on malformed rows ==
+  scan exit code: 1
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      File "/usr/lib/python3.12/json/decoder.py", line 355, in raw_decode
+        raise JSONDecodeError("Expecting value", s, err.value) from None
+    json.decoder.JSONDecodeError: Expecting value: line 1 column 26 (char 25)
+  result file written: False
+  VERDICT: REPRODUCES — a non-blank malformed row aborts the scan (the blank-line filter the refutation cites does not cover it)

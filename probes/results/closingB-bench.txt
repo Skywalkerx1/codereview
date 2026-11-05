@@ -1,0 +1,16 @@
+BENCH PROBE — e8c5d3fd8a25, 5e89ea2d985b, 55752b0dc5b7
+== e8c5d3fd8a25: score_case confidence handling (bench.py:226-231) ==
+  confidence=None: OK — matched=1 escaped=0
+  confidence missing: OK — matched=1 escaped=0
+  confidence='high': RAISED ValueError: could not convert string to float: 'high'
+  confidence=0.9 (control): OK — matched=1 escaped=0
+
+== 5e89ea2d985b: severity order in matching (bench.py:226-257; core._SEV_RANK from SEVERITIES ('blocker','major','minor','nit') at core.py:56-57) ==
+  input order [minor, blocker]; matched finding severity='blocker' escaped=False matched=True
+  false_positives=1 (the unmatched finding is counted as an FP)
+
+== 55752b0dc5b7: bench --force degraded check (bench.py:484-586) ==
+  stored file seeded: sole record degraded=true (resume hashes untouched)
+  forced HEALTHY rerun over old degraded record: ACCEPTED — returned 1 record(s); file holds 1, degraded=False
+  forced DEGRADED rerun (control): REFUSED — bench --force: 1 of 1 case(s) for config 'oracle' came back degraded (a provider failed); the previous results file was 
+  previous file intact after refusal: True

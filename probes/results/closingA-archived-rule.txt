@@ -1,0 +1,16 @@
+docstring of _archived_rule:
+  The archived-artifact rule matching `path`, or None.
+      Rules (repo-relative paths): a top-level directory whose
+      name starts with `review-` or `review_` (run record output),
+      and the `gate-attempts.*` ledger by basename anywhere.
+
+_archived_rule('review-closing-r1/codereview-1.json') -> 'review-*/'
+_archived_rule('review_v15/out.json') -> 'review-*/'
+_archived_rule('review-tools/real_source.py') -> 'review-*/'
+_archived_rule('docs/review-v15/out.json') -> None
+_archived_rule('src/deep/review-r1/out.json') -> None
+_archived_rule('review-r1') -> None
+_archived_rule('src/app.py') -> None
+_archived_rule('gate-attempts.log') -> 'gate-attempts.*'
+_archived_rule('docs/gate-attempts.2026.log') -> 'gate-attempts.*'
+function location: core.py line 165

@@ -1,0 +1,17 @@
+PROBE SANDBOX PROBE — 8479293e76ed, 6d2d43b7bc3e, b9e2819976fe, f46397a84121
+== 8479293e76ed / 6d2d43b7bc3e: command-spec filesystem reach (probe.py:157-158, 199-207) ==
+  outcome=pass exit=0
+  sandbox block recorded: {'cwd': 'temp-copy', 'network': 'network-namespace', 'env': 'allowlist', 'timeout_s': 120}
+  out: hostname-file:
+  out: secret-in-env: False
+  out: cwd-is-temp-copy: /tmp/codereview-probe-1xoq462n/tree
+  marker written OUTSIDE the temp copy at /tmp/closingB-escape-marker.txt: True
+  reading: the write/read outside the copy SUCCEEDS (no fs confinement); the env allowlist DID hold (secret absent), cwd was the temp copy, and the network level is recorded on the result — exactly the documented model in the probe.py docstring
+
+== b9e2819976fe: kind-'test' discovery scope (probe.py:196-207) ==
+  dir holds PASSING test_target.py + FAILING test_unrelated.py; probe on target only: outcome='pass' exit=0
+  runner summary lines: ['Ran 1 test in 0.000s', 'OK']
+  after adding FAILING subpkg/test_target.py (same basename): outcome='fail' summary=['FAIL: test_boom (subpkg.test_target.Other.test_boom)', 'Ran 2 tests in 0.001s', 'FAILED (failures=1)']
+
+== f46397a84121: kind-'test' executes via the unittest runner at HEAD (c3c1463) ==
+  unguarded FAILING test file: outcome='fail' exit=1 summary=['Ran 1 test in 0.001s', 'FAILED (failures=1)'] — direct script execution would have run 0 tests and exited 0 (pass); the runner ran the test and it failed

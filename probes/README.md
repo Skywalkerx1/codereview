@@ -53,3 +53,35 @@ Packets: `~/workspace/goals/reviewloop-multi-model-code-review-product/files/rul
 | `shadow_acceptance_empty_probe.py` | 633acb885291 | Empty corpus crashes run_acceptance under both scorecard shapes: ZeroDivisionError at M3 (set-less) / KeyError at M1 (shipped scorecard). |
 | `shadow_trace_gate_probe.py` | 4cba208656d3 | The forward reference resolves at call time: _trace_gate_shadow executes through _scan_functions and returns verdicts in both directions. |
 | `shadow_attach_keys_probe.py` | 97feb799979e | None/raising/absent-path source lookups never crash attach_function_keys and never key a finding; the guard lives in function_key. |
+
+## Closing round 1 workup — the closing-chain round-1 disputes + findings (2026-11-04)
+
+Packets: `~/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-closing-r1-2026-11-04/`; source records: `review-closing-r1/codereview-20261105-031927.json` (counting), `review-closing-r1-attempt1/codereview-20261105-031306.json` (preserved), `review-shadowfixes-out/codereview-20261105-032130.json`. All probes ran at span head 0a2c9f2 (fixes verified again post-fix on branch closing-fixes). Result files: `results/closing*.txt`.
+
+| Script | Finding(s) | What it settles |
+|---|---|---|
+| `closingA_archived_rule.py` | b2b1f776d566, 0011f9970c38 | _archived_rule is first-component-only: top-level review-* classifies, nested review dirs do not. |
+| `closingA_archived_text_dep.py` | (archived-text class) | Archived diff sections are excluded by quote-basis; raw text and headerless sections are not. |
+| `closingA_batch_budget.py` | 07a9a2646925, 023d2c9b1b20 | Budgets 0/-3 return bounded incomplete=True; no loop, no range() ValueError. |
+| `closingA_function_key.py` | cc0e75a507fd | Flat 5000-term chains raise RecursionError in the keying path (fixed ee8b028). |
+| `closingA_probe_typeerror.py` | 21bb4af17e22 | Internal TypeError from a correctly-wired probe is misclassified wiring_error; RuntimeError classifies correctly; make_probe_fn path is honest. |
+| `closingA_render_fields.py` | 7514429a36b2, 7c8ec49fb549 | render_markdown tolerates every grounding/family/tier absence combination. |
+| `closingA_serving_name.py` | dd391599588d | Serving-name attribution names the provider actually called (fidelity-correct). |
+| `closingA_shadow_cache.py` | 62576759aaad, 03eb527e1e44 | Cache hit lent the drawing seat's independence to a reduced seat (fixed fab60f5). |
+| `closingA_shadow_tuple.py` | ba2479886886, 5683aa292958 | All shadow evidence targets are arity 3; write_report succeeds; sidecars attach + validate. |
+| `closingA_sidecar_sha.py` | 531bd4e5a458 | Sidecar validation fails closed on empty/malformed/traversal sha refs. |
+| `closingA_test_coverage.py` | 887c490bd9eb | CLI main-level coverage map by subcommand (feeds the worksheet). |
+| `closingA_verification_error_evidence.py` | 30b316c77b43, 328a5ff6fa51, 2eb60efeeace, f9ca50d61cad | Str error payloads are contained (inconclusive/degraded, no crash); resolution evidence is stored full, displayed capped at 300, sidecarred (Q7). |
+| `closingA_verify_chain.py` | f43f2968433d, afe66da23121 | verify_chain returns normally with dispositions=None/[]; consumption is reported when supplied. |
+| `closingB_acceptance_m4m6.py` | 60eb09183ee5, 1f64a6be5c10, e1570280c036 | M4/M6 denominators guarded: None + pass=False at zero; normal shapes measured + compared. |
+| `closingB_bench.py` | e8c5d3fd8a25, 5e89ea2d985b, 55752b0dc5b7 | score_case tolerates None/missing confidence, ValueErrors on a string; matching is worst-severity-first; healthy forced rerun accepted over a degraded record, degraded rerun refused. |
+| `closingB_cli_core.py` | 127ddee9be1b, 179ece0e030e, 7b4c5c8155ae, fd1ff955358e, ca9fcd9ca7c2, 32587160c9fc, 764e1d15a218, 934fab88a12e | _is_within fail-closed; _load_record_arg picks newest mtime; fixture scope reads rb+utf-8; --probe-timeout wired; set-but-empty CODEREVIEW_PROVIDERS falls through to saved config; setup wizard reachable on tty, clean rc=2 off it; doctor lacked the fallback==primary guard (fixed dee84d0); _evidence_main raised on collect failure (fixed a166ea3). |
+| `closingB_cli_coverage.py` | 887c490bd9eb | The coverage map's raw form. |
+| `closingB_disputes_registry.py` | 69a23ebb9f27, 44ace5079160 | disputes --check without inventory returns verdicts; registry.py:44-45 is the ROLES tuple, the boundary assertion is core.py:3250 (fail-closed). |
+| `closingB_evidence.py` | 8f77565b56a4, 9489ee49db6f | Per-item timeout enforced at 1.0s; explicit timeout 0 swallowed by `or` into the 600s default. |
+| `closingB_probe_sandbox.py` | 8479293e76ed, 6d2d43b7bc3e, b9e2819976fe, f46397a84121 | Sandbox terms as documented (fs reach real, env/cwd/net/timeout hold); kind-'test' discovery is basename-scoped but recursive into subpackages; kind-'test' runs via the unittest runner at HEAD. |
+| `closingB_providers.py` | 536112b7d4dd, 610a06422389, ad6e36800a86 | Agent env is the 10-key allowlist, secrets absent, opt-in per-variable; non-positive agent timeout refused at construction (v13); intake agent_timeout forwards to the command. |
+| `closing_bench_probe.py` | 78d6c78b3865, bbad4502fc6a (context) | bench.py's aggregate paths guard every denominator; the unguarded M3 quote was acceptance.py's, fixed by 6fa83f6. |
+| `closing_disputes_probe.py` | 0bb1b939ab67, e9ef62daa1a0, 55c815ff5fbe, f43f2968433d | Computed inventory double-counted a duplicated record (fixed 564e054); span scan re-resolved ranges per record and dropped degenerate-range records (fixed 99fe588); verify_chain handles dispositions=None. |
+| `closing_probe_scripts_probe.py` | 42011b7abf72, b7d613672e71 | No 'got' variable exists; captured initialised pre-patch; the hardening probe's git failure exits as CalledProcessError, not NameError. |
+| `closing_records_scan_probe.py` | 6508525840b4, 99fe18f50ec3, 6458b8824abc | IPv4 pattern matches impossible octets; a non-blank malformed gate-attempts row aborts the scan; the §5.3 contract carries no age filter by design. |

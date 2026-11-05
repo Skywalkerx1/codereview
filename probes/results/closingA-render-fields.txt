@@ -1,0 +1,9 @@
+no grounding + no family/tier keys: RENDERED ok (422 chars)
+  - 🔶 **[major] Bare finding** (a.py:3) — via seatA
+  - seatA (verify): ok
+family present, tier key absent: RENDERED ok (435 chars)
+  - 🔶 **[major] Bare finding** (a.py:3) — via seatA
+  - seatB (verify, family famX): ok
+tier present, family absent; finding grounding present: RENDERED ok (470 chars)
+  - 🔶 **[major] Bare finding** (a.py:3) — via seatA · ⚠ UNGROUNDED (re-ground unresolved)
+  - seatC (verify, pro tier): ok

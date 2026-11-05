@@ -1,0 +1,23 @@
+CLOSING DISPUTES PROBE — disputes.py claims
+
+== (a) build_inventory cross-record dedup ==
+  records_scanned=2 open_rows=38 unique_ids=19
+  ids appearing more than once: 19 (e.g. {'bbad4502fc6a': 2, '60eb09183ee5': 2, '127ddee9be1b': 2})
+  VERDICT: REPRODUCES — the same dispute id is counted once per record file
+
+== (b) records_touching_span cost / timeout ==
+  _git_lines source carries: capture_output=True, timeout=120,
+  record files under root: 27; git subprocess calls for one span scan: 14 (touching=13, unscoped=14)
+  VERDICT: per-call timeout exists (120s — cf6fe742fc2e premise fails); the scan is O(records) subprocess calls with no caching of repeated range specs and no overall bound (e9ef62daa1a0's substance).
+
+== (c) records_touching_span range shapes ==
+  span=55eddebdff63cc9830874f199ebd3960b462a20d..0a2c9f22fdf1af8fa49f33c8af00d51237ede5d0
+  touching=['review-baresha/r.json', 'review-normal/r.json']
+  unscoped=[]
+  'review-degenerate' (range X..X, head inside the span) appears in NEITHER list: True
+  VERDICT: REPRODUCES for the degenerate X..X shape — rev-list yields an empty set (not None), so the head fallback never runs and the record is silently dropped from the freshness check. A bare-sha range behaves oppositely (rev-list returns the commit and its ancestors, so it touches everything).
+
+== (d) check_freshness filtering contract ==
+  docstring: The release-flow gate (§5.3): open disputes in records touching `span` that are neither dispositioned by the store nor named in the caller's inventory. Returns {"violations": [row, ...], "touching": [...], "unscoped": [...]}.
+  signature: check_freshness(repo, root, span, entries=(), inventory_ids=())
+  No age/freshness-window parameter or concept exists in disputes.py (grep 'age' over the module: only 'message'-class substrings). The §5.3 contract is: span-touching + not dispositioned + not inventoried. VERDICT: the claim names a filter the adopted design does not specify; the function implements its contract.

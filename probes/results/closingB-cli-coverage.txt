@@ -1,0 +1,21 @@
+CLI COVERAGE PROBE — 887c490bd9eb
+functional CLI-entry exercise per subcommand (cli.py:1674-1712 dispatch)
+  setup          functional CLI tests: test_user_setup.py
+  evidence       functional CLI tests: NONE
+                 engine-only coverage: evidence.collect/verify_claims unit-tested directly in tests/test_evidence.py
+  acceptance     functional CLI tests: NONE
+                 engine-only coverage: acceptance.run_acceptance unit-tested directly in tests/test_shadow_acceptance.py
+  doctor         functional CLI tests: test_user_setup.py, test_v090_fixes.py, test_v091_fixes.py
+  record-verify  functional CLI tests: test_solution_v073.py, test_v093_phase2.py
+  policy         functional CLI tests: test_policy.py
+  sarif          functional CLI tests: test_sarif.py
+  disputes       functional CLI tests: test_process_tooling.py
+  locate         functional CLI tests: test_process_tooling.py
+  bench          functional CLI tests: test_bench.py
+  pr             functional CLI tests: NONE
+                 engine-only coverage: github fetch machinery in tests/test_github.py; _pr_main appears only in test_v091_fixes.py's structural NO_TIMEOUT_OPTION enumeration
+  workflow       functional CLI tests: NONE
+                 engine-only coverage: _workflow_main appears only in test_v091_fixes.py's structural enumeration
+  loop           functional CLI tests: NONE
+                 engine-only coverage: core.run_loop engine-tested in tests/test_core.py; _loop_main appears only in the same structural enumeration
+  intake         functional CLI tests: test_v091_fixes.py

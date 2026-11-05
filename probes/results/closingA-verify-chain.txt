@@ -1,0 +1,7 @@
+core.py:4674:     chain_consumed = [e for e in dispositions or []
+core.py:4686:         + (f"; {len(chain_consumed)} dispositioned via the "
+core.py:4688:            f"{[e.get('finding_id') for e in chain_consumed]}"
+core.py:4689:            if chain_consumed else ""))
+core.py:4770:         result["dispositions_consumed"] = chain_consumed
+verify_chain(no dispositions arg) RETURNED: eligible=False checks=12 'dispositions_consumed' in result: False
+verify_chain(dispositions=[]) RETURNED: dispositions_consumed=[]

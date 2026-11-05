@@ -1,0 +1,5 @@
+_shadow_evidence_targets yields 8 tuples, arities=[3]
+write_report SUCCEEDED: probe.json, probe.md
+shadow entry top-level refs: ['claim_restated_ref']; sidecars block: {'dir': 'evidence', 'files': 8, 'refs': 8}
+_validate_evidence_sidecars problems: []
+_iter_evidence_refs over written record: 8 refs

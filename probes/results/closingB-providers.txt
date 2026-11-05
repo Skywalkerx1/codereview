@@ -1,0 +1,15 @@
+PROVIDERS PROBE — 536112b7d4dd, 610a06422389, ad6e36800a86
+== 536112b7d4dd: agent env inheritance (providers.py:189-215, 316) ==
+  parent env carried OPENAI_API_KEY / GEMINI_API_KEY / CODEREVIEW_TEST_SECRET / DUMP_PATH
+  agent process env keys (10): ['CODEREVIEW_PROMPT', 'HOME', 'HTTPS_PROXY', 'HTTP_PROXY', 'LC_CTYPE', 'NO_PROXY', 'PATH', 'http_proxy', 'https_proxy', 'no_proxy']
+  secret keys present in agent env: []
+  with CODEREVIEW_AGENT_ENV=CODEREVIEW_TEST_SECRET (documented opt-in): present=True; OPENAI_API_KEY still absent=True
+
+== 610a06422389: agent timeout=0 (providers.py:288-293) ==
+  timeout=0: ProviderError at construction — agent timeout must be a positive number of seconds, got 0
+  timeout=-5: ProviderError at construction — agent timeout must be a positive number of seconds, got -5
+  timeout=None: accepted (means AGENT_TIMEOUT default, per the docstring at providers.py:264-270)
+  docstring (providers.py:264-270): 'an explicit value is honored verbatim, and a non-positive value is refused HERE, at construction — never silently swapped for the default (review-v13 finding...)'
+
+== ad6e36800a86: intake solver timeout forwarding (cli.py:680 -> providers.build_solvers providers.py:753-763 -> build_providers -> command_agent) ==
+  solver seat 'slow' with agent_timeout=1 against a 30s sleeper: ProviderError after 1.0s — agent command timed out after 1s

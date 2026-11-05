@@ -1,0 +1,3 @@
+run1 (independent, seat tl1/famC): state='shadow_sustained_refutation' independence='independent' cache_hit=False
+run2 (reduced, seat tl2/famD, same cache): state='shadow_sustained_refutation' independence='independent' seat='tl2' family='famD' cache_hit=True seat_calls=0
+control (reduced, NO cache): state='adjudication-pending-independence' independence='reduced' cache_hit=False

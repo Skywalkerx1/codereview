@@ -1,0 +1,12 @@
+CLOSING BENCH PROBE — 78d6c78b3865
+
+== bench.py aggregate paths ==
+  aggregate_scores([]): returned without raising
+    recall=None precision=None clean_fp_rate=None
+  build_report({}, empty corpus): returned without raising
+  build_report(holdout-only results, public_only=True): returned without raising
+    cases_run=0 recall=None
+
+== acceptance.py M3 (the quoted code's home) ==
+  HEAD carries 6fa83f6 ('Guard the acceptance scoring tail against empty/absent case sets'). The dedicated after-state probe is probes/shadow_acceptance_empty_probe.py — run it separately; its result file is results/shadow-acceptance-empty.txt (bd371a9).
+  VERDICT: bench.py's own aggregate/report paths guard every denominator (None on empty) — no crash at HEAD. The quoted unguarded M3 division lived in acceptance.py and was fixed by 6fa83f6 before this workup; the finding's file attribution (bench.py) does not match its own evidence quote.
