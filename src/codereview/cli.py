@@ -1255,6 +1255,14 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
                          "for primary AND fallback seats, like "
                          "doctor/intake); also the wait bound for "
                          "Tech Lead adjudication calls")
+    ap.add_argument("--probe-timeout", type=int, default=120,
+                    help="wall-clock bound in seconds for one "
+                         "harness probe (default 120)")
+    ap.add_argument("--no-probe-harness", action="store_true",
+                    help="do not wire the probe harness: a Tech "
+                         "Lead probe request then escalates for "
+                         "lack of a channel, as before the "
+                         "harness existed")
     args = ap.parse_args(argv)
 
     if args.timeout is not None and args.timeout <= 0:
@@ -1436,6 +1444,18 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
     test_results = _run_tests(args.test_command, cwd)
 
     review_kwargs = {}
+    if not args.no_probe_harness:
+        # Probe harness (refutation-process solution §5.2):
+        # the Tech Lead's probe channel, wired by default so a
+        # needs_probe decision no longer auto-escalates for
+        # lack of a channel. Probes execute in the harness
+        # sandbox against a temp copy of the reviewed tree —
+        # never in the tree itself, never with the process
+        # environment. The swarm internal runner reaches this
+        # same wiring through cli.main.
+        from . import probe as probe_mod
+        review_kwargs["probe_fn"] = probe_mod.make_probe_fn(
+            args.repo or ".", timeout=args.probe_timeout)
     if lens_seats:
         review_kwargs["lens_seats"] = lens_seats
     if tech_lead_seat and "tech_lead" in \
