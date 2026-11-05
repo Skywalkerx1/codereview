@@ -209,7 +209,17 @@ def run_wizard(input_fn=input, print_fn=print, environ=None,
                          "provider entries; nothing saved.")
                 raise EOFError
             continue
-        providers = picked + candidates
+        # An exact repeat of a discovery pick (the user pasted
+        # the same agent spec by hand) would seat the identical
+        # command twice under two names — one model wearing
+        # two seat hats. Drop exact duplicates of a pick, with
+        # a note; anything else the user typed stands as typed.
+        for spec in candidates:
+            if spec in picked:
+                print_fn(f"  ! {spec} is already in the panel "
+                         "from discovery — duplicate skipped.")
+        providers = picked + [s for s in candidates
+                              if s not in picked]
     if picked:
         # Family-diversity guard (Epic K1): discovery makes it
         # easy to build a one-family panel without noticing.
@@ -239,7 +249,12 @@ def run_wizard(input_fn=input, print_fn=print, environ=None,
                     print_fn(f"  ! {exc} — continuing with "
                              "the current panel.")
                 else:
-                    providers.append(extra)
+                    if extra in providers:
+                        print_fn(f"  ! {extra} is already in "
+                                 "the panel — duplicate "
+                                 "skipped.")
+                    else:
+                        providers.append(extra)
     for spec in providers:
         desc = describe_spec(spec)
         if desc["kind"] == "agent":

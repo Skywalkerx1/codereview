@@ -335,6 +335,38 @@ class WizardDiscoveryTests(unittest.TestCase):
             self.assertEqual(result["roles"]["operations"],
                              "deepseek")
 
+    def test_typed_duplicate_of_a_pick_is_skipped(self):
+        # Internal-review dispute 20c82770f7e1: a spec identical
+        # to a discovery pick, entered again at the provider
+        # prompt, must not seat the same command twice. (The
+        # shipped Claude template contains commas and the
+        # provider prompt is comma-split, so the verbatim path
+        # is the single-spec guard prompt — see the next test;
+        # this one exercises the merge dedupe with a comma-free
+        # command, the shape a future template could take.)
+        with tempfile.TemporaryDirectory() as tmp:
+            environ = self._env(tmp)
+            entry = _entry("claude", "/fake/bin/claude")
+            entry = {**entry, "command": 'claude -p "brief"'}
+            spec = discovery.seat_spec(entry)
+            result, printed = self._run(
+                ["1", spec, "", *ROLES_ACCEPT],
+                [entry], environ)
+            self.assertEqual(result["providers"], [spec])
+            self.assertIn("duplicate skipped",
+                          "\n".join(printed))
+
+    def test_guard_duplicate_is_skipped(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            environ = self._env(tmp)
+            found = [_entry("claude", "/fake/bin/claude")]
+            result, printed = self._run(
+                ["1", "", CLAUDE_SPEC, *ROLES_ACCEPT],
+                found, environ)
+            self.assertEqual(result["providers"], [CLAUDE_SPEC])
+            self.assertIn("duplicate skipped",
+                          "\n".join(printed))
+
     def test_eof_at_pick_prompt_saves_nothing(self):
         with tempfile.TemporaryDirectory() as tmp:
             environ = self._env(tmp)
