@@ -29,8 +29,14 @@ DISPUTE = {"by": "seatB", "family": "famB",
            "reason": "the claim fails on the printed value"}
 
 
-def payload(decision="sustain_refutation", quote="print(VALUE)",
+def payload(decision="sustain_refutation",
+            quote="RESULT = VALUE * 2",
             **over):
+    # The default deciding quote is DISTINCT from the
+    # refuter's quote ("print(VALUE)") and relevant to the
+    # claim: since the L06 harness fix, a dismissal resting
+    # on the refuter's own quote is evidence-ineligible and
+    # escalates (see tests/test_harness_fixes.py).
     p = {"claim_restated": "the total lacks a guard",
          "claim_falsifiable": True,
          "position_a_addresses_claim": {"value": True,
@@ -80,7 +86,8 @@ class ShadowDecisionTests(unittest.TestCase):
         self.assertEqual(len(e["draws"]), 2)
         self.assertFalse(e["binding"])
         self.assertEqual(
-            e["deciding_evidence"]["quote"], "print(VALUE)")
+            e["deciding_evidence"]["quote"],
+            "RESULT = VALUE * 2")
         self.assertTrue(e["cache_key"])
         self.assertEqual(e["protocol_version"],
                          core.ADJUDICATION_PROTOCOL_VERSION)

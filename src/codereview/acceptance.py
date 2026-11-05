@@ -73,6 +73,15 @@ def case_inputs(case, seat_family, *, family_swap=False,
         "title": f0.get("claim") or "",
         "evidence": evidence,
         "evidence_quote": f0.get("evidence_quote") or ""}
+    # Cited-line discipline at input-build time (P06): a
+    # stored region that does not contain the finding's cited
+    # line marks the input region_unverified, so the produced
+    # record says loudly that the presented region may not be
+    # the finding's site — instead of the seat silently
+    # judging a sibling call site.
+    if core.region_unverified_for(case.get("code_region"),
+                                  f0.get("line")):
+        finding["region_unverified"] = True
     dispute = {
         "by": "refuter", "family": refuter_fam,
         "raiser_family": raiser_fam,
@@ -117,11 +126,20 @@ def score_case(case, entry):
                 "text") or ""
             refuter_quote = (case.get("refutation") or {}).get(
                 "quote") or ""
+            f0 = case.get("finding") or {}
+            claim_text = (str(f0.get("claim") or "") + "\n"
+                          + str(f0.get("evidence") or ""))
+            # The same dismissal-evidence rule the draw
+            # machinery enforces (L06): grounded, distinct
+            # from the refuter's quote, and relevant to the
+            # claim — scored here independently so a record
+            # produced by any path is judged by the full rule.
             out["correct"] = bool(
                 quote
                 and core._quote_grounded(quote, region)
-                and core._norm_quote(quote)
-                != core._norm_quote(refuter_quote))
+                and core._dismissal_quote_check(
+                    quote, refuter_quote,
+                    claim_text)["eligible"])
         return out
     if rule == "machinery_two_field":
         want = expected.get("decision")

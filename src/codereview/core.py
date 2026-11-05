@@ -653,6 +653,150 @@ def _quote_grounded(quote, text):
     return " ".join(q.split()) in " ".join(text.split())
 
 
+# Lines of slack when checking a located region against a
+# finding's cited line: record line numbers and region bounds
+# come from different pipeline stages and can drift by a line
+# or two without the region being the WRONG region. The P06
+# miss was ~340 lines; the tolerance exists for drift, not
+# for siblings.
+REGION_CITED_LINE_TOLERANCE = 2
+
+
+def _region_window(lines, centre_idx, pad):
+    start = max(0, centre_idx - pad)
+    end = min(len(lines), centre_idx + 1 + pad)
+    return {"located": True, "start_line": start + 1,
+            "end_line": end,
+            "text": "\n".join(lines[start:end])}
+
+
+def locate_presented_region(lines, *, anchors=(),
+                            cited_line=None, pad=8,
+                            occurrence=1):
+    """Locate the code region presented for a finding, under
+    cited-line discipline (step-2 forensics Part A, case
+    P06).
+
+    Anchors (quote fragments, longest/most specific first)
+    are matched against the file's lines under whitespace
+    normalisation — the historical location behaviour. P06
+    showed its failure mode: located from evidence fragments
+    alone, the region landed on a SIBLING call site that
+    already carried the fix, ~340 lines from the finding's
+    cited line, and the case was near-unwinnable as
+    presented. So when the finding carries a cited line:
+
+    (a) an anchor hit whose +-pad window CONTAINS the cited
+        line (within REGION_CITED_LINE_TOLERANCE) is
+        preferred over every other hit — the cited line
+        wins over anchor order and occurrence;
+    (b) if no anchor window contains it but the line is
+        placeable in the file, the region is centred on the
+        cited line itself (located_via "cited_line"), with
+        the override noted;
+    (c) if the cited line cannot be placed at all (out of
+        range for the file), the anchor region — or an
+        unlocated result — is returned with
+        region_unverified True and a note naming the line:
+        never a confident wrong region presented as located.
+
+    Without a cited line the legacy behaviour is unchanged
+    (first anchor with enough hits, occurrence-th hit).
+    Returns a dict: located, start_line, end_line, text,
+    located_via ("anchor" | "cited_line" | None),
+    region_unverified, note."""
+    lines = list(lines or [])
+
+    def norm(s):
+        return " ".join(str(s or "").split())
+
+    nlines = [norm(ln) for ln in lines]
+    per_anchor = []
+    for a in anchors:
+        na = norm(a)
+        if not na:
+            continue
+        per_anchor.append([i for i, nl in enumerate(nlines)
+                           if na in nl
+                           or (len(nl) >= 12 and nl in na)])
+    all_hits = sorted({i for hits in per_anchor for i in hits})
+    placeable = isinstance(cited_line, int) \
+        and not isinstance(cited_line, bool) \
+        and 1 <= cited_line <= len(lines)
+
+    def window_contains(centre_idx, line):
+        start = max(0, centre_idx - pad) + 1
+        end = min(len(lines), centre_idx + 1 + pad)
+        tol = REGION_CITED_LINE_TOLERANCE
+        return start - tol <= line <= end + tol
+
+    if placeable:
+        containing = [i for i in all_hits
+                      if window_contains(i, cited_line)]
+        if containing:
+            best = min(containing,
+                       key=lambda i: abs((i + 1) - cited_line))
+            out = _region_window(lines, best, pad)
+            out.update({"located_via": "anchor",
+                        "region_unverified": False,
+                        "note": None})
+            return out
+        out = _region_window(lines, cited_line - 1, pad)
+        out.update({
+            "located_via": "cited_line",
+            "region_unverified": False,
+            "note": f"no anchor window contains cited line "
+                    f"{cited_line}; region centred on the "
+                    f"cited line"})
+        return out
+    for hits in per_anchor:
+        if len(hits) >= occurrence:
+            out = _region_window(lines, hits[occurrence - 1],
+                                 pad)
+            out.update({"located_via": "anchor",
+                        "region_unverified":
+                            cited_line is not None,
+                        "note": None})
+            if cited_line is not None:
+                out["note"] = (
+                    f"cited line {cited_line} cannot be "
+                    f"placed in a {len(lines)}-line file; "
+                    f"anchor region presented unverified")
+            return out
+    return {"located": False, "start_line": None,
+            "end_line": None, "text": "",
+            "located_via": None,
+            "region_unverified": cited_line is not None,
+            "note": (f"cited line {cited_line} cannot be "
+                     f"placed and no anchor located in a "
+                     f"{len(lines)}-line file"
+                     if cited_line is not None else
+                     "no anchor located")}
+
+
+def region_unverified_for(region_meta, cited_line):
+    """Whether a stored region (a corpus case's code_region
+    dict) fails cited-line discipline for a finding: the
+    builder already flagged it, the region never located, or
+    its [start_line, end_line] does not contain the cited
+    line within REGION_CITED_LINE_TOLERANCE. A region with
+    no bounds recorded cannot be checked and is NOT flagged
+    on absence of evidence alone."""
+    meta = region_meta or {}
+    if meta.get("region_unverified"):
+        return True
+    if not isinstance(cited_line, int) \
+            or isinstance(cited_line, bool):
+        return False
+    if meta.get("located") is False:
+        return True
+    start, end = meta.get("start_line"), meta.get("end_line")
+    if isinstance(start, int) and isinstance(end, int):
+        tol = REGION_CITED_LINE_TOLERANCE
+        return not (start - tol <= cited_line <= end + tol)
+    return False
+
+
 _REGROUND_PROMPT = """You are an independent code reviewer in a multi-model review loop, in a RE-GROUND pass. You previously raised the finding below, but its evidence quote does not appear in the diff text you were shown, so the claim is currently UNGROUNDED. You are now shown the exact file section from that diff.
 
 Rules:
@@ -848,6 +992,60 @@ def _refutation_weak(finding, quote):
     if not cited:
         return False
     return _norm_quote(quote) == cited
+
+
+# A shared token only counts toward relevance at this length:
+# shorter tokens are dominated by stopwords and punctuation
+# fragments ("the", "can", "x ="), which would let a quote
+# about nothing pass on a shared article.
+_DISMISSAL_QUOTE_ANCHOR_TOKEN_LEN = 4
+
+
+def _dismissal_quote_check(quote, refuter_quote, claim_text):
+    """Dismissal-evidence eligibility for a deciding quote
+    (step-2 forensics Part A, case L06): grounding against the
+    region (checked by the caller) is necessary but NOT
+    sufficient for a dismissal. The quote must also be
+
+    (b) DISTINCT from the refutation's own quote, under the
+        same whitespace normalisation as grounding — in L06
+        the sustained dismissal's deciding quote was
+        byte-identical to the refuter's quote, i.e. the
+        disputed line itself, which shows the cited code
+        exists and says nothing about whether the claim
+        about it fails; and
+    (c) RELEVANT to the CLAIM (the finding's title +
+        evidence), screened deterministically: the quote's
+        word tokens must share at least one token of length
+        >= 4 with the claim's tokens, and shared tokens must
+        make up at least a third of the quote's tokens.
+
+    LIMITS, stated plainly: this is a SCREEN, not a proof of
+    relevance. Token overlap cannot tell whether a quote
+    actually addresses the claim's mechanism — a quote can
+    share vocabulary with the claim and still miss its crux
+    (L06's draw-1 quote would pass this screen; what catches
+    L06 is distinctness). What the screen removes is the
+    class of dismissals resting on quotes with no topical
+    connection to the claim at all, and the self-quote class
+    entirely. Returns a dict: eligible, distinct, relevant,
+    shared_tokens, quote_token_count — recorded on the draw
+    so the trace shows why a dismissal was or was not
+    eligible."""
+    q_norm = _norm_quote(quote)
+    r_norm = _norm_quote(refuter_quote)
+    distinct = bool(q_norm) and (not r_norm or q_norm != r_norm)
+    q_tokens = _word_tokens(quote)
+    shared = q_tokens & _word_tokens(claim_text)
+    anchored = {t for t in shared
+                if len(t) >= _DISMISSAL_QUOTE_ANCHOR_TOKEN_LEN}
+    relevant = bool(q_tokens) and bool(anchored) \
+        and len(shared) * 3 >= len(q_tokens)
+    return {"eligible": bool(distinct and relevant),
+            "distinct": bool(distinct),
+            "relevant": bool(relevant),
+            "shared_tokens": sorted(shared),
+            "quote_token_count": len(q_tokens)}
 
 
 _CITED_CONSTRUCT_RE = re.compile(
@@ -1211,7 +1409,11 @@ def _shadow_draw(fn, finding, region, dispute, rng, probe=None,
     recorder can key the grades canonically. A draw whose
     deciding quote does not validate, or that changes severity
     without a rubric clause, is normalized to escalate — the
-    eligibility discipline applies to shadow draws too."""
+    eligibility discipline applies to shadow draws too. A
+    DISMISSAL (sustain_refutation) must additionally clear
+    the dismissal-evidence rule (_dismissal_quote_check):
+    its deciding quote distinct from the refutation's quote
+    and relevant to the claim, or it escalates."""
     raiser_text = _scrub_vendor(
         (finding.get("title") or "") + "\n"
         + (finding.get("evidence") or ""),
@@ -1316,11 +1518,40 @@ def _shadow_draw(fn, finding, region, dispute, rng, probe=None,
         draw["decision"] = "needs_probe"
         return draw
     if decision in ("sustain_finding", "sustain_refutation"):
-        if _quote_grounded(draw["deciding_quote"], region):
-            draw["decision"] = decision
-        else:
+        if not _quote_grounded(draw["deciding_quote"], region):
             draw["error"] = "deciding quote does not appear " \
                             "in the cited region"
+            return draw
+        if decision == "sustain_refutation":
+            # Dismissal-evidence rule (L06): grounding alone
+            # does not make a dismissal eligible — the
+            # deciding quote must also be distinct from the
+            # refutation's quote and pass the relevance
+            # screen against the claim. A failing dismissal
+            # is evidence-ineligible: it escalates, it is
+            # never silently sustained.
+            check = _dismissal_quote_check(
+                draw["deciding_quote"],
+                dispute.get("evidence_quote"),
+                (finding.get("title") or "") + "\n"
+                + (finding.get("evidence") or ""))
+            draw["deciding_quote_check"] = check
+            if not check["eligible"]:
+                failed = []
+                if not check["distinct"]:
+                    failed.append(
+                        "it is identical to the refutation's "
+                        "own quote")
+                if not check["relevant"]:
+                    failed.append(
+                        "it shares no topical content with "
+                        "the claim")
+                draw["error"] = (
+                    "deciding quote fails the "
+                    "dismissal-evidence rule: "
+                    + "; ".join(failed))
+                return draw
+        draw["decision"] = decision
         return draw
     if decision == "escalate":
         return draw
@@ -1366,6 +1597,13 @@ def shadow_adjudicate(fn, finding, region, dispute, *,
         "probe_request": None, "probe_result": None,
         "probe_context": probe_context,
         "error": None}
+    if finding.get("region_unverified"):
+        # Loud in the produced record (P06): the presented
+        # region was not verified to contain the finding's
+        # cited line, so no reader — human or scoring — can
+        # mistake this adjudication for one over the
+        # finding's actual site.
+        entry["region_unverified"] = True
     if fn is None:
         entry["state"] = "shadow_unavailable"
         entry["error"] = "no shadow Tech Lead seat available"

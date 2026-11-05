@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased — 2026-11-05
+
+- Issue 2 (benchmark precision) CLOSED by the measurement path
+  (owner act): blind probe-first adjudication of all 91 unmatched
+  findings — 64 duplicates, 10 real unlabelled defects (added to
+  ground truth), 7 true false positives. Corrected semantic
+  precision 0.870 finding-level / 0.756 merged (blocking 0.956 /
+  0.906); the baseline's required_caveat carries the corrected
+  figures and the naive figure is superseded. Behaviour work
+  (policy profiles, corpus expansion, Baseline v2) continues.
+
 ## 0.12.0 — 2026-11-04 — the finish release
 
 The clean-gate hold is LIFTED by the owner on an eligible Form B chain

@@ -75,8 +75,12 @@ def _write_corpus(root, cases, m1_set):
         json.dump(mutations, fh)
 
 
-def _payload(decision, quote="beta line", claim_valid=False,
+def _payload(decision, quote="gamma line", claim_valid=False,
              validity="valid"):
+    # Default deciding quote "gamma line": distinct from the
+    # refuter's quote ("beta line") — since the L06 harness
+    # fix a dismissal on the refuter's own quote is
+    # evidence-ineligible (tests/test_harness_fixes.py).
     return {"claim_restated": "restated",
             "claim_falsifiable": True,
             "position_a_addresses_claim": {"value": True,
