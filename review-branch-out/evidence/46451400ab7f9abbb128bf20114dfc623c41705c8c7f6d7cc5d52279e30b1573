@@ -1,0 +1,1 @@
+A reference to another function inside a function body is not evaluated at definition time in Python. The cited region only shows `_trace_gate_shadow` being defined here, not called before `_scan_functions` exists, so the claim as stated is unsupported.

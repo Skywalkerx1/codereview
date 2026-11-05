@@ -1,0 +1,6 @@
+    if path not in cache:
+        try:
+            cache[path] = source_lookup(path)
+        except Exception:  # noqa: BLE001 — no source, no key
+            cache[path] = None
+        fk = function_key(cache[path], f.get("line"))

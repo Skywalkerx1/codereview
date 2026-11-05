@@ -1,0 +1,1 @@
+    if _quote_grounded(draw["deciding_quote"], region):

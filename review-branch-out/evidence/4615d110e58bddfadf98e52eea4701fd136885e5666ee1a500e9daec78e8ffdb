@@ -1,0 +1,1 @@
+        out = seat_fn(_PARAPHRASE_PROMPT.format(text=text[:4000]))

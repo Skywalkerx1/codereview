@@ -1,0 +1,1 @@
+    defs = _scan_functions(region_text) or []

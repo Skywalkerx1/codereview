@@ -1,0 +1,1 @@
+try:\n        out = seat_fn(_PARAPHRASE_PROMPT.format(text=text[:4000]))\n    except Exception:  # noqa: BLE001\n        return text

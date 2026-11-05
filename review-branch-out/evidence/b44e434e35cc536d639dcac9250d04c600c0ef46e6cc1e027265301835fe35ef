@@ -1,0 +1,1 @@
+The finding claims probe_fn is called with the wrong signature, but the code region at line 1222 explicitly shows probe_fn being called with only json.dumps(spec) as the argument. The claim that the function is called with the wrong signature is therefore incorrect; the actual call matches the cited evidence exactly.
