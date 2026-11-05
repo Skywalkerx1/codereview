@@ -1,0 +1,1 @@
+{"cost_per_call_usd":0,"name":"panel-baseline-2026-11-04","providers":["gemini","nvidia","openai","deepseek"],"seat_meta":{"deepseek":{"family":"deepseek","tier":"paid"},"gemini":{"family":"google","tier":"free"},"nvidia":{"family":"nvidia","tier":"free"},"openai":{"family":"openai","tier":"paid"}}}
