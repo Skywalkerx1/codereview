@@ -1,0 +1,1 @@
+digest = str(ref.get('sha256') or '')

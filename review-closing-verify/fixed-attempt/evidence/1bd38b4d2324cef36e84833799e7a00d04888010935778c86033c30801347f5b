@@ -1,0 +1,1 @@
+The new diff both adds a defensive parser to probes/records_scan.py and commits a fresh result file showing the scanner still exits with JSONDecodeError on malformed non-blank gate-attempt rows, so the fix is incomplete or not wired through all reachable paths.

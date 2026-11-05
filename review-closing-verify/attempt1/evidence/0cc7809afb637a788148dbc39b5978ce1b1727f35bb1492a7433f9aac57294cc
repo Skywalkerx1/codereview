@@ -1,0 +1,1 @@
+The only new diff evidence is a disposition entry retiring it as out of scope: {"date": "2026-11-05T04:08:04+00:00", "decider": "owner", "finding_id": "3fc43145aad1", "marker": "ratified", "type": "retired_out_of_scope"}. The original evidence came from probes/results/fix-verification.txt, a captured test-output artifact, not from product code showing the guard was absent.

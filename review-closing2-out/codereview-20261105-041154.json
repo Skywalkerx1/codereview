@@ -1,0 +1,137 @@
+{
+  "schema": "codereview.report/1",
+  "version": "0.11.1",
+  "mode": "review",
+  "created_at": "2026-11-05T04:11:54+00:00",
+  "patch_sha256": "f10ec03c8ef74404da8e16e7b7ad54434122ea7dc365f480f1b3f7ba1271dca0",
+  "patch_chars": 18497,
+  "files": [
+    "probes/records_scan.py",
+    "src/codereview/cli.py",
+    "src/codereview/evidence.py",
+    "tests/test_closing_fixes_2.py"
+  ],
+  "context": "Three ratified closing-packet fixes: (1) records_scan telemetry inventory parses gate-attempts.jsonl defensively — malformed rows skipped-and-counted, never fatal (99fe18f50ec3); (2) _load_record_arg prefers the lexicographically greatest timestamped record name, mtime only as fallback (179ece0e030e); (3) evidence timeouts distinguish absent from explicit — non-positive refused loudly at load via validate_config (9489ee49db6f, review-v13 contract). 15 new tests in tests/test_closing_fixes_2.py; ",
+  "private": false,
+  "supported_platforms": {
+    "os": [
+      "posix"
+    ],
+    "python": ">=3.11"
+  },
+  "coverage": {
+    "batch_count": 1,
+    "truncated": false,
+    "complete": true,
+    "omissions": [],
+    "files": {
+      "probes/records_scan.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "src/codereview/cli.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "src/codereview/evidence.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "tests/test_closing_fixes_2.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      }
+    }
+  },
+  "test_results": [
+    {
+      "command": "PYTHONPATH=src python3 -m unittest discover -s tests",
+      "ok": true,
+      "exit_code": 0,
+      "output_tail": "to get the object allocation traceback\n/home/hatch/workspace/codereview-closing2/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview-closing2/tests/../src/codereview/intake.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview-closing2/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview-closing2/tests/../src/codereview/policy.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview-closing2/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview-closing2/tests/../src/codereview/probe.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview-closing2/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview-closing2/tests/../src/codereview/providers.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview-closing2/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview-closing2/tests/../src/codereview/registry.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview-closing2/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview-closing2/tests/../src/codereview/sarif.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview-closing2/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview-closing2/tests/../src/codereview/setup_wizard.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview-closing2/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview-closing2/tests/../src/codereview/userconfig.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n........................................../home/hatch/workspace/codereview-closing2/tests/test_v094_probes.py:127: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview-closing2/tests/../src/codereview/cli.py' mode='r' encoding='utf-8'>\n  \"core.py\", \"cli.py\"), encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n...../home/hatch/workspace/codereview-closing2/tests/test_v094_probes.py:91: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview-closing2/tests/../src/codereview/providers.py' mode='r' encoding='utf-8'>\n  encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n.................................codereview: tier policy: seat 'stubfree' runs on a free-tier credential, which must not review private repositories\n......................................................\n----------------------------------------------------------------------\nRan 682 tests in 43.353s\n\nOK\n"
+    }
+  ],
+  "deterministic_findings": [],
+  "reviewer_reports": [
+    {
+      "provider": "openai",
+      "lens": "correctness",
+      "batch": 1,
+      "status": "ok",
+      "error": "",
+      "summary": "I did not find a supported, diff-grounded correctness or security regression in these changes.",
+      "findings": [],
+      "attempts": 2,
+      "error_classes": [
+        "quota"
+      ],
+      "fallback_for": "gemini",
+      "primary_error": "gemini quota: HTTP 429",
+      "family": "openai",
+      "tier": "paid"
+    },
+    {
+      "provider": "nvidia",
+      "lens": "operations",
+      "batch": 1,
+      "status": "ok",
+      "error": "",
+      "summary": "All three ratified closing-packet fixes are correctly implemented with proper defensive parsing, timestamp-preference logic, and strict timeout validation; the 15 new tests pass across the full suite.",
+      "findings": [],
+      "attempts": 1,
+      "error_classes": [],
+      "family": "nvidia",
+      "tier": "free"
+    }
+  ],
+  "findings": [],
+  "degraded": false,
+  "truncated": false,
+  "degraded_causes": [],
+  "gate": "pass",
+  "gate_reasons": [
+    "correctness lens served by fallback seat 'openai' (primary 'gemini' failed: quota)"
+  ],
+  "open_disputes": {
+    "count": 0,
+    "ids": []
+  },
+  "range": "8763018..HEAD",
+  "head": "95d22c67909175afbfbfb31d8979945d7bb7d519"
+}

@@ -1,0 +1,1 @@
+The new unittest invocation discovers tests from the target directory using the target basename as a pattern, so a request for one file can execute additional matching files and fail or pass based on unrelated tests in that directory.

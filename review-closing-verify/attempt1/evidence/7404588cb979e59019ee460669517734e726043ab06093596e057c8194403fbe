@@ -1,0 +1,1 @@
+The new diff marks this as archived artifact text: {"date": "2026-11-05T04:08:02+00:00", "decider": "owner", "finding_id": "b55a82da564b", "marker": "ratified", "type": "retired_out_of_scope"}. The original evidence was a benchmark-result JSON line containing the case_id string "secret-hardcoded-api-key", not a real secret value in executable code.

@@ -1,0 +1,1 @@
+This diff section only adds a dispositions entry marking the finding as retired_out_of_scope; it does not show code or test output for the parent collision guard in build_providers.

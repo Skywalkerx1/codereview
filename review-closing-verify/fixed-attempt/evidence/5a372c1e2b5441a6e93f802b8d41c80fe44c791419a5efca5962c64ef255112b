@@ -1,0 +1,1 @@
+cli.py:1066-1072: jpath selection logic picks stamped first, then falls back to mtime

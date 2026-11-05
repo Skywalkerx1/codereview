@@ -1,0 +1,1 @@
+The new diff records a ratified fix for this finding: {"commit": "dee84d0", "date": "2026-11-05T04:08:02+00:00", "decider": "owner", "finding_id": "764e1d15a218", "marker": "ratified", "type": "fixed"}. The added probe index also states: "doctor lacked the fallback==primary guard (fixed dee84d0)".

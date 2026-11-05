@@ -1,0 +1,14 @@
+codereview: disposition store: 116 entr(ies) from ./dispositions.jsonl
+  [ok ] gate_pass: gate='pass'
+  [ok ] not_degraded: degraded=False
+  [ok ] tests_passed: 1/1 test commands ok
+  [FAIL] lens_coverage: lenses served: []
+  [ok ] two_families: distinct known families: ['nvidia', 'openai']
+  [ok ] coverage_complete: no coverage data recorded (pre-v0.9.3 record); check not applicable
+  [ok ] tier_policy: run attested non-private (private=false); free-tier seats permitted
+  [ok ] range_recorded: 61e137d..4f8166d
+  [ok ] patch_matches_range: recomputed patch hash matches
+  [ok ] head_current: commits after the recorded head touch only the record directory
+  [ok ] evidence_sidecars: no evidence sidecar refs recorded (pre-v0.10 record); check not applicable
+  [ok ] disputes_dispositioned: no open disputes in this record
+codereview: record (review-closing-verify/final-round/codereview-20261105-044534.json) NOT eligible

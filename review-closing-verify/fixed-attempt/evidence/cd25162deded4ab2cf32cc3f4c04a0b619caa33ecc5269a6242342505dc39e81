@@ -1,0 +1,1 @@
+This diff section only adds a dispositions entry marking the finding as retired_out_of_scope; it does not show changes to acceptance-run-2026-11-04/run_acceptance.py implementing a feature flag or rollback path.

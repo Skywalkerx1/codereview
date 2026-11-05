@@ -1,0 +1,1 @@
+The provided diff section contains no lines matching the cited evidence quote '        db.execute(f"DELETE FROM jobs WHERE id = {v.job_id}")'. The text shows only a function definition and a comment, with no database execution or job deletion logic present. Therefore, the finding cannot be supported from this text.

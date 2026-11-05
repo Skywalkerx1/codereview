@@ -1,0 +1,1 @@
+- evidence: `return db.execute(f"SELECT * FROM users WHERE name = '{name}'")`

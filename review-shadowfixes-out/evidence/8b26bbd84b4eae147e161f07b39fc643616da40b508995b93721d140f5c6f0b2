@@ -1,0 +1,1 @@
+The new handler treats any TypeError raised while calling the probe function as a contract mismatch, but that except block also catches TypeError thrown inside a correctly wired probe implementation after it starts executing.

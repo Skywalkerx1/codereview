@@ -1,0 +1,21 @@
+codereview: disposition store: 114 entr(ies) from ./dispositions.jsonl
+  [ok ] chain_shape: 2 record(s): round 1 mode='review', verification rounds=1
+  [ok ] ranges_contiguous: every round starts where the previous round ended, base to HEAD
+  [ok ] patch_hashes_match: every round's patch hash recomputes from its range
+  [ok ] rounds_not_degraded: every round non-degraded
+  [ok ] rounds_two_families: every round served by two distinct known families
+  [ok ] round1_lens_coverage: round 1 lenses served: ['correctness', 'operations']
+  [ok ] round1_coverage_complete: round 1 coverage complete (every file seen by every lens)
+  [FAIL] round1_findings_dispositioned: round-1 blocking finding(s) never cleared on the record: ['531bd4e5a458', 'dd391599588d']
+  [ok ] evidence_sidecars: 1382 evidence ref(s) across the chain recompute against their sidecars
+  [FAIL] final_gate_pass: final gate='blocked'
+  [ok ] tests_passed: 1/1 test commands ok in the final round
+  [ok ] head_current: commits after the final head touch only the chain's record directories
+  [store] disposition consumed: afe66da23121: downgraded by owner (2026-11-05T04:08:01+00:00)
+  [store] disposition consumed: 887c490bd9eb: downgraded by owner (2026-11-05T04:08:01+00:00)
+  [store] disposition consumed: 19abd575191e: retired_out_of_scope by owner (2026-11-05T04:08:01+00:00)
+  [store] disposition consumed: 78d6c78b3865: fixed by owner (2026-11-05T04:08:01+00:00)
+  [store] disposition consumed: 0bb1b939ab67: fixed by owner (2026-11-05T04:08:01+00:00)
+  [store] disposition consumed: e9ef62daa1a0: fixed by owner (2026-11-05T04:08:02+00:00)
+  [store] disposition consumed: 764e1d15a218: fixed by owner (2026-11-05T04:08:02+00:00)
+codereview: chain of 2 record(s) NOT eligible

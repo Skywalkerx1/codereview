@@ -1,0 +1,193 @@
+{
+  "schema": "codereview.report/1",
+  "version": "0.11.1",
+  "mode": "review",
+  "created_at": "2026-11-05T03:41:05+00:00",
+  "patch_sha256": "8989a88e9c5a3d7704372f269e2dfcd8c0956046d384da593305a52657f9077d",
+  "patch_chars": 21825,
+  "files": [
+    "src/codereview/cli.py",
+    "src/codereview/core.py",
+    "src/codereview/disputes.py",
+    "tests/test_evidence.py",
+    "tests/test_process_tooling.py",
+    "tests/test_shadow_p2.py",
+    "tests/test_shadow_tl.py",
+    "tests/test_v090_fixes.py"
+  ],
+  "context": "",
+  "private": false,
+  "supported_platforms": {
+    "os": [
+      "posix"
+    ],
+    "python": ">=3.11"
+  },
+  "coverage": {
+    "batch_count": 1,
+    "truncated": false,
+    "complete": true,
+    "omissions": [],
+    "files": {
+      "src/codereview/cli.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "src/codereview/core.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "src/codereview/disputes.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "tests/test_evidence.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "tests/test_process_tooling.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "tests/test_shadow_p2.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "tests/test_shadow_tl.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "tests/test_v090_fixes.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      }
+    }
+  },
+  "test_results": [
+    {
+      "command": "PYTHONPATH=src python3 -m unittest discover -s tests",
+      "ok": true,
+      "exit_code": 0,
+      "output_tail": " Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview-closing/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview-closing/tests/../src/codereview/intake.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview-closing/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview-closing/tests/../src/codereview/policy.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview-closing/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview-closing/tests/../src/codereview/probe.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview-closing/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview-closing/tests/../src/codereview/providers.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview-closing/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview-closing/tests/../src/codereview/registry.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview-closing/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview-closing/tests/../src/codereview/sarif.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview-closing/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview-closing/tests/../src/codereview/setup_wizard.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview-closing/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview-closing/tests/../src/codereview/userconfig.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n........................................../home/hatch/workspace/codereview-closing/tests/test_v094_probes.py:127: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview-closing/tests/../src/codereview/cli.py' mode='r' encoding='utf-8'>\n  \"core.py\", \"cli.py\"), encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n...../home/hatch/workspace/codereview-closing/tests/test_v094_probes.py:91: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview-closing/tests/../src/codereview/providers.py' mode='r' encoding='utf-8'>\n  encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n.................................codereview: tier policy: seat 'stubfree' runs on a free-tier credential, which must not review private repositories\n......................................................\n----------------------------------------------------------------------\nRan 667 tests in 41.768s\n\nOK\n"
+    }
+  ],
+  "deterministic_findings": [],
+  "reviewer_reports": [
+    {
+      "provider": "openai",
+      "lens": "correctness",
+      "batch": 1,
+      "status": "ok",
+      "error": "",
+      "summary": "I did not find a supported, reachable correctness or security regression in this diff. The changes add guards and fail-safe handling, and the new tests cover the intended edge cases.",
+      "findings": [],
+      "attempts": 2,
+      "error_classes": [
+        "quota"
+      ],
+      "fallback_for": "gemini",
+      "primary_error": "gemini quota: HTTP 429",
+      "family": "openai",
+      "tier": "paid"
+    },
+    {
+      "provider": "nvidia",
+      "lens": "operations",
+      "batch": 1,
+      "status": "ok",
+      "error": "",
+      "summary": "All changes are correct and well-guarded under the Operations & Reliability lens; no defects found.",
+      "findings": [],
+      "attempts": 1,
+      "error_classes": [],
+      "family": "nvidia",
+      "tier": "free"
+    }
+  ],
+  "findings": [],
+  "degraded": false,
+  "truncated": false,
+  "degraded_causes": [],
+  "gate": "pass",
+  "gate_reasons": [
+    "correctness lens served by fallback seat 'openai' (primary 'gemini' failed: quota)"
+  ],
+  "open_disputes": {
+    "count": 0,
+    "ids": []
+  },
+  "range": "0a2c9f2..HEAD",
+  "head": "dee84d03e1ce6d209a48c03dccc8a0bafc4395af"
+}

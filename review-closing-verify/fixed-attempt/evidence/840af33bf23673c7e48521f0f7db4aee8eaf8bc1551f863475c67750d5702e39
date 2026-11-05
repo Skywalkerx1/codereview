@@ -1,0 +1,1 @@
+The new dispute probe reproduces duplicate inventory rows across records. probes/results/closing-disputes.txt says: "ids appearing more than once: 19" and "VERDICT: REPRODUCES — the same dispute id is counted once per record file".

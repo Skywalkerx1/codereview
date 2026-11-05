@@ -1,0 +1,1 @@
+The new probe explicitly demonstrates the defect remains on the doctor path: "doctor path: rc={rc}; fallbacks handed to run_doctor=... — 'dup' is BOTH a primary (providers_override) and the correctness fallback; no rejection" in probes/closingB_cli_core.py, and the recorded result says the same conflict is not rejected there.

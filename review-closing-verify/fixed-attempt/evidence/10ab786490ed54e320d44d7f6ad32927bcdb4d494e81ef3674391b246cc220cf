@@ -1,0 +1,1 @@
+commit 99fe588: span resolutions are cached and degenerate ranges fall back to the recorded head

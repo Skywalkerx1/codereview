@@ -1,0 +1,1 @@
+except RecursionError: # Pathologically nested source (cc0e75a507fd): the fail-safe answer is "no key" — the finding stays on the legacy path instead of crashing the run.

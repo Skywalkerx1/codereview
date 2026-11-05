@@ -1,0 +1,1 @@
+cli.py:2026-2029: guard checks if fb_name in providers and returns 2 with error message

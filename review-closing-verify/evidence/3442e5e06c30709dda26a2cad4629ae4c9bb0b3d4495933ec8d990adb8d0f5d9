@@ -1,0 +1,1 @@
+The new diff marks this artifact-only finding out of scope: {"date": "2026-11-05T04:08:02+00:00", "decider": "owner", "finding_id": "3208f6f6f185", "marker": "ratified", "type": "retired_out_of_scope"}. The original evidence was a benchmark-result JSON line with case_id "eval-user-input", not an eval/exec call in executable code.

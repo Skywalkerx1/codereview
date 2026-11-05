@@ -1,0 +1,1 @@
+This section adds a probe script and a disposition entry, but the src/codereview/core.py validation logic is not shown changed here.

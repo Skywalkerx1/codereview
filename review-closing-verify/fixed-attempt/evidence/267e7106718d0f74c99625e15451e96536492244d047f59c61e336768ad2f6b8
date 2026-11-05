@@ -1,0 +1,1 @@
+The finding claims new CLI commands lack test coverage, but the builder dispositioned it as downgraded in dispositions.jsonl (packet #47). The original evidence_quote references a sarif review-out command that is not a new command addition; the finding was a prior-art routing decision, not a code defect.

@@ -1,0 +1,10 @@
+    try:
+        record = evidence_mod.collect(config, args.repo)
+    except Exception as exc:  # noqa: BLE001
+        # A collect failure (e.g. a mistyped config value that
+        # passes validation and blows up inside a subprocess
+        # call) is a subcommand error — exit 2 with the reason,
+        # never a traceback (934fab88a12e).
+        print(f"codereview evidence: collection failed: {exc}",
+              file=sys.stderr)
+        return 2

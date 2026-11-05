@@ -1,0 +1,1 @@
+leaked = [k for k in ("OPENAI_API_KEY", "GEMINI_API_KEY", "CODEREVIEW_TEST_SECRET", "DUMP_PATH") if k in keys]

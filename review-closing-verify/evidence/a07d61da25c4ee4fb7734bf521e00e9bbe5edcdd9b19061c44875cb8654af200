@@ -1,0 +1,1 @@
+The only new evidence is a disposition entry: {"date": "2026-11-05T04:08:01+00:00", "decider": "owner", "finding_id": "19abd575191e", "marker": "ratified", "type": "retired_out_of_scope"}. The diff does not show the underlying code in probes/reachability_probe.py or a change removing/guarding the cited shell-exec path, so resolution cannot be confirmed from code or tests.

@@ -1,0 +1,1 @@
+The new diff only adds a disposition marking this finding as archived artifact text, not executable code: {"date": "2026-11-05T04:08:03+00:00", "decider": "owner", "finding_id": "f62ebf2dc0e3", "marker": "ratified", "type": "retired_out_of_scope"}. The original evidence was a prose sentence in CHANGELOG.md mentioning the word "eval/exec", not an actual eval/exec call.

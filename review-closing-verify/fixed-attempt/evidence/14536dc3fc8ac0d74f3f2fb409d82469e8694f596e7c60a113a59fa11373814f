@@ -1,0 +1,3 @@
+    stamp = name[len("codereview-"):]
+    return (len(stamp) >= 15 and stamp[8] == "-"
+            and stamp[:8].isdigit() and stamp[9:15].isdigit())

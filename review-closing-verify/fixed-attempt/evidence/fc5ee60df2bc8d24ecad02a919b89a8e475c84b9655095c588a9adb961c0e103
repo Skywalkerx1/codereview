@@ -1,0 +1,1 @@
+if hit.get("independence") != independence: hit["independence"] = independence if independence == "reduced" and major_plus and hit.get("decision") == "sustain_refutation" and hit.get("state") == "shadow_sustained_refutation": hit["state"] = "adjudication-pending-independence"

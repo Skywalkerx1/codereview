@@ -1,0 +1,1 @@
+The new dispute probe confirms the scan remains unbounded overall: probes/results/closing-disputes.txt says "the scan is O(records) subprocess calls with no caching of repeated range specs and no overall bound (e9ef62daa1a0's substance)."

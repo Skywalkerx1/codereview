@@ -1,0 +1,1 @@
+The new diff adds a try/except around evidence_mod.collect that catches all Exception types and returns exit code 2 with a user-facing message. If evidence_mod.collect raises a non-recoverable system error (e.g., MemoryError, KeyboardInterrupt subclass), it will be silently converted to exit 2, potentially hiding genuine failures.

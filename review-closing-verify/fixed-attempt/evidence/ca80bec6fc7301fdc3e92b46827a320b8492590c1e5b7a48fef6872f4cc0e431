@@ -1,0 +1,1 @@
+The new diff changes _load_record_arg to collect candidates without sorting by mtime, then prefers timestamped names, finally falls back to max mtime. Removing the sort means the initial candidate list order depends on os.listdir() which is arbitrary across runs and filesystems. If no file carries a timestamp tag, the selection becomes non-deterministic.

@@ -1,0 +1,1 @@
+json.dump({"commands": [{"name": "t", "command": "true", "timeout": "10"}]}, fh)

@@ -1,0 +1,1 @@
+- evidence: `"summary": "Standing repeat [11]: Deterministic 'test disabled' rule hits the POSIX platform-guard line (unittest.skipUnless(os.name == 'posix', ...)) — a platform guard with its reason in the line it`

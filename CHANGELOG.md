@@ -1,6 +1,30 @@
 # Changelog
 
-## Unreleased — process tooling (branch `process-tooling`)
+## 0.12.0 — 2026-11-04 — the finish release
+
+The clean-gate hold is LIFTED by the owner on an eligible Form B chain
+(complete-coverage round 1 over 3013656..2fbf94f + 2 verification
+rounds; record-verify --chain 12/12, exit 0). Suite 691.
+
+- Dispute machinery: computed inventory (codereview disputes),
+  append-only disposition store (116 owner-ratified entries),
+  authority-affecting tagger, quote-anchored locate, release-flow
+  freshness check in record-verify --chain.
+- Epic A benchmark + first quotable baseline: recall 1.000 (24/24),
+  escaped-defect rate 0.000 on the public split; deterministic layer
+  alone 0.458. Precision 0.209 and clean-control FP rate 0.60 are
+  stated caveats in bench/BASELINE-2026-11-04.md.
+- Epic B policy file, Epic C evidence runner, Epic D1 SARIF export.
+- Probe harness (sandboxed, rebut-only) + shadow Tech Lead (full
+  adjudication schema, A/B blinding, double-draw). Acceptance run
+  EXECUTED: unlock NOT earned (M1/M2/M3/M4/M6 fail; M5 pass) — the
+  Tech Lead remains shadow-only.
+- Verify mode repaired: archived-aware sectioned prompts and
+  batched (never truncated) prior findings.
+- Renderer gate line states the degraded cause; duplicate-seat
+  record fidelity; prompt-slice truncation markers inside the cap.
+
+### process tooling (branch `process-tooling`)
 
 Implements §5 of the adopted open-refutations solution
 (2026-11-04): the computed dispute inventory, the append-only
@@ -49,14 +73,14 @@ deterministic authority-affecting tagger, and quote anchoring.
   blob position(s) at the reviewed commit; legacy findings
   without a basis still locate by quote.
 
-## Unreleased — Epic B: project policy file
+### Epic B: project policy file
 Built on the `epic-b-policy` branch off v0.11.1; not yet merged or released. Implements Epic B of the adopted roadmap (`codereview-revised-plan-and-engineering-roadmap-2026-11-04.md` §11). The announcement hold is untouched.
 - **B1 — `.codereview.toml` schema (`src/codereview/policy.py`, new)**: the repository's own review contract, parsed with stdlib `tomllib` only — `[panel]` (min_seats, min_families, required_families, require_lenses), `[evidence]` (require_tests, require_tests_pass), repeatable `[[paths]]` rules (match, require_full_panel, require_tests, require_tests_pass, min_seats, min_families, enforce = block|advisory), and `[waivers]` (allow, require_reason, max_age_days). Every key is optional and the defaults are the documented no-requirement values, filled into an effective-policy dict that also records the file's path and sha256. Validation is strict (unknown tables/keys, wrong types — a TOML bool is not an int — negative counts, unknown lenses, a `[[paths]]` entry without `match`) and every error is line-referenced: TOML syntax errors carry tomllib's own line, semantic errors locate the offending key in its table. This is the PROJECT's policy, a different thing from the per-user setup config (`userconfig.py`), which only stores a person's provider specs.
 - **B2 — the gate reads policy**: `core.run_review(..., policy=..., waivers=...)` evaluates the loaded policy against the round's facts (changed files, reviewer reports, test results, recorded waivers) via the pure `policy.evaluate_policy` (path semantics are the engine's own `path_matches`, passed in — one implementation). The record gains a `policy` section listing every rule that applied (with satisfied/violated status) and every violation; violations join the gate reasons, and a blocking violation turns a PASS into BLOCKED (an INCONCLUSIVE round stays inconclusive, violations on the record). Advisory path-rule violations are recorded, never gate-changing. `render_markdown` shows the policy line and its violations. The CLI review command discovers `.codereview.toml` at the repo root or takes `--policy PATH`; an invalid file stops the run. Scope note: verification rounds (`--verify-previous`), `pr`, and `loop` do not take a policy yet.
 - **B3 — `codereview policy check`**: validates the discovered (or `--policy`-named) file and prints the effective policy with defaults filled in; with no file it prints the defaults and says so (a valid state, exit 0); an invalid file exits 2 with the line-referenced error.
 - Suite: 449 tests (49 new in `tests/test_policy.py`: loader validation + line references, per-rule evaluation incl. waiver ageing, gate integration with fake panels, and the CLI surface). Full suite green.
 
-## Unreleased — Epic C: evidence runner (branch `epic-c-evidence`)
+### Epic C: evidence runner (branch `epic-c-evidence`)
 
 The evidence runner (roadmap Epic C, Week 2): the deterministic counterpart to the reviewer panel. Reviewers judge a diff but cannot run anything; the evidence runner executes the project's own configured commands and security adapters against the change, stores a content-hashed record in the run JSON, and makes required evidence a first-class gate input. The announcement hold stays ON; nothing here is a closing attempt.
 

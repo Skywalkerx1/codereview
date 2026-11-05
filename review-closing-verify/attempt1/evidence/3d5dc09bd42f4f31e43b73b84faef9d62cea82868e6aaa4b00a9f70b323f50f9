@@ -1,0 +1,1 @@
+The new diff only adds a disposition entry retiring it: {"date": "2026-11-05T04:08:04+00:00", "decider": "owner", "finding_id": "e58a7a210be7", "marker": "ratified", "type": "retired_out_of_scope"}. No code or output change in probes/results/finding-public-4ce0212286e0.txt is shown here to prove the gate line now states the degradation cause.

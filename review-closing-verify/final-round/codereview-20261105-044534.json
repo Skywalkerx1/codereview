@@ -1,0 +1,74 @@
+{
+  "schema": "codereview.report/1",
+  "version": "0.11.1",
+  "mode": "verify",
+  "created_at": "2026-11-05T04:45:34+00:00",
+  "patch_sha256": "baf1395ab7dc02cdf9fdcf617bc584d42fc4c55ca81ef643611dd0b1ab94af0e",
+  "previous_gate": "blocked",
+  "private": false,
+  "test_results": [
+    {
+      "command": "python3 -m unittest discover -s tests",
+      "ok": true,
+      "exit_code": 0,
+      "output_tail": "space/codereview/tests/../src/codereview/github.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/intake.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/policy.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/probe.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/providers.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/registry.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/sarif.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/setup_wizard.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/userconfig.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n........................................../home/hatch/workspace/codereview/tests/test_v094_probes.py:127: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/cli.py' mode='r' encoding='utf-8'>\n  \"core.py\", \"cli.py\"), encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n...../home/hatch/workspace/codereview/tests/test_v094_probes.py:91: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/providers.py' mode='r' encoding='utf-8'>\n  encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n.................................codereview: tier policy: seat 'stubfree' runs on a free-tier credential, which must not review private repositories\n...............................................................\n----------------------------------------------------------------------\nRan 691 tests in 44.016s\n\nOK\n"
+    }
+  ],
+  "cleared": [],
+  "remaining": [],
+  "unjudged": [],
+  "reviewer_reports": [
+    {
+      "provider": "openai",
+      "status": "ok",
+      "error": "",
+      "resolutions": {},
+      "attempts": 2,
+      "error_classes": [
+        "quota"
+      ],
+      "jobs": [
+        {
+          "batch": 1,
+          "prior_part": 1,
+          "provider": "openai",
+          "status": "ok"
+        }
+      ],
+      "judged_finding_ids": [],
+      "fallback_for": "gemini",
+      "primary_error": "gemini quota: HTTP 429",
+      "family": "openai",
+      "tier": "paid"
+    },
+    {
+      "provider": "nvidia",
+      "status": "ok",
+      "error": "",
+      "resolutions": {},
+      "attempts": 1,
+      "error_classes": [],
+      "jobs": [
+        {
+          "batch": 1,
+          "prior_part": 1,
+          "provider": "nvidia",
+          "status": "ok"
+        }
+      ],
+      "judged_finding_ids": [],
+      "family": "nvidia",
+      "tier": "free"
+    }
+  ],
+  "findings": [],
+  "degraded": false,
+  "truncated": false,
+  "gate": "pass",
+  "gate_reasons": [
+    "all prior blockers cleared by 2 of 2 reviewers",
+    "verification served by fallback seat 'openai' (primary 'gemini' failed: quota)"
+  ],
+  "range": "61e137d..4f8166d",
+  "head": "4f8166de174fcc8374905f7dc59f1d1a04b60b69"
+}

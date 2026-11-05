@@ -1,0 +1,1 @@
+The diff adds only a disposition entry, {"commit": "dee84d0", "date": "2026-11-05T04:08:02+00:00", "decider": "owner", "finding_id": "764e1d15a218", "marker": "ratified", "type": "fixed"}, plus README prose. The actual change in src/codereview/cli.py is not present in the new diff, so the fallback/primary-seat guard cannot be confirmed from code.

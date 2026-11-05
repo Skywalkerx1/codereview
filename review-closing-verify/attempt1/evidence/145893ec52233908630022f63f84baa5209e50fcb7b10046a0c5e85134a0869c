@@ -1,0 +1,1 @@
+The new diff retires this as out of scope: {"date": "2026-11-05T04:08:03+00:00", "decider": "owner", "finding_id": "1608bc89b954", "marker": "ratified", "type": "retired_out_of_scope"}. The original evidence was benchmark metadata with case_id "auth-check-removed", not a SQL string built by concatenation in product code.

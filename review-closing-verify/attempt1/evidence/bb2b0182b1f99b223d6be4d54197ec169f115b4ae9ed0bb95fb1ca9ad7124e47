@@ -1,0 +1,1 @@
+"title": "DROP TABLE destroys the legacy users table in a migration",

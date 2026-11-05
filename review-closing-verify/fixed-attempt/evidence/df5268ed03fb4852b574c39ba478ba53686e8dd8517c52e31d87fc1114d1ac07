@@ -1,0 +1,1 @@
+src/codereview/acceptance.py now guards the division: "m3 = (sum(1 for c in scores.values() if c[\"correct\"]) / len(scores)) if scores else 0.0", and the added probe result confirms empty-corpus runs no longer crash: "A: NO CRASH" / "B: NO CRASH" with "M3 measured 0.0".

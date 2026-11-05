@@ -1,0 +1,4 @@
+codereview: gate = BLOCKED (20 blocking item(s) still open; new diff was truncated; verification served by fallback seat 'openai' (primary 'gemini' failed: quota); 195 new finding(s) classified archived-text (they cite committed review records or text preserved only inside them) — preserved in archived_text_findings, not blocking)
+  findings: 0 (0 blocking-severity)
+  report: review-closing-verify/codereview-20261105-041810.md
+  data:   review-closing-verify/codereview-20261105-041810.json

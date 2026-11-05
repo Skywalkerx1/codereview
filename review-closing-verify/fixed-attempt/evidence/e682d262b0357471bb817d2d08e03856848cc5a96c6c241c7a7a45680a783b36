@@ -1,0 +1,1 @@
+This diff section only adds a dispositions entry marking the finding as retired_out_of_scope; it does not show changes to probes/reachability_probe.py or other code proving the shell execution concern is resolved.

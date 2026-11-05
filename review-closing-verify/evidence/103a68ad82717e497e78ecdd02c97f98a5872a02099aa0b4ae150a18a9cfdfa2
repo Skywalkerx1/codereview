@@ -1,0 +1,1 @@
+The diff adds only a disposition entry, {"commit": "6fa83f6", "date": "2026-11-05T04:08:01+00:00", "decider": "owner", "finding_id": "78d6c78b3865", "marker": "ratified", "type": "fixed"}, and README prose claiming a fix. The actual source file src/codereview/bench.py is not in the provided diff, so the empty-denominator guard cannot be verified from code here.

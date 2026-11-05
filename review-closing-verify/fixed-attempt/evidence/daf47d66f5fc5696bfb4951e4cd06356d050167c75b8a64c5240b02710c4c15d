@@ -1,0 +1,1 @@
+OUT = os.path.join(HERE, "results", "closingB-bench.txt")

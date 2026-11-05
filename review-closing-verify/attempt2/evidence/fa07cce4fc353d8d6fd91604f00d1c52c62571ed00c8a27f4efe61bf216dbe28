@@ -1,0 +1,1 @@
+test_api_role_seat_cannot_shadow_an_agent_seat (tests.test_pt1_crosskind.CrossKindRoleCollisionTests.test_api_role_seat_cannot_shadow_an_agent_seat) ... FAIL

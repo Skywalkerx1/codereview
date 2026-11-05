@@ -1,0 +1,1 @@
+This diff section only adds a dispositions entry marking the finding as retired_out_of_scope; it does not show the JSONL content being changed to remove the SQL string-building evidence.

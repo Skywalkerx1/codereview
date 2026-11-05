@@ -1,0 +1,551 @@
+{
+  "schema": "codereview.report/1",
+  "version": "0.11.1",
+  "mode": "review",
+  "created_at": "2026-11-05T03:21:30+00:00",
+  "patch_sha256": "c0bcea521289b48d040448f655c1f554370b78435448da0a524f70ec16887419",
+  "patch_chars": 45031,
+  "files": [
+    "probes/results/shadow-acceptance-empty-633acb885291.txt",
+    "probes/results/shadow-probe-signature-833912a09fa3.txt",
+    "probes/results/shadow-test-runner-4cf81c69d7cf.txt",
+    "probes/shadow_acceptance_empty_probe.py",
+    "probes/shadow_probe_signature_probe.py",
+    "probes/shadow_test_runner_probe.py",
+    "src/codereview/acceptance.py",
+    "src/codereview/core.py",
+    "src/codereview/probe.py",
+    "tests/test_probe_harness.py",
+    "tests/test_shadow_acceptance.py",
+    "tests/test_shadow_tl.py"
+  ],
+  "context": "",
+  "private": false,
+  "supported_platforms": {
+    "os": [
+      "posix"
+    ],
+    "python": ">=3.11"
+  },
+  "coverage": {
+    "batch_count": 1,
+    "truncated": false,
+    "complete": true,
+    "omissions": [],
+    "files": {
+      "probes/results/shadow-acceptance-empty-633acb885291.txt": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "probes/results/shadow-probe-signature-833912a09fa3.txt": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "probes/results/shadow-test-runner-4cf81c69d7cf.txt": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "probes/shadow_acceptance_empty_probe.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "probes/shadow_probe_signature_probe.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "probes/shadow_test_runner_probe.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "src/codereview/acceptance.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "src/codereview/core.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "src/codereview/probe.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "tests/test_probe_harness.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "tests/test_shadow_acceptance.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "tests/test_shadow_tl.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      }
+    }
+  },
+  "test_results": [],
+  "deterministic_findings": [],
+  "reviewer_reports": [
+    {
+      "provider": "openai",
+      "lens": "correctness",
+      "batch": 1,
+      "status": "ok",
+      "error": "",
+      "summary": "The probe runner change broadens kind-'test' execution from a single target file to full unittest discovery under its directory, which can produce incorrect verdicts for the requested target. I also found a new false-positive wiring error path in shadow probe invocation caused by catching all TypeError exceptions from the probe implementation.",
+      "findings": [
+        {
+          "id": "b9e2819976fe",
+          "rule": "",
+          "severity": "major",
+          "category": "correctness",
+          "file": "src/codereview/probe.py",
+          "line": 194,
+          "title": "kind-'test' now runs every matching test in the directory, not just the requested target",
+          "evidence": "The new unittest invocation discovers tests from the target directory using the target basename as a pattern, so a request for one file can execute additional matching files and fail or pass based on unrelated tests in that directory.",
+          "evidence_quote": "                    \"discover\", \"-s\", start,",
+          "recommendation": "Limit execution to the requested test module or file instead of directory-wide discovery. For unittest, derive the module path for the exact target and invoke it directly, or otherwise constrain discovery so unrelated files cannot affect the verdict.",
+          "confidence": 0.95,
+          "sources": [
+            "openai"
+          ],
+          "consensus": false,
+          "grounding": "grounded",
+          "evidence_ref": {
+            "sha256": "d1f886f45d558218deec528985a3dddbb393ff9f0ab58a582af0072c102c8e16",
+            "length": 234,
+            "truncated": false
+          },
+          "evidence_quote_ref": {
+            "sha256": "b781eda9560e86d903303aac2970def74380f4aaf3cb0812f20a1d19f353a295",
+            "length": 44,
+            "truncated": false
+          }
+        },
+        {
+          "id": "21bb4af17e22",
+          "rule": "",
+          "severity": "major",
+          "category": "reliability",
+          "file": "src/codereview/core.py",
+          "line": 1396,
+          "title": "Catching all TypeError misclassifies probe implementation failures as wiring errors",
+          "evidence": "The new handler treats any TypeError raised while calling the probe function as a contract mismatch, but that except block also catches TypeError thrown inside a correctly wired probe implementation after it starts executing.",
+          "evidence_quote": "            except TypeError as exc:",
+          "recommendation": "Only classify argument-binding failures as wiring errors, for example by validating the callable signature before invocation or by inspecting the exception context and traceback to ensure the TypeError originated at the call boundary. Let internal probe TypeError exceptions fall through to the generic probe failure path.",
+          "confidence": 0.89,
+          "sources": [
+            "openai"
+          ],
+          "consensus": false,
+          "grounding": "grounded",
+          "evidence_ref": {
+            "sha256": "8b26bbd84b4eae147e161f07b39fc643616da40b508995b93721d140f5c6f0b2",
+            "length": 225,
+            "truncated": false
+          },
+          "evidence_quote_ref": {
+            "sha256": "ba4ad7da79d392f4ddc533efbfa094f5683c47a45a8657d8393773b1a4811ba3",
+            "length": 36,
+            "truncated": false
+          }
+        }
+      ],
+      "attempts": 2,
+      "error_classes": [
+        "quota"
+      ],
+      "fallback_for": "gemini",
+      "primary_error": "gemini quota: HTTP 429",
+      "family": "openai",
+      "tier": "paid"
+    },
+    {
+      "provider": "nvidia",
+      "lens": "operations",
+      "batch": 1,
+      "status": "ok",
+      "error": "",
+      "summary": "All changes are sound under the operations & reliability lens; no blocker or major findings are present. The diff fixes three documented refutations (empty-corpus ZeroDivisionError, probe signature wiring error, test-runner guard dependency) with proper guards, error handling, and tests. Minor: one test assertion uses a non-standard assertion style but passes under the project's adopted policy.",
+      "findings": [
+        {
+          "id": "b23274a96efb",
+          "rule": "",
+          "severity": "minor",
+          "category": "testing",
+          "file": "tests/test_shadow_tl.py",
+          "line": 153,
+          "title": "Non-standard assertion style in test_miswired_probe_fn_is_not_probe_evidence",
+          "evidence": "self.assertFalse(pr[\"can_rebut\"])",
+          "evidence_quote": "self.assertFalse(pr[\"can_rebut\"])",
+          "recommendation": "Use self.assertFalse(pr[\"can_rebut\"]) is acceptable under the project's adopted policy; no code change needed as the assertion is functionally correct and the policy explicitly permits it.",
+          "confidence": 0.9,
+          "sources": [
+            "nvidia"
+          ],
+          "consensus": false,
+          "grounding": "grounded",
+          "evidence_ref": {
+            "sha256": "49b37e0dea058bb62933a2d6df0eea215ef87013e674f92388bd69db325300b1",
+            "length": 33,
+            "truncated": false
+          },
+          "evidence_quote_ref": {
+            "sha256": "49b37e0dea058bb62933a2d6df0eea215ef87013e674f92388bd69db325300b1",
+            "length": 33,
+            "truncated": false
+          }
+        }
+      ],
+      "attempts": 1,
+      "error_classes": [],
+      "family": "nvidia",
+      "tier": "free"
+    }
+  ],
+  "findings": [
+    {
+      "id": "b23274a96efb",
+      "rule": "",
+      "severity": "minor",
+      "category": "testing",
+      "file": "tests/test_shadow_tl.py",
+      "line": 153,
+      "title": "Non-standard assertion style in test_miswired_probe_fn_is_not_probe_evidence",
+      "evidence": "self.assertFalse(pr[\"can_rebut\"])",
+      "evidence_quote": "self.assertFalse(pr[\"can_rebut\"])",
+      "recommendation": "Use self.assertFalse(pr[\"can_rebut\"]) is acceptable under the project's adopted policy; no code change needed as the assertion is functionally correct and the policy explicitly permits it.",
+      "confidence": 0.9,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false,
+      "grounding": "grounded",
+      "evidence_ref": {
+        "sha256": "49b37e0dea058bb62933a2d6df0eea215ef87013e674f92388bd69db325300b1",
+        "length": 33,
+        "truncated": false
+      },
+      "evidence_quote_ref": {
+        "sha256": "49b37e0dea058bb62933a2d6df0eea215ef87013e674f92388bd69db325300b1",
+        "length": 33,
+        "truncated": false
+      }
+    }
+  ],
+  "degraded": false,
+  "truncated": false,
+  "degraded_causes": [],
+  "gate": "inconclusive",
+  "gate_reasons": [
+    "human decision required: disputed, refutation-weak, escalated or ungrounded finding(s) are recorded in the record",
+    "correctness lens served by fallback seat 'openai' (primary 'gemini' failed: quota)",
+    "2 refutation-weak finding(s): the refuting quote repeats the line the finding cites and carries no counter-evidence from another line — a routing state under the dispute ladder (§5a.1), preserved in refutation_weak_findings; no independent Tech Lead served to adjudicate, so the human gate decides"
+  ],
+  "refutation_weak_findings": [
+    {
+      "id": "21bb4af17e22",
+      "rule": "",
+      "severity": "major",
+      "category": "reliability",
+      "file": "src/codereview/core.py",
+      "line": 1396,
+      "title": "Catching all TypeError misclassifies probe implementation failures as wiring errors",
+      "evidence": "The new handler treats any TypeError raised while calling the probe function as a contract mismatch, but that except block also catches TypeError thrown inside a correctly wired probe implementation after it starts executing.",
+      "evidence_quote": "            except TypeError as exc:",
+      "recommendation": "Only classify argument-binding failures as wiring errors, for example by validating the callable signature before invocation or by inspecting the exception context and traceback to ensure the TypeError originated at the call boundary. Let internal probe TypeError exceptions fall through to the generic probe failure path.",
+      "confidence": 0.89,
+      "sources": [
+        "openai"
+      ],
+      "consensus": false,
+      "grounding": "grounded",
+      "dispute": {
+        "by": "nvidia",
+        "family": "nvidia",
+        "raiser_family": "openai",
+        "evidence_quote": "            except TypeError as exc:",
+        "reason": "The code explicitly catches TypeError at the call boundary to classify it as a wiring error, which directly matches the finding's description. The handler is designed to distinguish this specific TypeError from internal probe exceptions, confirming the defect's premise rather than refuting it.",
+        "adequacy": "weak",
+        "reason_check": {
+          "status": "unverified",
+          "cited": [],
+          "found": [],
+          "missing": []
+        },
+        "reason_corrected": null,
+        "basis_evidence": [
+          {
+            "file": "src/codereview/core.py",
+            "line": 1396,
+            "quote": "            except TypeError as exc:"
+          }
+        ],
+        "trace_gate_shadow": {
+          "applies": false,
+          "about_callee": [],
+          "callee_body_quoted": false,
+          "failure_witness": false,
+          "would_downgrade": false
+        },
+        "evidence_quote_ref": {
+          "sha256": "ba4ad7da79d392f4ddc533efbfa094f5683c47a45a8657d8393773b1a4811ba3",
+          "length": 36,
+          "truncated": false
+        },
+        "reason_ref": {
+          "sha256": "788a4b480e93435ff084bac729b73056b3f838b30b46b8b653a1731574cf678a",
+          "length": 294,
+          "truncated": false
+        }
+      },
+      "tech_lead": {
+        "status": "unavailable",
+        "reason": "no seat from a family independent of both the raiser and the refuter served on this panel"
+      },
+      "cross_family": "refuted_weak",
+      "status": "refutation_weak",
+      "evidence_ref": {
+        "sha256": "8b26bbd84b4eae147e161f07b39fc643616da40b508995b93721d140f5c6f0b2",
+        "length": 225,
+        "truncated": false
+      },
+      "evidence_quote_ref": {
+        "sha256": "ba4ad7da79d392f4ddc533efbfa094f5683c47a45a8657d8393773b1a4811ba3",
+        "length": 36,
+        "truncated": false
+      },
+      "evidence_complete": true
+    },
+    {
+      "id": "b9e2819976fe",
+      "rule": "",
+      "severity": "major",
+      "category": "correctness",
+      "file": "src/codereview/probe.py",
+      "line": 194,
+      "title": "kind-'test' now runs every matching test in the directory, not just the requested target",
+      "evidence": "The new unittest invocation discovers tests from the target directory using the target basename as a pattern, so a request for one file can execute additional matching files and fail or pass based on unrelated tests in that directory.",
+      "evidence_quote": "                    \"discover\", \"-s\", start,",
+      "recommendation": "Limit execution to the requested test module or file instead of directory-wide discovery. For unittest, derive the module path for the exact target and invoke it directly, or otherwise constrain discovery so unrelated files cannot affect the verdict.",
+      "confidence": 0.95,
+      "sources": [
+        "openai"
+      ],
+      "consensus": false,
+      "grounding": "grounded",
+      "dispute": {
+        "by": "nvidia",
+        "family": "nvidia",
+        "raiser_family": "openai",
+        "evidence_quote": "                    \"discover\", \"-s\", start,",
+        "reason": "The quoted line shows the unittest discover flag uses the directory path (start), not the target basename as a pattern to execute unrelated files. The discovery is rooted at the target's directory, which limits scope to that directory, not all matching files across the codebase.",
+        "adequacy": "weak",
+        "reason_check": {
+          "status": "unverified",
+          "cited": [],
+          "found": [],
+          "missing": []
+        },
+        "reason_corrected": null,
+        "basis_evidence": [
+          {
+            "file": "src/codereview/probe.py",
+            "line": 194,
+            "quote": "                    \"discover\", \"-s\", start,"
+          }
+        ],
+        "trace_gate_shadow": {
+          "applies": false,
+          "about_callee": [],
+          "callee_body_quoted": false,
+          "failure_witness": false,
+          "would_downgrade": false
+        },
+        "evidence_quote_ref": {
+          "sha256": "b781eda9560e86d903303aac2970def74380f4aaf3cb0812f20a1d19f353a295",
+          "length": 44,
+          "truncated": false
+        },
+        "reason_ref": {
+          "sha256": "353f88db25aecc120f44a8ea7bc6fdc26ace5d36f1cfc4cf4d47c93026894ca9",
+          "length": 279,
+          "truncated": false
+        }
+      },
+      "tech_lead": {
+        "status": "unavailable",
+        "reason": "no seat from a family independent of both the raiser and the refuter served on this panel"
+      },
+      "cross_family": "refuted_weak",
+      "status": "refutation_weak",
+      "evidence_ref": {
+        "sha256": "d1f886f45d558218deec528985a3dddbb393ff9f0ab58a582af0072c102c8e16",
+        "length": 234,
+        "truncated": false
+      },
+      "evidence_quote_ref": {
+        "sha256": "b781eda9560e86d903303aac2970def74380f4aaf3cb0812f20a1d19f353a295",
+        "length": 44,
+        "truncated": false
+      },
+      "evidence_complete": true
+    }
+  ],
+  "open_disputes": {
+    "count": 2,
+    "ids": [
+      "21bb4af17e22",
+      "b9e2819976fe"
+    ]
+  },
+  "shadow_reason_checks": [
+    {
+      "finding_id": "21bb4af17e22",
+      "status": "unverified",
+      "cited": [],
+      "found": [],
+      "missing": []
+    },
+    {
+      "finding_id": "b9e2819976fe",
+      "status": "unverified",
+      "cited": [],
+      "found": [],
+      "missing": []
+    }
+  ],
+  "shadow_trace_gate": [
+    {
+      "finding_id": "21bb4af17e22",
+      "applies": false,
+      "about_callee": [],
+      "callee_body_quoted": false,
+      "failure_witness": false,
+      "would_downgrade": false
+    },
+    {
+      "finding_id": "b9e2819976fe",
+      "applies": false,
+      "about_callee": [],
+      "callee_body_quoted": false,
+      "failure_witness": false,
+      "would_downgrade": false
+    }
+  ],
+  "range": "2fbf94f..HEAD",
+  "head": "bd371a9ad2831e5475ab620885b4336dec6d98c6",
+  "evidence_sidecars": {
+    "dir": "evidence",
+    "files": 7,
+    "refs": 16
+  }
+}

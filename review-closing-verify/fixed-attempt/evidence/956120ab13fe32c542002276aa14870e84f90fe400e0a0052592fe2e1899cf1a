@@ -1,0 +1,1 @@
+The added coverage probe reports missing functional CLI tests rather than adding them. In probes/closingB_cli_coverage.py it searches tests for CLI-entry exercises, but this diff adds no tests under tests/. The probe text itself states some commands have only engine-level coverage, not CLI coverage.

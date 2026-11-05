@@ -1,0 +1,1 @@
+The new diff only adds a disposition entry: {"date": "2026-11-05T04:08:01+00:00", "decider": "owner", "finding_id": "19abd575191e", "marker": "ratified", "type": "retired_out_of_scope"}. There is no code hunk for probes/reachability_probe.py in the provided diff showing the shell-exec concern was removed or guarded.

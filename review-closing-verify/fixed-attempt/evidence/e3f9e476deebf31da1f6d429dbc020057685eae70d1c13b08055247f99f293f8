@@ -1,0 +1,1 @@
+for key in ("commands", "adapters"): for item in config.get(key) or []: _checked_timeout(item.get("timeout"), f"a {key} entry's 'timeout'")

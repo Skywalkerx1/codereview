@@ -1,0 +1,1 @@
+for path in iter_record_files(root):

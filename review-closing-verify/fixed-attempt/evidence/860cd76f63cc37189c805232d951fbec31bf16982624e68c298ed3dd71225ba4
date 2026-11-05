@@ -1,0 +1,1 @@
+cfg0 = {"commands": [{"name": "two-sec", "command": "sleep 2", "timeout": 0}]}

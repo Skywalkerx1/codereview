@@ -1,0 +1,1 @@
+stamped = [p for p in candidates if _timestamped_record_name(os.path.basename(p))]; if stamped: jpath = max(stamped) else: jpath = max(candidates, key=os.path.getmtime)

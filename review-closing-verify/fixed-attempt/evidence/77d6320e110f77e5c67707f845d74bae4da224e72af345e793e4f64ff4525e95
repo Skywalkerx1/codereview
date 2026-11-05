@@ -1,0 +1,1 @@
+This section adds a probe asserting serving_name behavior, but no code change or direct code context from src/codereview/core.py is shown here to prove or disprove the original finding.

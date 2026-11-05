@@ -1,0 +1,1 @@
+print(json.dumps({"ok": False, "seats": [], "error": f"fallback seat {fb_name!r} is already a primary seat"})) return 2

@@ -1,0 +1,1 @@
+The quoted line shows the unittest discover flag uses the directory path (start), not the target basename as a pattern to execute unrelated files. The discovery is rooted at the target's directory, which limits scope to that directory, not all matching files across the codebase.

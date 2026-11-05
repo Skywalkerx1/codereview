@@ -1,0 +1,1 @@
+signature: check_freshness(repo, root, span, entries=(), inventory_ids=())
