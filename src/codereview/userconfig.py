@@ -77,8 +77,33 @@ def load_user_config(environ=None):
             f"{type(raw_roles).__name__}")
     providers = [str(p) for p in raw_providers]
     roles = {str(k): str(v) for k, v in raw_roles.items()}
+    # Epic K3a: the optional [hosting] table — today one key,
+    # `herdr`, a list of SEAT NAMES whose agent seats run
+    # inside herdr panes when herdr is present (see
+    # herdrhost.py). It is a hosting hint in the saved config
+    # only: never part of the agent: spec grammar, so records
+    # written before hosting existed stay valid. Type-
+    # validated like the rest — a malformed table is a loud
+    # ValueError, never a silently ignored hint.
+    raw_hosting = data.get("hosting")
+    if raw_hosting is None:
+        raw_hosting = {}
+    if not isinstance(raw_hosting, dict):
+        raise ValueError(
+            f"user config {path}: 'hosting' must be a table "
+            f"of hosting hints, got "
+            f"{type(raw_hosting).__name__}")
+    raw_herdr = raw_hosting.get("herdr")
+    if raw_herdr is None:
+        raw_herdr = []
+    if not isinstance(raw_herdr, list):
+        raise ValueError(
+            f"user config {path}: 'hosting.herdr' must be a "
+            f"list of seat names, got "
+            f"{type(raw_herdr).__name__}")
+    hosting = {"herdr": [str(s) for s in raw_herdr]}
     return {"providers": providers, "roles": roles,
-            "path": path}
+            "hosting": hosting, "path": path}
 
 
 def _toml_str(value):
@@ -87,9 +112,13 @@ def _toml_str(value):
     return json.dumps(str(value), ensure_ascii=False)
 
 
-def save_user_config(providers, roles, environ=None):
+def save_user_config(providers, roles, environ=None,
+                     hosting=None):
     """Write the setup file (specs only — never a key value) and
-    return its path."""
+    return its path. `hosting` ({"herdr": [seat names]}) adds
+    the [hosting] table; the default None writes exactly the
+    bytes earlier versions wrote, so an unchanged setup stays
+    byte-identical."""
     path = config_path(environ)
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     lines = [
@@ -103,6 +132,18 @@ def save_user_config(providers, roles, environ=None):
     ]
     for role in sorted(roles):
         lines.append(f"{role} = {_toml_str(roles[role])}")
+    herdr_seats = list((hosting or {}).get("herdr") or [])
+    if herdr_seats:
+        lines += [
+            "",
+            "[hosting]",
+            "# Agent seats listed here run inside herdr panes "
+            "when herdr",
+            "# is present (Epic K3a); without herdr they run "
+            "headless.",
+            "herdr = [" + ", ".join(
+                _toml_str(s) for s in herdr_seats) + "]",
+        ]
     with open(path, "w", encoding="utf-8") as fh:
         fh.write("\n".join(lines) + "\n")
     return path
@@ -135,6 +176,15 @@ def default_role_assignments(environ=None):
     these per role at the CLI seam."""
     cfg = load_user_config(environ)
     return dict(cfg["roles"]) if cfg else {}
+
+
+def default_hosting_herdr_seats(environ=None):
+    """Seat names the saved setup marks for herdr pane hosting
+    (Epic K3a; [] when no setup or no [hosting] table)."""
+    cfg = load_user_config(environ)
+    if not cfg:
+        return []
+    return list((cfg.get("hosting") or {}).get("herdr") or [])
 
 
 NOT_SET_UP = (
