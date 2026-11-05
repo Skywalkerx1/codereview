@@ -1,0 +1,1 @@
+{"adapters":[{"name":"gitleaks","required":true},{"allow_network":true,"name":"semgrep","required":false},{"name":"dependency-audit","required":false}],"allow_network":false,"commands":[{"command":"python -m pytest -q","name":"tests","required":true,"timeout":900},{"command":"python -m py_compile src/*.py","name":"lint","required":false}],"require":["gitleaks"],"timeout":600}

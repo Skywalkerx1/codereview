@@ -190,6 +190,29 @@ The contract is the one the builder already uses: the prompt (diff + instruction
 
 **The agent-seat boundary, plainly.** CodeReview runs each agent in a fresh scratch directory containing only the prompt file, with an allow-listed environment: your provider API keys are **not** passed to agent processes (only PATH/HOME/locale/proxy basics, plus any names you opt in via `CODEREVIEW_AGENT_ENV`). The seat's process group is killed when the call ends — timeout or not — and on POSIX its file writes are capped at 8 MB per file (on Windows only the direct child is killed). A seat that doesn't need login state in HOME can shed that exposure too: `agent:claude[home=private]:...` points HOME at the scratch directory. What CodeReview cannot do is govern the agent itself: a seated agent runs with **its own permissions**, and the redaction guarantee covers the prompt CodeReview sends — not files the agent chooses to read on its own. Seat only agents you would trust at your keyboard, keep their tools restricted (the example wrapper runs Claude Code with `--tools ""` — the brief is self-contained, so a reviewer seat needs no tools at all), and remember that the diff under review is untrusted input to a tool-enabled process.
 
+## Evidence runner — tests and scanners, executed and hashed
+
+Reviewers judge a diff; they cannot run anything. The evidence runner is the deterministic counterpart: it executes your configured commands (tests, lint, SAST) and security adapters against the change and stores a hashed evidence record in the run JSON.
+
+```bash
+# Attach evidence to a review:
+codereview --repo . --range main...HEAD --provider gemini \
+    --provider nvidia --evidence-config evidence.json
+
+# Or run evidence standalone:
+codereview evidence --repo . --config evidence.json
+# Verify the commands a builder's report claims were run:
+codereview evidence --repo . --claims builder-report.md
+```
+
+The config (see `examples/evidence.json`) lists `commands` (run in order; required unless marked optional), `adapters` (`gitleaks`, `semgrep`, `dependency-audit` — each skipped cleanly as `unavailable` when its tool is not installed, never a crash), and a `require` list of names policy demands be present — a required name with no configured item is recorded as `missing`. The shape deliberately matches the policy file's `[evidence]` table, so a TOML policy's evidence section drops in unchanged.
+
+**Gate rule.** Required evidence that fails, times out, errors, or is missing **blocks** the gate. Required evidence that is merely *unavailable* (tool not installed) makes the run **inconclusive** — the machine could not produce the evidence, which is not the builder's failure. Optional evidence is recorded and never moves the gate.
+
+**Builder-claim verification.** Reports routinely say "ran the tests — passed". The claims mode extracts the claimed commands a work report actually commits to (a backtick-quoted command with an outcome on the same line, or a `Tests:`/`Ran:`/`Command:` line with its outcome in the tail), re-runs each one in the sandbox, and compares: a claim the re-run contradicts is recorded as **downgraded**, with both the claimed and actual outcomes. Commands mentioned without a claimed outcome are not claims and are ignored, never guessed at.
+
+**Sandbox (the threat model in one paragraph).** Evidence commands execute code from the tree under review — untrusted code — so they run confined: in a throwaway copy of the tree (`.git` excluded, deleted afterwards, so a hostile command cannot rewrite the checkout you are about to merge), with an allow-listed environment — your provider API keys, tokens, and SSH agent **never** reach an evidence process, and HOME/TMPDIR point inside the sandbox so credential files are unreachable through them; with no network by default (proxy variables stripped, and a Linux network namespace where `unshare` is available — the record states which isolation actually applied, and an item must opt in with `"allow_network": true` to run unrestricted); and under resource limits (wall-clock timeout enforced by killing the process group, CPU and per-file-size rlimits). Every item's record carries its exit code, duration, and the sha256 of its full output; only a redacted tail is stored, so a scanner that prints the secret it found cannot smuggle it into the record. Commands and adapter choices come from you (the config you point the CLI at), never from the diff.
+
 ## Release records — preflight, fallbacks, verification
 
 A gate verdict you intend to *publish* (a release record) has to survive its own panel being flaky. Three mechanisms keep that honest:
