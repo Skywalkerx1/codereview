@@ -1728,22 +1728,28 @@ def function_key(source, line):
     move the key, so a ruling survives unrelated changes."""
     if not source or not line:
         return None
-    defs = _scan_functions(source)
-    if defs is None:
+    try:
+        defs = _scan_functions(source)
+        if defs is None:
+            return None
+        target = None
+        for node, qual, _scope, _cls in defs:
+            end = node.end_lineno or node.lineno
+            if node.lineno <= line <= end:
+                if target is None or (
+                        end - node.lineno
+                        < (target[0].end_lineno or target[0].lineno)
+                        - target[0].lineno):
+                    target = (node, qual)
+        if target is None:
+            return None
+        node, qual = target
+        return _key_for_node(node, qual, defs)
+    except RecursionError:
+        # Pathologically nested source (cc0e75a507fd): the
+        # fail-safe answer is "no key" — the finding stays on
+        # the legacy path instead of crashing the run.
         return None
-    target = None
-    for node, qual, _scope, _cls in defs:
-        end = node.end_lineno or node.lineno
-        if node.lineno <= line <= end:
-            if target is None or (
-                    end - node.lineno
-                    < (target[0].end_lineno or target[0].lineno)
-                    - target[0].lineno):
-                target = (node, qual)
-    if target is None:
-        return None
-    node, qual = target
-    return _key_for_node(node, qual, defs)
 
 
 def function_key_by_name(source, qual):
@@ -1755,16 +1761,21 @@ def function_key_by_name(source, qual):
     "unparseable". Duplicate qualified names (conditional
     definitions, redefinitions) are ambiguous, which callers
     treat as a miss — fail-safe, never a guess."""
-    defs = _scan_functions(source) if source else None
-    if defs is None:
+    try:
+        defs = _scan_functions(source) if source else None
+        if defs is None:
+            return None, "unparseable"
+        matches = [(n, q) for n, q, _s, _c in defs if q == qual]
+        if not matches:
+            return None, "absent"
+        if len(matches) > 1:
+            return None, "ambiguous"
+        node, q = matches[0]
+        return _key_for_node(node, q, defs), "ok"
+    except RecursionError:
+        # See function_key (cc0e75a507fd): unresolvable, a
+        # miss — never a crash.
         return None, "unparseable"
-    matches = [(n, q) for n, q, _s, _c in defs if q == qual]
-    if not matches:
-        return None, "absent"
-    if len(matches) > 1:
-        return None, "ambiguous"
-    node, q = matches[0]
-    return _key_for_node(node, q, defs), "ok"
 
 
 def attach_function_keys(findings, source_lookup):

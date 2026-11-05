@@ -323,5 +323,24 @@ class BoundaryAssertionTests(unittest.TestCase):
                       disputed[0]["tech_lead"])
 
 
+class DeepNestingKeyTests(unittest.TestCase):
+    def test_deeply_nested_source_is_unkeyable_not_fatal(self):
+        # cc0e75a507fd: pathologically nested source must fail
+        # safe (no key, legacy path) — never raise out of the
+        # keying path and crash a run.
+        # A flat operator chain parses to a left-deep AST —
+        # the shape the closing-A probe blew the recursion
+        # limit with (parenthesised nesting does not).
+        src = "def f():\n    return 1" + "+1" * 5000 + "\n"
+        self.assertIsNone(core.function_key(src, 2))
+        key, status = core.function_key_by_name(src, "f")
+        self.assertIsNone(key)
+        self.assertEqual(status, "unparseable")
+        findings = [{"id": "z1", "file": "a.py", "line": 2}]
+        self.assertEqual(
+            core.attach_function_keys(findings, lambda p: src), 0)
+        self.assertNotIn("function_key", findings[0])
+
+
 if __name__ == "__main__":
     unittest.main()
