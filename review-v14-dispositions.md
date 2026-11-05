@@ -98,3 +98,82 @@ in `gate-attempts.md`. Full suite: **216/216**. No version
 bump in this round: the fixes ride the Phase 2 release
 (v0.9.3). No closing attempt was run (out of scope); the
 announcement hold remains on.
+
+
+## Re-adjudication against master `c4135fe` — 2026-11-05
+
+Ordered by the owner 2026-11-05. The codebase moved enormously
+since the Phase 1 dispositions (v0.9.4 → 0.12.1, then Epics K, L,
+E, C4, C5 merged the same day), so every disposition was
+re-verified against today's code rather than assumed. Method,
+per the adopted precedent design: (1) precedent first — a
+finding whose cited file blob is unchanged since disposition
+(commit `5119998`) stands by precedent; (2) where the cited code
+changed, the rebuttal's executable evidence (its
+characterization/regression tests) was re-run on master, and
+the two fixed defects were additionally re-probed against
+their original failure modes. All work was read-only against
+master; no code was changed by this round, and no bench set
+was run or touched (a registered confirmation run was in
+flight throughout).
+
+**Documentation defect found in this file itself:** the
+committed Phase 1 text (commit `5119998`, verified byte-level)
+contains a literal `...[truncated 2652 chars]` line where the
+tail of finding [14]'s disposition and the rows for [15] and
+[16] should be — those rows were lost when the Phase 1 text
+was written, not by any later edit. The [15]/[16] dispositions
+below are reconstructed from the v14 record
+(`review-v14/codereview-20261104-185814.json`) and from
+`precedents.json`, which carries entries for both IDs
+(upserted when the precedent mechanism was built in v0.9.3),
+confirming their Phase 1 outcome as standing repeats. [14]'s
+substance is recovered from the successor issue report's
+Phase 1 addendum ("[14] by-design with the intent comment
+added") and verified against the code below.
+
+| # | ID | Phase 1 disposition | Verdict 2026-11-05 | Evidence |
+|---|----|-----|-----|-----|
+| [0] | `2f3451985487` | Rebutted | **REBUTTAL-HOLDS** | `load_corpus('bench/corpus')` loads all 36 cases (27 public + 9 holdout, unique ids); manifest lists 36 unique ids; every manifest id has `case.json` + `diff.patch` on disk (missing: none). The "holdout ids without artifacts" claim is as false today as at disposition. |
+| [1] | `00569cee995d` | Rebutted | **REBUTTAL-HOLDS** | `bench/README.md:25` still states "36 cases: 29 defect cases carrying 31 ground-truth defects, and 7 clean control diffs" — consistent with the corpus verified under [0]. The manifest references 36 ids, not 45. |
+| [2] | `e5826ae0d0cb` | Fixed (real, provider-failure leg) | **FIX-INTACT** | The degraded-swap refusal is live in `bench.py`'s `--force` path ("bench --force: N of M cases came back degraded…" → `ValueError`, temp removed, previous results byte-intact). `BenchForceDegradedTests` (refusal + healthy-swap control) green; the v0.9.1 crash-safety force test (`test_v091_fixes.py`) green in the full suite. |
+| [3] | `e1185c123236` | Rebutted (by design) | **REBUTTAL-HOLDS** | `BenchOverrideSharingTests` green on current code: two configs sharing one provider map under `providers_override`, map unmutated; the public CLI still builds a per-config map. |
+| [4] | `56c0cf6a0001` | Rebutted | **REBUTTAL-HOLDS** | `FallbackReportStatusTests` green: fallback-served reports carry the fallback provider, `status` ok, `error` empty, `fallback_for`/`primary_error` recorded. |
+| [5] | `cbca94f88319` | Rebutted | **REBUTTAL-HOLDS** | `FixturePartitionTests` green: fixture/product classification remains a partition of the merged findings (total preserved, classified findings stay in the record). |
+| [6] | `4a19a7e9d34b` | Rebutted (+ guard test added) | **REBUTTAL-HOLDS** | `SubprocessTimeoutGuardTests` green — and stronger than at disposition: the AST guard walks the whole of today's much larger `src/`; every `subprocess.run/call/check_*` carries a `timeout=` and every `Popen` path uses `communicate(timeout=...)`. |
+| [7] | `e5fedb444f81` | Rebutted | **REBUTTAL-HOLDS** | `RetryPairBudgetTests` green: an always-failing rate-limit pair still spends 3 + 3 = 6 = `_MAX_JOB_ATTEMPTS`; quota/auth/unknown cap at 1 via `_classify_error`'s `max_tries`. |
+| [8] | `dbc3d5d3b94e` | Rebutted | **REBUTTAL-HOLDS** | `VerificationLensSourceTests` green: a lens-named source still fails safe to INCONCLUSIVE (nothing clears without its raising seat); a provider-named source clears. |
+| [9] | `af7e8152da5d` | Fixed (real, digit-substring conflation) | **FIX-INTACT** | Fresh probe on master: `HTTP 503 … "4030 tokens"` → **transient, 3 tries** (pre-fix this exact shape classified (auth, 1)); `req_4014` → unknown, not auth; `RESOURCE_EXHAUSTED` / `insufficient_quota` → quota; bare 429 → rate_limit; true 401/403 → auth. `ClassifyErrorTokenTests` green in both copies (`tests/test_v093_fixes.py`, `tests/test_v094_probes.py`). |
+| [10] | `5b47c709c45f` | Rebutted (+ cross-reference added) | **REBUTTAL-HOLDS** | `bench/README.md` Holdout discipline section intact: "Holdout cases score in the full (internal) report only." plus the Phase 1 cross-reference ("Which split a run executes is a separate knob: `bench run --split public\|holdout\|all` — see the usage examples…"). |
+| [11] | `0d81ded1de5e` | Standing repeat | **STANDING-BY-PRECEDENT** | Cited file `review-v12-dispositions.md`: blob `5e466e94…` identical at disposition, in `precedents.json`, and at HEAD (verified via `cli._load_precedents` + `git rev-parse`). |
+| [12] | `6938d28c87b5` | Standing repeat | **STANDING-BY-PRECEDENT** | Cited file `review-v9/codereview-20261104-054751.json`: blob `a1342619…` triple-identical as [11]. |
+| [13] | `c7f952d7c96f` | Standing repeat | **STANDING-BY-PRECEDENT** | Cited file `review-v9/codereview-20261104-054751.md`: blob `25066390…` triple-identical as [11]. |
+| [14] | `85dda0f810b5` | Rebutted (by design; intent comment added) | **REBUTTAL-HOLDS** | `providers.py` `_agent_env` is still allow-list-only by default (keys enter solely via explicit `CODEREVIEW_AGENT_ENV` opt-in), and the Phase 1 intent comment stands verbatim above it in current code, citing this finding: an agent seat never inherits the operator's provider API keys by default. |
+| [15] | `ce560a25266e` | Standing repeat (row lost to the in-file truncation; reconstructed) | **STANDING-BY-PRECEDENT** | Per the v14 record: deterministic `disabled-test` hit on `tests/test_external_review_v071.py:62` — the `@unittest.skipUnless(os.name == "posix", "process groups are POSIX")` platform guard, not a disabled test (same rebuttal as [11]–[13]). Cited blob `fe3aad00…` identical at disposition, in `precedents.json`, and at HEAD. |
+| [16] | `0aada5c69aab` | Standing repeat (row lost to the in-file truncation; reconstructed) | **STANDING-BY-PRECEDENT** | Per the v14 record: the same guard rule on `tests/test_v091_fixes.py:416` (same POSIX `skipUnless` line in a newer test file). Cited blob `2658fe8e…` identical at disposition, in `precedents.json`, and at HEAD. |
+
+### Round outcome
+
+- Verdicts: **FIX-INTACT 2** ([2], [9]); **REBUTTAL-HOLDS 10**
+  ([0], [1], [3], [4], [5], [6], [7], [8], [10], [14]);
+  **STANDING-BY-PRECEDENT 5** ([11], [12], [13], [15], [16]);
+  **MOOT 0; REAL-NOW 0.** Every Phase 1 disposition still
+  holds on master `c4135fe`. Clean sweep — no fix was
+  required, so no worktree, gate run, or merge arises from
+  this round.
+- Characterization/regression evidence re-run for this round:
+  the eight disposition test classes in
+  `tests/test_v093_fixes.py` plus `ClassifyErrorTokenTests`
+  in `tests/test_v094_probes.py` — 16 tests, all green —
+  alongside the fresh probes tabulated above.
+- Full suite on master `c4135fe`: **1216/1216 OK**.
+  `bench/scripts/verify_registration.py`: **PASS** (exit 0).
+  Sealed confirmation aggregate sha256 of
+  `bench/confirmation-v2/`: `6090ae3b09148a391c161ca1cc9d8606c4c6f4227ff832e61a8d7806c3d861c6`
+  — unchanged.
+- Nothing in the 17 findings needs an owner decision. The
+  one defect this round did surface is documentary, recorded
+  above: the Phase 1 minors tail ([14] tail + [15]/[16]
+  rows) has been missing from this file since commit
+  `5119998` itself; it is reconstructed in this addendum
+  rather than silently left absent.
