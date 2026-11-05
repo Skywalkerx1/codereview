@@ -269,6 +269,29 @@ class HostMethodTests(unittest.TestCase):
         with self.assertRaises(herdrhost.HerdrError):
             host.create_workspace(cwd="/tmp/x", label="l")
 
+    def test_half_created_workspace_is_closed_not_leaked(self):
+        # The create response names a workspace but no root
+        # pane: the workspace exists server-side and its id is
+        # the only handle — the adapter closes it before
+        # raising, rather than leaking it.
+        closed = []
+
+        def run(argv, timeout):
+            joined = " ".join(argv[1:])
+            if "workspace create" in joined:
+                return 0, json.dumps({"result": {
+                    "workspace": {"workspace_id": "w7"},
+                    "root_pane": {}}}), ""
+            if "workspace close" in joined:
+                closed.append(argv[-1])
+                return 0, "{}", ""
+            raise AssertionError(f"unexpected call {argv}")
+        host = herdrhost.HerdrHost("/x/herdr", (0, 9, 5),
+                                   run_fn=run)
+        with self.assertRaises(herdrhost.HerdrError):
+            host.create_workspace(cwd="/tmp/x", label="l")
+        self.assertEqual(closed, ["w7"])
+
     def test_cli_error_carries_the_stderr_tail(self):
         host = self._host({"pane get": (1, "", "no such pane")})
         with self.assertRaises(herdrhost.HerdrError) as cm:

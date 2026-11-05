@@ -249,6 +249,15 @@ class HerdrHost:
         pane_id = pane.get("pane_id")
         workspace_id = workspace.get("workspace_id")
         if not pane_id or not workspace_id:
+            if workspace_id:
+                # Half-created: the workspace exists server-
+                # side and this id is the only handle anyone
+                # will ever have on it — close it now rather
+                # than leak it.
+                try:
+                    self.close_workspace(workspace_id)
+                except HerdrError:
+                    pass
             raise HerdrError(
                 "herdr workspace create returned no "
                 "root_pane/workspace ids")

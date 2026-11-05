@@ -568,6 +568,13 @@ def _run_hosted_seat(host, receipt, pane_id, out_path, err_path,
             failure = _reconcile()
         if failure is not None:
             return failure
+        # Fresh clock, not the iteration-start sample: a slow
+        # herdr call must not push the timeout outcome past
+        # the deadline by its own duration. Silence is
+        # recomputed on the same clock so the terminal
+        # classification is taken at the decision instant.
+        now = time.monotonic()
+        silent = now - last_activity
         if now >= deadline:
             if silent >= stall_after:
                 facts = {"state": "blocked", "class": "stalled",
