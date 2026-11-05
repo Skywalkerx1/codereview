@@ -100,5 +100,63 @@ class AttemptRowsParseTests(unittest.TestCase):
             self.assertIn("(1 rows)", text)
 
 
+class LoadRecordArgSelectionTests(unittest.TestCase):
+    """Fix 2 — packet #11 (179ece0e030e). Pre-fix the loader
+    picked the newest MTIME across every .json in the directory;
+    on a copied/re-exported record tree (mtimes scrambled) that
+    silently selects a different record than name order suggests,
+    and an auxiliary JSON can outrank the actual record."""
+
+    def _dir_with(self, entries):
+        td = tempfile.TemporaryDirectory()
+        self.addCleanup(td.cleanup)
+        for name, which, mtime in entries:
+            p = os.path.join(td.name, name)
+            with open(p, "w", encoding="utf-8") as fh:
+                json.dump({"which": which}, fh)
+            os.utime(p, (mtime, mtime))
+        return td.name
+
+    def test_timestamped_name_beats_newer_mtime(self):
+        # The packet's harm shape, with real record names: the
+        # chronologically newest record carries the OLDER mtime
+        # (a copy scrambled it) — name order must win.
+        d = self._dir_with([
+            ("codereview-20260102-030405.json", "newer", 1_000_000),
+            ("codereview-20250102-030405.json", "older", 2_000_000),
+        ])
+        rec, _rdir, jpath = cli._load_record_arg(d, d)
+        self.assertEqual(rec["which"], "newer")
+        self.assertTrue(jpath.endswith("20260102-030405.json"))
+
+    def test_auxiliary_json_cannot_outrank_record(self):
+        d = self._dir_with([
+            ("codereview-20260102-030405.json", "record", 1_000_000),
+            ("builder-packet.json", "aux", 3_000_000),
+        ])
+        rec, _rdir, jpath = cli._load_record_arg(d, d)
+        self.assertEqual(rec["which"], "record")
+
+    def test_mtime_fallback_when_no_timestamped_name(self):
+        # The probe's own setup (aaa/zzz, neither timestamped):
+        # mtime remains the documented fallback.
+        d = self._dir_with([
+            ("aaa_newer_name.json", "aaa", 1_000_000),
+            ("zzz_older_name.json", "zzz", 2_000_000),
+        ])
+        rec, _rdir, _jpath = cli._load_record_arg(d, d)
+        self.assertEqual(rec["which"], "zzz")
+
+    def test_timestamped_name_matcher(self):
+        self.assertTrue(cli._timestamped_record_name(
+            "codereview-20261105-031927.json"))
+        self.assertFalse(cli._timestamped_record_name(
+            "codereview-out.json"))
+        self.assertFalse(cli._timestamped_record_name(
+            "builder-packet.json"))
+        self.assertFalse(cli._timestamped_record_name(
+            "codereview-2026110-031927.json"))
+
+
 if __name__ == "__main__":
     unittest.main()

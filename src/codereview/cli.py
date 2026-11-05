@@ -1080,19 +1080,42 @@ def _doctor_main(argv, providers_override=None,
     return 0 if result["ok"] else 2
 
 
+def _timestamped_record_name(name):
+    """True for write_report's record stem
+    (codereview-YYYYMMDD-HHMMSS...): the filename itself carries
+    the run timestamp, so name order is chronological."""
+    if not name.startswith("codereview-"):
+        return False
+    stamp = name[len("codereview-"):]
+    return (len(stamp) >= 15 and stamp[8] == "-"
+            and stamp[:8].isdigit() and stamp[9:15].isdigit())
+
+
 def _load_record_arg(path, repo):
     """Resolve a record argument (directory or JSON file) to
     (record, record_dir, jpath). record_dir is repo-relative —
     the head-currency checks allow later commits that touch only
     the record directories."""
     if os.path.isdir(path):
-        candidates = sorted(
-            (os.path.join(path, f) for f in os.listdir(path)
-             if f.endswith(".json")),
-            key=lambda p: os.path.getmtime(p))
+        candidates = [os.path.join(path, f)
+                      for f in os.listdir(path)
+                      if f.endswith(".json")]
         if not candidates:
             raise ValueError(f"no record JSON in {path}")
-        jpath = candidates[-1]
+        stamped = [p for p in candidates
+                   if _timestamped_record_name(
+                       os.path.basename(p))]
+        if stamped:
+            # Prefer the lexicographically greatest timestamped
+            # record name: name order is chronological AND
+            # copy-stable, while mtime order breaks on copied or
+            # re-exported record trees — and an auxiliary JSON
+            # sharing the directory could otherwise outrank the
+            # actual record (179ece0e030e). mtime remains the
+            # fallback when no candidate carries a timestamp.
+            jpath = max(stamped)
+        else:
+            jpath = max(candidates, key=os.path.getmtime)
         record_dir = os.path.relpath(
             os.path.abspath(path),
             os.path.abspath(repo)).replace(os.sep, "/")
