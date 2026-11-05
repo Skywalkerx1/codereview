@@ -739,5 +739,23 @@ class BenchStalenessTests(unittest.TestCase):
             report["configs"]["oracle"]["metrics"]["cases_run"], 0)
 
 
+class DoctorFallbackGuardTests(unittest.TestCase):
+    def test_doctor_rejects_fallback_duplicating_primary(self):
+        # 764e1d15a218 (doctor half): the review path refuses
+        # a fallback seat that duplicates a primary; the
+        # doctor path applies the same guard.
+        import io
+        from contextlib import redirect_stdout
+        spec = ("dup|openai-compatible|https://example.invalid"
+                "/v1|m|NOPE_KEY_ENV")
+        out = io.StringIO()
+        with redirect_stdout(out):
+            rc = cli._doctor_main(
+                ["--fallback", f"correctness={spec}"],
+                providers_override={"dup": lambda p: "{}"})
+        self.assertEqual(rc, 2)
+        self.assertIn("already a primary seat", out.getvalue())
+
+
 if __name__ == "__main__":
     unittest.main()

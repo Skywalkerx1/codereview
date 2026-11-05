@@ -1049,6 +1049,15 @@ def _doctor_main(argv, providers_override=None,
                      "error": f"fallback setup failed: {exc}"}))
                 return 2
             (fb_name, fb_fn), = built.items()
+            if fb_name in providers:
+                # Same guard as the review path (764e1d15a218):
+                # a fallback that duplicates a primary seat is
+                # a configuration error, not a second opinion.
+                print(json.dumps(
+                    {"ok": False, "seats": [],
+                     "error": f"fallback seat {fb_name!r} is "
+                              f"already a primary seat"}))
+                return 2
             fallbacks[lens] = (fb_name, fb_fn)
     seat_roles, role_models = {}, {}
     if args.role:
