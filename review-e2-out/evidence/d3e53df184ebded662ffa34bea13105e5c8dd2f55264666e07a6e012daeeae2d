@@ -1,0 +1,1 @@
+self.assertEqual(pol["risk"], {"enabled": False, "medium_threshold": None, "high_threshold": None, "tiering": False, "prescreen_seats": [], "medium_seats": []})

@@ -137,6 +137,25 @@ Schema (every key optional; defaults in parentheses):
   high_threshold = 70      # score >= this is band "high";
                            # each threshold is 0..100 and
                            # medium must be below high.
+  tiering = false          # Epic E2/E4 tiered panels: when
+                           # true (and enabled is true), the
+                           # band sizes the panel — low runs
+                           # the pre-screen seat(s) only,
+                           # medium a reduced panel, high the
+                           # full panel with evidence
+                           # required — and a reduced panel
+                           # that returns a blocking finding,
+                           # a reviewer failure, or an
+                           # unserved lens escalates to the
+                           # full panel within the run (see
+                           # tiering.py). Off (the default)
+                           # leaves runs byte-identical.
+  prescreen_seats = []     # seat names for the low tier;
+                           # empty = the composed panel's
+                           # first seat.
+  medium_seats = []        # seat names for the medium tier;
+                           # empty = the first tasked seat
+                           # per lens.
 
 With no policy file, the effective policy is the defaults
 above: no requirements at all. CodeReview ships no imposed
@@ -176,7 +195,8 @@ _PATH_KEYS = ("match", "require_full_panel", "require_tests",
 _WAIVER_KEYS = ("allow", "require_reason", "max_age_days")
 _HOOK_KEYS = ("pre_run", "post_verdict", "on_blocked", "timeout")
 _HOOK_COMMAND_KEYS = ("pre_run", "post_verdict", "on_blocked")
-_RISK_KEYS = ("enabled", "medium_threshold", "high_threshold")
+_RISK_KEYS = ("enabled", "medium_threshold", "high_threshold",
+              "tiering", "prescreen_seats", "medium_seats")
 # Mirror risk.DEFAULT_MEDIUM_THRESHOLD /
 # risk.DEFAULT_HIGH_THRESHOLD (Epic E1), kept here under the
 # same import-free discipline as KNOWN_LENSES; a test pins the
@@ -213,7 +233,8 @@ def default_policy():
         "hooks": {"pre_run": None, "post_verdict": None,
                   "on_blocked": None, "timeout": None},
         "risk": {"enabled": False, "medium_threshold": None,
-                 "high_threshold": None},
+                 "high_threshold": None, "tiering": False,
+                 "prescreen_seats": [], "medium_seats": []},
         "diversity": {"min_families": 0,
                       "exclude_builder_family": False,
                       "enforce": "degrade"},
@@ -491,6 +512,24 @@ def load_policy(path):
               f"below high_threshold ({_high}) — the bands "
               f"would be empty or inverted", "risk",
               "high_threshold")
+    if "tiering" in risk:
+        policy["risk"]["tiering"] = _check_bool(
+            risk["tiering"], path, lines, "risk", "tiering")
+    for key in ("prescreen_seats", "medium_seats"):
+        if key in risk:
+            policy["risk"][key] = _check_str_list(
+                risk[key], path, lines, "risk", key)
+    if policy["risk"]["tiering"] \
+            and not policy["risk"]["enabled"]:
+        # Tiering consumes the risk band; with the scorer
+        # disabled there is no band to tier on, so the
+        # combination is a broken policy — loud at load,
+        # never a silent no-op at run time (B1).
+        _fail(path, lines,
+              "[risk] tiering = true requires enabled = true "
+              "— tiering is driven by the risk score, and a "
+              "disabled scorer produces no band", "risk",
+              "tiering")
     diversity = data.get("diversity") or {}
     _check_keys(diversity, _DIVERSITY_KEYS, path, lines,
                 "diversity")
@@ -588,6 +627,17 @@ def render_effective(policy):
         lines += ["", "[risk]", "enabled = true",
                   f"medium_threshold = {medium}",
                   f"high_threshold = {high}"]
+        if risk.get("tiering"):
+            # Rendered only when tiering is on, so a policy
+            # without it renders exactly as it did before
+            # Epic E2 (same rule as the [risk] block itself).
+            lines += [
+                "tiering = true",
+                "prescreen_seats = "
+                + _lst(risk.get("prescreen_seats") or []),
+                "medium_seats = "
+                + _lst(risk.get("medium_seats") or []),
+            ]
     diversity = policy.get("diversity") or {}
     if diversity.get("min_families") \
             or diversity.get("exclude_builder_family") \

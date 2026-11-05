@@ -349,7 +349,9 @@ class PolicyRiskSchemaTests(unittest.TestCase):
                      "medium_threshold = 20\n")
         self.assertEqual(pol["risk"],
                          {"enabled": True, "medium_threshold": 20,
-                          "high_threshold": None})
+                          "high_threshold": None, "tiering": False,
+                          "prescreen_seats": [],
+                          "medium_seats": []})
 
     def test_no_risk_table_defaults(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -357,7 +359,10 @@ class PolicyRiskSchemaTests(unittest.TestCase):
         self.assertEqual(pol["risk"],
                          {"enabled": False,
                           "medium_threshold": None,
-                          "high_threshold": None})
+                          "high_threshold": None,
+                          "tiering": False,
+                          "prescreen_seats": [],
+                          "medium_seats": []})
 
     def test_unknown_risk_key_rejected_with_line(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -1,0 +1,1 @@
+The provided diff text for src/codereview/tiering.py does not contain the quoted evidence line 'for lens in stage2_lenses: if lens not in covered: triggers.append({...})'. The diff shows the escalation_triggers function but the specific loop body quoted in the finding is absent from the visible section, making the claim ungrounded.

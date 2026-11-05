@@ -1,0 +1,303 @@
+{
+  "schema": "codereview.report/1",
+  "version": "0.12.1",
+  "mode": "verify",
+  "created_at": "2026-11-05T20:32:55+00:00",
+  "patch_sha256": "376c394c9e13f919939c7936599a5bc67b8a10307cb597245a826db8d6aae0df",
+  "previous_gate": "blocked",
+  "private": false,
+  "test_results": [
+    {
+      "command": "python3 -m unittest discover -s tests",
+      "ok": true,
+      "exit_code": 0,
+      "output_tail": "bject allocation traceback\n/home/hatch/workspace/codereview-wt-e2/tests/test_v093_fixes.py:374: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview-wt-e2/tests/../src/codereview/sarif.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview-wt-e2/tests/test_v093_fixes.py:374: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview-wt-e2/tests/../src/codereview/seatstate.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview-wt-e2/tests/test_v093_fixes.py:374: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview-wt-e2/tests/../src/codereview/setup_wizard.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview-wt-e2/tests/test_v093_fixes.py:374: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview-wt-e2/tests/../src/codereview/techlead.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview-wt-e2/tests/test_v093_fixes.py:374: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview-wt-e2/tests/../src/codereview/tiering.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview-wt-e2/tests/test_v093_fixes.py:374: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview-wt-e2/tests/../src/codereview/userconfig.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n........................................../home/hatch/workspace/codereview-wt-e2/tests/test_v094_probes.py:127: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview-wt-e2/tests/../src/codereview/cli.py' mode='r' encoding='utf-8'>\n  \"core.py\", \"cli.py\"), encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n...../home/hatch/workspace/codereview-wt-e2/tests/test_v094_probes.py:91: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview-wt-e2/tests/../src/codereview/providers.py' mode='r' encoding='utf-8'>\n  encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n............codereview: seat gemini: pending\ncodereview: seat gemini: working\ncodereview: seat gemini: blocked:quota\ncodereview: seat gemini hit its plan's allowance; the panel continues degraded — top up or wait for the reset.\ncodereview: seat openai: pending\ncodereview: seat openai: working\ncodereview: seat openai: done\ncodereview: seat nvidia: pending\ncodereview: seat nvidia: working\ncodereview: seat nvidia: done\n.......codereview: seat a: pending\ncodereview: seat b: pending\ncodereview: seat b: working\ncodereview: seat b: done\ncodereview: seat a: working\ncodereview: seat a: done\n.............codereview: seat stubfree: pending\ncodereview: seat stubfree: pending\ncodereview: seat stubfree: working\ncodereview: seat stubfree: working\ncodereview: seat stubfree: done\ncodereview: seat stubfree: done\n.codereview: tier policy: seat 'stubfree' runs on a free-tier credential, which must not review private repositories\n...............................................................\n----------------------------------------------------------------------\nRan 1216 tests in 79.653s\n\nOK\n"
+    }
+  ],
+  "cleared": [
+    {
+      "id": "95173f20c884",
+      "rule": "test-failure",
+      "severity": "blocker",
+      "category": "testing",
+      "file": "",
+      "line": null,
+      "line_basis": "blob",
+      "title": "Test command failed: python3 -m unittest discover -s tests",
+      "evidence": "Traceback (most recent call last):\n  File \"<frozen runpy>\", line 198, in _run_module_as_main\n  File \"<frozen runpy>\", line 88, in _run_code\n  File \"/usr/lib/python3.12/unittest/__main__.py\", line 18, in <module>\n    main(module=None)\n  File \"/usr/lib/python3.12/unittest/main.py\", line 104, in __init__\n    self.parseArgs(argv)\n  File \"/usr/lib/python3.12/unittest/main.py\", line 130, in parseArgs\n  ",
+      "evidence_quote": "Traceback (most recent call last):\n  File \"<frozen runpy>\", line 198, in _run_module_as_main\n  File \"<frozen runpy>\", line 88, in _run_code\n  File \"/usr/lib/python3.12/unittest/__main__.py\", line 18, in <module>\n    main(module=None)\n  File \"/usr/lib/python3.12/unittest/main.py\", line 104, in __init__\n    self.parseArgs(argv)\n  File \"/usr/lib/python3.12/unittest/main.py\", line 130, in parseArgs\n  ",
+      "recommendation": "Fix the failing tests; a red suite is a blocking finding.",
+      "confidence": 1.0,
+      "sources": [
+        "deterministic"
+      ],
+      "source_lenses": {
+        "deterministic": [
+          "deterministic"
+        ]
+      },
+      "consensus": false,
+      "grounding": "not_applicable",
+      "evidence_class": "E0",
+      "evidence_ref": {
+        "sha256": "5335bd8658d95ee07fc425383d0439f1fcd38b2b68185fb9272811ad699b0212",
+        "length": 400,
+        "truncated": false
+      },
+      "evidence_quote_ref": {
+        "sha256": "5335bd8658d95ee07fc425383d0439f1fcd38b2b68185fb9272811ad699b0212",
+        "length": 400,
+        "truncated": false
+      },
+      "cleared_by": [
+        "invalid"
+      ]
+    },
+    {
+      "id": "ecd2f99028ab",
+      "rule": "",
+      "severity": "major",
+      "category": "reliability",
+      "file": "tests/test_risk.py",
+      "line": 359,
+      "title": "Test discovery failure — test suite cannot run",
+      "evidence": "",
+      "evidence_quote": "self.assertEqual(pol[\"risk\"], {\"enabled\": False, \"medium_threshold\": None, \"high_threshold\": None, \"tiering\": False, \"prescreen_seats\": [], \"medium_seats\": []})",
+      "recommendation": "Fix test discovery so the test suite can run; investigate why unittest discover fails on the branch and resolve the import or configuration issue.",
+      "confidence": 0.9,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false,
+      "source_lenses": {
+        "nvidia": [
+          "operations"
+        ]
+      },
+      "grounding": "unresolved",
+      "reground_note": "no seat could re-ground this finding (tried: nvidia, gemini, openai): re-ground call failed: openai quota: HTTP 429",
+      "evidence_class": "E3",
+      "cross_family": "unavailable",
+      "evidence_quote_ref": {
+        "sha256": "d3e53df184ebded662ffa34bea13105e5c8dd2f55264666e07a6e012daeeae2d",
+        "length": 160,
+        "truncated": false
+      },
+      "cleared_by": [
+        "invalid"
+      ]
+    }
+  ],
+  "remaining": [],
+  "unjudged": [],
+  "reviewer_reports": [
+    {
+      "provider": "gemini",
+      "status": "error",
+      "error": "ProviderError (HTTP 429): gemini quota: HTTP 429 | fallback 'openai' also failed: ProviderError (HTTP 429): openai quota: HTTP 429",
+      "resolutions": {},
+      "attempts": 5,
+      "error_classes": [
+        "quota",
+        "transient",
+        "quota"
+      ],
+      "jobs": [
+        {
+          "batch": 1,
+          "prior_part": 1,
+          "provider": "gemini",
+          "status": "error",
+          "seat_state": {
+            "state": "blocked",
+            "class": "quota",
+            "evidence": {
+              "error_class": "quota"
+            },
+            "transitions": [
+              {
+                "state": "pending",
+                "class": null,
+                "at_ms": 0
+              },
+              {
+                "state": "working",
+                "class": null,
+                "at_ms": 0
+              },
+              {
+                "state": "blocked",
+                "class": "quota",
+                "at_ms": 1152,
+                "evidence": {
+                  "error_class": "quota"
+                },
+                "terminal": true
+              }
+            ]
+          }
+        },
+        {
+          "batch": 2,
+          "prior_part": 1,
+          "provider": "gemini",
+          "status": "error",
+          "seat_state": {
+            "state": "blocked",
+            "class": "quota",
+            "evidence": {
+              "error_class": "quota"
+            },
+            "transitions": [
+              {
+                "state": "pending",
+                "class": null,
+                "at_ms": 0
+              },
+              {
+                "state": "working",
+                "class": null,
+                "at_ms": 0
+              },
+              {
+                "state": "blocked",
+                "class": "quota",
+                "at_ms": 943,
+                "evidence": {
+                  "error_class": "quota"
+                },
+                "terminal": true
+              }
+            ]
+          }
+        }
+      ],
+      "family": "google",
+      "tier": "free"
+    },
+    {
+      "provider": "nvidia",
+      "status": "ok",
+      "error": "",
+      "resolutions": {
+        "95173f20c884": {
+          "status": "invalid",
+          "evidence": "The test command failure was caused by running against the wrong tree (~/workspace/mitbbs-ai-swarm which has no tests/ directory), not by a defect in the change. The same command in the correct worktree (~/workspace/codereview-wt-e2) runs 1216 tests successfully, including the new tiering tests.",
+          "evidence_ref": {
+            "sha256": "124b88c45def2b0f73bfbe68912191914aaa3ad77092c9fc0acaf833209e19d9",
+            "length": 296,
+            "truncated": false
+          }
+        },
+        "ecd2f99028ab": {
+          "status": "invalid",
+          "evidence": "Same root cause as finding 95173f20c884. The test suite runs and passes (38 tests in test_risk.py) when executed from the correct worktree. The updated assertions in test_risk.py correctly pin the [risk] dict's grown shape (tiering/prescreen_seats/medium_seats keys) added by this epic, and they fail",
+          "evidence_ref": {
+            "sha256": "071e9c1a32e33a2656c25dc523216479b2cc86fb566b60b4ffb0691d4951d681",
+            "length": 394,
+            "truncated": true
+          }
+        }
+      },
+      "attempts": 2,
+      "error_classes": [],
+      "jobs": [
+        {
+          "batch": 1,
+          "prior_part": 1,
+          "provider": "nvidia",
+          "status": "ok",
+          "seat_state": {
+            "state": "done",
+            "class": null,
+            "evidence": {},
+            "transitions": [
+              {
+                "state": "pending",
+                "class": null,
+                "at_ms": 0
+              },
+              {
+                "state": "working",
+                "class": null,
+                "at_ms": 0
+              },
+              {
+                "state": "done",
+                "class": null,
+                "at_ms": 4856,
+                "terminal": true
+              }
+            ]
+          }
+        },
+        {
+          "batch": 2,
+          "prior_part": 1,
+          "provider": "nvidia",
+          "status": "ok",
+          "seat_state": {
+            "state": "done",
+            "class": null,
+            "evidence": {},
+            "transitions": [
+              {
+                "state": "pending",
+                "class": null,
+                "at_ms": 0
+              },
+              {
+                "state": "working",
+                "class": null,
+                "at_ms": 1
+              },
+              {
+                "state": "done",
+                "class": null,
+                "at_ms": 4668,
+                "terminal": true
+              }
+            ]
+          }
+        }
+      ],
+      "judged_finding_ids": [
+        "95173f20c884",
+        "ecd2f99028ab"
+      ],
+      "family": "nvidia",
+      "tier": "free"
+    }
+  ],
+  "findings": [],
+  "degraded": true,
+  "truncated": false,
+  "gate": "inconclusive",
+  "gate_reasons": [
+    "verification quorum not met: 1 of 2 reviewers succeeded (need at least 2)"
+  ],
+  "claim_verification": {
+    "schema": "codereview.claims/1",
+    "boundary": "Claim verification is evidence recorded in the run record. It is not a gate input: no claim status changes the verdict, a finding, or any other gate input. A mismatch downgrades the claim, never the gate.",
+    "claims": [
+      {
+        "line": 7,
+        "status": "unparsed",
+        "text": "swarm tree — which has no `tests/` directory — instead of",
+        "reason": "command presented without an unambiguous claimed outcome — not extracted, not run"
+      }
+    ],
+    "summary": {
+      "total": 1,
+      "verified": 0,
+      "mismatch": 0,
+      "unverifiable": 0,
+      "unparsed": 1
+    }
+  },
+  "evidence_sidecars": {
+    "dir": "evidence",
+    "files": 4,
+    "refs": 5
+  }
+}

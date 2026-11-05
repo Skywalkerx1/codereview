@@ -1,0 +1,1 @@
+The test command failure was caused by running against the wrong tree (~/workspace/mitbbs-ai-swarm which has no tests/ directory), not by a defect in the change. The same command in the correct worktree (~/workspace/codereview-wt-e2) runs 1216 tests successfully, including the new tiering tests.

@@ -3686,6 +3686,33 @@ def run_review(patch, providers, context="", test_results=None,
     registered confirmation runs rely on: they never enable
     it.
 
+    Tiered panels (Epic E2) and escalation (Epic E4): when
+    the policy's [risk] table also sets `tiering = true`,
+    the band sizes the panel — "low" runs a designated
+    pre-screen seat (or seats) only, "medium" a reduced
+    panel, "high" the full panel with evidence required
+    (no evidence record supplied for a high-band change
+    blocks the gate under the Epic C missing-evidence rule;
+    a supplied record is judged by C3 exactly as today).
+    The smaller tiers execute as stage 1; when stage 1
+    returns a blocking finding, a reviewer failure, or
+    leaves a lens the full panel tasks unserved, the run
+    escalates: the rest of the panel executes as stage 2
+    within the same run (tiering.escalation_triggers), and
+    the verdict is computed on the full evidence by the
+    normal rules — escalation never removes a stage-1
+    report or finding. Under an explicit seat binding,
+    tiering filters the derived tasks by seat, so a seat
+    serves exactly its bound lens(es) at every tier —
+    never a re-mapping (S1); under the legacy assignment
+    the tier's seats form a smaller panel tasked by the
+    ordinary derivation rule. The plan, the
+    stages that ran, the escalation outcome, and the
+    evidence state are recorded in the report's `tiering`
+    section. With tiering off the execution is a single
+    stage holding every job, byte-identical to the pre-E2
+    construction.
+
     Attention notifications (Epic L4): `notify` is a
     notify.Notifier built from the operator's USER SETUP
     ([notify] command — never the project policy). When
@@ -3871,6 +3898,69 @@ def run_review(patch, providers, context="", test_results=None,
                 if cause not in degraded_causes:
                     degraded_causes.append(cause)
 
+    # Epic E2/E4: tiered panels. When the policy enables
+    # [risk] tiering, E1's score is computed NOW — the same
+    # pure function of the kept sections the record's risk
+    # section uses, computed once and reused there — and the
+    # derived tasks are split into the tier's stage and the
+    # rest of the panel (tiering.plan_stages). The execution
+    # below runs stage 1 first and stage 2 only on an
+    # escalation trigger. Unconfigured ⇒ tiering_plan stays
+    # None and nothing in this run changes.
+    risk_section = None
+    tiering_plan = None
+    if policy is not None:
+        from . import tiering as tiering_mod
+        _tiering_cfg = tiering_mod.tiering_config(policy)
+        if _tiering_cfg is not None:
+            from . import risk as _risk_pre
+            risk_section = _risk_pre.score_sections(
+                sections, _risk_pre.risk_config(policy))
+            tiering_plan = tiering_mod.plan_stages(
+                risk_section["band"], tasks, _tiering_cfg)
+            _s1_seats = set(tiering_plan["stage1_seats"])
+            if binding is not None:
+                # S1: the tier is a subset of the bound
+                # tasks — a seat serves exactly its bound
+                # lens(es), never a re-mapping.
+                _stage1_tasks = [t for t in tasks
+                                 if t[0] in _s1_seats]
+            else:
+                # Legacy assignment: the tier's seats form
+                # a smaller panel, tasked by the ordinary
+                # derivation rule (a lone pre-screen seat
+                # serves every lens, as a one-seat panel
+                # does today).
+                _stage1_tasks = _reviewer_tasks(
+                    [(n, f) for n, f in provider_items
+                     if n in _s1_seats],
+                    lens_seats=lens_seats)
+            _s1_pairs = {(t[0], t[2]) for t in _stage1_tasks}
+            _stage2_tasks = [t for t in tasks
+                             if (t[0], t[2]) not in _s1_pairs]
+            if not _stage1_tasks and tasks:
+                # The tier's seats serve no lens on this
+                # panel (e.g. every pre-screen seat is bound
+                # away): fall back to the full panel rather
+                # than run an empty pre-screen.
+                tiering_plan["fallback_to_full"] = (
+                    tiering_plan["fallback_to_full"]
+                    or "the tier's seats serve no lens on "
+                       "this panel")
+                tiering_plan["stage1_seats"] = [
+                    n for n, _f in provider_items]
+                _stage1_tasks, _stage2_tasks = list(tasks), []
+                _s1_pairs = {(t[0], t[2]) for t in tasks}
+            tiering_plan["stage1"] = _stage1_tasks
+            tiering_plan["stage2"] = _stage2_tasks
+            # The run's task list gains any stage-1-only
+            # assignments (a legacy pre-screen seat's second
+            # lens), so job building and every downstream
+            # consumer see the panel that actually serves.
+            _task_pairs = {(t[0], t[2]) for t in tasks}
+            tasks = tasks + [t for t in _stage1_tasks
+                             if (t[0], t[2]) not in _task_pairs]
+
     job_fallback_for = {}
     jobs = []
     context_attached = {}
@@ -3903,190 +3993,266 @@ def run_review(patch, providers, context="", test_results=None,
                 job_fallback_for[(name, lens, bi)] = (
                     absent[0] if absent else "unserved lens")
 
+    # Epic E2/E4: the execution stages. Unconfigured there
+    # is a single stage holding every job, executed exactly
+    # as before this epic; with tiering, stage 1 is the
+    # tier's seats and stage 2 the rest of the panel, run
+    # only when the escalation evaluation below fires.
+    stage_job_lists = [jobs]
+    if tiering_plan is not None:
+        _stage1_keys = {(t[0], t[2])
+                        for t in tiering_plan["stage1"]}
+        stage_job_lists = [
+            [j for j in jobs if (j[0], j[1]) in _stage1_keys],
+            [j for j in jobs if (j[0], j[1]) not in _stage1_keys]]
+
     fallback_notes = []
     ungrounded = []
-    with concurrent.futures.ThreadPoolExecutor(
-            max_workers=max(2, min(6, len(jobs) or 1))) as ex:
-        futs = {ex.submit(_review_job, fn, prompt, sleep,
-                          seat=name, progress=progress):
-                (name, lens, fn, prompt, bi, batch)
-                for name, lens, fn, prompt, bi, batch in jobs}
-        for fut in concurrent.futures.as_completed(futs):
-            name, lens, fn, prompt, bi, batch = futs[fut]
-            res = fut.result()
-            serving_name, serving_fn = name, fn
-            rec = {"provider": name, "lens": lens,
-                   "batch": bi + 1, "status": "error",
-                   "error": "", "summary": "", "findings": [],
-                   "attempts": res["attempts"],
-                   "error_classes": res["error_classes"],
-                   "duration_ms": res.get("duration_ms"),
-                   "prompt_chars": res.get("prompt_chars")}
-            # Step-3 error persistence: keep the primary's error
-            # OBJECT (the record's `error` field truncates its
-            # string at 300 chars) so the persisted error_detail
-            # below can carry the full string + HTTP status.
-            primary_exc = res["error"]
-            primary_classes = list(res["error_classes"])
-            primary_state = res.get("seat_state")
-            primary_hosting = res.get("hosting")
-            fb = None
-            fb_exc = None
-            if not res["ok"] and fallbacks and lens in fallbacks:
-                fb_name, fb_fn = fallbacks[lens]
-                if fb_name != name:
-                    # The fallback re-runs this job's prompt on a
-                    # DIFFERENT seat — only with the reason recorded
-                    # (fallback_for + primary_error on the report,
-                    # a note in the gate reasons) and only with the
-                    # attempts the job budget has left (solution
-                    # §4): a fallback is a bounded second opinion,
-                    # never an unbounded second run.
-                    remaining = _MAX_JOB_ATTEMPTS - res["attempts"]
-                    fb = None
-                    if remaining <= 0:
-                        fallback_notes.append(
-                            f"{lens} lens fallback seat {fb_name!r} "
-                            f"not attempted: job attempt budget "
-                            f"({_MAX_JOB_ATTEMPTS}) exhausted by "
-                            f"primary {name!r}")
-                        rec["error"] = (
-                            f"{_stored_error(res['error'], 170)} "
-                            f"| fallback {fb_name!r} "
-                            f"not attempted: job attempt budget "
-                            f"exhausted")[:300]
-                    else:
-                        fb = _review_job(fb_fn, prompt, sleep,
-                                         max_attempts=remaining,
-                                         seat=fb_name,
-                                         progress=progress)
-                        fb_exc = fb["error"]
-                        rec["duration_ms"] = (
-                            (res.get("duration_ms") or 0)
-                            + (fb.get("duration_ms") or 0))
-                        # The report's attempt count is the TOTAL
-                        # calls spent on this lens (primary +
-                        # fallback): cost accounting reads it, so
-                        # dropping the primary's attempts when the
-                        # fallback serves would understate the run
-                        # (review-v11 finding).
-                        rec["attempts"] = (res["attempts"]
-                                           + fb["attempts"])
-                    if fb is not None and fb["ok"]:
+    tiering_notes = []
+    tiering_escalated = False
+    tiering_triggers = []
+    def _run_jobs(job_list):
+        """Execute one stage's reviewer jobs into the
+        run's shared accumulators (reviewer_reports,
+        all_findings, ungrounded, fallback_notes). Split
+        out for Epic E2/E4's staged execution: with
+        tiering off there is exactly one call, holding
+        every job, and its behaviour is the pre-E2
+        executor verbatim."""
+        nonlocal degraded, any_success
+        with concurrent.futures.ThreadPoolExecutor(
+                max_workers=max(2, min(6, len(job_list) or 1))) as ex:
+            futs = {ex.submit(_review_job, fn, prompt, sleep,
+                              seat=name, progress=progress):
+                    (name, lens, fn, prompt, bi, batch)
+                    for name, lens, fn, prompt, bi, batch in job_list}
+            for fut in concurrent.futures.as_completed(futs):
+                name, lens, fn, prompt, bi, batch = futs[fut]
+                res = fut.result()
+                serving_name, serving_fn = name, fn
+                rec = {"provider": name, "lens": lens,
+                       "batch": bi + 1, "status": "error",
+                       "error": "", "summary": "", "findings": [],
+                       "attempts": res["attempts"],
+                       "error_classes": res["error_classes"],
+                       "duration_ms": res.get("duration_ms"),
+                       "prompt_chars": res.get("prompt_chars")}
+                # Step-3 error persistence: keep the primary's error
+                # OBJECT (the record's `error` field truncates its
+                # string at 300 chars) so the persisted error_detail
+                # below can carry the full string + HTTP status.
+                primary_exc = res["error"]
+                primary_classes = list(res["error_classes"])
+                primary_state = res.get("seat_state")
+                primary_hosting = res.get("hosting")
+                fb = None
+                fb_exc = None
+                if not res["ok"] and fallbacks and lens in fallbacks:
+                    fb_name, fb_fn = fallbacks[lens]
+                    if fb_name != name:
+                        # The fallback re-runs this job's prompt on a
+                        # DIFFERENT seat — only with the reason recorded
+                        # (fallback_for + primary_error on the report,
+                        # a note in the gate reasons) and only with the
+                        # attempts the job budget has left (solution
+                        # §4): a fallback is a bounded second opinion,
+                        # never an unbounded second run.
+                        remaining = _MAX_JOB_ATTEMPTS - res["attempts"]
+                        fb = None
+                        if remaining <= 0:
+                            fallback_notes.append(
+                                f"{lens} lens fallback seat {fb_name!r} "
+                                f"not attempted: job attempt budget "
+                                f"({_MAX_JOB_ATTEMPTS}) exhausted by "
+                                f"primary {name!r}")
+                            rec["error"] = (
+                                f"{_stored_error(res['error'], 170)} "
+                                f"| fallback {fb_name!r} "
+                                f"not attempted: job attempt budget "
+                                f"exhausted")[:300]
+                        else:
+                            fb = _review_job(fb_fn, prompt, sleep,
+                                             max_attempts=remaining,
+                                             seat=fb_name,
+                                             progress=progress)
+                            fb_exc = fb["error"]
+                            rec["duration_ms"] = (
+                                (res.get("duration_ms") or 0)
+                                + (fb.get("duration_ms") or 0))
+                            # The report's attempt count is the TOTAL
+                            # calls spent on this lens (primary +
+                            # fallback): cost accounting reads it, so
+                            # dropping the primary's attempts when the
+                            # fallback serves would understate the run
+                            # (review-v11 finding).
+                            rec["attempts"] = (res["attempts"]
+                                               + fb["attempts"])
+                        if fb is not None and fb["ok"]:
+                            fallback_notes.append(
+                                f"{lens} lens served by fallback seat "
+                                f"{fb_name!r} (primary {name!r} failed: "
+                                f"{res['error_classes'][-1] if res['error_classes'] else 'error'})")
+                            rec.update({
+                                "provider": fb_name,
+                                "fallback_for": name,
+                                "primary_error": _stored_error(
+                                    res["error"]),
+                                "error_classes":
+                                    res["error_classes"]
+                                    + fb["error_classes"]})
+                            serving_name, serving_fn = fb_name, fb_fn
+                            res = fb
+                        elif fb is not None:
+                            rec["error"] = (
+                                f"{_stored_error(res['error'], 150)} "
+                                f"| fallback {fb_name!r} "
+                                f"also failed: "
+                                f"{_stored_error(fb['error'], 110)}"
+                                )[:300]
+                if res["ok"]:
+                    parsed = res["parsed"]
+                    rec["status"] = "ok"
+                    rec["error"] = ""
+                    rec["summary"] = str(parsed.get("summary") or "")[:500]
+                    for raw_f in parsed.get("findings") or []:
+                        nf = _normalize_finding(raw_f, serving_name,
+                                                lens=lens)
+                        if nf:
+                            # Grounding (§2b): the quote must appear
+                            # in the batch text THIS reviewer received.
+                            # Failures are not dropped — they go to the
+                            # re-ground pass below.
+                            nf["grounding"] = (
+                                "grounded" if _quote_grounded(
+                                    nf.get("evidence_quote"), batch)
+                                else "ungrounded")
+                            if nf["grounding"] == "ungrounded":
+                                ungrounded.append(
+                                    (nf, serving_name, serving_fn))
+                            rec["findings"].append(nf)
+                            all_findings.append(nf)
+                    any_success = True
+                else:
+                    rec["error"] = rec["error"] or _stored_error(
+                        res["error"])
+                    degraded = True
+                    if "reviewer failure" not in degraded_causes:
+                        degraded_causes.append("reviewer failure")
+                if primary_exc is not None and (
+                        rec["status"] == "error"
+                        or rec.get("fallback_for")):
+                    # Step-3 error persistence (void forensics
+                    # recommendation 3): an errored report — and a
+                    # report whose primary failed before a fallback
+                    # served — persists the FULL error string, the
+                    # HTTP status it carries (None when it carries
+                    # none; never invented), and the failure classes,
+                    # alongside the job's duration and prompt size
+                    # already on the report. Without this, a stored
+                    # record shows only status: "error" and the exact
+                    # failure class is unrecoverable.
+                    detail = {
+                        "error": str(primary_exc),
+                        "http_status": _http_status_of(primary_exc),
+                        "error_classes": primary_classes,
+                    }
+                    if fb_exc is not None:
+                        detail["fallback_error"] = str(fb_exc)
+                        detail["fallback_http_status"] = \
+                            _http_status_of(fb_exc)
+                    rec["error_detail"] = detail
+                rec.update(_provider_meta(serving_fn))
+                rec.update(_seat_meta(seat_meta, serving_name))
+                if (name, lens, bi) in job_fallback_for:
+                    # This job exists only because the lens's bound
+                    # seat is absent from the panel (S1): the record
+                    # names the substitution and the seat it covers
+                    # for, whatever the outcome.
+                    rec["fallback_for"] = job_fallback_for[
+                        (name, lens, bi)]
+                    rec["unserved_lens_fallback"] = True
+                    if res["ok"]:
                         fallback_notes.append(
                             f"{lens} lens served by fallback seat "
-                            f"{fb_name!r} (primary {name!r} failed: "
-                            f"{res['error_classes'][-1] if res['error_classes'] else 'error'})")
-                        rec.update({
-                            "provider": fb_name,
-                            "fallback_for": name,
-                            "primary_error": _stored_error(
-                                res["error"]),
-                            "error_classes":
-                                res["error_classes"]
-                                + fb["error_classes"]})
-                        serving_name, serving_fn = fb_name, fb_fn
-                        res = fb
-                    elif fb is not None:
-                        rec["error"] = (
-                            f"{_stored_error(res['error'], 150)} "
-                            f"| fallback {fb_name!r} "
-                            f"also failed: "
-                            f"{_stored_error(fb['error'], 110)}"
-                            )[:300]
-            if res["ok"]:
-                parsed = res["parsed"]
-                rec["status"] = "ok"
-                rec["error"] = ""
-                rec["summary"] = str(parsed.get("summary") or "")[:500]
-                for raw_f in parsed.get("findings") or []:
-                    nf = _normalize_finding(raw_f, serving_name,
-                                            lens=lens)
-                    if nf:
-                        # Grounding (§2b): the quote must appear
-                        # in the batch text THIS reviewer received.
-                        # Failures are not dropped — they go to the
-                        # re-ground pass below.
-                        nf["grounding"] = (
-                            "grounded" if _quote_grounded(
-                                nf.get("evidence_quote"), batch)
-                            else "ungrounded")
-                        if nf["grounding"] == "ungrounded":
-                            ungrounded.append(
-                                (nf, serving_name, serving_fn))
-                        rec["findings"].append(nf)
-                        all_findings.append(nf)
-                any_success = True
-            else:
-                rec["error"] = rec["error"] or _stored_error(
-                    res["error"])
-                degraded = True
-                if "reviewer failure" not in degraded_causes:
-                    degraded_causes.append("reviewer failure")
-            if primary_exc is not None and (
-                    rec["status"] == "error"
-                    or rec.get("fallback_for")):
-                # Step-3 error persistence (void forensics
-                # recommendation 3): an errored report — and a
-                # report whose primary failed before a fallback
-                # served — persists the FULL error string, the
-                # HTTP status it carries (None when it carries
-                # none; never invented), and the failure classes,
-                # alongside the job's duration and prompt size
-                # already on the report. Without this, a stored
-                # record shows only status: "error" and the exact
-                # failure class is unrecoverable.
-                detail = {
-                    "error": str(primary_exc),
-                    "http_status": _http_status_of(primary_exc),
-                    "error_classes": primary_classes,
-                }
-                if fb_exc is not None:
-                    detail["fallback_error"] = str(fb_exc)
-                    detail["fallback_http_status"] = \
-                        _http_status_of(fb_exc)
-                rec["error_detail"] = detail
-            rec.update(_provider_meta(serving_fn))
-            rec.update(_seat_meta(seat_meta, serving_name))
-            if (name, lens, bi) in job_fallback_for:
-                # This job exists only because the lens's bound
-                # seat is absent from the panel (S1): the record
-                # names the substitution and the seat it covers
-                # for, whatever the outcome.
-                rec["fallback_for"] = job_fallback_for[
-                    (name, lens, bi)]
-                rec["unserved_lens_fallback"] = True
-                if res["ok"]:
-                    fallback_notes.append(
-                        f"{lens} lens served by fallback seat "
-                        f"{name!r}: bound seat "
-                        f"{job_fallback_for[(name, lens, bi)]!r} "
-                        f"is not in the panel")
-            # Epic K2: the record's seat_state is the summary of
-            # the attempt that determined the outcome — the
-            # fallback's when a fallback ran (served or not),
-            # the primary's otherwise. When a fallback ran, the
-            # primary's own ending (often the blocked state that
-            # caused the substitution) stays visible alongside
-            # as seat_state_primary.
-            if fb is not None:
-                if fb.get("seat_state") is not None:
-                    rec["seat_state"] = fb["seat_state"]
-                if primary_state is not None:
-                    rec["seat_state_primary"] = primary_state
-            elif primary_state is not None:
-                rec["seat_state"] = primary_state
-            # Epic K3a: the same determining-attempt rule for
-            # the hosting receipt — provenance only.
-            if fb is not None:
-                if fb.get("hosting") is not None:
-                    rec["hosting"] = fb["hosting"]
-                if primary_hosting is not None:
-                    rec["hosting_primary"] = primary_hosting
-            elif primary_hosting is not None:
-                rec["hosting"] = primary_hosting
-            reviewer_reports.append(rec)
-    if not jobs:
+                            f"{name!r}: bound seat "
+                            f"{job_fallback_for[(name, lens, bi)]!r} "
+                            f"is not in the panel")
+                # Epic K2: the record's seat_state is the summary of
+                # the attempt that determined the outcome — the
+                # fallback's when a fallback ran (served or not),
+                # the primary's otherwise. When a fallback ran, the
+                # primary's own ending (often the blocked state that
+                # caused the substitution) stays visible alongside
+                # as seat_state_primary.
+                if fb is not None:
+                    if fb.get("seat_state") is not None:
+                        rec["seat_state"] = fb["seat_state"]
+                    if primary_state is not None:
+                        rec["seat_state_primary"] = primary_state
+                elif primary_state is not None:
+                    rec["seat_state"] = primary_state
+                # Epic K3a: the same determining-attempt rule for
+                # the hosting receipt — provenance only.
+                if fb is not None:
+                    if fb.get("hosting") is not None:
+                        rec["hosting"] = fb["hosting"]
+                    if primary_hosting is not None:
+                        rec["hosting_primary"] = primary_hosting
+                elif primary_hosting is not None:
+                    rec["hosting"] = primary_hosting
+                reviewer_reports.append(rec)
+
+    _ran_any_jobs = False
+    for _stage_no, _stage_jobs in enumerate(stage_job_lists):
+        if not _stage_jobs:
+            continue
+        _reports_before = len(reviewer_reports)
+        _run_jobs(_stage_jobs)
+        _ran_any_jobs = True
+        if _stage_no == 0 and tiering_plan is not None \
+                and tiering_plan["stage2"]:
+            # Epic E4: the escalation evaluation over
+            # stage 1's own reports. No trigger ⇒ stage 2
+            # never runs and the reduced panel's answer
+            # stands; any trigger ⇒ the rest of the panel
+            # executes into the same accumulators, and the
+            # verdict below is computed on the full
+            # evidence of the run by the normal rules.
+            tiering_triggers = tiering_mod.escalation_triggers(
+                reviewer_reports[_reports_before:],
+                tiering_plan["stage2"],
+                ("blocker",) if allow_major
+                else BLOCKING_DEFAULT)
+            if not tiering_triggers:
+                break
+            tiering_escalated = True
+    if tiering_plan is not None:
+        _band = risk_section["band"]
+        if tiering_plan["fallback_to_full"]:
+            tiering_notes.append(
+                "tiered panel (Epic E2): risk band '"
+                + _band + "' — "
+                + tiering_plan["fallback_to_full"]
+                + "; the full panel ran")
+        elif _band == "high":
+            tiering_notes.append(
+                "tiered panel (Epic E2): risk band 'high' "
+                "— full panel; evidence required")
+        elif tiering_escalated:
+            tiering_notes.append(
+                "tiered panel (Epic E2/E4): risk band '"
+                + _band + "' — escalated to the full "
+                "panel ("
+                + "; ".join(t["kind"]
+                             for t in tiering_triggers)
+                + ")")
+        elif tiering_plan["stage2"]:
+            tiering_notes.append(
+                "tiered panel (Epic E2): risk band '"
+                + _band + "' — reduced panel only ("
+                + ", ".join(tiering_plan["stage1_seats"])
+                + "); no escalation trigger")
+    if not _ran_any_jobs:
         degraded = True
         if "no reviewers ran" not in degraded_causes:
             degraded_causes.append("no reviewers ran")
@@ -4702,6 +4868,7 @@ def run_review(patch, providers, context="", test_results=None,
                           strict=strict, any_success=any_success,
                           degraded_causes=degraded_causes)
     reasons = reasons + fallback_notes
+    reasons = reasons + tiering_notes
     if not coverage_complete:
         reasons = ["coverage incomplete: "
                    + ("section(s) could not be placed within "
@@ -4917,15 +5084,17 @@ def run_review(patch, providers, context="", test_results=None,
                 f"({policy.get('path') or policy_mod.POLICY_FILENAME}): "
                 f"{len(policy_outcome['applied'])} rule(s) "
                 f"applied — see the record's policy section"]
-    risk_section = None
-    if policy is not None:
+    if risk_section is None and policy is not None:
         # Epic E1: the deterministic risk score over the kept
         # sections (the same sections the panel reviewed),
         # when the policy's [risk] table enables it. Pure and
         # descriptive — computed after the gate, read by
-        # nothing in it. The function-level import keeps the
-        # module graph one-directional (risk imports core,
-        # not the reverse, beyond this point).
+        # nothing in it. (Under tiering the same value was
+        # already computed before the panel ran and is reused
+        # — see the E2/E4 block above.) The function-level
+        # import keeps the module graph one-directional
+        # (risk imports core, not the reverse, beyond this
+        # point).
         from . import risk as _risk
         _risk_config = _risk.risk_config(policy)
         if _risk_config is not None:
@@ -4950,6 +5119,29 @@ def run_review(patch, providers, context="", test_results=None,
             reasons = _ev_reasons + reasons
         elif _ev_reasons:
             reasons = reasons + _ev_reasons
+    # Epic E2: the high tier requires evidence. A supplied
+    # evidence record was judged by the C3 rule directly
+    # above, exactly as in any run; a MISSING one — the
+    # caller collected no evidence for a high-band change —
+    # takes C3's consequence for required evidence that is
+    # missing: the gate blocks, stated in the reasons and in
+    # the tiering section.
+    tiering_evidence = None
+    if tiering_plan is not None:
+        if risk_section["band"] == "high":
+            if evidence is None:
+                gate = "blocked"
+                reasons = [
+                    "tiered panel (Epic E2): risk band "
+                    "'high' requires evidence, but no "
+                    "evidence record was supplied — required "
+                    "evidence missing blocks the gate "
+                    "(Epic C rule)"] + reasons
+                tiering_evidence = "missing"
+            else:
+                tiering_evidence = "supplied"
+        else:
+            tiering_evidence = "not_required"
     report = {
         "schema": SCHEMA, "version": VERSION, "mode": "review",
         "created_at": _now_iso(),
@@ -5077,6 +5269,28 @@ def run_review(patch, providers, context="", test_results=None,
         # E1: the deterministic risk score for this change
         # (score + band + reasons) — see risk.py.
         report["risk"] = risk_section
+    if tiering_plan is not None:
+        # E2/E4: the tier plan as executed — the tier's
+        # seats, any configured seats missing from the
+        # panel, the full-panel fallback, whether the run
+        # escalated and on which triggers, and the high
+        # tier's evidence state — see tiering.py.
+        report["tiering"] = {
+            "schema": tiering_mod.SCHEMA,
+            "band": risk_section["band"],
+            "score": risk_section["score"],
+            "stage1_seats": tiering_plan["stage1_seats"],
+            "prescreen_seats": tiering_plan["prescreen_seats"],
+            "medium_seats": tiering_plan["medium_seats"],
+            "missing_seats": tiering_plan["missing_seats"],
+            "fallback_to_full":
+                tiering_plan["fallback_to_full"],
+            "escalated": tiering_escalated,
+            "escalation_triggers": tiering_triggers,
+            "evidence_required":
+                risk_section["band"] == "high",
+            "evidence": tiering_evidence,
+        }
     if evidence is not None:
         report["evidence"] = evidence
     if record_extra:
