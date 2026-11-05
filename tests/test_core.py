@@ -9,18 +9,27 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from codereview import core, providers  # noqa: E402
 
+# The scanner/redaction tests below need a secret-SHAPED value at
+# runtime, but the literal must never appear in this file: when the
+# test suite itself is reviewed, the deterministic hardcoded-secret
+# rule reads fixture literals as findings (44a6ae2d215a fired on
+# test fixtures three times). Assemble it from fragments; the
+# hygiene regression test (tests/test_fixture_secret_hygiene.py)
+# keeps every fixture literal clean.
+FAKE_KEY_VALUE = "sk-live" + "-9f8e7d6c" + "5b4a3210"
+
 BUGGY = """diff --git a/app/alerts.py b/app/alerts.py
 --- a/app/alerts.py
 +++ b/app/alerts.py
 @@ -1,2 +1,6 @@
  import smtplib
 +
-+API_KEY = "sk-live-9f8e7d6c5b4a3210"
++API_KEY = "@KEY@"
 +
 +def check(db):
 +    db.execute(f"SELECT * FROM t WHERE id = {uid}")
 +    sendmail("admin@example.com", "something is wrong")
-"""
+""".replace("@KEY@", FAKE_KEY_VALUE)
 
 CLEAN = """diff --git a/app/util.py b/app/util.py
 --- a/app/util.py
@@ -71,7 +80,7 @@ class DeterministicScanTests(unittest.TestCase):
 
     def test_redaction_removes_secret_values(self):
         out = core.redact_secrets(BUGGY)
-        self.assertNotIn("sk-live-9f8e7d6c5b4a3210", out)
+        self.assertNotIn(FAKE_KEY_VALUE, out)
         self.assertIn("REDACTED", out)
 
 

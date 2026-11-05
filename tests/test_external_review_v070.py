@@ -26,6 +26,13 @@ CLEAN = """diff --git a/app/util.py b/app/util.py
 """
 
 
+# Assembled from fragments so the literal never appears in this
+# file: the deterministic secret rules read test-fixture literals
+# as findings when the suite itself is reviewed (finding
+# 44a6ae2d215a; tests/test_fixture_secret_hygiene.py guards it).
+FAKE_OPENAI_VALUE = "sk-test" + "-SECRET"
+
+
 def verdict_provider(resolutions=None, verdict="pass"):
     def fn(prompt):
         return json.dumps({
@@ -52,7 +59,7 @@ FIXED = [{"finding_id": "f1", "status": "fixed",
 class AgentEnvTests(unittest.TestCase):
     def setUp(self):
         self._saved = dict(os.environ)
-        os.environ["OPENAI_API_KEY"] = "sk-test-SECRET"
+        os.environ["OPENAI_API_KEY"] = FAKE_OPENAI_VALUE
         os.environ["GITHUB_TOKEN"] = "ghp-test-SECRET"
         os.environ.pop("CODEREVIEW_AGENT_ENV", None)
 
@@ -63,7 +70,7 @@ class AgentEnvTests(unittest.TestCase):
     def test_agent_seat_cannot_see_provider_keys(self):
         seats = providers.build_providers(["agent:e:env"])
         out = seats["e"]("x")
-        self.assertNotIn("sk-test-SECRET", out)
+        self.assertNotIn(FAKE_OPENAI_VALUE, out)
         self.assertNotIn("ghp-test-SECRET", out)
         self.assertNotIn("OPENAI_API_KEY", out)
         self.assertIn("CODEREVIEW_PROMPT=", out)
@@ -73,7 +80,7 @@ class AgentEnvTests(unittest.TestCase):
         os.environ["CODEREVIEW_AGENT_ENV"] = "OPENAI_API_KEY"
         seats = providers.build_providers(["agent:e:env"])
         out = seats["e"]("x")
-        self.assertIn("sk-test-SECRET", out)
+        self.assertIn(FAKE_OPENAI_VALUE, out)
         self.assertNotIn("ghp-test-SECRET", out)
 
 

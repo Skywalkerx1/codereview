@@ -46,7 +46,7 @@ import subprocess
 import threading
 import time
 
-VERSION = "0.11.0"
+VERSION = "0.11.1"
 SCHEMA = "codereview.report/1"
 
 SEVERITIES = ("blocker", "major", "minor", "nit")
@@ -1555,6 +1555,36 @@ def _review_job_bounded(fn, prompt, max_attempts=None, timeout=None):
                 "attempts": 0, "error_classes": ["timeout"]}
 
 
+def _probe_call_bounded(fn, prompt, timeout):
+    """One bare provider call under the same hard wait bound
+    _review_job_bounded gives reviewer / Tech Lead calls: the
+    call runs on a daemon worker thread and the waiter gives up
+    after `timeout` seconds, raising TimeoutError for the caller
+    to classify. The stray thread is never joined and dies with
+    the process. The callable's own exception is re-raised
+    unchanged; its return value is returned as-is (a probe
+    accepts any answer — only a hang or a raise is a failure)."""
+    box = queue.Queue(maxsize=1)
+
+    def _work():
+        try:
+            box.put((True, fn(prompt)))
+        except Exception as exc:  # noqa: BLE001 — ferried back
+            box.put((False, exc))
+
+    worker = threading.Thread(target=_work, daemon=True,
+                              name="codereview-doctor-probe")
+    worker.start()
+    try:
+        ok, value = box.get(timeout=timeout)
+    except queue.Empty:
+        raise TimeoutError(
+            f"probe call timed out after {timeout}s") from None
+    if not ok:
+        raise value
+    return value
+
+
 def _seat_meta(seat_meta, name):
     """Family/tier metadata for one seat (v0.7.3): recorded on
     every reviewer report so a release record can PROVE its panel
@@ -2851,7 +2881,7 @@ def _doctor_prompt():
         patch=_DOCTOR_PATCH)
 
 
-def run_doctor(providers, fallbacks=None):
+def run_doctor(providers, fallbacks=None, timeout=None):
     """Preflight health probe (§4.1): one review-shaped call per
     seat, including fallback seats when configured — a fallback
     counts as healthy coverage only after this live probe with the
@@ -2861,7 +2891,22 @@ def run_doctor(providers, fallbacks=None):
     missing credentials and invalid configuration (auth). Writes
     nothing — a scheduler reads the result and aborts BEFORE a
     doomed run creates a record directory, instead of discovering
-    a missing key or a dead quota inside the record itself."""
+    a missing key or a dead quota inside the record itself.
+
+    Every probe call runs under the same hard wait bound the
+    review path gives its reviewer / Tech Lead calls
+    (_probe_call_bounded): `timeout` seconds per seat, defaulting
+    to TECH_LEAD_CALL_TIMEOUT when not given — before this bound
+    existed, a seat whose callable hung (a transport with no
+    ceiling of its own) blocked the preflight forever (review
+    finding 3bbe648d8bfc). A non-positive timeout is a caller
+    bug and raises ValueError before any seat is probed."""
+    if timeout is None:
+        timeout = TECH_LEAD_CALL_TIMEOUT
+    if timeout <= 0:
+        raise ValueError(
+            f"doctor probe timeout must be positive, got "
+            f"{timeout!r}")
     prompt = _doctor_prompt()
     seats = []
     probed = {}
@@ -2877,7 +2922,7 @@ def run_doctor(providers, fallbacks=None):
             entry = {"name": name, "ok": True,
                      "error_class": "", "error": ""}
             try:
-                fn(prompt)
+                _probe_call_bounded(fn, prompt, timeout)
             except Exception as exc:  # noqa: BLE001 — probe's point
                 kind, _tries = _classify_error(exc)
                 entry.update({"ok": False, "error_class": kind,

@@ -31,6 +31,14 @@ from . import registry, userconfig
 from .providers import ProviderError, describe_spec
 
 
+# Bound on provider-entry attempts in the wizard: without it
+# the provider loop re-asked forever on persistently invalid
+# input (review finding a509b806fda6). Exhausting the bound
+# aborts through the same EOF channel as an EOF at any prompt —
+# nothing is saved and the caller exits cleanly.
+MAX_PROVIDER_ATTEMPTS = 3
+
+
 def _ask(input_fn, print_fn, prompt):
     try:
         return input_fn(prompt).strip()
@@ -57,9 +65,11 @@ def run_wizard(input_fn=input, print_fn=print, environ=None,
                  f"{preset['model']}   key env: "
                  f"{preset['key_env']}")
     providers = []
+    attempts = 0
     while not providers:
         raw = _ask(input_fn, print_fn,
                    "Providers, comma-separated: ")
+        attempts += 1
         candidates = [s.strip() for s in raw.split(",")
                       if s.strip()]
         bad = []
@@ -68,9 +78,15 @@ def run_wizard(input_fn=input, print_fn=print, environ=None,
                 describe_spec(spec)
             except ProviderError as exc:
                 bad.append(str(exc))
+        if not candidates:
+            bad.append("no providers entered")
         if bad:
             for msg in bad:
                 print_fn(f"  ! {msg}")
+            if attempts >= MAX_PROVIDER_ATTEMPTS:
+                print_fn("setup aborted — too many invalid "
+                         "provider entries; nothing saved.")
+                raise EOFError
             continue
         providers = candidates
     for spec in providers:

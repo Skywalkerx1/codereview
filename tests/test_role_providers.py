@@ -241,6 +241,30 @@ class RoleAssignmentTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             registry.parse_role_assignments(["tech-lead"])
 
+    def test_parse_roles_rejects_duplicate_lens_role(self):
+        # Finding 84fc41a76d3f: the duplicate coverage above
+        # used a non-lens role. A duplicated LENS role is the
+        # dangerous case — a silent last-wins would pin the
+        # wrong seat to the lens — so both lens roles get the
+        # same explicit rejection coverage.
+        for lens_role in ("correctness", "operations"):
+            with self.assertRaises(ValueError):
+                registry.parse_role_assignments(
+                    [f"{lens_role}=moonshot",
+                     f"{lens_role}=deepseek"])
+
+    def test_apply_roles_rejects_duplicate_lens_role(self):
+        # The same rejection must hold through the CLI seam
+        # that builds lens_seats: the failure happens at parse
+        # time, before any seat is built or merged, so the
+        # panel is left untouched and no pin is recorded.
+        panel = {}
+        with self.assertRaises(ValueError):
+            cli._apply_role_assignments(
+                panel,
+                ["correctness=moonshot", "correctness=deepseek"])
+        self.assertEqual(panel, {})
+
     def test_apply_roles_builds_seats_pins_lens_and_records(self):
         panel = {}
         lens_seats, seat_roles, role_models, tech_lead = \

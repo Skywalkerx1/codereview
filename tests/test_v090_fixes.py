@@ -12,6 +12,8 @@ import os
 import subprocess
 import sys
 import tempfile
+import threading
+import time
 import unittest
 
 sys.path.insert(0, os.path.join(
@@ -437,6 +439,72 @@ class DoctorShapeTests(unittest.TestCase):
             cli.build_providers = original
         self.assertEqual(rc, 0)
         self.assertEqual(captured["agent_timeout"], 7)
+
+
+class DoctorTimeoutTests(unittest.TestCase):
+    """Finding 3bbe648d8bfc (v0.11.0 review, standing major):
+    the doctor's probe calls ran unbounded — a seat whose
+    callable hung blocked the preflight forever. Every probe
+    now runs under the review path's bounded-call pattern
+    (_probe_call_bounded) with the same default semantics."""
+
+    def test_hanging_seat_is_bounded_and_reported(self):
+        never = threading.Event()
+
+        def hanging(_prompt):
+            never.wait(30)
+            return "too late"
+        started = time.monotonic()
+        result = core.run_doctor({"hang": hanging}, timeout=1)
+        elapsed = time.monotonic() - started
+        self.assertFalse(result["ok"])
+        seat = result["seats"][0]
+        self.assertFalse(seat["ok"])
+        self.assertEqual(seat["error_class"], "transient")
+        self.assertIn("timed out", seat["error"])
+        # The bound is a WAIT bound: the preflight returns in
+        # ~timeout seconds, not when the seat eventually answers.
+        self.assertLess(elapsed, 10)
+
+    def test_fast_seat_still_probes_ok_under_a_bound(self):
+        result = core.run_doctor({"main": ok_provider}, timeout=5)
+        self.assertTrue(result["ok"], result)
+
+    def test_default_timeout_is_the_review_call_ceiling(self):
+        # No explicit timeout: the default semantics are the
+        # review path's per-call ceiling, not a doctor-only
+        # number — a merely slow seat still answers fine.
+        def slow(_prompt):
+            time.sleep(0.2)
+            return json.dumps({"summary": "ok", "findings": []})
+        result = core.run_doctor({"slow": slow})
+        self.assertTrue(result["ok"], result)
+
+    def test_non_positive_timeout_is_a_caller_error(self):
+        with self.assertRaises(ValueError):
+            core.run_doctor({"main": ok_provider}, timeout=0)
+
+    def test_doctor_main_wires_timeout_to_the_probe(self):
+        never = threading.Event()
+
+        def hanging(_prompt):
+            never.wait(30)
+            return "too late"
+        import io
+        from contextlib import redirect_stdout
+        out = io.StringIO()
+        started = time.monotonic()
+        with redirect_stdout(out):
+            rc = cli._doctor_main(
+                ["--timeout", "1"],
+                providers_override={"hang": hanging})
+        elapsed = time.monotonic() - started
+        self.assertEqual(rc, 2)
+        self.assertLess(elapsed, 10)
+        result = json.loads(out.getvalue())
+        self.assertFalse(result["ok"])
+        self.assertIn("timed out",
+                      result["seats"][0]["error"])
 
 
 class FallbackAttemptsTests(unittest.TestCase):

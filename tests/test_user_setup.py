@@ -94,7 +94,14 @@ class WizardTests(unittest.TestCase):
             cfg_path = os.path.join(tmp, "config.toml")
             environ = fresh_env(
                 tmp, CODEREVIEW_CONFIG=cfg_path,
-                DEEPSEEK_API_KEY="sentinel-value-never-stored")
+                # The value carries the deterministic scan's
+                # placeholder exemption token on purpose: a plain
+                # KEY="..." literal here tripped the hardcoded-
+                # secret blocker in review three times (finding
+                # 44a6ae2d215a; see tests/test_fixture_secret_
+                # hygiene.py). The test's point is unchanged —
+                # this value must never reach the saved config.
+                DEEPSEEK_API_KEY="placeholder-deepseek-key-never-stored")
             result, _printed = self._run(
                 ["deepseek, moonshot",  # providers
                  "",                     # correctness <- deepseek
@@ -114,7 +121,8 @@ class WizardTests(unittest.TestCase):
             with open(cfg_path, encoding="utf-8") as fh:
                 text = fh.read()
             # The key VALUE is never written — only specs.
-            self.assertNotIn("sentinel-value-never-stored", text)
+            self.assertNotIn("placeholder-deepseek-key-never-stored",
+                             text)
             self.assertIn("deepseek", text)
             with mock.patch.dict(os.environ, environ, clear=True):
                 self.assertEqual(
@@ -133,6 +141,36 @@ class WizardTests(unittest.TestCase):
                     input_fn=eof, print_fn=lambda _m: None,
                     environ=environ)
             self.assertFalse(os.path.exists(cfg_path))
+
+    def test_wizard_provider_loop_bounds_invalid_entries(self):
+        # Finding a509b806fda6: the provider loop re-asked
+        # forever on persistently invalid input. After
+        # MAX_PROVIDER_ATTEMPTS bad entries it aborts through
+        # the EOF channel — nothing saved.
+        with tempfile.TemporaryDirectory() as tmp:
+            cfg_path = os.path.join(tmp, "config.toml")
+            environ = fresh_env(tmp, CODEREVIEW_CONFIG=cfg_path)
+            printed = []
+            with self.assertRaises(EOFError):
+                setup_wizard.run_wizard(
+                    input_fn=lambda _p: "bogus-preset",
+                    print_fn=printed.append, environ=environ)
+            self.assertFalse(os.path.exists(cfg_path))
+            self.assertTrue(
+                any("too many invalid" in m for m in printed),
+                printed)
+
+    def test_wizard_provider_loop_recovers_within_the_bound(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cfg_path = os.path.join(tmp, "config.toml")
+            environ = fresh_env(tmp, CODEREVIEW_CONFIG=cfg_path)
+            result, _printed = self._run(
+                ["bogus-preset",  # invalid spec (attempt 1)
+                 "",              # empty entry (attempt 2)
+                 "deepseek",      # providers (attempt 3)
+                 "", "", "", "", ""],  # roles accept suggestion
+                environ)
+            self.assertEqual(result["providers"], ["deepseek"])
 
 
 class RunResolutionTests(unittest.TestCase):

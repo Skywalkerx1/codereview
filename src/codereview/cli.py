@@ -851,7 +851,10 @@ def _doctor_main(argv, providers_override=None,
     ap.add_argument("--timeout", type=int, default=None,
                     help="per-seat timeout in seconds for agent "
                          "seats (forwarded to provider "
-                         "construction, like review/intake)")
+                         "construction, like review/intake); "
+                         "also the probe's per-seat wait bound "
+                         "(default: the review path's per-call "
+                         "ceiling)")
     args = ap.parse_args(argv)
     if args.timeout is not None and args.timeout <= 0:
         print(json.dumps(
@@ -924,7 +927,8 @@ def _doctor_main(argv, providers_override=None,
                 {"ok": False, "seats": [],
                  "error": f"role assignment failed: {exc}"}))
             return 2
-    result = core.run_doctor(providers, fallbacks=fallbacks)
+    result = core.run_doctor(providers, fallbacks=fallbacks,
+                             timeout=args.timeout)
     if seat_roles:
         result = {**result, "seat_roles": seat_roles,
                   "role_models": role_models}
