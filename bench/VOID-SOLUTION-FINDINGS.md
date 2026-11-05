@@ -67,6 +67,70 @@ the parent already had).
   two correctness seats are each other's fallback) validate
   clean, since both are bound to the lens.
 
+## Empty-content class fix (2026-11-05, branch `empty-class-fix`)
+
+A step-3 follow-up to the forensics, driven by the DeepSeek
+soak (`deepseek-soak-2026-11-05.md` in the goal files): the
+bench seat wrapper raises `ProviderError(kind="empty")` when
+the provider answers with an empty content channel. The
+generation layer classified it by message text as "unknown" —
+a transport-class failure that latched the seat's per-key
+exhausted state, so the product's re-draw never reached the
+transport and the report was lost as infrastructure noise
+(the voided confirmation's sporadic mode: exactly one DeepSeek
+report per attempt on a healthy account; the soak reproduced
+the class on 5/24 bench calls, and a raw-API probe measured
+the model's reasoning channel at 80–87% of completion tokens
+on the affected prompts — the budget is spent where the
+wrapper never looks).
+
+- **Fix (`bench/generation.py` only):** a typed
+  `ProviderError` with `kind == "empty"` is a CONTENT-class
+  failure. `GenerationSeat` records a `content_invalid` event
+  with error class `empty` and returns an empty text, handing
+  the failure to the product's own retry behaviour
+  (`_call_and_parse`'s repair + fresh sample) as the re-draw,
+  with the pre-declared per-lens fallback seat as the next
+  step. No transport-budget retries, no exhausted latch. The
+  raw empty-body transport return stays transport class
+  (Addendum A item 4 names the two cases separately); every
+  other class mapping is unchanged.
+- **Tests:** 4 new in `tests/test_generation.py`
+  (`EmptyContentClassTests` + two run-level cases), all
+  parent-fail verified against the pre-change tree: empty once
+  then valid → served by the seat's own re-draw, recorded as a
+  content failure with class `empty`; empty on seat and
+  fallback → case unscored for the seat (record status
+  `content_failed` — Addendum A item 6 counts a content
+  failure no fallback served toward the same unscored cap as
+  `unscored-infra`); a typed non-empty provider error still
+  takes the transport path.
+- **Equivalence check (step-3 gate):** pre-change master and
+  this branch ran `run_generation` over the same 2 public
+  cases under 6 scripted-transport scenarios. Scenarios with
+  no empty outcomes (all-good, content-invalid text, one
+  transient 503, persistent 503) are **identical** —
+  generation records, attempt records (order-insensitive:
+  reviewer-report order is concurrent-execution noise, proven
+  by same-tree reruns differing), gates, completion. The two
+  empty scenarios diverge **only** in the empty seat's own
+  record and exactly as designed: pre-change 1 call, class
+  `unknown`, `unscored_infra`, case incomplete (empty-once) —
+  post-change the product's 3 draws, class `empty`, served by
+  the re-draw; with a fallback declared, final serving is
+  identical (fallback serves in both) and only the primary's
+  record changes. A live post-change run over 2 public cases
+  with the real panel completed both cases (DeepSeek: 3 job
+  calls, no empty drawn that run — the class is stochastic,
+  ~17–25% per call in the soak; Gemini quota failures were
+  served by the declared fallback and recorded as such).
+- **Addendum A alignment note:** item 4's failure-class table
+  should be aligned to this mapping at signing — its transport
+  row currently exemplifies "empty body from the transport
+  layer" without distinguishing the seat wrapper's typed
+  `kind="empty"` answer (a response that arrived, content
+  class). The addendum draft is NOT edited by this branch.
+
 ## Budget model (reconciled)
 
 One coherent two-level model, stated identically in

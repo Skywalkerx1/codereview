@@ -149,6 +149,85 @@ class CacheSeatTests(unittest.TestCase):
             k1, gen.cache_key("a", "m", {"t": 0.1}, "p2")[0])
 
 
+class FakeProviderError(Exception):
+    """llm_chain.ProviderError's shape: a typed provider error
+    (provider / kind / detail attributes, no `retryable`), whose
+    string form is "<provider> <kind>: <detail>". core's
+    classifier reads typed attributes first and the message text
+    second, exactly as it does for the real wrapper's errors."""
+
+    def __init__(self, provider, kind, detail):
+        super().__init__(f"{provider} {kind}: {detail}")
+        self.provider = provider
+        self.kind = kind
+        self.detail = detail
+
+
+def empty_error():
+    return FakeProviderError("deepseek", "empty", "empty content")
+
+
+class EmptyContentClassTests(unittest.TestCase):
+    """ProviderError kind="empty" is a CONTENT-class failure
+    (soak 2026-11-05): the provider answered with an empty
+    content channel. It must not burn the transport retry
+    budget and must not latch the per-key exhausted state —
+    the product's own retry behaviour is the re-draw, and the
+    per-lens fallback seat is the next step."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.cache = gen.ResponseCache(
+            os.path.join(self.tmp.name, "cache"))
+
+    def test_empty_is_content_class_and_seat_redraws(self):
+        calls = []
+
+        def transport(prompt):
+            calls.append(prompt)
+            if len(calls) == 1:
+                raise empty_error()
+            return GOOD, USAGE
+
+        s = seat("a", transport, cache=self.cache)
+        # The failure is handed to the caller's repair flow as an
+        # unusable (empty) response — never raised as transport.
+        self.assertEqual(s("p"), "")
+        self.assertEqual(
+            [(e["outcome"], e["error_class"]) for e in s.events],
+            [("content_invalid", "empty")])
+        # The key is NOT latched: a re-draw reaches the transport
+        # and the valid response is served (and cached).
+        self.assertEqual(s("p"), GOOD)
+        self.assertEqual(s("p"), GOOD)   # cache hit
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(
+            [e["outcome"] for e in s.events],
+            ["content_invalid", "ok", "cache_hit"])
+
+    def test_typed_nonempty_error_still_takes_transport_path(
+            self):
+        calls = []
+
+        def transport(prompt):
+            calls.append(prompt)
+            if len(calls) == 1:
+                raise FakeProviderError(
+                    "deepseek", "http",
+                    "HTTP 503 Service Unavailable")
+            return GOOD, USAGE
+
+        s = seat("a", transport, cache=self.cache)
+        # Retried inside the seat under the transport budget,
+        # exactly as before the empty mapping existed.
+        self.assertEqual(s("p"), GOOD)
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(
+            [(e["outcome"], e["error_class"]) for e in s.events],
+            [("transport_error", "transient"), ("ok", None)])
+
+
 class ShadowCostTests(unittest.TestCase):
     def test_priced_model_and_unknown_model(self):
         usd, known = gen.shadow_price("deepseek-chat", 1_000_000,
@@ -323,6 +402,65 @@ class RunGenerationTests(unittest.TestCase):
                if r["seat"] == "a"][0]
         self.assertEqual(rec["status"], "content_failed")
         self.assertGreaterEqual(rec["failure_count"], 1)
+
+    def test_empty_once_then_valid_served_by_redraw(self):
+        calls = {"n": 0}
+
+        def empty_once(prompt):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise empty_error()
+            return GOOD, USAGE
+
+        seats = self.good_seats()
+        seats["a"] = seat("a", empty_once)
+        summary = run(self.cases[:1], seats, self.out,
+                      self.cache_dir)
+        self.assertEqual(summary["incomplete"], {})
+        rec = [r for r in self.gen_records()
+               if r["seat"] == "a"][0]
+        # Served by the seat itself via the product's re-draw;
+        # the empty is on the record as a content failure.
+        self.assertEqual(rec["status"], "valid")
+        self.assertEqual(rec["served_by"], "a")
+        self.assertEqual(rec["failure_count"], 1)
+        self.assertEqual(rec["error_classes"], ["empty"])
+        self.assertEqual(len(rec["error_detail"]), 1)
+        self.assertEqual(rec["error_detail"][0]["error_class"],
+                         "empty")
+        self.assertEqual(rec["error_detail"][0]["outcome"],
+                         "content_invalid")
+        self.assertGreaterEqual(calls["n"], 2)   # the re-draw
+
+    def test_empty_on_seat_and_fallback_is_unscored(self):
+        def always_empty(prompt):
+            raise empty_error()
+
+        seats = self.good_seats()
+        seats["a"] = seat("a", always_empty)
+        seats["b"] = seat("b", always_empty)
+        summary = run(self.cases[:1], seats, self.out,
+                      self.cache_dir,
+                      fallbacks={"correctness": "b"})
+        cid = self.cases[0]["id"]
+        # Nothing served: the case is unscored for the seat —
+        # incomplete, no attempt record, and the seat's record
+        # carries the content class (Addendum A item 6 counts a
+        # content-failure case no fallback served toward the
+        # same unscored cap as unscored-infra).
+        self.assertIn(cid, summary["incomplete"])
+        self.assertIn("a", summary["incomplete"][cid])
+        rec = [r for r in self.gen_records()
+               if r["seat"] == "a" and r["lens"] == "correctness"
+               ][0]
+        self.assertEqual(rec["status"], "content_failed")
+        self.assertEqual(rec["error_classes"], ["empty"])
+        att_path = os.path.join(self.out, "attempt-1.jsonl")
+        att_text = ""
+        if os.path.exists(att_path):
+            with open(att_path, encoding="utf-8") as fh:
+                att_text = fh.read().strip()
+        self.assertFalse(att_text)
 
     def test_config_hash_mismatch_refuses_to_mix_panels(self):
         run(self.cases[:1], self.good_seats(), self.out,

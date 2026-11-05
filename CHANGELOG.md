@@ -1,5 +1,29 @@
 # Changelog
 
+## Unreleased — 2026-11-05 (empty-content failure class)
+
+- **Seat `ProviderError(kind="empty")` is now a content-class
+  failure in the bench generation layer**
+  (`bench/generation.py`). The DeepSeek soak (2026-11-05)
+  reproduced the class on 5/24 bench calls against a healthy
+  account — the provider answers with an empty content
+  channel, its completion budget spent in the reasoning
+  channel. Previously the generation layer classified it
+  "unknown" (transport class) and latched the seat exhausted,
+  losing the report as infrastructure noise. Now the seat
+  records a `content_invalid` event (error class `empty`) and
+  hands the failure to the product's own retry behaviour as
+  the re-draw, with the pre-declared per-lens fallback seat
+  next — no transport-budget burn, no latch. The raw
+  empty-body transport return stays transport class; all
+  other mappings unchanged. Equivalence-checked against the
+  pre-change tree on public-split scripted scenarios
+  (identical except for `kind="empty"` outcomes); 4 new
+  parent-fail-verified tests. Detail:
+  `bench/VOID-SOLUTION-FINDINGS.md` ("Empty-content class
+  fix"). No change to policy B1, thresholds, metric
+  definitions, gate semantics, or the confirmation scorer.
+
 ## Unreleased — 2026-11-05 (void solution: generation machinery, S1, S4)
 
 Implements the machinery of the adopted post-void solution
