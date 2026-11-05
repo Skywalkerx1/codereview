@@ -85,7 +85,10 @@ executing UNTRUSTED code and confines it accordingly:
   per-file size limit (POSIX rlimits), and a cap on captured
   output per stream (the child is drained past the cap, never
   blocked on a full pipe; the record's hash and tail cover the
-  capped bytes and a truncation marker says so), all recorded.
+  capped bytes and a truncation marker says so; if a detached
+  process holds a pipe open past the post-kill settle, the
+  capture is marked incomplete rather than silently partial),
+  all recorded.
   What the sandbox does NOT confine — filesystem reach outside
   the copy, memory growth, and the other residual risks — is
   stated plainly in the full threat model, `THREAT-MODEL.md`
@@ -126,6 +129,9 @@ _CPU_SLACK = 5                 # rlimit CPU seconds beyond timeout
 _FILE_SIZE_LIMIT = 256 * 1024 * 1024   # RLIMIT_FSIZE per file
 _OUTPUT_CAP_BYTES = 8 * 1024 * 1024    # captured output, per stream
 _OUTPUT_TAIL_CHARS = 4000      # stored tail, matching _run_tests
+_KILL_SETTLE_S = 30            # post-kill drain budget — the
+                               # pre-cap runner's second
+                               # communicate() used the same 30 s
 
 STATUSES = ("passed", "failed", "timeout", "unavailable",
             "missing", "error")
@@ -314,7 +320,12 @@ def _drain(stream, sink):
     bound. sink["truncated"] records that output was dropped."""
     try:
         while True:
-            chunk = stream.read(65536)
+            # read1, not read: read(n) waits until n bytes or
+            # EOF, which would strand a trickling child's
+            # available bytes inside the buffer when EOF never
+            # comes (a detached pipe holder); read1 returns
+            # whatever one raw read delivers.
+            chunk = stream.read1(65536)
             if not chunk:
                 break
             room = _OUTPUT_CAP_BYTES - len(sink["data"])
@@ -331,21 +342,32 @@ def _drain(stream, sink):
             pass
 
 
-def _captured(out_sink, err_sink):
+def _captured(out_sink, err_sink, incomplete=False):
     """The combined output bytes the record hashes and tails:
     stdout then stderr, exactly as the pre-cap runner combined
-    them, plus a truncation marker (visible in the tail, and
-    covered by the hash) when either stream hit the cap."""
+    them, plus markers (visible in the tail, and covered by
+    the hash) for the two ways the bytes can be less than what
+    the child wrote: a truncation marker when either stream
+    hit the cap, and — when a drainer was still blocked after
+    the post-kill settle because a detached process holds the
+    pipe open — an incomplete-capture marker. Partial output
+    is never presented as whole."""
     output = bytes(out_sink["data"]) + bytes(err_sink["data"])
     if out_sink["truncated"] or err_sink["truncated"]:
         output += (
             f"\n[codereview: output truncated at the sandbox "
             f"cap of {_OUTPUT_CAP_BYTES} bytes per stream]\n"
         ).encode("utf-8")
+    if incomplete:
+        output += (
+            "\n[codereview: output capture incomplete — a "
+            "detached process still holds the pipe]\n"
+        ).encode("utf-8")
     return output
 
 
-def _execute(argv, cwd, timeout, env, allow_network):
+def _execute(argv, cwd, timeout, env, allow_network,
+             settle_s=_KILL_SETTLE_S):
     """Run one argv in the sandbox; return (status, exit_code,
     duration_s, output_bytes, network_mode). Never raises for
     child failures — every outcome is data for the record.
@@ -385,11 +407,12 @@ def _execute(argv, cwd, timeout, env, allow_network):
         reader.start()
     return _supervise_sandbox_run(
         proc, readers, timeout, started, out_sink, err_sink,
-        network_mode)
+        network_mode, settle_s=settle_s)
 
 
 def _supervise_sandbox_run(proc, readers, timeout, started,
-                           out_sink, err_sink, network_mode):
+                           out_sink, err_sink, network_mode,
+                           settle_s=_KILL_SETTLE_S):
     """The evidence sandbox's supervised wait — the pairing
     the v14 subprocess-timeout guard accepts by name for
     _execute's Popen, as it does providers' seat wait: every
@@ -422,12 +445,20 @@ def _supervise_sandbox_run(proc, readers, timeout, started,
     if timed_out:
         _kill_group(proc)
         try:
-            proc.wait(timeout=30)
+            proc.wait(timeout=settle_s)
         except Exception:  # noqa: BLE001
             pass
-        _settle(time.monotonic() + 30)
+        # Post-kill drain: after the group kill the pipes
+        # reach EOF and the drainers finish, so the sinks are
+        # final before _captured reads them. A drainer still
+        # blocked after the settle means a detached process
+        # (outside the killed group) holds the pipe — the
+        # capture is then partial, and _captured marks it
+        # incomplete rather than presenting it as whole.
+        final = _settle(time.monotonic() + settle_s)
         return "timeout", None, time.monotonic() - started, \
-            _captured(out_sink, err_sink), network_mode
+            _captured(out_sink, err_sink, incomplete=not final), \
+            network_mode
     status = "passed" if proc.returncode == 0 else "failed"
     return status, proc.returncode, time.monotonic() - started, \
         _captured(out_sink, err_sink), network_mode

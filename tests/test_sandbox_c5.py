@@ -28,6 +28,7 @@ threat model + tests):
 """
 
 import os
+import shutil
 import sys
 import tempfile
 import unittest
@@ -105,6 +106,29 @@ class OutputCapTests(unittest.TestCase):
         self.assertEqual(
             record["sandbox"]["limits"]
                   ["output_cap_bytes_per_stream"], CAP)
+
+    @unittest.skipUnless(shutil.which("setsid"),
+                         "setsid unavailable on this platform")
+    def test_timeout_with_detached_pipe_holder_marks_incomplete(
+            self):
+        # A setsid-detached grandchild inherits the stdout
+        # pipe and holds it open past the group kill, so the
+        # drainer cannot reach EOF within the settle: the
+        # capture is partial and must SAY so in the recorded
+        # output — never present partial output as whole
+        # (gate round-1 majors 134b3fbb5d48 / 248161f024f7,
+        # accepted in substance). settle_s is shortened so
+        # the test does not sit out the production budget.
+        workdir = tempfile.mkdtemp(prefix="c5-work-")
+        status, code, duration, output, _net = evidence._execute(
+            ["sh", "-c",
+             "setsid sleep 45 & echo ready; sleep 30"],
+            workdir, 1, dict(os.environ), False, settle_s=1)
+        self.assertEqual(status, "timeout")
+        self.assertIsNone(code)
+        self.assertIn(b"ready", output)
+        self.assertIn(b"output capture incomplete", output)
+        self.assertLess(duration, 20)
 
     def test_under_cap_output_is_byte_identical(self):
         # Pin of the pre-existing contract the cap must not

@@ -53,7 +53,7 @@ it that way here too.
 | Wall-clock bound | Per-item timeout; expiry kills the whole process group (`start_new_session` + `killpg`), so grandchildren in the group die too | `test_evidence` timeout test; `test_sandbox_c5` cleanup-after-kill |
 | CPU bound | `RLIMIT_CPU` = timeout + 5 s, set in the child via `preexec_fn` | `test_sandbox_c5.ResourceLimitPinTests` (child reports its own limits) |
 | Per-file size bound | `RLIMIT_FSIZE` = 256 MiB per file | same pin as above |
-| Captured-output bound | Each stream (stdout, stderr) is drained by a reader thread under an 8 MiB cap: past the cap the parent keeps draining and discarding, so the child never blocks on a full pipe and the gate process's memory stays bounded. The record's hash and redacted tail cover the capped bytes; a truncation marker in the output says when the cap bit | `test_sandbox_c5.OutputCapTests` (cap + marker, drained-not-blocked, byte-identical under the cap) |
+| Captured-output bound | Each stream (stdout, stderr) is drained by a reader thread under an 8 MiB cap: past the cap the parent keeps draining and discarding, so the child never blocks on a full pipe and the gate process's memory stays bounded. The record's hash and redacted tail cover the capped bytes; a truncation marker in the output says when the cap bit. On the timeout path the drainers are joined after the kill (a bounded settle), so the sinks are final before they are read; if a detached process still holds a pipe open after the settle, the capture is marked incomplete in the output — partial output is never presented as whole | `test_sandbox_c5.OutputCapTests` (cap + marker, drained-not-blocked, byte-identical under the cap, incomplete-capture marker) |
 | Output is evidence, not truth | Full output is never stored: its sha256 plus a tail (4 000 chars) passed through the review path's `redact_secrets`, so a scanner that prints the secret it found does not smuggle it into the record | `test_evidence` hash tests |
 | Supervised waits only | Every `Popen` in `src/` pairs with `communicate(timeout=…)`, the seat wait, or the sandbox's `_supervise_sandbox_run` — an AST guard keeps it so | `test_v093_fixes.SubprocessTimeoutGuardTests` |
 
@@ -126,7 +126,10 @@ or a container.
    and survives the timeout kill. It keeps the scrubbed
    environment and (in namespace mode) the absent network,
    and runs as the operator's uid until it exits or the
-   operator kills it.
+   operator kills it. If it holds an output pipe open past
+   the post-kill settle, the run's captured output is
+   partial — and is marked incomplete in the record, never
+   presented as whole.
 6. **`env-only` mode is not network isolation.** Where
    `unshare` is unavailable, "no network by default" means
    only that proxy variables are stripped; direct connections

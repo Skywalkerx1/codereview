@@ -17,8 +17,11 @@ documented threat model + tests) and closed the one real gap.
   discarding (the child never blocks on a full pipe and its
   exit status is unaffected), the record's hash and tail
   cover the capped bytes, and a truncation marker in the
-  output says when the cap bit. The record's `sandbox.limits`
-  block states the cap. The wait lives in a named supervised
+  output says when the cap bit; and if a detached process
+  holds a pipe open past the post-kill settle, the capture is
+  marked incomplete rather than silently partial (gate
+  round-1 majors, accepted in substance). The record's
+  `sandbox.limits` block states the cap. The wait lives in a named supervised
   wait (`_supervise_sandbox_run`) — deadline-bounded waits,
   bounded joins, process-group kill on expiry — and the v14
   subprocess-timeout guard accepts it by name, following the
