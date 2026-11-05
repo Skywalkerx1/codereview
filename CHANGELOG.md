@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased — 2026-11-05 (acceptance wiring, protocol v2)
+
+- `acceptance.run_acceptance_v2`: the redesigned Tech Lead
+  (techlead.adjudicate) can now be scored over the acceptance
+  corpus through the SAME scorer and metric computation as
+  the v1 runner (`_scorecard_metrics`, shared). V2 entries
+  are mapped by `adapt_v2_entry` field-for-field; the
+  two-field reasoning assessment the machinery stratum
+  scores is the seat's own (the v2 verdict draw now returns
+  it in the v1 vocabulary) — never derived by the adapter.
+  Per-path results (deterministic probe path vs model path)
+  are reported separately in the run record, never blended.
+  M1 follows the scorecard's counting rules (by scored
+  decision); the scorer's per-case false_dismissal flag is
+  vestigial and unused. M4 is not run in v2 baseline mode.
+
 ## Unreleased — 2026-11-05
 
 - Tech Lead redesign, adjudication protocol v2 (branch
