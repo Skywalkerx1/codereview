@@ -124,6 +124,22 @@ was the concurrency case, where both seats errored), p50 latency
 OpenAI seat; it will be run over the full public split and recorded
 here with its date and panel health.
 
+**First full-public-split baseline (2026-11-04, config
+`panel-baseline-2026-11-04`): quotable, with caveats.** Gemini was
+still quota-dead at preflight (HTTP 429) and was excluded before
+the run; the panel that served was OpenAI (gpt-5.4, correctness) +
+NVIDIA (nemotron-3.5-lightning, operations) + DeepSeek
+(deepseek-flash, correctness), seats injected from the swarm's
+llm_chain via `bench/scripts/run_panel_baseline.py`. All 27 public
+cases ran, **zero degraded, 81/81 seat jobs ok**: **recall 1.000,
+escaped-defect rate 0.000** over the split's 24 defects — against
+precision 0.209 and a clean-case FP rate of 0.60 (2 of 5 clean
+controls gate-blocked on false positives). Full numbers, per-family
+and per-lens breakdowns, and the caveats that must travel with the
+headline are in `bench/BASELINE-2026-11-04.md`, with the official
+report and raw records beside it. A Gemini-inclusive baseline
+still awaits a quota reset.
+
 ## Holdout discipline
 
 Holdout cases score in the full (internal) report only.
