@@ -693,18 +693,29 @@ def _prompt_slice(text, cap):
     by how much, and verify the full text against the record.
     A single word longer than the budget is still cut — the
     marker is what makes that cut honest rather than silent
-    (open-refutations hardening, 4ce0212286e0)."""
+    (open-refutations hardening, 4ce0212286e0).
+
+    The marker lives INSIDE the budget (ratified fix for
+    3f50bf6b3349): the visible prefix is sized at cap minus
+    the marker's own length, so the returned string never
+    exceeds `cap`. When `cap` is smaller than the marker
+    itself, the marker is all that fits — returned cut to
+    `cap`, it still signals the truncation."""
     text = str(text or "")
     if len(text) <= cap:
         return text
-    cut = text[:cap]
+    digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
+    marker = (f" …[truncated, {len(text)} chars, "
+              f"sha256:{digest}]")
+    budget = cap - len(marker)
+    if budget <= 0:
+        return marker[:cap] if cap > 0 else ""
+    cut = text[:budget]
     boundary = max(cut.rfind(" "), cut.rfind("\n"),
                    cut.rfind("\t"))
-    if boundary > cap // 2:
+    if boundary > budget // 2:
         cut = cut[:boundary]
-    digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
-    return (f"{cut} …[truncated, {len(text)} chars, "
-            f"sha256:{digest}]")
+    return f"{cut}{marker}"
 
 
 def _finding_public(finding):
@@ -1769,7 +1780,7 @@ def _reviewer_tasks(provider_items, lens_seats=None):
 
 
 def _gate(findings, allow_major=False, degraded=False, incomplete=False,
-          strict=False, any_success=True):
+          strict=False, any_success=True, degraded_causes=None):
     blocking_sevs = ("blocker",) if allow_major else BLOCKING_DEFAULT
     blocking = [f for f in findings if f["severity"] in blocking_sevs]
     reasons = []
@@ -1786,7 +1797,24 @@ def _gate(findings, allow_major=False, degraded=False, incomplete=False,
         if strict:
             return "inconclusive", reasons
     if degraded:
-        reasons.append("at least one reviewer failed (degraded review)")
+        # The reason must state the degraded CAUSE and must never
+        # claim a reviewer failed when none did (ratified fix for
+        # 7ea4e96603e9 / 212878ab6bba: the old boilerplate appended
+        # "at least one reviewer failed" for EVERY degraded run,
+        # including runs degraded purely by incomplete coverage
+        # with all reviewers ok — a self-contradictory gate line).
+        causes = list(degraded_causes or [])
+        if "reviewer failure" in causes:
+            reasons.append(
+                "at least one reviewer failed (degraded review)")
+        elif causes:
+            reasons.append(
+                "run marked degraded (" + "; ".join(causes) + ")")
+        elif incomplete:
+            reasons.append(
+                "run marked degraded (coverage incomplete)")
+        else:
+            reasons.append("run marked degraded")
         if strict and not blocking:
             return "inconclusive", reasons
     if blocking:
@@ -1925,6 +1953,11 @@ def run_review(patch, providers, context="", test_results=None,
     all_findings = list(det)
     any_success = False
     degraded = False
+    # Why the run degraded (7ea4e96603e9): the gate line and the
+    # record state the cause(s) instead of boilerplate. Causes are
+    # appended in the order they occur; "reviewer failure" is the
+    # only one that licenses the reviewer-failure gate reason.
+    degraded_causes = []
 
     jobs = []
     for bi, batch in enumerate(batches):
@@ -2027,11 +2060,15 @@ def run_review(patch, providers, context="", test_results=None,
             else:
                 rec["error"] = rec["error"] or str(res["error"])[:300]
                 degraded = True
+                if "reviewer failure" not in degraded_causes:
+                    degraded_causes.append("reviewer failure")
             rec.update(_provider_meta(serving_fn))
             rec.update(_seat_meta(seat_meta, serving_name))
             reviewer_reports.append(rec)
     if not jobs:
         degraded = True
+        if "no reviewers ran" not in degraded_causes:
+            degraded_causes.append("no reviewers ran")
 
     # Re-ground pass (§2b): an ungrounded finding is shown its own
     # file section and must confirm with a valid quote or withdraw.
@@ -2118,6 +2155,8 @@ def run_review(patch, providers, context="", test_results=None,
                 "files": coverage_files}
     if not coverage_complete:
         degraded = True
+        if "coverage incomplete" not in degraded_causes:
+            degraded_causes.append("coverage incomplete")
 
     merged = merge_findings(all_findings)
     # Line basis (§5.6): label each citation with the numbering
@@ -2500,7 +2539,8 @@ def run_review(patch, providers, context="", test_results=None,
     merged = kept
     gate, reasons = _gate(merged, allow_major=allow_major,
                           degraded=degraded, incomplete=truncated,
-                          strict=strict, any_success=any_success)
+                          strict=strict, any_success=any_success,
+                          degraded_causes=degraded_causes)
     reasons = reasons + fallback_notes
     if not coverage_complete:
         reasons = ["coverage incomplete: "
@@ -2706,6 +2746,7 @@ def run_review(patch, providers, context="", test_results=None,
         "reviewer_reports": reviewer_reports,
         "findings": merged,
         "degraded": degraded, "truncated": truncated,
+        "degraded_causes": list(degraded_causes),
         "gate": gate, "gate_reasons": reasons,
     }
     if withdrawn_findings:
@@ -4497,8 +4538,18 @@ def render_markdown(report):
     if report.get("degraded"):
         rr = report.get("reviewer_reports") or []
         ok = sum(1 for r in rr if r.get("status") == "ok")
-        degraded_note = (f" — ⚠ DEGRADED ({ok} of {len(rr)} "
-                         "reviewers succeeded)")
+        causes = report.get("degraded_causes") or []
+        if causes:
+            # State the cause next to the success count so the
+            # line can never read as contradictory (7ea4e96603e9):
+            # "⚠ DEGRADED: coverage incomplete (2 of 2 reviewers
+            # succeeded)".
+            degraded_note = (f" — ⚠ DEGRADED: {'; '.join(causes)} "
+                             f"({ok} of {len(rr)} reviewers "
+                             "succeeded)")
+        else:
+            degraded_note = (f" — ⚠ DEGRADED ({ok} of {len(rr)} "
+                             "reviewers succeeded)")
     lines = [f"# CodeReview report — {report.get('mode', 'review')}",
              "",
              f"**Gate: {report.get('gate', '?').upper()}**"
