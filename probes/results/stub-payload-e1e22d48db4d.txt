@@ -1,0 +1,32 @@
+STUB-PAYLOAD RE-RUN — e1e22d48db4d
+Claim: the custom-provider stub captured a payload
+without the 'model' field.
+
+--- suite tests at HEAD (tests/test_role_providers.py::PresetRequestShapeTests):
+test_openai_compatible_presets (test_role_providers.PresetRequestShapeTests.test_openai_compatible_presets) ... ok
+test_model_override_and_temperature_quirk (test_role_providers.PresetRequestShapeTests.test_model_override_and_temperature_quirk) ... ok
+test_openai_compatible_escape_hatch (test_role_providers.PresetRequestShapeTests.test_openai_compatible_escape_hatch) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.004s
+
+OK
+
+--- direct stub captures at HEAD:
+  spec openai-compatible:...|my-model|CUSTOM_KEY_ENV
+    url: https://llm.example.com/v1/chat/completions
+    payload keys: ['max_tokens', 'messages', 'model', 'temperature']
+    payload['model'] = 'my-model'
+  spec deepseek:deepseek-reasoner (preset:model override)
+    url: https://api.deepseek.com/chat/completions
+    payload keys: ['max_tokens', 'messages', 'model', 'temperature']
+    payload['model'] = 'deepseek-reasoner'
+
+PROBE OUTCOME: every captured payload at HEAD
+carries 'model' — for presets, for preset:model
+overrides, and for the custom escape-hatch spec.
+The evidence gap the claim rested on does not
+reproduce; the refutation's mechanism (model =
+desc['model'], override included) is confirmed by
+direct capture. Supports the pre-filled
+recommendation: sustain refutation.

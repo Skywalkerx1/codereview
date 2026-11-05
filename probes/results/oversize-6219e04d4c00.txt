@@ -1,0 +1,38 @@
+OVERSIZE PROBE — 6219e04d4c00
+Claim: an unplaceable oversized piece 'is appended to
+a fresh batch without any size guard'.
+
+Budget (max_chars): 40
+Crafted section: head = 179 chars (>= budget), total = 209 chars
+
+_split_section -> 1 piece(s), unplaceable=True
+_batch_sections_detailed -> batches=[209], incomplete=True
+ASSERTION 1 HELD: batching flags the unplaceable section incomplete — the size guard exists and fires (the flag is what the claim denies).
+
+run_review over the section (budget 40):
+  truncated (batching incomplete) = True
+  coverage.complete = False
+  degraded = True
+  gate = pass
+  first gate reason: 'coverage incomplete: section(s) could not be placed within the batch budget; 0 file/lens omission(s) — run marked degraded'
+  provider calls made: 2; the section text was sent in 2 of them
+ASSERTION 2 HELD: the run is degraded, coverage is recorded incomplete, and the gate reasons state the cause in plain text — the loud path.
+
+EVIDENCE (recorded, not asserted away): the batch that
+carries the unplaceable section is 209 chars — larger than the budget. The design sends the
+section WHOLE rather than truncating content, and pays
+for it with the incomplete flag + degraded run + stated
+reason above. Nothing is silent; no content is cut.
+
+CONTRAST — placeable oversized section (small head, 30 long body lines) at budget 400:
+  batches=[347, 347, 347, 347, 347, 347, 347, 205], incomplete=False
+  every batch <= 400: True
+  all body content present across batches: True
+
+PROBE OUTCOME: both guard assertions held. The claim's
+mechanism — 'without any size guard' — is rebutted: the
+guard is the unplaceable flag, which forces incomplete
+coverage and a degraded, reason-stating run. Supports
+the pre-filled recommendation: sustain refutation
+('designed loud path'), owner ratifies (authority-
+affecting: coverage accounting).

@@ -1,0 +1,24 @@
+DUPLICATE-SEAT DEMONSTRATION — 78ddf4d5ea27
+(jointly with 19a537eb386b's seat seam)
+
+Panel built from ['openai', 'openai'] (two keys in
+env): one seat 'openai', an account pool:
+  account labels (key-env names): ['OPENAI_API_KEY', 'OPENAI_API_KEY_2']
+  registry default model: 'gpt-5-mini'
+  models the pool actually sends: ['gpt-5-mini', 'gpt-5-mini']
+
+Now apply --role correctness=openai:gpt-9.9-probe
+(an override model) against that pooled seat:
+  seat_roles: {'correctness': 'openai'}
+  role_models['correctness']['model'] recorded: 'gpt-9.9-probe'
+  panel seat object unchanged: True
+  models the seat actually sends afterwards: ['gpt-5-mini', 'gpt-5-mini']
+
+DEMONSTRATED: the record credits model 'gpt-9.9-probe' with the correctness role, but the seat that serves sends ['gpt-5-mini'] — the override callable was built, discarded on the name collision, and its model recorded anyway. The claim's mechanism reproduces exactly at HEAD.
+
+Permutation check (seat names + pool sizes across orderings):
+  ('openai', 'openai', 'gemini') -> {'openai': 2, 'gemini': 1}
+  ('openai', 'gemini', 'openai') -> {'openai': 2, 'gemini': 1}
+  ('gemini', 'openai', 'openai') -> {'gemini': 1, 'openai': 2}
+  distinct shapes across orderings: 1
+  HELD: seat names and pool sizes are permutation-invariant; only the recorded role model diverges from what serves.

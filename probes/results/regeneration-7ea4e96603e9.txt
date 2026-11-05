@@ -1,0 +1,31 @@
+REGENERATION PROBE — 7ea4e96603e9
+Claim: the record says degraded while the reviewer
+count claims all reviewers succeeded — a contradiction.
+
+Stored JSON: /home/hatch/workspace/codereview/review-v15/codereview-20261104-224759.json
+  degraded = True, coverage.complete = False
+  reviewer_reports: 18 of 18 status ok
+  gate_reasons include: coverage incomplete: section(s) truncated; 0 file/lens omission(s) — run marked degraded; at least one reviewer failed (degraded review)
+
+Cited artifact (markdown): /home/hatch/workspace/codereview/review-v15/codereview-20261104-224759.md
+  archived gate line:   "**Gate: BLOCKED** — coverage incomplete: section(s) truncated; 0 file/lens omission(s) — run marked degraded; 5 blocking finding(s) (major); part of the diff was truncated; at least one reviewer failed (degraded review); correctness lens served by fallback seat 'openai' (primary 'gemini' failed: quota); correctness lens served by fallback seat 'openai' (primary 'gemini' failed: quota); correctness lens served by fallback seat 'openai' (primary 'gemini' failed: quota); correctness lens served by fallback seat 'openai' (primary 'gemini' failed: quota); correctness lens served by fallback seat 'openai' (primary 'gemini' failed: quota); correctness lens served by fallback seat 'openai' (primary 'gemini' failed: quota); correctness lens served by fallback seat 'openai' (primary 'gemini' failed: quota); correctness lens served by fallback seat 'openai' (primary 'gemini' failed: quota); correctness lens served by fallback seat 'openai' (primary 'gemini' failed: quota); 9 finding(s) withdrawn in the re-ground pass — preserved in withdrawn_findings; 5 standing finding(s) auto-linked to prior dispositions under content-addressed precedent (cited file unchanged) — preserved in standing_findings, not blocking; 14 disputed finding(s): refuted by a second vendor family with quote evidence — routed to the human gate in disputed_findings; neither cleared nor blocking; 44 expected fixture finding(s) classified under fixture manifest policy v1 (fixtures-manifest.json, sha256 0633809d0cec…) — preserved in fixture_findings, not blocking — ⚠ DEGRADED (18 of 18 reviewers succeeded)"
+  re-rendered at HEAD:  "**Gate: BLOCKED** — coverage incomplete: section(s) truncated; 0 file/lens omission(s) — run marked degraded; 5 blocking finding(s) (major); part of the diff was truncated; at least one reviewer failed (degraded review); correctness lens served by fallback seat 'openai' (primary 'gemini' failed: quota); correctness lens served by fallback seat 'openai' (primary 'gemini' failed: quota); correctness lens served by fallback seat 'openai' (primary 'gemini' failed: quota); correctness lens served by fallback seat 'openai' (primary 'gemini' failed: quota); correctness lens served by fallback seat 'openai' (primary 'gemini' failed: quota); correctness lens served by fallback seat 'openai' (primary 'gemini' failed: quota); correctness lens served by fallback seat 'openai' (primary 'gemini' failed: quota); correctness lens served by fallback seat 'openai' (primary 'gemini' failed: quota); correctness lens served by fallback seat 'openai' (primary 'gemini' failed: quota); 9 finding(s) withdrawn in the re-ground pass — preserved in withdrawn_findings; 5 standing finding(s) auto-linked to prior dispositions under content-addressed precedent (cited file unchanged) — preserved in standing_findings, not blocking; 14 disputed finding(s): refuted by a second vendor family with quote evidence — routed to the human gate in disputed_findings; neither cleared nor blocking; 44 expected fixture finding(s) classified under fixture manifest policy v1 (fixtures-manifest.json, sha256 0633809d0cec…) — preserved in fixture_findings, not blocking — ⚠ DEGRADED (18 of 18 reviewers succeeded)"
+  identical: True
+
+Synthetic fixture at HEAD (all reviewers ok, degraded
+by incomplete coverage, built via core._gate):
+  gate line: '**Gate: PASS** — part of the diff could not be batched within the size budget; at least one reviewer failed (degraded review) — ⚠ DEGRADED (2 of 2 reviewers succeeded)'
+  _gate reasons: ['part of the diff could not be batched within the size budget', 'at least one reviewer failed (degraded review)']
+
+OUTCOME: HEAD still renders the misleading shape. The
+gate line pairs 'DEGRADED' with '(N of N reviewers
+succeeded)' and a boilerplate reason 'at least one
+reviewer failed (degraded review)' even when NO reviewer
+failed and degradation came from coverage. The degraded
+CAUSE is not stated at the point of the DEGRADED marker.
+Per solution §2 the claim converts to a NEW finding
+against the renderer/gate-reason code (minor): state
+the degraded cause in the gate line (e.g. 'DEGRADED:
+coverage incomplete; reviewers 2/2 ok') and only claim
+reviewer failure when a reviewer actually failed. The
+archived-subject claim retires on conversion.

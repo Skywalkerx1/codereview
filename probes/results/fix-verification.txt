@@ -1,0 +1,78 @@
+PARENT-FAIL FIX-VERIFICATION — solution §3
+A fix counts as verified only if its test fails
+on the parent and passes on the fix.
+
+============================================================
+19a537eb386b — cross-kind role-seat collision guard
+fix 6f5e73c, parent 69ab354
+============================================================
+--- at FIX 6f5e73c: exit 0
+test_agent_role_seat_cannot_shadow_an_api_seat (tests.test_pt1_crosskind.CrossKindRoleCollisionTests.test_agent_role_seat_cannot_shadow_an_api_seat) ... ok
+test_api_role_seat_cannot_shadow_an_agent_seat (tests.test_pt1_crosskind.CrossKindRoleCollisionTests.test_api_role_seat_cannot_shadow_an_agent_seat) ... ok
+test_same_kind_same_name_still_merges (tests.test_pt1_crosskind.CrossKindRoleCollisionTests.test_same_kind_same_name_still_merges) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.001s
+
+OK
+--- at PARENT 69ab354: exit 1
+test_agent_role_seat_cannot_shadow_an_api_seat (tests.test_pt1_crosskind.CrossKindRoleCollisionTests.test_agent_role_seat_cannot_shadow_an_api_seat) ... FAIL
+test_api_role_seat_cannot_shadow_an_agent_seat (tests.test_pt1_crosskind.CrossKindRoleCollisionTests.test_api_role_seat_cannot_shadow_an_agent_seat) ... FAIL
+test_same_kind_same_name_still_merges (tests.test_pt1_crosskind.CrossKindRoleCollisionTests.test_same_kind_same_name_still_merges) ... ok
+
+======================================================================
+FAIL: test_agent_role_seat_cannot_shadow_an_api_seat (tests.test_pt1_crosskind.CrossKindRoleCollisionTests.test_agent_role_seat_cannot_shadow_an_api_seat)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/pt1-fixverify-0xa773ow/parent19/tests/test_pt1_crosskind.py", line 19, in test_agent_role_seat_cannot_shadow_an_api_seat
+    with self.assertRaises(providers.ProviderError):
+AssertionError: ProviderError not raised
+
+======================================================================
+FAIL: test_api_role_seat_cannot_shadow_an_agent_seat (tests.test_pt1_crosskind.CrossKindRoleCollisionTests.test_api_role_seat_cannot_shadow_an_agent_seat)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/pt1-fixverify-0xa773ow/parent19/tests/test_pt1_crosskind.py", line 25, in test_api_role_seat_cannot_shadow_an_agent_seat
+    with self.assertRaises(providers.ProviderError):
+AssertionError: ProviderError not raised
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.001s
+
+FAILED (failures=2)
+VERIFIED: tests pass at the fix and fail at the parent (the two collision cases raise nothing at the parent — the shadowing the claim described; the same-kind merge control passes in both trees).
+
+============================================================
+931ea3882b76 — aborted first-run wizard exits cleanly
+fix 98ad1d9, parent 6f5e73c
+============================================================
+--- at FIX 98ad1d9: exit 0
+test_aborted_first_run_wizard_exits_cleanly (tests.test_user_setup.RunResolutionTests.test_aborted_first_run_wizard_exits_cleanly) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 0.002s
+
+OK
+--- at PARENT 6f5e73c (fix commit's test file overlaid): exit 1
+test_aborted_first_run_wizard_exits_cleanly (tests.test_user_setup.RunResolutionTests.test_aborted_first_run_wizard_exits_cleanly) ... ERROR
+
+======================================================================
+ERROR: test_aborted_first_run_wizard_exits_cleanly (tests.test_user_setup.RunResolutionTests.test_aborted_first_run_wizard_exits_cleanly)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/pt1-fixverify-0xa773ow/parent931/tests/test_user_setup.py", line 222, in test_aborted_first_run_wizard_exits_cleanly
+    rc = cli.main(["--patch", patch, "--out",
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/pt1-fixverify-0xa773ow/parent931/tests/../src/codereview/cli.py", line 1298, in main
+    _run_setup_wizard()
+  File "/tmp/pt1-fixverify-0xa773ow/parent931/tests/test_user_setup.py", line 213, in aborting_wizard
+    raise EOFError
+EOFError
+
+----------------------------------------------------------------------
+Ran 1 test in 0.003s
+
+FAILED (errors=1)
+VERIFIED: the test passes at the fix and fails at the parent (the aborted wizard escaped as an exception — the traceback path the claim described).
+
+OVERALL: 19a537eb386b verified=True; 931ea3882b76 verified=True

@@ -1,0 +1,22 @@
+LENS-MAPPING PERMUTATION PROBE — 35dbb7d20941
+Claim: verification 'can use a fallback configured for
+a different lens than the one originally assigned'.
+
+Lenses at HEAD: core.LENSES = ['correctness', 'operations'] (exactly two — the claim's 'more than two lenses in
+play' premise does not occur at HEAD.)
+
+seats=['seatA', 'seatB'] failing=seatA: assigned lenses={'seatA': ['correctness'], 'seatB': ['operations']}; fallback served = fb-correctness (fallback_for=seatA, status=ok); expected for the seat's assigned lens = fb-correctness; AGREE=True
+seats=['seatA', 'seatB'] failing=seatB: assigned lenses={'seatA': ['correctness'], 'seatB': ['operations']}; fallback served = fb-operations (fallback_for=seatB, status=ok); expected for the seat's assigned lens = fb-operations; AGREE=True
+seats=['seatB', 'seatA'] failing=seatB: assigned lenses={'seatB': ['correctness'], 'seatA': ['operations']}; fallback served = fb-correctness (fallback_for=seatB, status=ok); expected for the seat's assigned lens = fb-correctness; AGREE=True
+seats=['seatB', 'seatA'] failing=seatA: assigned lenses={'seatB': ['correctness'], 'seatA': ['operations']}; fallback served = fb-operations (fallback_for=seatA, status=ok); expected for the seat's assigned lens = fb-operations; AGREE=True
+seats=['onlySeat'] failing=onlySeat: assigned lenses={'onlySeat': ['correctness', 'operations']}; fallback served = fb-correctness (fallback_for=onlySeat, status=ok); expected for the seat's assigned lens = fb-correctness; AGREE=True
+seats=['s0', 's1', 's2'] failing=s2: assigned lenses={'s0': ['correctness'], 's1': ['operations'], 's2': ['correctness']}; fallback served = fb-correctness (fallback_for=s2, status=ok); expected for the seat's assigned lens = fb-correctness; AGREE=True
+seats=['s0', 's1', 's2'] failing=s1: assigned lenses={'s0': ['correctness'], 's1': ['operations'], 's2': ['correctness']}; fallback served = fb-operations (fallback_for=s1, status=ok); expected for the seat's assigned lens = fb-operations; AGREE=True
+
+PROBE OUTCOME: agreement in every case — the serving
+fallback is always the one configured for the lens the
+failed seat was assigned by the review path's own
+mapping (_reviewer_tasks), across orderings, seat
+counts, and failing-seat choices. The claim's mechanism
+is rebutted at HEAD. Supports the pre-filled
+recommendation: sustain refutation, owner ratifies.

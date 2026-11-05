@@ -1,0 +1,33 @@
+UNKNOWN-FAMILY FAIL-CLOSED PROBE — 3d9645200bc5
+
+CONSTRUCTION: two custom seats, same vendor base
+http://127.0.0.1:9/v1, same model:
+  describe_spec families: ['unknown', 'unknown']
+  built seat families:    {'vendor-a': 'unknown', 'vendor-b': 'unknown'}
+  -> both seats are family 'unknown': the machinery cannot tell they share a vendor,
+     so independence must fail closed. It does, on all three surfaces:
+
+(a) Tech Lead, designated = unknown-family seat
+    (raiser/refuter known families):
+    chosen = 'knownseat' (family 'famK')
+    substitution recorded: "the designated Tech Lead seat's family is unknown — independence cannot be shown"
+    designated unknown with raiser/refuter also
+    'unknown' (the claim's exact shape):
+    chosen = 'knownseat'; substitution reason: "the designated Tech Lead's family raised or refuted this finding — an adjudicator must be independent, so the designation was rejected for this case"
+    panel of ONLY unknown seats: chosen = None, unavailable = 'no seat from a family independent of both the raiser and the refuter served on this panel'
+    ASSERTION HELD: unknown never adjudicates.
+
+(b) run_review, blocking finding raised by an
+    unknown-family seat, second seat also unknown:
+    standing findings' cross_family marks: ['unknown_family']
+    gate = blocked
+    ASSERTION HELD: marked 'unknown_family' — never multi-family, never confirmed away.
+
+(c) verify_record on an all-unknown record:
+    two_families ok = False (distinct known families: [])
+    ASSERTION HELD: two unknown seats cannot satisfy the two-family independence check.
+
+PROBE OUTCOME: fail-closed on construction, Tech
+Lead selection, cross-family treatment, and
+record verification. Supports the pre-filled
+recommendation: sustain refutation (probe-backed).

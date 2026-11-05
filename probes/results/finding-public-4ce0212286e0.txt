@@ -1,0 +1,39 @@
+_FINDING_PUBLIC PROMPT PROBE — 4ce0212286e0
+Evidence: 3004 chars; quote: 2004 chars (caps: 2000 / 1000).
+
+{
+ "prompt_type": "re-ground",
+ "full_evidence_in_prompt": false,
+ "visible_evidence_chars": 1995,
+ "ends_mid_word": false,
+ "truncation_marker_present": true,
+ "full_sha256": "fbad05d2e2435a37ee5b74acfca72ac7d1ae470e6de48f2a3803b7034756ff50"
+}
+{
+ "prompt_type": "cross-family confirmation",
+ "full_evidence_in_prompt": false,
+ "visible_evidence_chars": 1995,
+ "ends_mid_word": false,
+ "truncation_marker_present": true,
+ "full_sha256": "fbad05d2e2435a37ee5b74acfca72ac7d1ae470e6de48f2a3803b7034756ff50"
+}
+{
+ "prompt_type": "Tech Lead adjudication",
+ "full_evidence_in_prompt": false,
+ "visible_evidence_chars": 1995,
+ "ends_mid_word": false,
+ "truncation_marker_present": true,
+ "full_sha256": "fbad05d2e2435a37ee5b74acfca72ac7d1ae470e6de48f2a3803b7034756ff50"
+}
+
+All three adjudication prompt types route the finding through _finding_public: True
+Silent slice (no marker) somewhere: False
+Mid-word cut somewhere: False
+
+Note (context, outside this item's fix scope):
+the Tech Lead prompt also caps the dispute
+positions inline (raiser_quote 400, refuter_reason
+300, refuter_quote 400 chars) from the live dispute
+object; storage keeps full text in sidecars.
+
+OUTCOME: prompts now carry the explicit truncation marker — the hardening is in place; see the suite tests for the boundary guarantees.

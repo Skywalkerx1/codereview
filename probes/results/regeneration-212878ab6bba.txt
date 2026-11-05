@@ -1,0 +1,32 @@
+REGENERATION PROBE — 212878ab6bba
+Claim: the record says degraded while the reviewer
+count claims all reviewers succeeded — a contradiction.
+
+Stored JSON: /home/hatch/workspace/codereview/review-v15/codereview-20261104-224759.json
+  degraded = True, coverage.complete = False
+  reviewer_reports: 18 of 18 status ok
+  gate_reasons include: coverage incomplete: section(s) truncated; 0 file/lens omission(s) — run marked degraded; at least one reviewer failed (degraded review)
+
+Cited artifact (verify): /home/hatch/workspace/codereview/review-v15/record-verify.txt
+  archived record-verify.txt line 2: '  [FAIL] not_degraded: degraded=True'
+  verify_record at HEAD: not_degraded ok=False detail='degraded=True'
+  (The FAIL is CORRECT behaviour: the run WAS degraded
+   — by truncated coverage, not by reviewer failure.)
+
+Synthetic fixture at HEAD (all reviewers ok, degraded
+by incomplete coverage, built via core._gate):
+  gate line: '**Gate: PASS** — part of the diff could not be batched within the size budget; at least one reviewer failed (degraded review) — ⚠ DEGRADED (2 of 2 reviewers succeeded)'
+  _gate reasons: ['part of the diff could not be batched within the size budget', 'at least one reviewer failed (degraded review)']
+
+OUTCOME: HEAD still renders the misleading shape. The
+gate line pairs 'DEGRADED' with '(N of N reviewers
+succeeded)' and a boilerplate reason 'at least one
+reviewer failed (degraded review)' even when NO reviewer
+failed and degradation came from coverage. The degraded
+CAUSE is not stated at the point of the DEGRADED marker.
+Per solution §2 the claim converts to a NEW finding
+against the renderer/gate-reason code (minor): state
+the degraded cause in the gate line (e.g. 'DEGRADED:
+coverage incomplete; reviewers 2/2 ok') and only claim
+reviewer failure when a reviewer actually failed. The
+archived-subject claim retires on conversion.

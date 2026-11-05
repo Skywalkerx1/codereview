@@ -1,0 +1,89 @@
+PUBLIC-RECORD EXPOSURE SCAN — a3a2d492b51a
+Scope: gate-attempts.* + all committed review records.
+
+Files scanned: 109
+Files with at least one hit: 16
+
+Totals by category:
+  local_path: 166
+  hostname: 0
+  connector_name: 3
+  account_id: 9
+  key_shaped: 0
+
+Per-file detail (samples capped at 3 per category; key-shaped samples masked):
+
+review-v12-dispositions.md
+  local_path x1: ~/workspace/issue-reports/2026-11-04-codereview-v12-gate-findings.md`).
+
+review-v13-dispositions.md
+  local_path x1: ~/workspace/issue-reports/2026-11-04-codereview-v13-gate-findings.md`.
+
+review-v14-dispositions.md
+  local_path x2: ~/workspace/issue-reports/2026-11-04-codereview-v14-gate-findings.md`; ~/workspace/user/files/codereview-v14-hold-solution-2026-11-04.md`
+
+review-v095-fix/codereview-20261104-230555.json
+  local_path x22: /home/hatch/workspace/codereview/tests/test_v093_fixes.py:373:; /home/hatch/workspace/codereview/tests/../src/codereview/providers.py; /home/hatch/workspace/codereview/tests/test_v093_fixes.py:352:
+
+review-v096/codereview-20261104-233259.json
+  local_path x25: /home/hatch/workspace/codereview/tests/../src/codereview/providers.py; /home/hatch/workspace/codereview/tests/test_v093_fixes.py:352:; /home/hatch/workspace/codereview/tests/../src/codereview/__init__.py
+
+review-v100/codereview-20261105-000409.json
+  local_path x21: /home/hatch/workspace/codereview/tests/../src/codereview/providers.py; /home/hatch/workspace/codereview/tests/test_v093_fixes.py:352:; /home/hatch/workspace/codereview/tests/../src/codereview/__init__.py
+
+review-v110/codereview-20261105-001944.json
+  local_path x21: /home/hatch/workspace/codereview/tests/../src/codereview/bench.py; /home/hatch/workspace/codereview/tests/test_v093_fixes.py:352:; /home/hatch/workspace/codereview/tests/../src/codereview/cli.py
+
+review-v111/codereview-20261105-003107.json
+  local_path x21: /home/hatch/workspace/codereview/tests/../src/codereview/bench.py; /home/hatch/workspace/codereview/tests/test_v093_fixes.py:352:; /home/hatch/workspace/codereview/tests/../src/codereview/cli.py
+
+review-v12/codereview-20261104-180317.json
+  account_id x2: admin@example.com
+
+review-v13/codereview-20261104-184437.json
+  local_path x3: ~/workspace/issue-reports/2026-11-04-codereview-v12-gate-findings.md`).; /home/hatch/workspace/codereview/tests/test_v091_fixes.py:142:; /home/hatch/workspace/codereview/tests/../src/codereview/cli.py
+
+review-v14/codereview-20261104-185814.json
+  local_path x3: ~/workspace/issue-reports/2026-11-04-codereview-v13-gate-findings.md`.; /home/hatch/workspace/codereview/tests/test_v091_fixes.py:142:; /home/hatch/workspace/codereview/tests/../src/codereview/cli.py
+
+review-v15/codereview-20261104-224759.json
+  local_path x24: /home/hatch/workspace/codereview/tests/test_v093_fixes.py:373:; /home/hatch/workspace/codereview/tests/../src/codereview/github.py; /home/hatch/workspace/codereview/tests/../src/codereview/intake.py
+  account_id x6: admin@example.com
+
+review-v15/codereview-20261104-224759.md
+  account_id x1: admin@example.com
+
+review-v15-verify1/codereview-20261104-225424.json
+  local_path x22: /home/hatch/workspace/codereview/tests/test_v093_fixes.py:373:; /home/hatch/workspace/codereview/tests/../src/codereview/providers.py; /home/hatch/workspace/codereview/tests/test_v093_fixes.py:352:
+
+review-v6/codereview-20261104-041822.json
+  connector_name x2: threads
+
+review-v6/codereview-20261104-041822.md
+  connector_name x1: threads
+
+TELEMETRY INVENTORY — gate-attempts.jsonl (6 rows):
+  row fields: degraded, gate, mode, patch_sha256, range, seats, tests_ok, ts
+  seat fields: attempts x64, error_class x64, fallback_for x64, family x64, lens x64, provider x64, status x64, tier x64
+  distinct provider: nvidia x32, openai x31, gemini x1
+  distinct family: nvidia x32, openai x31, google x1
+  distinct tier: free x33, paid x31
+  distinct error_class:  x32, quota x31, transient x1
+  distinct fallback_for: None x33, gemini x31
+  distinct status: ok x63, error x1
+  distinct lens: correctness x31, operations x31, None x2
+  (patch_sha256 + commit range + timestamp per row link attempts to records and reveal cadence.)
+
+READING: local paths and internal hostnames are
+operational detail (machine layout, usernames,
+tunnel names) with no evidentiary value to a
+public reader; account identifiers name people/
+accounts; connector names reveal the operator's
+tooling; key-shaped hits must be triaged by a
+human — most are expected to be fixture strings
+and hashes, but the profile must not rely on
+'most'. Content hashes (sha256 of evidence) are
+NOT in these categories: they are the record's
+integrity mechanism and stay public by design.
+The decision and the profile draft are the
+owner's (see the companion draft document).

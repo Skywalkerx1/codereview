@@ -1,0 +1,22 @@
+REGENERATION PROBE — 7baa0147d8d4
+Claim: the verify summary says 'Cleared prior blockers: 4'
+but the paired JSON 'contains five entries under cleared'.
+
+Stored JSON: /home/hatch/workspace/codereview/review-v15-verify1/codereview-20261104-225424.json
+  len(cleared)   = 4
+  len(remaining) = 0
+  len(unjudged)  = 1
+  total prior blockers accounted = 5
+  cleared ids: 636ba66423e7, ec5d130cc37e, ca7b6fb25b54, 3fbb6b031f51
+
+Archived .md line:    'Cleared prior blockers: 4'
+Re-rendered at HEAD:  'Cleared prior blockers: 4'
+JSON count:           4
+
+OUTCOME: HEAD's renderer agrees with the stored JSON
+and with the archived summary: 4 cleared. The claim's
+premise — five entries under 'cleared' — does not hold
+against the stored JSON: five is the TOTAL of prior
+blockers (4 cleared + 0 remaining + 1 unjudged), not
+the cleared count. Per solution §2 the claim retires
+as retired_archived_subject with this probe attached.

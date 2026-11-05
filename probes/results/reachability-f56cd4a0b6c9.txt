@@ -1,0 +1,30 @@
+REACHABILITY PROBE — f56cd4a0b6c9
+Claim: repeated role-seat assignment 'repeatedly
+rebuilds and re-merges the same provider, which
+could flood logs or exhaust resources'.
+
+Applied the same 3-role assignment set to one panel
+three times in a row (more than any CLI path does —
+each entry point applies assignments once):
+  role-spec builds triggered: 9 (3 roles x 3 rounds; the panel build itself is not counted)
+  panel keys after each round: [['claude', 'openai'], ['claude', 'openai'], ['claude', 'openai']]
+  original 'openai' seat object preserved in every round: [True, True, True]
+  subprocess spawns during all builds/applies: 0
+  provider calls made: 0 (no seat was invoked)
+
+Marginal cost of each repeat application: one
+discarded callable construction per role (object
+allocation only — no network, no process, no log
+output, no merge: seats already present are kept,
+never replaced or duplicated).
+
+OUTCOME: no concrete harm sequence found. The
+claimed effects (repeated re-merge, log flooding,
+resource exhaustion) are not reachable: merges
+are name-guarded, builds are side-effect-free,
+and the function runs once per CLI invocation
+with duplicate roles rejected at parse. Supports
+the pre-filled recommendation: sustain refutation;
+under the severity rubric the residue (a wasted
+build per repeated role) is hypothetical-behaviour
+territory, not a major.
