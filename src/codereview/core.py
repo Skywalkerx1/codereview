@@ -1381,6 +1381,21 @@ def shadow_adjudicate(fn, finding, region, dispute, *,
         hit["cache_hit"] = True
         hit["seat"] = seat_name
         hit["family"] = seat_family
+        # The cached decision was drawn by ANOTHER seat; the
+        # independence recorded on it is that seat's, not this
+        # one's (03eb527e1e44). Re-derive this seat's
+        # independence and cap the state by the same rule the
+        # fresh path applies: a reduced-independence seat may
+        # not inherit an independent seat's dismissal of a
+        # major. A hit never UPGRADES a state — the draws were
+        # not this seat's.
+        if hit.get("independence") != independence:
+            hit["independence"] = independence
+            if independence == "reduced" and major_plus \
+                    and hit.get("decision") == "sustain_refutation" \
+                    and hit.get("state") == \
+                    "shadow_sustained_refutation":
+                hit["state"] = "adjudication-pending-independence"
         return hit
     probe_result = None
     draw = _shadow_draw(fn, finding, region, dispute, rng,

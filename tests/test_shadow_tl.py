@@ -8,6 +8,7 @@ import json
 import os
 import random
 import sys
+import tempfile
 import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
@@ -228,6 +229,49 @@ class ShadowDecisionTests(unittest.TestCase):
         self.assertEqual(len(seat.prompts), 1)
         self.assertEqual(e1["cache_key"], e2["cache_key"])
 
+    def test_cache_hit_never_lends_independence(self):
+        # 03eb527e1e44: a cached decision drawn by an
+        # independent seat, hit by a reduced-independence seat,
+        # is capped to pending — the hit re-derives THIS seat's
+        # independence instead of inheriting the drawer's.
+        cache = {}
+        e1 = core.shadow_adjudicate(
+            ShadowSeat([payload(), payload()]), dict(FINDING),
+            REGION, dict(DISPUTE), seat_name="tl1",
+            seat_family="famC", independence="independent",
+            cache=cache)
+        self.assertEqual(e1["state"],
+                         "shadow_sustained_refutation")
+        second = ShadowSeat([payload(), payload()])
+        e2 = core.shadow_adjudicate(
+            second, dict(FINDING), REGION, dict(DISPUTE),
+            seat_name="tl2", seat_family="famD",
+            independence="reduced", cache=cache)
+        self.assertTrue(e2["cache_hit"])
+        self.assertEqual(second.prompts, [])
+        self.assertEqual(e2["independence"], "reduced")
+        self.assertEqual(e2["state"],
+                         "adjudication-pending-independence")
+        # The reverse direction never upgrades: an entry drawn
+        # pending by a reduced seat stays pending when an
+        # independent seat hits it (the draws were not its own).
+        cache2 = {}
+        e3 = core.shadow_adjudicate(
+            ShadowSeat([payload(), payload()]), dict(FINDING),
+            REGION, dict(DISPUTE), seat_name="tl2",
+            seat_family="famD", independence="reduced",
+            cache=cache2)
+        self.assertEqual(e3["state"],
+                         "adjudication-pending-independence")
+        e4 = core.shadow_adjudicate(
+            ShadowSeat([payload(), payload()]), dict(FINDING),
+            REGION, dict(DISPUTE), seat_name="tl1",
+            seat_family="famC", independence="independent",
+            cache=cache2)
+        self.assertTrue(e4["cache_hit"])
+        self.assertEqual(e4["state"],
+                         "adjudication-pending-independence")
+
     def test_blinding_strips_families(self):
         seat = ShadowSeat([payload()])
         adjudicate(seat)
@@ -341,6 +385,47 @@ class GateInvarianceTests(unittest.TestCase):
         refuted = on["adjudicated_refuted_findings"][0]
         self.assertEqual(
             refuted["tech_lead_shadow"]["binding"], False)
+
+
+class ShadowSidecarTests(unittest.TestCase):
+    def test_shadow_entry_sidecars_attach_and_validate(self):
+        # 5683aa292958: the shadow section's evidence texts
+        # ride the same sidecar machinery as findings — a
+        # written record's shadow entries attach sidecars and
+        # validate clean (the write path itself was probe-
+        # verified against ba2479886886; this pins it).
+        entry = {
+            "finding_id": "fx1", "mode": "shadow",
+            "binding": False,
+            "claim_restated": "the claim " + "x" * 700,
+            "deciding_evidence": {
+                "file": "a.py", "line": 1,
+                "quote": "deciding quote " + "y" * 450},
+            "raiser_evidence_addresses_claim": {
+                "value": True, "why": "raiser why " + "z" * 650},
+            "refuter_evidence_addresses_claim": {
+                "value": False, "why": "refuter why"},
+            "draws": [{"deciding_quote": "dq " + "q" * 450,
+                       "rationale": "draw rationale "
+                                    + "r" * 650}],
+            "probe_result": {
+                "status": "pass",
+                "detail": "probe detail " + "d" * 2100,
+                "evidence_quote": "probe quote " + "p" * 450},
+        }
+        report = {"mode": "review", "gate": "blocked",
+                  "created_at": "t", "patch_sha256": "0" * 64,
+                  "findings": [], "shadow_adjudications": [entry]}
+        with tempfile.TemporaryDirectory() as td:
+            jpath, _mpath = core.write_report(report, td,
+                                              stem="t")
+            with open(jpath, encoding="utf-8") as fh:
+                written = json.load(fh)
+            problems = core._validate_evidence_sidecars(
+                written, os.path.join(td, "evidence"))
+            self.assertEqual(problems, [])
+            self.assertTrue(
+                list(core._iter_evidence_refs(written)))
 
 
 if __name__ == "__main__":
