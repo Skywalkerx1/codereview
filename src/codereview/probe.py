@@ -185,8 +185,16 @@ def run_probe(spec, tree_dir, timeout=PROBE_TIMEOUT_DEFAULT):
             argv = [sys.executable, script]
         elif spec["kind"] == "command":
             argv = list(spec["argv"])
-        else:  # test
-            argv = [sys.executable, spec["target"]]
+        else:  # test — execute through the unittest runner
+            # (discovery rooted at the target's directory), NOT
+            # as a plain script: script execution runs zero
+            # tests when the file lacks a __main__ guard and
+            # still exits 0 (finding 4cf81c69d7cf).
+            target = spec["target"]
+            start = os.path.dirname(target) or "."
+            argv = [sys.executable, "-m", "unittest",
+                    "discover", "-s", start,
+                    "-p", os.path.basename(target)]
         prefix, net_level = _network_prefix()
         try:
             res = subprocess.run(
@@ -207,6 +215,21 @@ def run_probe(spec, tree_dir, timeout=PROBE_TIMEOUT_DEFAULT):
         except Exception as exc:  # noqa: BLE001 — an outcome, not a crash
             output = f"probe spawn failed: {exc}"
             outcome, exit_code = "error", None
+        if spec["kind"] == "test" and outcome in ("pass",
+                                                   "fail"):
+            # A test probe's verdict is evidence only if tests
+            # actually executed. A runner invocation that ran
+            # zero tests (an empty module, a target discovery
+            # matched nothing in) must be recorded as an error,
+            # never as a verdict — whether the interpreter
+            # exits 0 for it or 5 (4cf81c69d7cf).
+            ran = re.findall(r"Ran (\d+) tests?", output)
+            if (ran and int(ran[-1]) == 0) or (
+                    not ran and outcome == "pass"):
+                outcome = "error"
+                output += ("\n[codereview] test probe executed "
+                           "zero tests — refusing to report "
+                           "a verdict")
         duration = time.monotonic() - started
         return {
             "outcome": outcome, "exit_code": exit_code,

@@ -118,10 +118,19 @@ class RunProbeTests(unittest.TestCase):
         self.assertLess(time.monotonic() - started, 15)
 
     def test_command_and_test_kinds(self):
-        root = _tree({"check.py": "print('test-kind-ok')\n"})
+        # The test kind targets a real unittest file and runs
+        # it through the runner (4cf81c69d7cf — it used to
+        # execute the target as a plain script, which is the
+        # defective contract this test previously encoded).
+        root = _tree({"tests/test_check.py":
+                      "import unittest\n\n\n"
+                      "class CheckTest(unittest.TestCase):\n"
+                      "    def test_ok(self):\n"
+                      "        print('test-kind-ok')\n"
+                      "        self.assertTrue(True)\n"})
         res = probe_mod.run_probe(
-            {"kind": "test", "target": "check.py"}, root,
-            timeout=30)
+            {"kind": "test", "target": "tests/test_check.py"},
+            root, timeout=30)
         self.assertEqual(res["outcome"], "pass")
         self.assertIn("test-kind-ok", res["output"])
         res = probe_mod.run_probe(
@@ -137,6 +146,54 @@ class RunProbeTests(unittest.TestCase):
             {"kind": "python", "code": "print('x')"}, root,
             timeout=30)
         self.assertEqual(len(res["output_sha256"]), 64)
+
+
+_FAILING_TEST = ("import unittest\n\n\n"
+                 "class DemoTest(unittest.TestCase):\n"
+                 "    def test_arithmetic(self):\n"
+                 "        self.assertEqual(1, 2)\n")
+_MAIN_GUARD = ('\n\nif __name__ == "__main__":\n'
+               "    unittest.main()\n")
+
+
+class TestKindRunnerTests(unittest.TestCase):
+    """4cf81c69d7cf regression: kind-'test' probes execute
+    through the test runner, so a target's verdict no longer
+    depends on a __main__ guard the contract never required,
+    and a zero-test run is never a pass."""
+
+    def test_guarded_and_unguarded_failing_test_agree(self):
+        # The packet's two-way repro: the SAME failing
+        # unittest, with and without the guard, must produce
+        # the same probe verdict.
+        for body in (_FAILING_TEST, _FAILING_TEST + _MAIN_GUARD):
+            root = _tree({"tests/test_demo.py": body})
+            res = probe_mod.run_probe(
+                {"kind": "test",
+                 "target": "tests/test_demo.py"}, root,
+                timeout=30)
+            self.assertEqual(res["outcome"], "fail")
+            self.assertEqual(res["exit_code"], 1)
+            self.assertIn("Ran 1 test", res["output"])
+
+    def test_unguarded_passing_test_passes_via_runner(self):
+        body = _FAILING_TEST.replace("self.assertEqual(1, 2)",
+                                     "self.assertEqual(1, 1)")
+        root = _tree({"tests/test_demo.py": body})
+        res = probe_mod.run_probe(
+            {"kind": "test", "target": "tests/test_demo.py"},
+            root, timeout=30)
+        self.assertEqual(res["outcome"], "pass")
+        self.assertIn("Ran 1 test", res["output"])
+
+    def test_zero_test_target_is_not_a_pass(self):
+        root = _tree({"tests/test_empty.py":
+                      "import unittest\n\n\nVALUE = 1\n"})
+        res = probe_mod.run_probe(
+            {"kind": "test", "target": "tests/test_empty.py"},
+            root, timeout=30)
+        self.assertEqual(res["outcome"], "error")
+        self.assertIn("zero tests", res["output"])
 
 
 class ProbeFnContractTests(unittest.TestCase):
