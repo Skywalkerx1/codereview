@@ -1,0 +1,1 @@
+risk.py line 115: the migrations content pattern now uses `\s+` between words (e.g., `drop\s+table`) instead of a literal space, and the pattern text carries no literal destructive-SQL string. The test `test_migrations_by_path_and_sql_content` confirms the pattern matches SQL statements while the source no longer contains a literal destructive-SQL string.

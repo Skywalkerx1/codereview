@@ -1,0 +1,334 @@
+{
+  "schema": "codereview.report/1",
+  "version": "0.12.1",
+  "mode": "verify",
+  "created_at": "2026-11-05T20:10:37+00:00",
+  "patch_sha256": "5aa642e0d4f1baf7e1a5189ca5f502f492529dd2bf1ffeb581a97bc3c4b5dcb2",
+  "previous_gate": "blocked",
+  "private": false,
+  "test_results": [],
+  "cleared": [
+    {
+      "id": "c8a09d51df2a",
+      "rule": "drop-table",
+      "severity": "blocker",
+      "category": "data-loss",
+      "file": "src/codereview/risk.py",
+      "line": 129,
+      "line_basis": "blob",
+      "title": "DROP TABLE in added code",
+      "evidence": "r\"\\b(alter table|create table|drop table|add column|\"",
+      "evidence_quote": "r\"\\b(alter table|create table|drop table|add column|\"",
+      "recommendation": "Confirm this is a deliberate, backed-up migration; otherwise remove.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "source_lenses": {
+        "deterministic": [
+          "deterministic"
+        ]
+      },
+      "consensus": false,
+      "grounding": "grounded",
+      "evidence_class": "E0",
+      "evidence_ref": {
+        "sha256": "1cf596960bf8a187b7cd87e9d40ff945d8afa359132a681fd78eccab6d32db61",
+        "length": 53,
+        "truncated": false
+      },
+      "evidence_quote_ref": {
+        "sha256": "1cf596960bf8a187b7cd87e9d40ff945d8afa359132a681fd78eccab6d32db61",
+        "length": 53,
+        "truncated": false
+      },
+      "cleared_by": [
+        "fixed"
+      ]
+    }
+  ],
+  "remaining": [],
+  "unjudged": [],
+  "reviewer_reports": [
+    {
+      "provider": "gemini",
+      "status": "error",
+      "error": "ProviderError (HTTP 429): gemini quota: HTTP 429 | fallback 'openai' also failed: ProviderError (HTTP 429): openai quota: HTTP 429",
+      "resolutions": {},
+      "attempts": 2,
+      "error_classes": [
+        "quota"
+      ],
+      "jobs": [
+        {
+          "batch": 1,
+          "prior_part": 1,
+          "provider": "gemini",
+          "status": "error",
+          "seat_state": {
+            "state": "blocked",
+            "class": "quota",
+            "evidence": {
+              "error_class": "quota"
+            },
+            "transitions": [
+              {
+                "state": "pending",
+                "class": null,
+                "at_ms": 0
+              },
+              {
+                "state": "working",
+                "class": null,
+                "at_ms": 0
+              },
+              {
+                "state": "blocked",
+                "class": "quota",
+                "at_ms": 1548,
+                "evidence": {
+                  "error_class": "quota"
+                },
+                "terminal": true
+              }
+            ]
+          }
+        }
+      ],
+      "family": "google",
+      "tier": "free"
+    },
+    {
+      "provider": "nvidia",
+      "status": "ok",
+      "error": "",
+      "resolutions": {
+        "c8a09d51df2a": {
+          "status": "fixed",
+          "evidence": "risk.py line 115: the migrations content pattern now uses `\\s+` between words (e.g., `drop\\s+table`) instead of a literal space, and the pattern text carries no literal destructive-SQL string. The test `test_migrations_by_path_and_sql_content` confirms the pattern matches SQL statements while the so",
+          "evidence_ref": {
+            "sha256": "9456ae05ca846fbc1075db42f9d60c187ec76491e514152093abf234b4cc9733",
+            "length": 357,
+            "truncated": true
+          }
+        }
+      },
+      "attempts": 1,
+      "error_classes": [],
+      "jobs": [
+        {
+          "batch": 1,
+          "prior_part": 1,
+          "provider": "nvidia",
+          "status": "ok",
+          "seat_state": {
+            "state": "done",
+            "class": null,
+            "evidence": {},
+            "transitions": [
+              {
+                "state": "pending",
+                "class": null,
+                "at_ms": 0
+              },
+              {
+                "state": "working",
+                "class": null,
+                "at_ms": 0
+              },
+              {
+                "state": "done",
+                "class": null,
+                "at_ms": 3114,
+                "terminal": true
+              }
+            ]
+          }
+        }
+      ],
+      "judged_finding_ids": [
+        "c8a09d51df2a"
+      ],
+      "family": "nvidia",
+      "tier": "free"
+    }
+  ],
+  "findings": [],
+  "degraded": true,
+  "truncated": false,
+  "gate": "inconclusive",
+  "gate_reasons": [
+    "verification quorum not met: 1 of 2 reviewers succeeded (need at least 2)",
+    "3 new finding(s) classified archived-text (they cite committed review records or text preserved only inside them) — preserved in archived_text_findings, not blocking"
+  ],
+  "archived_exclusions": [
+    {
+      "path": "review-e1/codereview-20261105-200956.json",
+      "rule": "review-*/"
+    },
+    {
+      "path": "review-e1/codereview-20261105-200956.md",
+      "rule": "review-*/"
+    },
+    {
+      "path": "review-e1/evidence/1cf596960bf8a187b7cd87e9d40ff945d8afa359132a681fd78eccab6d32db61",
+      "rule": "review-*/"
+    },
+    {
+      "path": "review-e1/evidence/2ed669e98a791da917b8dbaffc4b7f01e9454fd41153efb60e77ef0126256ab9",
+      "rule": "review-*/"
+    },
+    {
+      "path": "review-e1/evidence/6e8d491643b10d9972b3f7b18dad94458f0403f96e47b82deeaecda691b73379",
+      "rule": "review-*/"
+    },
+    {
+      "path": "review-e1/evidence/7caa84137022fb6200490e707d03cf71ffcf896efb2cad1d56bfb220970fc4ce",
+      "rule": "review-*/"
+    },
+    {
+      "path": "review-e1/evidence/8d81e923a80a3cc507ecf272b6695b201bf37aea69c58784604a6ef3af7ceb40",
+      "rule": "review-*/"
+    },
+    {
+      "path": "review-e1/evidence/96bd231dc1b5b73154e0807239f4a75cb74d22e6a581a4e0145e3f09dfa8bdb8",
+      "rule": "review-*/"
+    },
+    {
+      "path": "review-e1/evidence/d3c15e8a60d79d0fe16ec1ef21bea1b609b08c9227713ac73fee7ebd02dd84a8",
+      "rule": "review-*/"
+    }
+  ],
+  "archived_text_findings": [
+    {
+      "id": "347a5fe35b26",
+      "rule": "drop-table",
+      "severity": "blocker",
+      "category": "data-loss",
+      "file": "review-e1/codereview-20261105-200956.json",
+      "line": 102,
+      "line_basis": "blob",
+      "title": "DROP TABLE in added code",
+      "evidence": "\"title\": \"DROP TABLE in added code\",",
+      "evidence_quote": "\"title\": \"DROP TABLE in added code\",",
+      "recommendation": "Confirm this is a deliberate, backed-up migration; otherwise remove.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "source_lenses": {
+        "deterministic": [
+          "deterministic"
+        ]
+      },
+      "consensus": false,
+      "archived_text": {
+        "rule": "review-*/",
+        "basis": "path"
+      },
+      "evidence_ref": {
+        "sha256": "dc751b999aa71e6fd4753b51cdc0d274d99a462ade7b238dc0ea3354964081c7",
+        "length": 36,
+        "truncated": false
+      },
+      "evidence_quote_ref": {
+        "sha256": "dc751b999aa71e6fd4753b51cdc0d274d99a462ade7b238dc0ea3354964081c7",
+        "length": 36,
+        "truncated": false
+      }
+    },
+    {
+      "id": "25eebbbed79f",
+      "rule": "drop-table",
+      "severity": "blocker",
+      "category": "data-loss",
+      "file": "review-e1/codereview-20261105-200956.md",
+      "line": 9,
+      "line_basis": "blob",
+      "title": "DROP TABLE in added code",
+      "evidence": "- ⛔ **[blocker] DROP TABLE in added code** (src/codereview/risk.py:129) — via deterministic",
+      "evidence_quote": "- ⛔ **[blocker] DROP TABLE in added code** (src/codereview/risk.py:129) — via deterministic",
+      "recommendation": "Confirm this is a deliberate, backed-up migration; otherwise remove.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "source_lenses": {
+        "deterministic": [
+          "deterministic"
+        ]
+      },
+      "consensus": false,
+      "archived_text": {
+        "rule": "review-*/",
+        "basis": "path"
+      },
+      "evidence_ref": {
+        "sha256": "0b947b25eb1b6b61a4c602b2505bb161deb71d05f914bce244b36a269e7372f6",
+        "length": 91,
+        "truncated": false
+      },
+      "evidence_quote_ref": {
+        "sha256": "0b947b25eb1b6b61a4c602b2505bb161deb71d05f914bce244b36a269e7372f6",
+        "length": 91,
+        "truncated": false
+      }
+    },
+    {
+      "id": "8fc3e5a2bcac",
+      "rule": "drop-table",
+      "severity": "blocker",
+      "category": "data-loss",
+      "file": "review-e1/evidence/1cf596960bf8a187b7cd87e9d40ff945d8afa359132a681fd78eccab6d32db61",
+      "line": 1,
+      "line_basis": "blob",
+      "title": "DROP TABLE in added code",
+      "evidence": "r\"\\b(alter table|create table|drop table|add column|\"",
+      "evidence_quote": "r\"\\b(alter table|create table|drop table|add column|\"",
+      "recommendation": "Confirm this is a deliberate, backed-up migration; otherwise remove.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "source_lenses": {
+        "deterministic": [
+          "deterministic"
+        ]
+      },
+      "consensus": false,
+      "archived_text": {
+        "rule": "review-*/",
+        "basis": "path"
+      },
+      "evidence_ref": {
+        "sha256": "1cf596960bf8a187b7cd87e9d40ff945d8afa359132a681fd78eccab6d32db61",
+        "length": 53,
+        "truncated": false
+      },
+      "evidence_quote_ref": {
+        "sha256": "1cf596960bf8a187b7cd87e9d40ff945d8afa359132a681fd78eccab6d32db61",
+        "length": 53,
+        "truncated": false
+      }
+    }
+  ],
+  "range": "f1f1f35..HEAD",
+  "head": "02bf9c001a6a3a03087f64b292ceb8bbecaa2641",
+  "claim_verification": {
+    "schema": "codereview.claims/1",
+    "boundary": "Claim verification is evidence recorded in the run record. It is not a gate input: no claim status changes the verdict, a finding, or any other gate input. A mismatch downgrades the claim, never the gate.",
+    "claims": [],
+    "summary": {
+      "total": 0,
+      "verified": 0,
+      "mismatch": 0,
+      "unverifiable": 0,
+      "unparsed": 0
+    }
+  },
+  "evidence_sidecars": {
+    "dir": "evidence",
+    "files": 4,
+    "refs": 9
+  }
+}

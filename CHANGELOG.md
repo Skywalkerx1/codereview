@@ -46,6 +46,133 @@ documented threat model + tests) and closed the one real gap.
   `npm` is a built-in adapter), so memory growth is bounded
   only by the wall-clock/CPU limits and the risk is
   documented rather than theatre-capped.
+## Unreleased — Epic E1 (risk scorer)
+
+A review run can now record a deterministic risk score for
+the change under review. When the project policy's new
+`[risk]` table sets `enabled = true`, the run record gains a
+`risk` section: the score (0–100), its band (`low` /
+`medium` / `high`), a human-readable reason for every point,
+and the per-signal breakdown (files and lines changed,
+pattern classes touched, dependency files).
+
+- **Deterministic by contract:** `codereview.risk` is a pure
+  function of the kept diff sections and the resolved
+  thresholds — no model calls, no randomness, no clock. The
+  same diff under the same policy scores identically on
+  every run (test-pinned, including section order).
+- **Signals:** touched sensitive patterns — auth, payments,
+  crypto, migrations, secrets, deserialization — matched on
+  changed paths and added lines, each class contributing its
+  points once with the pattern subtotal capped at 60;
+  dependency-manifest changes (+15: package/requirements/
+  cargo/go/composer/gem manifests and lockfiles, `*.txt`
+  under a `requirements/` directory included); change size
+  in fixed tiers up to +25.
+- **Descriptive only:** in E1 the score never changes a
+  verdict, a finding, or any gate input (test-compared with
+  risk on vs off). Tiering (E2) and escalation (E4) consume
+  the section next.
+- **Schema:** `[risk]` (`enabled`, `medium_threshold`,
+  `high_threshold`) is validated by the policy loader with
+  line-referenced errors like every other table — non-bool
+  `enabled`, thresholds outside 0–100, and an inverted
+  medium/high pair are loud errors. `codereview policy
+  check` renders the table when — and only when — scoring
+  is enabled.
+- **Equivalence:** with `[risk]` absent or disabled, a run
+  is unchanged in every particular — no `risk` key in the
+  record; the registered bench sets are untouched.
+- **Verification:** 38 new tests (`tests/test_risk.py`),
+  37 failing on pre-E1 master (the module does not exist
+  there; the one pass is an unknown-table coincidence in a
+  negative-validation test) — scorer fixtures per pattern
+  class, size tiers, the pattern cap, determinism, policy
+  schema errors, and record integration through
+  `run_review` with stub seats.
+
+## Unreleased — Epic E3 (panel-diversity enforcement)
+
+A project can now enforce panel diversity in the
+`[diversity]` table of its `.codereview.toml`, judged on the
+COMPOSED panel before any seat is called:
+
+- **Minimum families:** `min_families = N` requires the panel
+  to span at least N distinct known vendor families (seat
+  metadata — registry tags or `--seat-meta`; `unknown` never
+  counts). This is distinct from `[panel] min_families`,
+  which judges the seats that actually served, after the
+  round. A violation labels the run degraded with the cause
+  `panel diversity below minimum` and is recorded in the
+  record's `diversity` section and as an applied
+  `diversity.min_families` rule in the policy section.
+- **Enforcement mode:** `enforce = "degrade"` (the default)
+  records the violation as advisory — never gate-changing.
+  `enforce = "block"` additionally makes it a blocking
+  policy violation, exactly like any other.
+- **Builder exclusion:** with `exclude_builder_family =
+  true`, when the run's caller knows the builder's vendor
+  family (the `builder_family` argument — no CLI run path
+  knows it today, so there the exclusion simply never
+  engages; no builder identity is ever invented), seats of
+  that family are excluded from the panel when the remaining
+  panel still meets the minimum — otherwise they stay, and
+  the record says why. An excluded seat's lens is never
+  reassigned by the check: the seat->lens binding machinery
+  treats it as an absent seat.
+- **Equivalence:** with no `[diversity]` configuration, a
+  run is unchanged in every particular — no `diversity` key
+  in the record, no applied rule, identical verdicts; the
+  registered bench sets are untouched.
+- **Verification:** 27 new tests (`tests/test_diversity.py`)
+  — panel assessment (minimum met/breached, unknown-family
+  handling, builder exclusion possible/refused/emptying/
+  unknown/absent), policy schema + rendering, and run_review
+  integration (degrade vs block, exclusion never calling the
+  builder's seats, unconfigured equivalence).
+
+## Unreleased — Epic C4 (builder-claim verification in the run record)
+
+Builder-claim verification now lands in the run record. The
+machinery is not new — `evidence.parse_claims` /
+`evidence.verify_claims` (Epic C) already parsed a builder
+work report's claimed commands and re-ran them in the sandbox
+behind the standalone `codereview evidence --claims` surface.
+What is new is the record-facing contract around them
+(`src/codereview/claims.py`, composing the evidence runner —
+no second parser, no second executor):
+
+- **Recorded in the run record:** on a verification run
+  (`--verify-previous` with `--builder-response`), the record
+  now carries a `claim_verification` section: per-claim
+  entries with the claimed outcome, the re-run's actual exit
+  code, duration, and output sha256, plus a summary. A run
+  with no builder report carries no section.
+- **Statuses:** `verified` (the re-run matches the claim),
+  `mismatch` (the re-run contradicts it — the claim is
+  downgraded, recorded as not standing with claimed vs
+  actual outcomes stated), `unverifiable` (the re-run could
+  not be performed), and `unparsed` (a line shaped like a
+  claim — a backticked command or a claim label — that does
+  not parse to an unambiguous command + outcome: recorded,
+  never guessed at, never executed). Ordinary prose is not a
+  claim attempt and is not recorded.
+- **Evidence, never a gate input:** claim verification is
+  recorded evidence only. No claim status changes the
+  verdict, a finding, or any other gate input, and nothing
+  in the gate reads the section — a mismatch downgrades the
+  claim, never the gate (test-compared: identical panel,
+  honest vs downgraded claims, identical gate). The section
+  states this boundary in its own `boundary` field.
+- **Never raises:** malformed reports, non-text input, a
+  missing tree, and sandbox failures are recorded outcomes
+  (`unverifiable`, with the reason), never exceptions; the
+  run's record is produced regardless.
+- **Verification:** 20 new tests (`tests/test_claims.py`) —
+  18 fail on pre-C4 master with an empty-module shim (the
+  module does not exist there at all); the 2 passes pin
+  pre-existing behaviour by design (no builder report ⇒ no
+  section; a review run ⇒ no section).
 
 ## Unreleased — Epic L3 (lifecycle hooks)
 

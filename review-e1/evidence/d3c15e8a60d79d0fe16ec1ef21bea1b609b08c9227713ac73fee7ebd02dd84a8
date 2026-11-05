@@ -1,0 +1,1 @@
+score = min(100, pattern_points + dependency_points + size_points)

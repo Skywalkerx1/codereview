@@ -1,0 +1,591 @@
+{
+  "schema": "codereview.report/1",
+  "version": "0.12.1",
+  "mode": "review",
+  "created_at": "2026-11-05T20:05:56+00:00",
+  "patch_sha256": "c409f342e6dc1f128f1249258aa250a96171f848a548d87f625f544d91feb75c",
+  "patch_chars": 27650,
+  "files": [
+    "CHANGELOG.md",
+    "src/codereview/claims.py",
+    "src/codereview/cli.py",
+    "tests/test_claims.py"
+  ],
+  "context": "",
+  "private": false,
+  "supported_platforms": {
+    "os": [
+      "posix"
+    ],
+    "python": ">=3.11"
+  },
+  "coverage": {
+    "batch_count": 1,
+    "truncated": false,
+    "complete": false,
+    "omissions": [
+      "CHANGELOG.md: no successful correctness review of batch(es) [1]",
+      "src/codereview/claims.py: no successful correctness review of batch(es) [1]",
+      "src/codereview/cli.py: no successful correctness review of batch(es) [1]",
+      "tests/test_claims.py: no successful correctness review of batch(es) [1]"
+    ],
+    "files": {
+      "CHANGELOG.md": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "src/codereview/claims.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "src/codereview/cli.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "tests/test_claims.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [],
+          "operations": [
+            1
+          ]
+        }
+      }
+    }
+  },
+  "test_results": [],
+  "deterministic_findings": [
+    {
+      "id": "9543d48fcc8f",
+      "rule": "aws-access-key",
+      "severity": "blocker",
+      "category": "security",
+      "file": "tests/test_claims.py",
+      "line": 135,
+      "line_basis": "blob",
+      "title": "AWS access key id in added code",
+      "evidence": "\"Ran `aws configure set key [REDACTED-AWS-KEY]` \"",
+      "evidence_quote": "\"Ran `aws configure set key [REDACTED-AWS-KEY]` \"",
+      "recommendation": "Remove and rotate the key; load credentials from the environment.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "source_lenses": {
+        "deterministic": [
+          "deterministic"
+        ]
+      },
+      "consensus": false,
+      "grounding": "grounded",
+      "evidence_ref": {
+        "sha256": "d06e0f6d519df0124c5d7807f308191cda7d6bd401629cfc9f6cf146f60dfd45",
+        "length": 49,
+        "truncated": false
+      },
+      "evidence_quote_ref": {
+        "sha256": "d06e0f6d519df0124c5d7807f308191cda7d6bd401629cfc9f6cf146f60dfd45",
+        "length": 49,
+        "truncated": false
+      }
+    }
+  ],
+  "reviewer_reports": [
+    {
+      "provider": "gemini",
+      "lens": "correctness",
+      "batch": 1,
+      "status": "error",
+      "error": "ProviderError (HTTP 429): gemini quota: HTTP 429 | fallback 'openai' also failed: ProviderError (HTTP 429): openai quota: HTTP 429",
+      "summary": "",
+      "findings": [],
+      "attempts": 2,
+      "error_classes": [
+        "quota"
+      ],
+      "duration_ms": 3452,
+      "prompt_chars": 79285,
+      "error_detail": {
+        "error": "gemini quota: HTTP 429",
+        "http_status": 429,
+        "error_classes": [
+          "quota"
+        ],
+        "fallback_error": "openai quota: HTTP 429",
+        "fallback_http_status": 429
+      },
+      "family": "google",
+      "tier": "free",
+      "seat_state": {
+        "state": "blocked",
+        "class": "quota",
+        "evidence": {
+          "error_class": "quota"
+        },
+        "transitions": [
+          {
+            "state": "pending",
+            "class": null,
+            "at_ms": 0
+          },
+          {
+            "state": "working",
+            "class": null,
+            "at_ms": 0
+          },
+          {
+            "state": "blocked",
+            "class": "quota",
+            "at_ms": 2152,
+            "evidence": {
+              "error_class": "quota"
+            },
+            "terminal": true
+          }
+        ]
+      },
+      "seat_state_primary": {
+        "state": "blocked",
+        "class": "quota",
+        "evidence": {
+          "error_class": "quota"
+        },
+        "transitions": [
+          {
+            "state": "pending",
+            "class": null,
+            "at_ms": 0
+          },
+          {
+            "state": "working",
+            "class": null,
+            "at_ms": 0
+          },
+          {
+            "state": "blocked",
+            "class": "quota",
+            "at_ms": 1300,
+            "evidence": {
+              "error_class": "quota"
+            },
+            "terminal": true
+          }
+        ]
+      }
+    },
+    {
+      "provider": "nvidia",
+      "lens": "operations",
+      "batch": 1,
+      "status": "ok",
+      "error": "",
+      "summary": "The claims.py module introduces a new record-facing contract for builder-claim verification, but the CLI integration in cli.py has a critical ordering issue: claim verification runs after the gate decision, yet the test 'test_record_carries_the_section' expects the gate to be 'pass' when claims are verified. The diff shows the gate is decided before claim verification runs, but the test asserts report['gate'] == 'pass' — this implies the gate must be evaluated after claims are recorded, or the t",
+      "findings": [
+        {
+          "id": "b4572a1c56ac",
+          "rule": "",
+          "severity": "major",
+          "category": "correctness",
+          "file": "src/codereview/cli.py",
+          "line": 2415,
+          "title": "Claim verification runs after gate decision, but test expects gate to reflect claim outcomes",
+          "evidence": "builder_response = _maybe_file(args.builder_response)\n        report = core.run_verification(\n            patch, providers, previous,\n            builder_response,\n            test_results=test_results,\n            max_patch_chars=args.max_patch_chars,\n            allow_major=args.max_patch_chars,\n            allow_major=args.allow_major, strict=args.strict,\n            record_extra=record_extra,\n",
+          "evidence_quote": "builder_response = _maybe_file(args.builder_response)\n        report = core.run_verification(\n            patch, providers, previous,\n            builder_response,\n            test_results=test_results,\n            max_patch_chars=args.max_patch_chars,\n            allow_major=args.allow_major, strict=args.strict,\n            record_extra=record_extra,\n            private=args.private, progress=_se",
+          "recommendation": "Reorder the CLI flow so that claim verification runs before the gate decision, or ensure the gate logic does not read the claim_verification section. Alternatively, adjust the test expectations to match the current ordering (gate decided first, claims recorded after).",
+          "confidence": 0.85,
+          "sources": [
+            "nvidia"
+          ],
+          "consensus": false,
+          "source_lenses": {
+            "nvidia": [
+              "operations"
+            ]
+          },
+          "grounding": "unresolved",
+          "reground_note": "no seat could re-ground this finding (tried: nvidia, gemini, openai): re-ground call failed: openai quota: HTTP 429",
+          "evidence_ref": {
+            "sha256": "9fe2b658ca4e8e2cd5395ab66ae60e4805682dd67baa802864f29cdc5bee9b30",
+            "length": 1057,
+            "truncated": true
+          },
+          "evidence_quote_ref": {
+            "sha256": "ab22c99a29a09fabc5c9db9728f43e76e60dde83226d72b95d6d8ac65a68ab2e",
+            "length": 1011,
+            "truncated": true
+          }
+        },
+        {
+          "id": "b2bbc6728d22",
+          "rule": "",
+          "severity": "major",
+          "category": "correctness",
+          "file": "src/codereview/cli.py",
+          "line": 2423,
+          "title": "Claim verification section added to report after gate is set; test 'test_a_mismatch_never_changes_the_gate' expects gate unchanged",
+          "evidence": "        # Epic C4: verify the builder report's claimed commands\n        # against the tree and record the outcome in the run\n        # record. This runs after the gate has been decided and\n        # nothing reads the section back — claim verification\n        # is evidence, not a gate input: a mismatch downgrades\n        # the claim, never the verdict (claims.BOUNDARY).\n        claim_section = clai",
+          "evidence_quote": "        # Epic C4: verify the builder report's claimed commands\n        # against the tree and record the outcome in the run\n        # record. This runs after the gate has been decided and\n        # nothing reads the section back — claim verification\n        # is evidence, not a gate input: a mismatch downgrades\n        # the claim, never the verdict (claims.BOUNDARY).\n        claim_section = clai",
+          "recommendation": "Ensure the gate decision logic does not inspect or depend on the claim_verification section. If the gate must be decided before claims are recorded, add a guard to prevent the gate from reading the section, or restructure so claims are verified first.",
+          "confidence": 0.85,
+          "sources": [
+            "nvidia"
+          ],
+          "consensus": false,
+          "source_lenses": {
+            "nvidia": [
+              "operations"
+            ]
+          },
+          "grounding": "unresolved",
+          "reground_note": "no seat could re-ground this finding (tried: nvidia, gemini, openai): re-ground call failed: openai quota: HTTP 429",
+          "evidence_ref": {
+            "sha256": "fe3b1f51f20cb669bf8ce64f5e60429aabafaf19450d8550d94dfc8729f4badc",
+            "length": 571,
+            "truncated": true
+          },
+          "evidence_quote_ref": {
+            "sha256": "fe3b1f51f20cb669bf8ce64f5e60429aabafaf19450d8550d94dfc8729f4badc",
+            "length": 571,
+            "truncated": true
+          }
+        },
+        {
+          "id": "2c960340d149",
+          "rule": "",
+          "severity": "minor",
+          "category": "testing",
+          "file": "tests/test_claims.py",
+          "line": 138,
+          "title": "test_record_carries_the_section expects gate='pass' with verified claims",
+          "evidence": "        self.assertEqual(report[\"gate\"], \"pass\")",
+          "evidence_quote": "        self.assertEqual(report[\"gate\"], \"pass\")",
+          "recommendation": "Clarify whether the gate should be decided before or after claim verification. If before, the test assertion needs updating. If after, reorder the CLI execution flow.",
+          "confidence": 0.7,
+          "sources": [
+            "nvidia"
+          ],
+          "consensus": false,
+          "source_lenses": {
+            "nvidia": [
+              "operations"
+            ]
+          },
+          "grounding": "grounded",
+          "evidence_ref": {
+            "sha256": "73f0a21c73b2b901c28542d9b09e113816c7b1227144c7ede4d0726ac791a367",
+            "length": 48,
+            "truncated": false
+          },
+          "evidence_quote_ref": {
+            "sha256": "73f0a21c73b2b901c28542d9b09e113816c7b1227144c7ede4d0726ac791a367",
+            "length": 48,
+            "truncated": false
+          }
+        },
+        {
+          "id": "c3df80d58325",
+          "rule": "",
+          "severity": "minor",
+          "category": "testing",
+          "file": "tests/test_claims.py",
+          "line": 162,
+          "title": "test_a_mismatch_never_changes_the_gate checks gate unchanged with mismatched claims",
+          "evidence": "        self.assertEqual(honest[\"gate\"], lying[\"gate\"])",
+          "evidence_quote": "        self.assertEqual(honest[\"gate\"], lying[\"gate\"])",
+          "recommendation": "Verify that the gate logic does not read claim_verification. If it does, the test will fail and the flow needs restructuring.",
+          "confidence": 0.7,
+          "sources": [
+            "nvidia"
+          ],
+          "consensus": false,
+          "source_lenses": {
+            "nvidia": [
+              "operations"
+            ]
+          },
+          "grounding": "grounded",
+          "evidence_ref": {
+            "sha256": "1feaccf9bc90327937a9843cf469592eb0fe2f6860bf8c71f660562cb9ba1143",
+            "length": 55,
+            "truncated": false
+          },
+          "evidence_quote_ref": {
+            "sha256": "1feaccf9bc90327937a9843cf469592eb0fe2f6860bf8c71f660562cb9ba1143",
+            "length": 55,
+            "truncated": false
+          }
+        }
+      ],
+      "attempts": 1,
+      "error_classes": [],
+      "duration_ms": 18154,
+      "prompt_chars": 79356,
+      "family": "nvidia",
+      "tier": "free",
+      "seat_state": {
+        "state": "done",
+        "class": null,
+        "evidence": {},
+        "transitions": [
+          {
+            "state": "pending",
+            "class": null,
+            "at_ms": 0
+          },
+          {
+            "state": "working",
+            "class": null,
+            "at_ms": 0
+          },
+          {
+            "state": "done",
+            "class": null,
+            "at_ms": 18154,
+            "terminal": true
+          }
+        ]
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "9543d48fcc8f",
+      "rule": "aws-access-key",
+      "severity": "blocker",
+      "category": "security",
+      "file": "tests/test_claims.py",
+      "line": 135,
+      "line_basis": "blob",
+      "title": "AWS access key id in added code",
+      "evidence": "\"Ran `aws configure set key [REDACTED-AWS-KEY]` \"",
+      "evidence_quote": "\"Ran `aws configure set key [REDACTED-AWS-KEY]` \"",
+      "recommendation": "Remove and rotate the key; load credentials from the environment.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "source_lenses": {
+        "deterministic": [
+          "deterministic"
+        ]
+      },
+      "consensus": false,
+      "grounding": "grounded",
+      "evidence_class": "E0",
+      "evidence_ref": {
+        "sha256": "d06e0f6d519df0124c5d7807f308191cda7d6bd401629cfc9f6cf146f60dfd45",
+        "length": 49,
+        "truncated": false
+      },
+      "evidence_quote_ref": {
+        "sha256": "d06e0f6d519df0124c5d7807f308191cda7d6bd401629cfc9f6cf146f60dfd45",
+        "length": 49,
+        "truncated": false
+      }
+    },
+    {
+      "id": "b4572a1c56ac",
+      "rule": "",
+      "severity": "major",
+      "category": "correctness",
+      "file": "src/codereview/cli.py",
+      "line": 2415,
+      "title": "Claim verification runs after gate decision, but test expects gate to reflect claim outcomes",
+      "evidence": "builder_response = _maybe_file(args.builder_response)\n        report = core.run_verification(\n            patch, providers, previous,\n            builder_response,\n            test_results=test_results,\n            max_patch_chars=args.max_patch_chars,\n            allow_major=args.max_patch_chars,\n            allow_major=args.allow_major, strict=args.strict,\n            record_extra=record_extra,\n",
+      "evidence_quote": "builder_response = _maybe_file(args.builder_response)\n        report = core.run_verification(\n            patch, providers, previous,\n            builder_response,\n            test_results=test_results,\n            max_patch_chars=args.max_patch_chars,\n            allow_major=args.allow_major, strict=args.strict,\n            record_extra=record_extra,\n            private=args.private, progress=_se",
+      "recommendation": "Reorder the CLI flow so that claim verification runs before the gate decision, or ensure the gate logic does not read the claim_verification section. Alternatively, adjust the test expectations to match the current ordering (gate decided first, claims recorded after).",
+      "confidence": 0.85,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false,
+      "source_lenses": {
+        "nvidia": [
+          "operations"
+        ]
+      },
+      "grounding": "unresolved",
+      "reground_note": "no seat could re-ground this finding (tried: nvidia, gemini, openai): re-ground call failed: openai quota: HTTP 429",
+      "evidence_class": "E3",
+      "cross_family": "unavailable",
+      "evidence_ref": {
+        "sha256": "9fe2b658ca4e8e2cd5395ab66ae60e4805682dd67baa802864f29cdc5bee9b30",
+        "length": 1057,
+        "truncated": true
+      },
+      "evidence_quote_ref": {
+        "sha256": "ab22c99a29a09fabc5c9db9728f43e76e60dde83226d72b95d6d8ac65a68ab2e",
+        "length": 1011,
+        "truncated": true
+      }
+    },
+    {
+      "id": "b2bbc6728d22",
+      "rule": "",
+      "severity": "major",
+      "category": "correctness",
+      "file": "src/codereview/cli.py",
+      "line": 2423,
+      "title": "Claim verification section added to report after gate is set; test 'test_a_mismatch_never_changes_the_gate' expects gate unchanged",
+      "evidence": "        # Epic C4: verify the builder report's claimed commands\n        # against the tree and record the outcome in the run\n        # record. This runs after the gate has been decided and\n        # nothing reads the section back — claim verification\n        # is evidence, not a gate input: a mismatch downgrades\n        # the claim, never the verdict (claims.BOUNDARY).\n        claim_section = clai",
+      "evidence_quote": "        # Epic C4: verify the builder report's claimed commands\n        # against the tree and record the outcome in the run\n        # record. This runs after the gate has been decided and\n        # nothing reads the section back — claim verification\n        # is evidence, not a gate input: a mismatch downgrades\n        # the claim, never the verdict (claims.BOUNDARY).\n        claim_section = clai",
+      "recommendation": "Ensure the gate decision logic does not inspect or depend on the claim_verification section. If the gate must be decided before claims are recorded, add a guard to prevent the gate from reading the section, or restructure so claims are verified first.",
+      "confidence": 0.85,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false,
+      "source_lenses": {
+        "nvidia": [
+          "operations"
+        ]
+      },
+      "grounding": "unresolved",
+      "reground_note": "no seat could re-ground this finding (tried: nvidia, gemini, openai): re-ground call failed: openai quota: HTTP 429",
+      "evidence_class": "E3",
+      "cross_family": "unavailable",
+      "evidence_ref": {
+        "sha256": "fe3b1f51f20cb669bf8ce64f5e60429aabafaf19450d8550d94dfc8729f4badc",
+        "length": 571,
+        "truncated": true
+      },
+      "evidence_quote_ref": {
+        "sha256": "fe3b1f51f20cb669bf8ce64f5e60429aabafaf19450d8550d94dfc8729f4badc",
+        "length": 571,
+        "truncated": true
+      }
+    },
+    {
+      "id": "c3df80d58325",
+      "rule": "",
+      "severity": "minor",
+      "category": "testing",
+      "file": "tests/test_claims.py",
+      "line": 162,
+      "title": "test_a_mismatch_never_changes_the_gate checks gate unchanged with mismatched claims",
+      "evidence": "        self.assertEqual(honest[\"gate\"], lying[\"gate\"])",
+      "evidence_quote": "        self.assertEqual(honest[\"gate\"], lying[\"gate\"])",
+      "recommendation": "Verify that the gate logic does not read claim_verification. If it does, the test will fail and the flow needs restructuring.",
+      "confidence": 0.7,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false,
+      "source_lenses": {
+        "nvidia": [
+          "operations"
+        ]
+      },
+      "grounding": "grounded",
+      "evidence_class": "E3",
+      "evidence_ref": {
+        "sha256": "1feaccf9bc90327937a9843cf469592eb0fe2f6860bf8c71f660562cb9ba1143",
+        "length": 55,
+        "truncated": false
+      },
+      "evidence_quote_ref": {
+        "sha256": "1feaccf9bc90327937a9843cf469592eb0fe2f6860bf8c71f660562cb9ba1143",
+        "length": 55,
+        "truncated": false
+      }
+    },
+    {
+      "id": "2c960340d149",
+      "rule": "",
+      "severity": "minor",
+      "category": "testing",
+      "file": "tests/test_claims.py",
+      "line": 138,
+      "title": "test_record_carries_the_section expects gate='pass' with verified claims",
+      "evidence": "        self.assertEqual(report[\"gate\"], \"pass\")",
+      "evidence_quote": "        self.assertEqual(report[\"gate\"], \"pass\")",
+      "recommendation": "Clarify whether the gate should be decided before or after claim verification. If before, the test assertion needs updating. If after, reorder the CLI execution flow.",
+      "confidence": 0.7,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false,
+      "source_lenses": {
+        "nvidia": [
+          "operations"
+        ]
+      },
+      "grounding": "grounded",
+      "evidence_class": "E3",
+      "evidence_ref": {
+        "sha256": "73f0a21c73b2b901c28542d9b09e113816c7b1227144c7ede4d0726ac791a367",
+        "length": 48,
+        "truncated": false
+      },
+      "evidence_quote_ref": {
+        "sha256": "73f0a21c73b2b901c28542d9b09e113816c7b1227144c7ede4d0726ac791a367",
+        "length": 48,
+        "truncated": false
+      }
+    }
+  ],
+  "degraded": true,
+  "truncated": false,
+  "degraded_causes": [
+    "reviewer failure",
+    "coverage incomplete"
+  ],
+  "gate": "blocked",
+  "gate_reasons": [
+    "coverage incomplete: 4 file/lens omission(s) — run marked degraded",
+    "3 blocking finding(s) (blocker, major)",
+    "at least one reviewer failed (degraded review)",
+    "2 finding(s) could not be re-grounded (evidence quote unverifiable) — a human must decide them"
+  ],
+  "gate_profile": {
+    "profile": "strict",
+    "source": "default",
+    "demotions": []
+  },
+  "file_context": {
+    "attached": [
+      {
+        "file": "CHANGELOG.md",
+        "chars": 24079
+      },
+      {
+        "file": "src/codereview/cli.py",
+        "chars": 24079
+      }
+    ]
+  },
+  "open_disputes": {
+    "count": 0,
+    "ids": []
+  },
+  "range": "master...HEAD",
+  "head": "7bf11647d13709d55f1a03d0db0eaf119d411380",
+  "evidence_sidecars": {
+    "dir": "evidence",
+    "files": 6,
+    "refs": 20
+  }
+}

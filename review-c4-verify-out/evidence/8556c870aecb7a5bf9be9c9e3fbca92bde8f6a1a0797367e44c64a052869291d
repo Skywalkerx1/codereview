@@ -1,0 +1,9 @@
+builder_response = _maybe_file(args.builder_response)
+        report = core.run_verification(
+            patch, providers, previous,
+            builder_response,
+            test_results=test_results,
+            max_patch_chars=args.max_patch_chars,
+            allow_major=args.max_patch_chars,
+            allow_major=args.allow_major, strict=args.strict,
+            record_extra=record_extra,
