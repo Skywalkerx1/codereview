@@ -578,6 +578,10 @@ class HostedRunReviewTests(_HostedCase):
                     "state": state.get("state"),
                     "class": state.get("class")}
                 out.append(rec)
+            # Reports land in job-completion order (a thread
+            # pool), which is timing luck, not content.
+            out.sort(key=lambda r: (r["provider"], r["lens"],
+                                    r["batch"]))
             return out
         self.assertEqual(stripped(hosted), stripped(headless))
         for rec in headless["reviewer_reports"]:
