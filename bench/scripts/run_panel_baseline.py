@@ -33,6 +33,12 @@ AGENTS = "/home/hatch/workspace/mitbbs-ai-swarm/agents"
 sys.path.insert(0, AGENTS)
 sys.path.insert(0, os.path.join(WORKTREE, "src"))
 
+# Bench runs draw DeepSeek on the dedicated bench key, not the
+# editorial key (llm_chain._deepseek_connector reads this at call
+# time). setdefault: an operator-provided value wins.
+os.environ.setdefault("CODEREVIEW_DEEPSEEK_CONNECTOR",
+                      "custom.deepseek-bench")
+
 import llm_chain  # noqa: E402
 from codereview import bench as bench_mod  # noqa: E402
 
