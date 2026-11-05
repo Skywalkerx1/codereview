@@ -1,0 +1,75 @@
+{
+ "files": {
+  "attempt-1.jsonl": {
+   "bytes": 132662,
+   "sha256": "7ad8f40c053e56126d283d6b84688331b6b4f9536dd3f85c3764a17427ff0dbf"
+  },
+  "attempt-1.log": {
+   "bytes": 2060,
+   "sha256": "39c3c173bb3bc6c095b7273e956cbdbf622b0521eb66f9ec0582ea4e2101b01d"
+  },
+  "attempt-2.jsonl": {
+   "bytes": 65246,
+   "sha256": "3b99e27ac3ee817120bc4252240786bf1832fef5dc4767d81d075f2366f1c246"
+  },
+  "attempt-2.log": {
+   "bytes": 1448,
+   "sha256": "b0f2b8ced6914e642565f63bf21d2e85f3ecbfaf1be9d15b59e3f9dcc271cc05"
+  },
+  "attempt-3.jsonl": {
+   "bytes": 69343,
+   "sha256": "bc1a55ea4bb690f34d5960c03018f6d6b2fe97fce9715837fdf1f138690b4169"
+  },
+  "attempt-3.log": {
+   "bytes": 1682,
+   "sha256": "97a0818201b4001de863dc297f2bb87a872965509aa2eb5dc27cebe3e25551cd"
+  },
+  "attempt-4.jsonl": {
+   "bytes": 35932,
+   "sha256": "a5a4dde7c63f97daeacfca8021041b934fb19b218f9971353833c730dc82a585"
+  },
+  "attempt-4.log": {
+   "bytes": 1343,
+   "sha256": "49b00084750966c475dbc5f64a43056864c33442857d370a603370480896bf7f"
+  },
+  "attempt-5.log": {
+   "bytes": 822,
+   "sha256": "ad721a5e9f41cfa2e8ad804ceda46bd347c45d631e83bd17dbd4e93a118f4a3b"
+  },
+  "attempt-6.jsonl": {
+   "bytes": 25015,
+   "sha256": "efba0efc63d517ba22eb7ad1216ef2d93be748951e8e93e86315ce4ae1c9db15"
+  },
+  "attempt-6.log": {
+   "bytes": 1448,
+   "sha256": "d87a4b3123a4e725b7edb1e293b7eb60010816bb602f947b9862f7e82b26c6fc"
+  },
+  "preflight-attempt-1.json": {
+   "bytes": 715,
+   "sha256": "6b43ba78617867b98bfebe82dd297292140086ef71e3a0e0deb169e5a02fd830"
+  },
+  "preflight-attempt-2.json": {
+   "bytes": 715,
+   "sha256": "38211a27a30fa21ebc514877d6afc49c1049d8216d143ac1b0db0c7daa5b78be"
+  },
+  "preflight-attempt-3.json": {
+   "bytes": 744,
+   "sha256": "04c818a546d51faf1d19fdd29a22e90ed59dc64ec055af62cb6c3ef91574e660"
+  },
+  "preflight-attempt-4.json": {
+   "bytes": 738,
+   "sha256": "e43719ca2fcb1a3bcd7a7d269a103d5673d173514d5302e762ada9bf4211ac78"
+  },
+  "preflight-attempt-5.json": {
+   "bytes": 738,
+   "sha256": "c07cff0ad43555a496c1f332b3e8d2eac75f059d5453d6192e1dd0a392fdc342"
+  },
+  "preflight-attempt-6.json": {
+   "bytes": 715,
+   "sha256": "5544d4c28daa03f76af73c8b76745a5bf178e9c0ddb25947dfca3b8466f426b2"
+  }
+ },
+ "label": "provenance only \u2014 never to be scored",
+ "sealed": "2026-11-05",
+ "source_baseline": "bench/BASELINE-V2-2026-11-05.md (VOID)"
+}
