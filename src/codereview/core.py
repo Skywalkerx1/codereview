@@ -2936,7 +2936,49 @@ def _seat_meta(seat_meta, name):
             "tier": str(meta.get("tier") or "unknown")}
 
 
-def _reviewer_tasks(provider_items, lens_seats=None):
+def normalize_seat_lenses(binding):
+    """Normalise an explicit seat->lens binding (S1) to
+    {seat: [lens, ...]} with lenses in LENSES order. A seat maps
+    to one lens name or a list of them. An unknown lens is a
+    configuration error and raises — a binding must never be
+    half-applied silently."""
+    out = {}
+    for seat, lenses in (binding or {}).items():
+        if isinstance(lenses, str):
+            lenses = [lenses]
+        wanted = set()
+        for lens in lenses or []:
+            if lens not in LENSES:
+                raise ValueError(
+                    f"seat_lenses: seat {seat!r} bound to unknown "
+                    f"lens {lens!r} (known: {', '.join(LENSES)})")
+            wanted.add(lens)
+        if not wanted:
+            raise ValueError(
+                f"seat_lenses: seat {seat!r} bound to no lens")
+        out[str(seat)] = [lens for lens in LENSES if lens in wanted]
+    return out
+
+
+def derive_seat_lenses(seat_names):
+    """The legacy seat-order assignment expressed as an explicit
+    binding (S1 backwards compatibility): seat i serves
+    LENSES[i % len(LENSES)]; a single seat serves every lens.
+    Config loaders derive this ONCE for configs that carry no
+    explicit binding, record it, and treat it as explicit
+    thereafter — the derived task list is identical to the
+    historical order rule for every panel size."""
+    names = [str(n) for n in seat_names]
+    if not names:
+        return {}
+    if len(names) == 1:
+        return {names[0]: list(LENSES)}
+    order = list(LENSES)
+    return {name: [order[i % len(order)]]
+            for i, name in enumerate(names)}
+
+
+def _reviewer_tasks(provider_items, lens_seats=None, seat_lenses=None):
     """Assign lenses: two providers split the lenses; a single
     provider is called twice, once per lens; 3+ cycle.
 
@@ -2946,9 +2988,24 @@ def _reviewer_tasks(provider_items, lens_seats=None):
     remaining lenses in the usual cycle. Pins naming a lens or
     seat that does not exist are ignored — the CLI validates role
     assignments before they reach here, and a stale pin must
-    never silently drop a lens: every lens is always tasked."""
+    never silently drop a lens: every lens is always tasked.
+
+    `seat_lenses` (S1, void solution §6) is the explicit
+    seat->lens binding from panel config and, when given, it
+    GOVERNS (lens_seats is ignored): each present seat serves
+    exactly its bound lens(es); a seat absent from the panel
+    leaves its lens untasked — run_review then serves it from
+    the lens's configured fallback or marks the lens unserved
+    (degraded) — and a present seat with no binding serves
+    nothing. Lenses are NEVER reassigned to another seat."""
     tasks = []
     names = [n for n, _ in provider_items]
+    if seat_lenses is not None:
+        binding = normalize_seat_lenses(seat_lenses)
+        for name, fn in provider_items:
+            for lens in binding.get(name, []):
+                tasks.append((name, fn, lens))
+        return tasks
     if not lens_seats:
         if len(names) == 1:
             for lens in LENSES:
@@ -3020,6 +3077,7 @@ def run_review(patch, providers, context="", test_results=None,
                record_extra=None, fixture_scope=None, private=False,
                precedents=None, tech_lead=None, probe_fn=None,
                tech_lead_timeout=None, lens_seats=None,
+               seat_lenses=None,
                policy=None, waivers=None, evidence=None,
                tech_lead_shadow=False, tech_lead_shadow_seat=None,
                gate_profile=None):
@@ -3086,6 +3144,18 @@ def run_review(patch, providers, context="", test_results=None,
     pins a lens to a designated seat name ({lens: seat-name}) so
     the model the user assigned to a role is the model that
     serves it; unassigned lenses keep the round-robin panel.
+
+    Explicit seat binding (S1, void solution §6): `seat_lenses`
+    binds each seat to its lens(es) in panel config ({seat:
+    lens or [lens, ...]}). When given it governs over
+    `lens_seats`: a seat serves exactly its bound lens, and
+    excluding a seat leaves its lens UNSERVED — served by the
+    lens's `fallbacks` seat when one is configured (recorded
+    with fallback_for naming the absent seat), otherwise the
+    run is degraded with a "lens unserved" cause and cannot
+    PASS. The binding and any unserved lenses are recorded in
+    the report's `seat_lenses` section. Without it, assignment
+    is the legacy seat-order rule, unchanged.
 
     Project policy (Epic B): `policy` is a loaded policy dict
     (policy.load_policy — the repository's .codereview.toml).
@@ -3178,7 +3248,13 @@ def run_review(patch, providers, context="", test_results=None,
         section_text.setdefault(name, text)
 
     provider_items = list(providers.items())
-    tasks = _reviewer_tasks(provider_items, lens_seats=lens_seats)
+    binding = None
+    if seat_lenses is not None:
+        binding = normalize_seat_lenses(seat_lenses)
+    tasks = _reviewer_tasks(
+        provider_items,
+        lens_seats=None if binding is not None else lens_seats,
+        seat_lenses=binding)
     reviewer_reports = []
     all_findings = list(det)
     any_success = False
@@ -3189,6 +3265,38 @@ def run_review(patch, providers, context="", test_results=None,
     # only one that licenses the reviewer-failure gate reason.
     degraded_causes = []
 
+    # S1: with an explicit binding, a lens whose bound seat(s)
+    # are absent from the panel is UNSERVED. A configured
+    # fallback for the lens serves it (tasked here, its reports
+    # marked fallback_for the absent seat); otherwise the run
+    # degrades with the cause named. The lens is never quietly
+    # reassigned to a seat that happens to be present.
+    unserved_lenses = []
+    unserved_fallback = {}
+    if binding is not None:
+        present = {n for n, _f in provider_items}
+        tasked = {lens for _n, _f, lens in tasks}
+        for lens in LENSES:
+            if lens in tasked:
+                continue
+            fb = (fallbacks or {}).get(lens)
+            if fb is not None:
+                tasks.append((fb[0], fb[1], lens))
+                unserved_fallback[lens] = {
+                    "bound_seats_absent": sorted(
+                        s for s, ls in binding.items()
+                        if lens in ls and s not in present),
+                    "served_by": fb[0]}
+            else:
+                unserved_lenses.append(lens)
+        if unserved_lenses:
+            degraded = True
+            for lens in unserved_lenses:
+                cause = f"lens unserved: {lens}"
+                if cause not in degraded_causes:
+                    degraded_causes.append(cause)
+
+    job_fallback_for = {}
     jobs = []
     for bi, batch in enumerate(batches):
         for name, fn, lens in tasks:
@@ -3197,6 +3305,12 @@ def run_review(patch, providers, context="", test_results=None,
                 tests=tests_txt,
                 batch=f"batch {bi + 1}/{len(batches)}", patch=batch)
             jobs.append((name, lens, fn, prompt, bi, batch))
+            if lens in unserved_fallback \
+                    and name == unserved_fallback[lens]["served_by"]:
+                absent = unserved_fallback[lens][
+                    "bound_seats_absent"]
+                job_fallback_for[(name, lens, bi)] = (
+                    absent[0] if absent else "unserved lens")
 
     fallback_notes = []
     ungrounded = []
@@ -3295,6 +3409,20 @@ def run_review(patch, providers, context="", test_results=None,
                     degraded_causes.append("reviewer failure")
             rec.update(_provider_meta(serving_fn))
             rec.update(_seat_meta(seat_meta, serving_name))
+            if (name, lens, bi) in job_fallback_for:
+                # This job exists only because the lens's bound
+                # seat is absent from the panel (S1): the record
+                # names the substitution and the seat it covers
+                # for, whatever the outcome.
+                rec["fallback_for"] = job_fallback_for[
+                    (name, lens, bi)]
+                rec["unserved_lens_fallback"] = True
+                if res["ok"]:
+                    fallback_notes.append(
+                        f"{lens} lens served by fallback seat "
+                        f"{name!r}: bound seat "
+                        f"{job_fallback_for[(name, lens, bi)]!r} "
+                        f"is not in the panel")
             reviewer_reports.append(rec)
     if not jobs:
         degraded = True
@@ -4025,7 +4153,12 @@ def run_review(patch, providers, context="", test_results=None,
         # instead of borrowing the language of consensus.
         covered = {r["lens"] for r in reviewer_reports
                    if r["status"] == "ok"}
-        missing = sorted({t[2] for t in tasks} - covered)
+        # With an explicit seat binding (S1), EVERY lens is
+        # expected: one left unserved by an excluded seat counts
+        # as missing here, not just lenses that were tasked.
+        expected = (set(LENSES) if binding is not None
+                    else {t[2] for t in tasks})
+        missing = sorted(expected - covered)
         if missing:
             gate = "inconclusive"
             reasons = [
@@ -4137,6 +4270,13 @@ def run_review(patch, providers, context="", test_results=None,
                          "source": profile_source,
                          "demotions": profile_demotions},
     }
+    if binding is not None:
+        # S1: the record proves the panel's seat->lens binding
+        # and any lens it left unserved.
+        report["seat_lenses"] = {
+            "binding": binding,
+            "unserved_lenses": list(unserved_lenses),
+            "unserved_fallback": unserved_fallback}
     if withdrawn_findings:
         report["withdrawn_findings"] = withdrawn_findings
     if disputed_findings:
