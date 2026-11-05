@@ -6,9 +6,13 @@ Keys are read from environment variables only; nothing is stored,
 logged, or written to disk by this module. Redirects are refused on
 authenticated requests.
 
-Presets: gemini, openai, xai, nvidia, deepseek.
+Presets: the registry in registry.py (openai, gemini, anthropic,
+         deepseek, minimax, moonshot, nvidia, xai, mistral,
+         openrouter), each also as preset:model to pick the model.
 Custom:  name|openai-compatible|https://base.url/v1|model|KEY_ENV
          name|gemini|-|model|KEY_ENV
+         name|anthropic|-|model|KEY_ENV
+         openai-compatible:<base>|<model>|<KEY_ENV (escape hatch)
 Agent:   agent:<name>:<command> — a local agent CLI (Claude Code,
          Codex, Gemini CLI, a wrapper script, ...) seated as a
          reviewer or solver. The prompt is written to a temp file
@@ -89,16 +93,22 @@ _SOLVER_SYSTEM = ("You are the solver in a software-maintenance "
 
 
 def openai_compatible(base_url, model, key_env, extra_payload=None,
-                      system=_SYSTEM):
-    """Callable for any OpenAI-compatible chat completions endpoint."""
+                      system=_SYSTEM, omit_temperature=False):
+    """Callable for any OpenAI-compatible chat completions endpoint.
+
+    `omit_temperature` drops the temperature field entirely for
+    models whose API rejects a caller-set value (registry quirk
+    table — e.g. OpenAI's gpt-5 line answers HTTP 400); the field
+    is omitted, never replaced with a fabricated default."""
     def call(prompt):
         payload = {
             "model": model,
             "messages": [{"role": "system", "content": system},
                          {"role": "user", "content": prompt}],
-            "temperature": 0.1,
             "max_tokens": 8192,
         }
+        if not omit_temperature:
+            payload["temperature"] = 0.1
         if extra_payload:
             payload.update(extra_payload)
         data = _post_json(
@@ -138,6 +148,34 @@ def gemini(model, key_env="GEMINI_API_KEY", system=_SYSTEM,
             parts = data["candidates"][0]["content"]["parts"]
             text = "".join(p.get("text", "") for p in parts).strip()
         except (KeyError, IndexError, TypeError, AttributeError) as e:
+            raise ProviderError(f"bad response shape: {e}") from e
+        if not text:
+            raise ProviderError("empty content from model")
+        return text
+    return call
+
+
+def anthropic(model, key_env="ANTHROPIC_API_KEY", system=_SYSTEM):
+    """Callable for the Anthropic Messages API (native wire shape:
+    x-api-key + anthropic-version headers, system as a top-level
+    field, the answer in content blocks)."""
+    def call(prompt):
+        payload = {
+            "model": model,
+            "max_tokens": 8192,
+            "temperature": 0.1,
+            "system": system,
+            "messages": [{"role": "user", "content": prompt}],
+        }
+        data = _post_json(
+            "https://api.anthropic.com/v1/messages",
+            {"x-api-key": _key(key_env),
+             "anthropic-version": "2023-06-01"}, payload)
+        try:
+            text = "".join(
+                b.get("text", "") for b in data["content"]
+                if b.get("type") == "text").strip()
+        except (KeyError, TypeError, AttributeError) as e:
             raise ProviderError(f"bad response shape: {e}") from e
         if not text:
             raise ProviderError("empty content from model")
@@ -337,18 +375,70 @@ def command_agent(command, timeout=AGENT_TIMEOUT, private_home=False):
     return call
 
 
+try:
+    from . import registry
+except ImportError:  # standalone module load
+    import registry  # type: ignore
+
+# Legacy tuple view of the registry (kind, base_url, model,
+# key_env, extra_payload) — registry.PRESETS is the source of
+# truth; this shape is kept for existing consumers.
 PRESETS = {
-    "gemini": ("gemini", None, "gemini-2.5-flash", "GEMINI_API_KEY", None),
-    "openai": ("openai-compatible", "https://api.openai.com/v1",
-               "gpt-5-mini", "OPENAI_API_KEY", None),
-    "xai": ("openai-compatible", "https://api.x.ai/v1",
-            "grok-4-mini", "XAI_API_KEY", None),
-    "nvidia": ("openai-compatible", "https://integrate.api.nvidia.com/v1",
-               "nvidia/nemotron-3.5-lightning-30b-a3b", "NVIDIA_API_KEY",
-               {"chat_template_kwargs": {"enable_thinking": False}}),
-    "deepseek": ("openai-compatible", "https://api.deepseek.com",
-                 "deepseek-chat", "DEEPSEEK_API_KEY", None),
+    name: (p["kind"], p["base_url"], p["model"], p["key_env"],
+           p["extra"])
+    for name, p in registry.PRESETS.items()
 }
+
+
+def describe_spec(spec):
+    """spec -> {seat, kind, preset, model, key_env, family,
+    base_url} WITHOUT building or calling anything. The CLI uses
+    this to record which provider/model served which role, and to
+    tag seats with their vendor family for the independence
+    checks. Raises ProviderError on an unparseable spec."""
+    if spec.startswith("agent:"):
+        name, _options, _cmd = _parse_agent_spec(spec)
+        return {"seat": name, "kind": "agent", "preset": None,
+                "model": None, "key_env": None, "family": "agent",
+                "base_url": None}
+    stripped = spec.strip()
+    if stripped.lower().startswith("openai-compatible:"):
+        rest = stripped[len("openai-compatible:"):]
+        parts = [p.strip() for p in rest.split("|")]
+        if len(parts) != 3 or not all(parts):
+            raise ProviderError(
+                f"bad provider spec {spec!r}: want "
+                "openai-compatible:<base>|<model>|<KEY_ENV>")
+        base, model, key_env = parts
+        return {"seat": "openai-compatible",
+                "kind": "openai-compatible", "preset": None,
+                "model": model, "key_env": key_env,
+                "family": "unknown", "base_url": base}
+    if "|" in spec:
+        parts = [p.strip() for p in spec.split("|")]
+        if len(parts) != 5:
+            raise ProviderError(
+                f"bad provider spec {spec!r}: want "
+                "name|type|base_url|model|key_env")
+        name, kind, base, model, key_env = parts
+        return {"seat": name, "kind": kind, "preset": None,
+                "model": model, "key_env": key_env,
+                "family": "unknown", "base_url": base}
+    name, colon, model_override = stripped.partition(":")
+    name = name.strip().lower()
+    if name not in registry.PRESETS:
+        raise ProviderError(
+            f"unknown provider {spec!r}; presets: "
+            f"{', '.join(sorted(registry.PRESETS))}, or use the "
+            "custom name|type|base_url|model|key_env form")
+    preset = registry.PRESETS[name]
+    model = (model_override.strip()
+             if colon and model_override.strip()
+             else preset["model"])
+    return {"seat": name, "kind": preset["kind"], "preset": name,
+            "model": model, "key_env": preset["key_env"],
+            "family": preset["family"],
+            "base_url": preset["base_url"]}
 
 
 def _parse_agent_spec(spec):
@@ -407,6 +497,11 @@ def build_provider(spec, occurrence=1, text_mode=False,
                      else agent_timeout),
             private_home=options.get("home") == "private"), \
             f"agent:{agent_name}"
+    if spec.strip().lower().startswith("openai-compatible:"):
+        desc = describe_spec(spec)
+        return desc["seat"], openai_compatible(
+            desc["base_url"], desc["model"], desc["key_env"],
+            system=system), desc["key_env"]
     if "|" in spec:
         parts = [p.strip() for p in spec.split("|")]
         if len(parts) != 5:
@@ -417,24 +512,29 @@ def build_provider(spec, occurrence=1, text_mode=False,
         if kind == "gemini":
             return name, gemini(model, key_env, system=system,
                                 json_mode=not text_mode), key_env
+        if kind == "anthropic":
+            return name, anthropic(model, key_env,
+                                   system=system), key_env
         if kind == "openai-compatible":
             return name, openai_compatible(base, model, key_env,
                                            system=system), key_env
         raise ProviderError(f"unknown provider type {kind!r}")
-    name = spec.strip().lower()
-    if name not in PRESETS:
-        raise ProviderError(
-            f"unknown provider {spec!r}; presets: "
-            f"{', '.join(sorted(PRESETS))}, or use the custom "
-            "name|type|base_url|model|key_env form")
+    desc = describe_spec(spec)
+    name = desc["preset"]
     kind, base, model, key_env, extra = PRESETS[name]
+    model = desc["model"]
     if occurrence > 1:
         key_env = f"{key_env}_{occurrence}"
     if kind == "gemini":
         return name, gemini(model, key_env, system=system,
                             json_mode=not text_mode), key_env
-    return name, openai_compatible(base, model, key_env, extra,
-                                   system=system), key_env
+    if kind == "anthropic":
+        return name, anthropic(model, key_env,
+                               system=system), key_env
+    return name, openai_compatible(
+        base, model, key_env, extra, system=system,
+        omit_temperature=registry.omit_temperature(name, model)), \
+        key_env
 
 
 _RETRYABLE_MARKERS = ("429", "500", "502", "503", "504", "401", "403",
@@ -531,12 +631,17 @@ def build_providers(specs, text_mode=False, agent_timeout=None):
         if spec.startswith("agent:"):
             base, _options, _cmd = _parse_agent_spec(spec)
             parsed.append(("agent", base, spec))
+        elif spec.strip().lower().startswith("openai-compatible:"):
+            parsed.append(("api", "openai-compatible", spec))
+            api_names.add("openai-compatible")
         elif "|" in spec:
             nm = spec.split("|")[0].strip().lower()
             parsed.append(("api", nm, spec))
             api_names.add(nm)
         else:
-            nm = spec.strip().lower()
+            # A preset spec may carry a model override
+            # (preset:model); the seat's base name is the preset.
+            nm = spec.strip().partition(":")[0].strip().lower()
             parsed.append(("api", nm, spec))
             api_names.add(nm)
     agent_final = {}
@@ -590,6 +695,26 @@ def build_providers(specs, text_mode=False, agent_timeout=None):
     for name, accounts in seats.items():
         providers[name] = accounts[0][1] if len(accounts) == 1 \
             else AccountPool(accounts)
+        # Tag the seat with its vendor family (registry truth, not
+        # the display name): the CLI's seat metadata and the
+        # independence checks read family from here, so a seat
+        # named 'kimi' built from the moonshot preset is family
+        # 'moonshot', and a custom-named DeepSeek seat is family
+        # 'deepseek'. Unknown for fully custom specs, as before —
+        # --seat-meta remains the operator's override.
+        fam = "agent" if name_kind.get(name) == "agent" else None
+        if fam is None:
+            for (_k, base, spec) in parsed:
+                if base.lower() == name.lower() and _k == "api":
+                    try:
+                        fam = describe_spec(spec)["family"]
+                    except ProviderError:
+                        fam = None
+                    break
+        try:
+            providers[name]._codereview_family = fam or "unknown"
+        except Exception:  # noqa: BLE001 — tagging is advisory
+            pass
         if name_kind.get(name) == "agent":
             # Tag the seat callable so consumers that only see the
             # providers dict (the CLI's default seat metadata) can
