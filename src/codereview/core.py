@@ -48,6 +48,7 @@ import subprocess
 import threading
 import time
 
+from . import herdrhost
 from . import policy as policy_mod
 from . import seatstate
 
@@ -3114,6 +3115,13 @@ def reviewer_report_entry(report):
         # determined the outcome (seat_state above is then the
         # fallback's).
         entry["seat_state_primary"] = report["seat_state_primary"]
+    if "hosting" in report:
+        # Epic K3a: the determining attempt's herdr-hosting
+        # receipt (transport, pane, advisory observations) —
+        # provenance, like fallback_for; presence-copied.
+        entry["hosting"] = report["hosting"]
+    if "hosting_primary" in report:
+        entry["hosting_primary"] = report["hosting_primary"]
     return entry
 
 
@@ -3152,7 +3160,12 @@ def _review_job(fn, prompt, sleep=None, max_attempts=None,
     at_ms, ...} events, and the log's summary rides the result
     as `seat_state` for the record. Live stream and record read
     one object, so the record never claims less than what was
-    shown live."""
+    shown live.
+
+    Herdr hosting (Epic K3a): a receipt box rides alongside
+    (herdrhost.RECEIPTS); when a hosted seat ran, the last
+    receipt is attached as `hosting` — provenance only, never
+    a verdict input."""
     tally = {}
     started = time.monotonic()
     log = seatstate.SeatStateLog()
@@ -3167,6 +3180,12 @@ def _review_job(fn, prompt, sleep=None, max_attempts=None,
         log.on_event = _forward
     log.emit("pending")
     token = seatstate.CURRENT.set(log)
+    # Epic K3a: a fresh hosting-receipt box for this job. Only
+    # a herdr-hosted seat appends to it (herdrhost.RECEIPTS);
+    # an empty box leaves the result — and therefore every
+    # record built from it — exactly as before hosting existed.
+    receipt_box = []
+    rtoken = herdrhost.RECEIPTS.set(receipt_box)
     try:
         log.emit("working")
         try:
@@ -3176,22 +3195,29 @@ def _review_job(fn, prompt, sleep=None, max_attempts=None,
         except Exception as exc:  # noqa: BLE001 — recorded below
             state, cls, evidence = _terminal_from_error(exc)
             log.emit(state, cls, evidence, terminal=True)
-            return {"ok": False, "parsed": None, "error": exc,
-                    "attempts": tally.get("attempts", 1),
-                    "error_classes": tally.get("error_classes", []),
-                    "duration_ms": int(
-                        (time.monotonic() - started) * 1000),
-                    "prompt_chars": len(prompt or ""),
-                    "seat_state": log.summary()}
-        log.emit("done", terminal=True)
-        return {"ok": True, "parsed": parsed, "error": None,
-                "attempts": tally.get("attempts", 1),
-                "error_classes": tally.get("error_classes", []),
-                "duration_ms": int(
-                    (time.monotonic() - started) * 1000),
-                "prompt_chars": len(prompt or ""),
-                "seat_state": log.summary()}
+            result = {"ok": False, "parsed": None, "error": exc,
+                      "attempts": tally.get("attempts", 1),
+                      "error_classes": tally.get("error_classes", []),
+                      "duration_ms": int(
+                          (time.monotonic() - started) * 1000),
+                      "prompt_chars": len(prompt or ""),
+                      "seat_state": log.summary()}
+        else:
+            log.emit("done", terminal=True)
+            result = {"ok": True, "parsed": parsed, "error": None,
+                      "attempts": tally.get("attempts", 1),
+                      "error_classes": tally.get("error_classes", []),
+                      "duration_ms": int(
+                          (time.monotonic() - started) * 1000),
+                      "prompt_chars": len(prompt or ""),
+                      "seat_state": log.summary()}
+        if receipt_box:
+            # The determining attempt's receipt (retries append
+            # in order; the last one served or failed last).
+            result["hosting"] = receipt_box[-1]
+        return result
     finally:
+        herdrhost.RECEIPTS.reset(rtoken)
         seatstate.CURRENT.reset(token)
 
 
@@ -3734,6 +3760,7 @@ def run_review(patch, providers, context="", test_results=None,
             primary_exc = res["error"]
             primary_classes = list(res["error_classes"])
             primary_state = res.get("seat_state")
+            primary_hosting = res.get("hosting")
             fb = None
             fb_exc = None
             if not res["ok"] and fallbacks and lens in fallbacks:
@@ -3880,6 +3907,15 @@ def run_review(patch, providers, context="", test_results=None,
                     rec["seat_state_primary"] = primary_state
             elif primary_state is not None:
                 rec["seat_state"] = primary_state
+            # Epic K3a: the same determining-attempt rule for
+            # the hosting receipt — provenance only.
+            if fb is not None:
+                if fb.get("hosting") is not None:
+                    rec["hosting"] = fb["hosting"]
+                if primary_hosting is not None:
+                    rec["hosting_primary"] = primary_hosting
+            elif primary_hosting is not None:
+                rec["hosting"] = primary_hosting
             reviewer_reports.append(rec)
     if not jobs:
         degraded = True
@@ -5007,6 +5043,7 @@ def run_verification(patch, providers, previous_report, builder_response,
         res = _review_job(fn, prompt, sleep, seat=name,
                           progress=progress)
         primary_state = res.get("seat_state")
+        primary_hosting = res.get("hosting")
         out = {"slot": name, "ok": False, "parsed": None,
                "serving_name": name, "serving_fn": fn,
                "attempts": res["attempts"],
@@ -5068,6 +5105,8 @@ def run_verification(patch, providers, previous_report, builder_response,
                         # The fallback's attempt determined the
                         # outcome even in failure (as run_review).
                         out["seat_state"] = fb["seat_state"]
+                    if fb.get("hosting") is not None:
+                        out["hosting"] = fb["hosting"]
         # Epic K2: the determining attempt's seat-state summary
         # rides the job outcome into the record's job marks;
         # the primary's summary is kept alongside whenever a
@@ -5078,6 +5117,14 @@ def run_verification(patch, providers, previous_report, builder_response,
         if primary_state is not None \
                 and out.get("seat_state") is not primary_state:
             out["seat_state_primary"] = primary_state
+        # Epic K3a: the determining attempt's hosting receipt
+        # rides along the same way (provenance only).
+        if "hosting" not in out \
+                and res.get("hosting") is not None:
+            out["hosting"] = res["hosting"]
+        if primary_hosting is not None \
+                and out.get("hosting") is not primary_hosting:
+            out["hosting_primary"] = primary_hosting
         if res["ok"]:
             out["ok"] = True
             out["parsed"] = res["parsed"]
@@ -5130,12 +5177,17 @@ def run_verification(patch, providers, previous_report, builder_response,
         for oc in outcomes:
             rec["attempts"] += oc["attempts"]
             rec["error_classes"] += oc["error_classes"]
-            job_marks.append({
+            mark = {
                 "batch": oc["diff_idx"] + 1,
                 "prior_part": oc["prior_idx"] + 1,
                 "provider": oc["serving_name"],
                 "status": "ok" if oc["ok"] else "error",
-                "seat_state": oc.get("seat_state")})
+                "seat_state": oc.get("seat_state")}
+            if oc.get("hosting") is not None:
+                # Presence-only (Epic K3a): a non-hosted job's
+                # mark stays byte-identical to before hosting.
+                mark["hosting"] = oc["hosting"]
+            job_marks.append(mark)
             if not oc["ok"]:
                 degraded = True
                 if not rec["error"]:

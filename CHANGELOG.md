@@ -1,5 +1,70 @@
 # Changelog
 
+## Unreleased — Epic K3a (herdr pane hosting)
+
+Agent seats named in the saved config's `[hosting]` table
+(`herdr = ["seat", ...]` in the user setup file) can now run
+inside herdr panes instead of headless subprocesses, so a run
+is watchable from herdr's UI. The `agent:` spec grammar is
+unchanged — hosting is a config hint, never part of a spec —
+and herdr is never a hard dependency.
+
+- **Optional by construction** (new `herdrhost` module):
+  detection probes, in order, `herdr` on PATH → version floor
+  (`MIN_HERDR_VERSION` 0.9.0, set from the inspected 0.9.5
+  tree) → feature-detect against `herdr api schema --json`
+  (the used methods and the `pane.agent_status_changed` /
+  `pane.exited` event names must be present) → a reachable
+  session (`herdr api snapshot`). Any failure leaves the
+  adapter inert: every seat runs headless exactly as before,
+  and the run record carries exactly one `herdr_hosting` line
+  saying why. With no hosting configured, records are
+  byte-identical to pre-K3a records.
+- **CLI wrappers only** — no raw socket. The seat launches
+  via `herdr pane run` (herdr's primitive for ordinary
+  terminal processes; `agent start` is for interactive
+  prompting of recognised agents). The review packet is
+  never typed: the pane command redirects stdin from the
+  prompt file, and `$CODEREVIEW_PROMPT` is set via
+  `workspace create --env`. Output and the exit code land in
+  files, and supervision reads process truth from them —
+  the same capture files, pattern table, and terminal
+  classifications as the headless runner, with identical
+  error messages. A hosted seat's run leaves a `hosting`
+  receipt in the record (transport, herdr version, pane,
+  advisory observations), next to `seat_state`.
+- **Advisory pane state, failure discipline.** Herdr's
+  `agent_status` is signal #4 (K2): it annotates the receipt
+  and may raise an advisory `blocked:input` episode in the
+  seat-state trace; it never decides an outcome, and when it
+  disagrees with the files, the files win and the
+  disagreement stays in the receipt. There is no `events`
+  CLI in herdr, so the subscription is a supervised `pane
+  get` watch; a break in it is treated as `events_lost` and
+  reconciled via `session.snapshot` — same pane, same
+  terminal, or the seat fails. Herdr dying mid-run, a pane
+  exiting early, or a restarted session are recorded seat
+  failures; a resumed session is never silently continued
+  and no command is ever re-run inside an attempt.
+- **Environment discipline** (spec U7): we add only
+  `CODEREVIEW_PROMPT` (a path) to the pane — plus `HOME` for
+  a `home=private` seat. Operator API keys are never added;
+  the pane session's own environment is the user's, which is
+  the point of hosting a subscription CLI.
+- **UNVERIFIED — live smoke.** Real herdr is not installed
+  on the build machine (and there is no Rust toolchain to
+  build it), so the spec's live-smoke leg — a real herdr
+  session hosting two seats through a real gate run — has
+  NOT been run. The full lifecycle, hosted/headless
+  equivalence, and the chaos cases (herdr dies mid-run,
+  event break + reconcile, vanished pane, restarted
+  session, contradictory pane state) are covered against a
+  stub `herdr` executable implementing the used CLI surface
+  (31 new tests; 30 fail on pre-K3a code, the one pass being
+  the byte-identity guard for unchanged setups). The
+  adapter's reading of herdr's response envelopes is taken
+  from herdr's source and docs, not from a live session.
+
 ## Unreleased — Epic K2 (seat-state supervision)
 
 Every seat in a run now carries a live state — pending →

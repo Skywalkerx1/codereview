@@ -39,6 +39,7 @@ import inspect
 from . import bench as bench_mod
 from . import core
 from . import disputes as disputes_mod
+from . import herdrhost
 from . import policy as policy_mod
 from . import evidence as evidence_mod
 from . import registry
@@ -824,7 +825,8 @@ _FAMILY_BY_PRESET = {"gemini": "google", "openai": "openai",
 
 
 def _apply_role_assignments(providers, role_values,
-                            agent_timeout=None):
+                            agent_timeout=None, herdr_host=None,
+                            herdr_seats=None):
     """Resolve --role <role>=<provider-spec> assignments against
     the panel: each role's seat is built (once) and merged into
     `providers` if not already present, so the role's model is
@@ -843,7 +845,9 @@ def _apply_role_assignments(providers, role_values,
         record_family = desc["family"]
         requested_model = None
         built = build_providers([spec],
-                                agent_timeout=agent_timeout)
+                                agent_timeout=agent_timeout,
+                                herdr_host=herdr_host,
+                                herdr_seats=herdr_seats)
         (seat_name, seat_fn), = built.items()
         if seat_name in providers:
             # Cross-kind collision (internal review, refutation-
@@ -2035,6 +2039,14 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
               file=sys.stderr)
         return 2
 
+    # Epic K3a hosting state for this run (set in the specs
+    # branch below): an active HerdrHost plus the config-marked
+    # seat names, or the inert reason the record carries as one
+    # `herdr_hosting` line. Override providers (bench, internal
+    # runner) are never hosted.
+    herdr_host = None
+    herdr_seats = None
+    herdr_inert = None
     if providers_override is not None:
         providers = providers_override
     else:
@@ -2065,9 +2077,28 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
         if not specs:
             print(userconfig.NOT_SET_UP, file=sys.stderr)
             return 2
+        # Epic K3a: seats the saved config marks for herdr
+        # hosting ([hosting] herdr = [...]) are detected ONCE
+        # for the run. An active detection hosts those seats;
+        # an inert one leaves every seat headless and puts ONE
+        # line in the record (record_extra below) — herdr is
+        # never a hard dependency.
+        try:
+            herdr_seats = userconfig.default_hosting_herdr_seats()
+        except ValueError as exc:
+            print(f"codereview: {exc}", file=sys.stderr)
+            return 2
+        if herdr_seats:
+            plan = herdrhost.detect()
+            if plan["active"]:
+                herdr_host = plan["host"]
+            else:
+                herdr_inert = herdrhost.inert_line(plan)
+                herdr_seats = None
         try:
             providers = build_providers(
-                specs, agent_timeout=args.timeout)
+                specs, agent_timeout=args.timeout,
+                herdr_host=herdr_host, herdr_seats=herdr_seats)
         except Exception as exc:  # noqa: BLE001
             print(f"codereview: provider setup failed: {exc}",
                   file=sys.stderr)
@@ -2092,7 +2123,9 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
                     providers,
                     [f"{r}={spec}" for r, spec
                      in _merged_roles.items()],
-                    agent_timeout=args.timeout)
+                    agent_timeout=args.timeout,
+                    herdr_host=herdr_host,
+                    herdr_seats=herdr_seats)
         except Exception as exc:  # noqa: BLE001
             print(f"codereview: role assignment failed: {exc}",
                   file=sys.stderr)
@@ -2154,6 +2187,12 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
         record_extra = {**(record_extra or {}),
                         "seat_roles": seat_roles,
                         "role_models": role_models}
+    if herdr_inert:
+        # Epic K3a: hosting was configured but the adapter
+        # stayed inert — exactly one line in the record says
+        # why; the seats all ran headless.
+        record_extra = {**(record_extra or {}),
+                        "herdr_hosting": herdr_inert}
 
 
     cwd = args.repo or "."
