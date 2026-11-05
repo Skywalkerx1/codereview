@@ -79,8 +79,9 @@ def case_inputs(case, seat_family, *, family_swap=False,
     # record says loudly that the presented region may not be
     # the finding's site — instead of the seat silently
     # judging a sibling call site.
-    if core.region_unverified_for(case.get("code_region"),
-                                  f0.get("line")):
+    if core.region_unverified_for(
+            case.get("code_region"), f0.get("line"),
+            f0.get("evidence_quote") or ""):
         finding["region_unverified"] = True
     dispute = {
         "by": "refuter", "family": refuter_fam,

@@ -10,6 +10,26 @@
   0.906); the baseline's required_caveat carries the corrected
   figures and the naive figure is superseded. Behaviour work
   (policy profiles, corpus expansion, Baseline v2) continues.
+- Harness fixes from the honest-negatives step-2 forensics
+  Part A (branch `harness-fixes`; no Tech Lead redesign, no
+  gate change, no acceptance re-run): (1) the
+  dismissal-evidence rule is enforced in shadow draws (L06)
+  — a dismissal's deciding quote must be distinct from the
+  refutation's quote and pass a deterministic relevance
+  screen against the claim, or the dismissal is
+  evidence-ineligible and escalates; the acceptance scorer
+  applies the same full check. (2) Cited-line discipline
+  for presented regions (P06) — `locate_presented_region`
+  prefers the anchor window containing the finding's cited
+  line, centres on the cited line when no anchor window
+  contains it, and marks `region_unverified` when the line
+  cannot be placed; the corpus builder delegates to it
+  (P06's inputs now locate at 938–954, the actual defect,
+  instead of the sibling at 609–625), and
+  `acceptance.case_inputs` flags inputs whose stored region
+  is verified by neither the cited line nor the finding's
+  grounded quote (9 of 48 shipped cases, P06 among them),
+  carried loudly on the shadow entry.
 
 ## 0.12.0 — 2026-11-04 — the finish release
 

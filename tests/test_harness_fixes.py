@@ -324,6 +324,20 @@ class RegionUnverifiedInputTests(unittest.TestCase):
             _acceptance_case(79, 75, 91), "famC")
         self.assertNotIn("region_unverified", finding)
 
+    def test_quote_anchored_region_is_not_marked(self):
+        # The L01 shape: the record's line lives in another
+        # coordinate system, but the region presents the
+        # finding's validated quote verbatim — the quote is
+        # the anchor, and the region IS the finding's site.
+        case = _acceptance_case(951, 609, 625)
+        case["finding"]["evidence_quote"] = \
+            "the cited line itself"
+        case["code_region"]["text"] = (
+            "other code\nthe cited line itself\nmore code")
+        finding, _d, _r, _i = acceptance.case_inputs(
+            case, "famC")
+        self.assertNotIn("region_unverified", finding)
+
     def test_builder_flag_propagates(self):
         finding, _d, _r, _i = acceptance.case_inputs(
             _acceptance_case(79, 75, 91,

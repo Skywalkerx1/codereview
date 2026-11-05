@@ -774,14 +774,29 @@ def locate_presented_region(lines, *, anchors=(),
                      "no anchor located")}
 
 
-def region_unverified_for(region_meta, cited_line):
+def region_unverified_for(region_meta, cited_line,
+                          evidence_quote=""):
     """Whether a stored region (a corpus case's code_region
     dict) fails cited-line discipline for a finding: the
     builder already flagged it, the region never located, or
-    its [start_line, end_line] does not contain the cited
-    line within REGION_CITED_LINE_TOLERANCE. A region with
-    no bounds recorded cannot be checked and is NOT flagged
-    on absence of evidence alone."""
+    the region is verified by NEITHER anchor the record
+    offers — its [start_line, end_line] does not contain the
+    finding's cited line (within
+    REGION_CITED_LINE_TOLERANCE), AND the finding's own
+    evidence quote does not ground in the region text.
+
+    The quote leg matters: the locate machinery's doctrine
+    is that the quote is the anchor, not the number, and in
+    the shipped corpus several records carry line numbers in
+    another coordinate system (diff-relative, or from
+    another commit) while their regions correctly present
+    the validated quote's site (L01/L03 are this shape —
+    flagging them would make the flag noise). What P06
+    lacked was BOTH anchors: the record stored no evidence
+    quote, and the fragment-located window sat ~340 lines
+    from the cited line on a sibling call site. A region
+    with no bounds recorded cannot be checked and is NOT
+    flagged on absence of evidence alone."""
     meta = region_meta or {}
     if meta.get("region_unverified"):
         return True
@@ -793,7 +808,12 @@ def region_unverified_for(region_meta, cited_line):
     start, end = meta.get("start_line"), meta.get("end_line")
     if isinstance(start, int) and isinstance(end, int):
         tol = REGION_CITED_LINE_TOLERANCE
-        return not (start - tol <= cited_line <= end + tol)
+        if start - tol <= cited_line <= end + tol:
+            return False
+        if (evidence_quote or "").strip() and _quote_grounded(
+                evidence_quote, meta.get("text") or ""):
+            return False
+        return True
     return False
 
 
