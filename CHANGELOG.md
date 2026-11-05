@@ -69,6 +69,38 @@ confirmation scorer.
   per-case budget (per-seat case deadlines in
   `bench/generation.py`).
 
+## Unreleased — 2026-11-05 (step-3 error persistence)
+
+Implements step-3 recommendation 3 of the void forensics
+(`void-forensics-2026-11-05.md`): the bench record writer used
+to trim reviewer reports to provider/lens/status/attempts,
+dropping the seat error string — the voided confirmation
+attempts' exact failure classes were unrecoverable from their
+records. Additive only; no change to policy B1, thresholds,
+metric definitions, gate semantics, or the confirmation scorer.
+
+- **Errored reports now persist their failure detail** on every
+  record-writing path. Reviewer reports carry `duration_ms`
+  (wall-clock of the call) and `prompt_chars` (prompt size in
+  characters), and an errored report — or one whose primary
+  failed before a fallback served — carries an `error_detail`
+  block: the FULL error string, its `http_status` (parsed from
+  the error by `core._http_status_of`; `null` when the error
+  carries none — never invented), the failure classes, and the
+  fallback's error/status when a fallback also failed.
+- **One shared persisted form**: `core.reviewer_report_entry`
+  is now used by both the bench result writer
+  (`src/codereview/bench.py`) and the generation attempt-record
+  adapter (`bench/generation.py`), so no writer trims a report
+  on its own. Generation per-case records fold each failure
+  event's detail (error string, HTTP status, duration, prompt
+  size) into an `error_detail` list, and generation events keep
+  up to 2,000 chars of an error's text.
+- **Legacy records are unaffected**: no record hash covers
+  reviewer reports, readers treat a missing `error_detail` as a
+  legacy record, and the shipped v1 baseline results still load
+  (pinned by test).
+
 ## Unreleased — 2026-11-05 (acceptance wiring, protocol v2)
 
 - `acceptance.run_acceptance_v2`: the redesigned Tech Lead

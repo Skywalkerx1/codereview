@@ -612,10 +612,15 @@ def run_bench(corpus_dir, config_specs, out_dir, split="all",
                     "cost_usd": round(cost, 6),
                     "patch_sha256": report["patch_sha256"],
                     "findings": report["findings"],
+                    # Shared persisted form (core
+                    # .reviewer_report_entry): errored reports
+                    # keep their full error string, HTTP status,
+                    # failure classes, duration and prompt size —
+                    # trimming them here is what made the voided
+                    # confirmation attempts' failure classes
+                    # unrecoverable (void forensics rec. 3).
                     "reviewer_reports": [
-                        {"provider": r["provider"],
-                         "lens": r["lens"], "status": r["status"],
-                         "attempts": r.get("attempts")}
+                        core.reviewer_report_entry(r)
                         for r in report["reviewer_reports"]],
                 }
                 fh.write(json.dumps(record) + "\n")
