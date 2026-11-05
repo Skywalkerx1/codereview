@@ -115,6 +115,79 @@ class GateLineCauseTests(unittest.TestCase):
         self.assertNotIn("at least one reviewer failed", gate_line)
 
 
+class RoleModelFidelityTests(unittest.TestCase):
+    """Fix 2 — packet #16 (78ddf4d5ea27): the packet's own repro.
+    A panel built from ['openai', 'openai'] pools two accounts
+    under one seat that sends the registry default on both; a
+    --role override naming a different model used to be built,
+    discarded on the name collision, and recorded anyway."""
+
+    ENV = {"OPENAI_API_KEY": "k-one", "OPENAI_API_KEY_2": "k-two"}
+
+    def _served_models(self, seat_fn):
+        calls = []
+
+        def fake(url, headers, payload, timeout=240):
+            calls.append(payload)
+            return {"choices": [{"message": {"content": "ok"}}]}
+
+        with mock.patch.object(providers, "_post_json", fake):
+            accounts = getattr(seat_fn, "accounts", None)
+            if accounts:
+                for _label, fn in accounts:
+                    fn("probe")
+            else:
+                seat_fn("probe")
+        return [c["model"] for c in calls]
+
+    def test_pooled_seat_records_served_model_not_override(self):
+        with mock.patch.dict(os.environ, self.ENV):
+            panel = providers.build_providers(["openai", "openai"])
+            _lens, _sr, role_models, _tl = \
+                cli._apply_role_assignments(
+                    panel, ["correctness=openai:gpt-9.9-probe"])
+            served = self._served_models(panel["openai"])
+        default = providers.describe_spec("openai")["model"]
+        self.assertEqual(set(served), {default})
+        rec = role_models["correctness"]
+        # The record credits the model that actually serves, and
+        # keeps the requested override visible as requested.
+        self.assertEqual(rec["model"], default)
+        self.assertIn(rec["model"], served)
+        self.assertEqual(rec["requested_model"], "gpt-9.9-probe")
+        self.assertNotIn("gpt-9.9-probe", served)
+
+    def test_matching_model_records_without_requested_field(self):
+        with mock.patch.dict(os.environ, self.ENV):
+            panel = providers.build_providers(["openai"])
+            _l, _s, role_models, _t = cli._apply_role_assignments(
+                panel, ["correctness=openai"])
+        rec = role_models["correctness"]
+        self.assertEqual(rec["model"],
+                         providers.describe_spec("openai")["model"])
+        self.assertNotIn("requested_model", rec)
+
+    def test_mixed_model_pool_refuses_role_credit(self):
+        with mock.patch.dict(os.environ, self.ENV):
+            panel = providers.build_providers(
+                ["openai:gpt-a-model", "openai:gpt-b-model"])
+            with self.assertRaises(providers.ProviderError):
+                cli._apply_role_assignments(
+                    panel, ["correctness=openai:gpt-a-model"])
+
+    def test_new_seat_role_records_its_own_model(self):
+        # The unchanged path: the seat is not in the panel yet,
+        # so it is built, added, and its own model recorded.
+        with mock.patch.dict(os.environ, self.ENV):
+            panel = {}
+            _l, _s, role_models, _t = cli._apply_role_assignments(
+                panel, ["correctness=openai:gpt-9.9-probe"])
+        self.assertIn("openai", panel)
+        rec = role_models["correctness"]
+        self.assertEqual(rec["model"], "gpt-9.9-probe")
+        self.assertNotIn("requested_model", rec)
+
+
 class PromptSliceCapTests(unittest.TestCase):
     """Fix 4 — gap packet G15 (3f50bf6b3349). The packet's own
     measurement table, as assertions: every over-cap input used
