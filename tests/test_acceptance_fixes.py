@@ -175,6 +175,28 @@ class FileContextTests(ScratchRepo):
                          "budget")
         self.assertNotIn("small.py", fctx)
 
+    def test_renamed_file_context_uses_the_new_path(self):
+        # A rename section's name is the b/ (post-change) path —
+        # split_patch_sections takes it from the diff header —
+        # so the collector reads the renamed file, not the
+        # vanished old path. (Review-round regression test.)
+        _git(self.repo, "mv", "app.py", "renamed.py")
+        with open(os.path.join(self.repo, "renamed.py"), "a",
+                  encoding="utf-8") as fh:
+            fh.write("\nEXTRA2 = 2\n")
+        _git(self.repo, "add", "renamed.py")
+        _git(self.repo, "-c", "user.email=t@t", "-c",
+             "user.name=t", "commit", "-q", "-m", "rename")
+        patch = core.collect_git_patch(
+            self.repo, range_spec="HEAD~1...HEAD")
+        self.assertIn("rename to renamed.py", patch)
+        fctx, entries = core.collect_file_context(
+            self.repo, patch, range_spec="HEAD~1...HEAD")
+        self.assertIn("renamed.py", fctx)
+        self.assertIn('USERS = {"alice"', fctx["renamed.py"])
+        entry = {e["file"]: e for e in entries}["renamed.py"]
+        self.assertIsNone(entry["skipped"])
+
     def test_reviewer_prompt_carries_the_context(self):
         fctx, _ = core.collect_file_context(
             self.repo, self.patch, range_spec="HEAD~1...HEAD")
@@ -304,8 +326,8 @@ class MergeFindingsTests(ScratchRepo):
         self.assertEqual(merged[0]["severity"], "major")
 
     def test_same_line_unrelated_findings_do_not_merge(self):
-        a = dict(ACCEPT_A, title="eval() on user input allows "
-                                 "code execution")
+        a = dict(ACCEPT_A, title="unsafe dynamic execution of "
+                                 "user input")
         b = dict(ACCEPT_B, title="missing timeout on the "
                                  "outbound HTTP call")
         fa = core._normalize_finding(a, "seat-a")
