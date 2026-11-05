@@ -38,6 +38,7 @@ import inspect
 
 from . import agentsmd
 from . import bench as bench_mod
+from . import claims as claims_mod
 from . import core
 from . import disputes as disputes_mod
 from . import herdrhost
@@ -2411,9 +2412,10 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
             print(f"codereview: could not read previous report: {exc}",
                   file=sys.stderr)
             return 2
+        builder_response = _maybe_file(args.builder_response)
         report = core.run_verification(
             patch, providers, previous,
-            _maybe_file(args.builder_response),
+            builder_response,
             test_results=test_results,
             max_patch_chars=args.max_patch_chars,
             allow_major=args.allow_major, strict=args.strict,
@@ -2421,6 +2423,16 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
             record_extra=record_extra,
             private=args.private, progress=_seat_progress,
             notify=notify)
+        # Epic C4: verify the builder report's claimed commands
+        # against the tree and record the outcome in the run
+        # record. This runs after the gate has been decided and
+        # nothing reads the section back — claim verification
+        # is evidence, not a gate input: a mismatch downgrades
+        # the claim, never the verdict (claims.BOUNDARY).
+        claim_section = claims_mod.verify_report_claims(
+            builder_response, args.repo or ".")
+        if claim_section is not None:
+            report["claim_verification"] = claim_section
     else:
         report = core.run_review(
             patch, providers, context=_maybe_file(args.context),

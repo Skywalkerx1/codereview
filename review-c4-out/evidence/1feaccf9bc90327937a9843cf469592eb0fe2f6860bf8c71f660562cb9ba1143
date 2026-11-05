@@ -1,0 +1,1 @@
+        self.assertEqual(honest["gate"], lying["gate"])

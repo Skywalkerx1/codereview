@@ -44,6 +44,48 @@ pattern classes touched, dependency files).
   class, size tiers, the pattern cap, determinism, policy
   schema errors, and record integration through
   `run_review` with stub seats.
+## Unreleased — Epic C4 (builder-claim verification in the run record)
+
+Builder-claim verification now lands in the run record. The
+machinery is not new — `evidence.parse_claims` /
+`evidence.verify_claims` (Epic C) already parsed a builder
+work report's claimed commands and re-ran them in the sandbox
+behind the standalone `codereview evidence --claims` surface.
+What is new is the record-facing contract around them
+(`src/codereview/claims.py`, composing the evidence runner —
+no second parser, no second executor):
+
+- **Recorded in the run record:** on a verification run
+  (`--verify-previous` with `--builder-response`), the record
+  now carries a `claim_verification` section: per-claim
+  entries with the claimed outcome, the re-run's actual exit
+  code, duration, and output sha256, plus a summary. A run
+  with no builder report carries no section.
+- **Statuses:** `verified` (the re-run matches the claim),
+  `mismatch` (the re-run contradicts it — the claim is
+  downgraded, recorded as not standing with claimed vs
+  actual outcomes stated), `unverifiable` (the re-run could
+  not be performed), and `unparsed` (a line shaped like a
+  claim — a backticked command or a claim label — that does
+  not parse to an unambiguous command + outcome: recorded,
+  never guessed at, never executed). Ordinary prose is not a
+  claim attempt and is not recorded.
+- **Evidence, never a gate input:** claim verification is
+  recorded evidence only. No claim status changes the
+  verdict, a finding, or any other gate input, and nothing
+  in the gate reads the section — a mismatch downgrades the
+  claim, never the gate (test-compared: identical panel,
+  honest vs downgraded claims, identical gate). The section
+  states this boundary in its own `boundary` field.
+- **Never raises:** malformed reports, non-text input, a
+  missing tree, and sandbox failures are recorded outcomes
+  (`unverifiable`, with the reason), never exceptions; the
+  run's record is produced regardless.
+- **Verification:** 20 new tests (`tests/test_claims.py`) —
+  18 fail on pre-C4 master with an empty-module shim (the
+  module does not exist there at all); the 2 passes pin
+  pre-existing behaviour by design (no builder report ⇒ no
+  section; a review run ⇒ no section).
 
 ## Unreleased — Epic L3 (lifecycle hooks)
 
