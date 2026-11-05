@@ -158,5 +158,78 @@ class LoadRecordArgSelectionTests(unittest.TestCase):
             "codereview-2026110-031927.json"))
 
 
+class EvidenceTimeoutTests(unittest.TestCase):
+    """Fix 3 — packet #34 (9489ee49db6f). The packet's repro: a
+    command entry with timeout 0 and `sleep 2` PASSED after 2.0s
+    pre-fix — `entry.get("timeout") or default_timeout` silently
+    substituted the 600s default. Per the review-v13 contract an
+    explicit non-positive timeout is refused loudly at load,
+    never swapped for a default."""
+
+    def test_packet_repro_timeout_zero_refused(self):
+        cfg = {"commands": [{"name": "nap", "command": "sleep 2",
+                             "timeout": 0}]}
+        with tempfile.TemporaryDirectory() as td:
+            with self.assertRaises(ValueError) as cm:
+                evidence.collect(cfg, td)
+        self.assertIn("must be positive", str(cm.exception))
+
+    def test_validate_rejects_nonpositive_and_nonnumeric(self):
+        bad = [
+            {"timeout": 0},
+            {"timeout": -5},
+            {"timeout": "600"},
+            {"timeout": True},
+            {"commands": [{"command": "true", "timeout": 0}]},
+            {"adapters": [{"name": "gitleaks", "timeout": 0}]},
+        ]
+        for cfg in bad:
+            with self.subTest(cfg=cfg):
+                with self.assertRaises(ValueError):
+                    evidence.validate_config(cfg)
+
+    def test_load_config_refuses_timeout_zero(self):
+        with tempfile.TemporaryDirectory() as td:
+            p = os.path.join(td, "evidence.json")
+            with open(p, "w", encoding="utf-8") as fh:
+                json.dump({"commands": [
+                    {"command": "true", "timeout": 0}]}, fh)
+            with self.assertRaises(ValueError):
+                evidence.load_config(p)
+
+    def test_absent_and_positive_timeouts_accepted(self):
+        evidence.validate_config({})
+        evidence.validate_config({"timeout": 42})
+        evidence.validate_config(
+            {"commands": [{"command": "true", "timeout": 3}]})
+        self.assertIsNone(evidence._checked_timeout(None, "t"))
+        self.assertEqual(evidence._checked_timeout(7, "t"), 7)
+
+    def test_explicit_positive_entry_timeout_still_enforced(self):
+        cfg = {"commands": [{"name": "nap", "command": "sleep 10",
+                             "timeout": 1}]}
+        with tempfile.TemporaryDirectory() as td:
+            record = evidence.collect(cfg, td)
+        item = record["items"][0]
+        self.assertEqual(item["status"], "timeout")
+        self.assertLess(item["duration_s"], 5)
+
+    def test_config_level_timeout_applies_and_is_recorded(self):
+        cfg = {"timeout": 1,
+               "commands": [{"name": "nap", "command": "sleep 10"}]}
+        with tempfile.TemporaryDirectory() as td:
+            record = evidence.collect(cfg, td)
+        self.assertEqual(record["items"][0]["status"], "timeout")
+        self.assertEqual(
+            record["sandbox"]["limits"]["timeout_s_default"], 1)
+
+    def test_record_default_timeout_display(self):
+        with tempfile.TemporaryDirectory() as td:
+            record = evidence.collect({"commands": []}, td)
+        self.assertEqual(
+            record["sandbox"]["limits"]["timeout_s_default"],
+            evidence.DEFAULT_TIMEOUT)
+
+
 if __name__ == "__main__":
     unittest.main()

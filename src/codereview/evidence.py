@@ -178,6 +178,38 @@ def validate_config(config):
     req = config.get("require") or []
     if not isinstance(req, list):
         raise ValueError("evidence config: 'require' must be a list")
+    _checked_timeout(config.get("timeout"), "'timeout'")
+    for key in ("commands", "adapters"):
+        for item in config.get(key) or []:
+            _checked_timeout(item.get("timeout"),
+                             f"a {key} entry's 'timeout'")
+
+
+def _checked_timeout(raw, label):
+    """Resolve an optional timeout field: absent (None) returns
+    None and the caller applies its default; a present value
+    must be a positive number. An explicit 0 — like any
+    non-positive or non-numeric value — is refused loudly HERE,
+    at load, never silently swapped for a default via a falsey
+    `or` (9489ee49db6f; the review-v13 contract that
+    providers.command_agent documents)."""
+    if raw is None:
+        return None
+    if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+        raise ValueError(
+            f"evidence config: {label} must be a number of "
+            f"seconds, got {raw!r}")
+    if raw <= 0:
+        raise ValueError(
+            f"evidence config: {label} must be positive, got "
+            f"{raw!r} — a non-positive timeout is refused, not "
+            "silently replaced by the default")
+    return raw
+
+
+def _resolve_timeout(raw, label, default):
+    checked = _checked_timeout(raw, label)
+    return default if checked is None else checked
 
 
 # ------------------------------------------------------------------ sandbox
@@ -376,7 +408,8 @@ def collect(config, source_dir, environ=None):
     required-evidence gate still sees it."""
     validate_config(config)
     config = config or {}
-    default_timeout = config.get("timeout") or DEFAULT_TIMEOUT
+    default_timeout = _resolve_timeout(
+        config.get("timeout"), "'timeout'", DEFAULT_TIMEOUT)
     default_network = bool(config.get("allow_network"))
     items = []
 
@@ -404,7 +437,9 @@ def collect(config, source_dir, environ=None):
         for entry in config.get("commands") or []:
             command = str(entry.get("command"))
             name = str(entry.get("name") or command)
-            timeout = entry.get("timeout") or default_timeout
+            timeout = _resolve_timeout(
+                entry.get("timeout"),
+                f"command {name!r} 'timeout'", default_timeout)
             allow_network = bool(entry.get("allow_network",
                                            default_network))
             env = _sandbox_env(sandbox_root, allow_network,
@@ -419,7 +454,9 @@ def collect(config, source_dir, environ=None):
 
         for entry in config.get("adapters") or []:
             name = str(entry.get("name"))
-            timeout = entry.get("timeout") or default_timeout
+            timeout = _resolve_timeout(
+                entry.get("timeout"),
+                f"adapter {name!r} 'timeout'", default_timeout)
             allow_network = bool(entry.get("allow_network",
                                            default_network))
             argv, why = ADAPTERS[name](
@@ -460,6 +497,8 @@ def collect(config, source_dir, environ=None):
 
 
 def _record(config, source_dir, items, network_mode):
+    default_timeout = _resolve_timeout(
+        config.get("timeout"), "'timeout'", DEFAULT_TIMEOUT)
     return {
         "schema": SCHEMA,
         "created_at": _now_iso(),
@@ -471,8 +510,7 @@ def _record(config, source_dir, items, network_mode):
                    "HOME/TMPDIR inside the sandbox",
             "network": network_mode,
             "limits": {
-                "timeout_s_default":
-                    config.get("timeout") or DEFAULT_TIMEOUT,
+                "timeout_s_default": default_timeout,
                 "cpu_slack_s": _CPU_SLACK,
                 "file_size_limit_bytes": _FILE_SIZE_LIMIT,
             },
