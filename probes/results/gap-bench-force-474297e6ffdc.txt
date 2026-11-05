@@ -1,0 +1,8 @@
+BENCH FORCE PROBE — 474297e6ffdc
+function under test: bench.run_bench(force=True) at HEAD
+  stored after healthy run: 1 record(s), degraded=False
+  stored file rewritten: sole record now degraded=true (patch/config hashes untouched)
+  forced healthy rerun: ACCEPTED — results returned 1 record(s); file now holds 1 record(s), degraded=False
+  forced degraded rerun: REFUSED — bench --force: 1 of 1 case(s) for config 'oracle' came back degraded (a provider failed); the previous results
+  previous file intact after refusal: True
+mechanism at HEAD: under force, stored records are never loaded (run_bench skips the resume block when force is set; 'records' starts empty), so the degraded check sees only this run's records. The same held at the v15 record's own head (e3fc6a8: bench.py lines 484-491).

@@ -1,0 +1,19 @@
+COMMONPATH PAIR PROBE — eae8137a6db3 + 3cecf66f6ce5
+
+== the raw failure mode (POSIX form, same exception) ==
+  commonpath(['/abs/path', 'relative/path']) -> ValueError: Can't mix absolute and relative paths
+
+== _is_within at HEAD, incl. simulated cross-drive ==
+  normal inside:  _is_within('/a/b/c', '/a/b') = True
+  normal outside: _is_within('/a/x', '/a/b') = False
+  mixed abs/rel:  _is_within('/a/b', 'rel/root') = False (no exception)
+  commonpath raising ValueError (simulated Windows cross-drive): _is_within -> False (fails closed, no propagation)
+
+== both loaders at HEAD, outside-repo path ==
+  _load_fixture_scope(outside) -> ValueError (intended validation error): fixture manifest /tmp/tmpg2b0gcib/outside.json: resolves outside the repository (/tmp/tmpg2b0gcib/ou
+  _load_precedents(outside) -> ValueError (intended validation error): precedent store /tmp/tmpg2b0gcib/outside.json: resolves outside the repository (/tmp/tmpg2b0gcib/out
+
+== git: the unguarded pattern and its fix ==
+  4e5cbd8^: direct commonpath containment checks in loaders: 2; _is_within helper defined: 0
+  4e5cbd8: direct commonpath containment checks in loaders: 0; _is_within helper defined: 1
+  fixing commit 4e5cbd8 (v0.9.6) docstring in _is_within cites both finding IDs: 'the mechanism was real, the severity was not — one shared helper, used at both loader call sites'.

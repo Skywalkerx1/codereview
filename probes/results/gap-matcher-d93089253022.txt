@@ -1,0 +1,18 @@
+PATH MATCHER PROBE — d93089253022
+function under test: core.path_matches (HEAD)
+  path_matches('foobar/x.py', ['foo']) = False   # sibling prefix — claim says MATCHES
+  path_matches('foobar', ['foo']) = False   # sibling exact-name — claim implies match
+  path_matches('foo/x.py', ['foo']) = True   # true child of the directory
+  path_matches('foo', ['foo']) = True   # the directory itself
+  path_matches('foo/', ['foo']) = True   # trailing-slash path form
+  path_matches('foo/x.py', ['foo/']) = True   # pattern with trailing slash
+  path_matches('foobar/x.py', ['foo/']) = False   # sibling vs slashed pattern
+  path_matches('foobar/x.py', ['foo/**']) = False   # sibling vs dir/** form
+  path_matches('foo/x.py', ['foo/**']) = True   # child vs dir/** form
+  path_matches('foo', ['foo/**']) = True   # base of dir/** form
+  path_matches('a/foo/x.py', ['foo']) = False   # non-rooted sibling segment
+  path_matches('tests/fixtures/x.py', ['tests/fixtures']) = True   # realistic fixture dir
+  path_matches('tests/fixtures2/x.py', ['tests/fixtures']) = False   # realistic sibling
+  path_matches('foo/bar.py', ['f*']) = True   # glob form still works
+  path_matches('foo/bar.py', ['foo/*.py']) = True   # glob with directory
+headline case: sibling 'foobar/x.py' vs pattern 'foo' -> False (claim: matched/overmatch; matcher requires path == base or path.startswith(base + '/'))
