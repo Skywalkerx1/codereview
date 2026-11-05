@@ -1,0 +1,49 @@
+diff --git a/src/jsonBody.js b/src/jsonBody.js
+--- /dev/null
++++ b/src/jsonBody.js
+@@ -0,0 +1,45 @@
++const MAX_BODY_BYTES = 100_000;
++
++export function jsonBody(req, res, next) {
++  const contentType = req.headers["content-type"] ?? "";
++  if (!contentType.toLowerCase().startsWith("application/json")) {
++    return res.status(415).json({ error: "expected application/json" });
++  }
++  const chunks = [];
++  let received = 0;
++  let settled = false;
++
++  req.on("data", (chunk) => {
++    if (settled) return;
++    received += chunk.length; // Buffer length: bytes, not characters
++    if (received > MAX_BODY_BYTES) {
++      settled = true;
++      res.status(413).json({ error: "request body too large" });
++      req.destroy();
++      return;
++    }
++    chunks.push(chunk);
++  });
++
++  req.on("end", () => {
++    if (settled) return;
++    settled = true;
++    const text = Buffer.concat(chunks).toString("utf8");
++    if (text.trim() === "") {
++      req.body = {};
++      return next();
++    }
++    try {
++      req.body = JSON.parse(text);
++    } catch {
++      return res.status(400).json({ error: "invalid JSON" });
++    }
++    return next();
++  });
++
++  req.on("error", (err) => {
++    if (settled) return;
++    settled = true;
++    return next(err);
++  });
++}

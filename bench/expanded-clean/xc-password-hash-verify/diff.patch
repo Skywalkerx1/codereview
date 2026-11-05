@@ -1,0 +1,58 @@
+diff --git a/src/auth.php b/src/auth.php
+--- /dev/null
++++ b/src/auth.php
+@@ -0,0 +1,54 @@
++<?php
++
++declare(strict_types=1);
++
++function dummyHash(): string
++{
++    static $hash = null;
++    if ($hash === null) {
++        $hash = password_hash(
++            bin2hex(random_bytes(16)),
++            PASSWORD_DEFAULT
++        );
++    }
++    return $hash;
++}
++
++function registerUser(PDO $pdo, string $email, string $password): int
++{
++    if (strlen($password) < 12) {
++        throw new InvalidArgumentException(
++            'password must be at least 12 characters'
++        );
++    }
++    $hash = password_hash($password, PASSWORD_DEFAULT);
++    $stmt = $pdo->prepare(
++        'INSERT INTO users (email, password_hash) VALUES (:email, :hash)'
++    );
++    $stmt->execute(['email' => $email, 'hash' => $hash]);
++    return (int) $pdo->lastInsertId();
++}
++
++function attemptLogin(PDO $pdo, string $email, string $password): ?array
++{
++    $stmt = $pdo->prepare(
++        'SELECT id, email, password_hash FROM users WHERE email = :email'
++    );
++    $stmt->execute(['email' => $email]);
++    $user = $stmt->fetch(PDO::FETCH_ASSOC);
++
++    $hash = $user === false ? dummyHash() : $user['password_hash'];
++    $passwordOk = password_verify($password, $hash);
++    if ($user === false || !$passwordOk) {
++        return null; // one generic failure for every failure mode
++    }
++    if (password_needs_rehash($hash, PASSWORD_DEFAULT)) {
++        $newHash = password_hash($password, PASSWORD_DEFAULT);
++        $update = $pdo->prepare(
++            'UPDATE users SET password_hash = :hash WHERE id = :id'
++        );
++        $update->execute(['hash' => $newHash, 'id' => $user['id']]);
++    }
++    unset($user['password_hash']);
++    return $user;
++}

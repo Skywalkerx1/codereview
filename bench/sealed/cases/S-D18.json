@@ -1,0 +1,54 @@
+{
+ "case_id": "S-D18",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "Malformed roles value now raises an uncaught AttributeError instead of the documented ValueError",
+ "finding": {
+  "claim": "Malformed roles value now raises an uncaught AttributeError instead of the documented ValueError",
+  "evidence": "The loader assumes roles is a mapping and immediately calls .items() on whatever TOML parsed, so a reachable config like 'roles = []' will crash with AttributeError rather than the documented loud validation error path.",
+  "file": "src/codereview/userconfig.py",
+  "line": 54,
+  "severity_as_raised": "major",
+  "evidence_quote": "             for k, v in (data.get(\"roles\") or {}).items()}",
+  "recommendation": "Validate the parsed types before iterating, e.g. require providers to be a list and roles to be a dict, and raise ValueError with the config path when they are not. That preserves the documented contract for malformed configs and avoids an unexpected traceback in CLI flows that call load_user_config.",
+  "raised_by_family": "openai",
+  "record_finding_id": "9a4415ddafa6"
+ },
+ "code_region": {
+  "commit": "e35d64b2a81f7af20e64e3662c79c2c16217a936",
+  "path": "src/codereview/userconfig.py",
+  "located": true,
+  "start_line": 49,
+  "end_line": 69,
+  "text": "    with open(path, \"rb\") as fh:\n        try:\n            data = tomllib.load(fh)\n        except tomllib.TOMLDecodeError as exc:\n            raise ValueError(\n                f\"user config {path} is not valid TOML: {exc}\")\n    providers = [str(p) for p in data.get(\"providers\") or []]\n    roles = {str(k): str(v)\n             for k, v in (data.get(\"roles\") or {}).items()}\n    return {\"providers\": providers, \"roles\": roles,\n            \"path\": path}\n\n\ndef _toml_str(value):\n    # JSON strings are valid TOML basic strings for the content\n    # specs contain (URLs, names, commands without control chars).\n    return json.dumps(str(value), ensure_ascii=False)\n\n\ndef save_user_config(providers, roles, environ=None):\n    \"\"\"Write the setup file (specs only — never a key value) and"
+ },
+ "refutation": {
+  "by_family": "nvidia",
+  "quote": "             for k, v in (data.get(\"roles\") or {}).items()}",
+  "reason": "The code explicitly guards against a missing roles key with `(data.get(\"roles\") or {})`, and the `.items()` call operates on the default empty dict, which does not raise an AttributeError. The claim that a list value for roles would cause an uncaught AttributeError is incorrect because the code path",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "Claim verified against pre-hardening code with one correction: `roles = []` specifically does NOT crash (an empty list is falsy, so the `or {}` default saves it) — but every TRUTHY non-table roles value (['x'], 'x', 3) raised an uncaught AttributeError from .items(), and a string `providers` was silently iterated into one 'provider' per character. FIX LANDED (commit c1bf1df): load_user_config type-validates — providers must be a list, roles must be a table — raising the documented ValueError naming the config path. Table pinned in `tests/test_v111_hardening.py::UserConfigTypeTests`; parent-fail verified (`hardening-parent-fail.txt`: both wrong-type tables fail pre-fix, valid/missing configs pass in both trees).",
+  "basis_evidence_sha256": [
+   "967ad9c3a45f6855470816860ff979bd3dea4e9852fa0b61bf63514c9a2fba73"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/hardening-parent-fail.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_finding",
+  "severity_after": "major",
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry 9a4415ddafa6 (decider=owner, marker=ratified, 2026-11-05T02:16:34+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-17-2026-11-04/17-9a4415ddafa6.md; source record: /home/hatch/workspace/codereview/review-v110/codereview-20261105-001944.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": [
+  "finding sustained and fixed in commit c1bf1df",
+  "reason_corrected: 'truthy non-table roles values' replaces the `roles = []` example."
+ ]
+}

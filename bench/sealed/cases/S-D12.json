@@ -1,0 +1,51 @@
+{
+ "case_id": "S-D12",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "Prompt truncation helper can return strings longer than the requested cap",
+ "finding": {
+  "claim": "Prompt truncation helper can return strings longer than the requested cap",
+  "evidence": "    return (f\"{cut} …[truncated, {len(text)} chars, \"",
+  "file": "src/codereview/core.py",
+  "line": 635,
+  "severity_as_raised": "major",
+  "evidence_quote": "    return (f\"{cut} …[truncated, {len(text)} chars, \"",
+  "recommendation": "Reserve space for the truncation marker before slicing, so the final returned string length never exceeds `cap`. For example, compute the marker first, reduce the visible prefix budget by `len(marker)`, and then apply the boundary logic within that reduced budget.",
+  "raised_by_family": "openai",
+  "record_finding_id": "3f50bf6b3349"
+ },
+ "code_region": {
+  "commit": "2fbf94f2ca6feec0ad1180a71d3c9064bf1cef4d",
+  "path": "src/codereview/core.py",
+  "located": true,
+  "start_line": 627,
+  "end_line": 647,
+  "text": "\n\n# ------------------------------------------------- grounding (v0.9.3, §2b)\n\ndef _quote_grounded(quote, text):\n    \"\"\"Deterministic grounding check: does the finding's evidence\n    quote actually appear in the text the reviewer was shown?\n\n    The reviewer is instructed to copy the cited line exactly\n    (without the diff's '+' marker — the line's own text is a\n    substring of the diff line, so the plain search still hits).\n    Tolerances are narrow and honest: surrounding whitespace, a\n    '+' the reviewer kept anyway, and whitespace collapsing. A\n    paraphrase does NOT ground — that is the point of the check:\n    findings asserted against text the seat never received (the\n    review-v14 failure mode, where a complete-coverage panel\n    miscounted what it was shown) cannot block on assertion alone.\"\"\"\n    q = (quote or \"\").strip()\n    if len(q) < 4 or not text:\n        return False\n    if q in text:"
+ },
+ "refutation": {
+  "by_family": "nvidia",
+  "quote": "    return (f\"{cut} …[truncated, {len(text)} chars, \"",
+  "reason": "The function returns the constructed string directly; the f-string includes the full len(text) value and the opening bracket, so the output length is determined by the slice `cut` plus the fixed marker length, not by the original text length.",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "`probes/gap_prompt_slice_probe.py`, result `gap-prompt-slice-3f50bf6b3349.txt` — measured at HEAD: | case | len(text) | cap | len(out) | over cap | |---|---|---|---|---| | one over cap | 101 | 100 | 197 | **+97** | | long prose | 1,759 | 300 | 396 | **+96** | | long single word | 5,000 | 300 | 398 | **+98** | | small cap | 2,500 | 50 | 147 | **+97** | | cap 1 | 5 | 1 | 96 | **+95** | Every over-cap input returns more than the cap — up to ~98 chars over, the length of the marker (which carries the full length and a 64-char sha256). The overshoot is bounded by a constant and does not grow with the input. Scope of harm: the helper slices evidence for adjudication/confirmation prompts (display only — stored record text is never cut by it), so the consequence is prompt budgets running ~100 chars over an internal display cap, not record corruption. This is the same helper PT1's hardening touched for the truncation marker itself (packet #7 in the main set); the marker's honesty is deliberate — the open question is only whether the cap contract should absorb it.",
+  "basis_evidence_sha256": [
+   "edaac5be98f0d4d0be03310a66cb67ea1d9369e813e3652be86a01accc3b3cfa"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/gap-prompt-slice-3f50bf6b3349.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_finding",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry 3f50bf6b3349 (decider=owner, marker=ratified, 2026-11-05T02:16:33+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-gap-2026-11-04/15-3f50bf6b3349.md; source record: /home/hatch/workspace/codereview/review-pt1-open-refutations/codereview-20261105-004939.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": []
+}

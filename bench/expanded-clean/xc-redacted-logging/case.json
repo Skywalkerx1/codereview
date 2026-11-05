@@ -1,0 +1,11 @@
+{
+  "id": "xc-redacted-logging",
+  "title": "Log formatter that redacts secrets and PII before emission",
+  "category": "clean",
+  "split": "expanded-clean",
+  "source": "Authored for the CodeReview benchmark corpus (expanded clean stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "expanded-clean",
+  "false_flag_note": "A reviewer may flag regex-based redaction as fragile or worry the formatter mutates log records. It formats through the standard Formatter first and redacts the resulting string, so the caller's record and arguments are never rewritten; both key=value and JSON 'key': 'value' shapes are covered for the sensitive key list; and sanitize_mapping returns a redacted deep copy for structured payloads instead of editing the caller's dict in place."
+}

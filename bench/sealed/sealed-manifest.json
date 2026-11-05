@@ -1,0 +1,916 @@
+{
+ "schema": "codereview.sealed/1",
+ "sealed_at": "2026-11-05",
+ "purpose": "Tech Lead sealed evaluation set (solution SS3.6). One final attempt; a failed set becomes dev data.",
+ "case_count": 75,
+ "cases": [
+  {
+   "case_id": "S-D01",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "09c536d15270",
+   "expected_decision": "sustain_refutation",
+   "severity_as_raised": "major",
+   "sha256": "91b40c11a1788abc6b0d3f2ca8e2f8afcb644180553e878ef26c98d0ccbe441f"
+  },
+  {
+   "case_id": "S-D02",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "0ad4ed7db98e",
+   "expected_decision": "sustain_refutation",
+   "severity_as_raised": "major",
+   "sha256": "de74c091f1d1e9d3093d5dd609392e4a79f3a832e2a710e7fd565c1dc3f307b4"
+  },
+  {
+   "case_id": "S-D03",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "0e57186e8be8",
+   "expected_decision": "sustain_refutation",
+   "severity_as_raised": "major",
+   "sha256": "6749efa09d19faa4ac565a0df17d87d267b1779c1159c346eba6e24358ac59d1"
+  },
+  {
+   "case_id": "S-D04",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "19a537eb386b",
+   "expected_decision": "sustain_finding",
+   "severity_as_raised": "major",
+   "sha256": "945cc5f35ff463bfabf060d214fa5537b18b39c0df42ee1c909a54ceac476574"
+  },
+  {
+   "case_id": "S-D05",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "1aec997aaec4",
+   "expected_decision": "sustain_refutation",
+   "severity_as_raised": "major",
+   "sha256": "1471dda6707af871553f96fa58c48db85e938e7a43eea2d469942cab6246a6f6"
+  },
+  {
+   "case_id": "S-D06",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "20e4194e5ed9",
+   "expected_decision": "sustain_finding",
+   "severity_as_raised": "major",
+   "sha256": "99ca0c1e68081b06a8d471513da5a20e91c020a1d6f815bcd84da2385757833f"
+  },
+  {
+   "case_id": "S-D07",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "2242edbba9c9",
+   "expected_decision": "sustain_refutation",
+   "severity_as_raised": "major",
+   "sha256": "87d7d4a8c79133ec09522773e6de4c0165cdbca1f6fd9d0cb6d96c1853eec6d8"
+  },
+  {
+   "case_id": "S-D08",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "290d549f2809",
+   "expected_decision": "sustain_finding",
+   "severity_as_raised": "major",
+   "sha256": "f0b67c7f29ddb246ca459e121e9357e0a9371710b2d2d16e6c2825abc22cebbe"
+  },
+  {
+   "case_id": "S-D09",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "35dbb7d20941",
+   "expected_decision": "sustain_refutation",
+   "severity_as_raised": "major",
+   "sha256": "3dd951ef1d5cfbd8f079bee6af372194a2070a70e36382e100870a2560d4eed2"
+  },
+  {
+   "case_id": "S-D10",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "3cecf66f6ce5",
+   "expected_decision": "sustain_finding",
+   "severity_as_raised": "major",
+   "sha256": "d0e808788138ebefa191a41c97f4794db2812a55cb237ca366954f7a21cbd58b"
+  },
+  {
+   "case_id": "S-D11",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "3d9645200bc5",
+   "expected_decision": "sustain_refutation",
+   "severity_as_raised": "major",
+   "sha256": "02e99aeee4d270a428ec5189dd8feb38bc430626a8c33e1bbba051b1b76cc57e"
+  },
+  {
+   "case_id": "S-D12",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "3f50bf6b3349",
+   "expected_decision": "sustain_finding",
+   "severity_as_raised": "major",
+   "sha256": "c8a797c48e6f3ae943a62e575d8327e989d328b052eeafb45c65d3613097a974"
+  },
+  {
+   "case_id": "S-D13",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "3fc4862824c9",
+   "expected_decision": "sustain_finding",
+   "severity_as_raised": "major",
+   "sha256": "c890307068fbc2ef2b1235197aece033b7752ed84615c329bf688d3c5683350a"
+  },
+  {
+   "case_id": "S-D14",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "474297e6ffdc",
+   "expected_decision": "sustain_refutation",
+   "severity_as_raised": "major",
+   "sha256": "fc52b9c35dde2821473b7986b3d50de7c7e8eeb249ce2e4ea92e00f9e1029a45"
+  },
+  {
+   "case_id": "S-D15",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "6219e04d4c00",
+   "expected_decision": "sustain_refutation",
+   "severity_as_raised": "major",
+   "sha256": "c1e294d6629a99f8d0e6dbe389f102fd0de7255663e6162c8130f5434da496d8"
+  },
+  {
+   "case_id": "S-D16",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "78ddf4d5ea27",
+   "expected_decision": "sustain_finding",
+   "severity_as_raised": "major",
+   "sha256": "a6c3338c1248a6550721adb8d42ae46f8a19b3d06515f60d7365607b920121b4"
+  },
+  {
+   "case_id": "S-D17",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "931ea3882b76",
+   "expected_decision": "sustain_finding",
+   "severity_as_raised": "major",
+   "sha256": "69fd08b55b0965db070d1622e322d4daf330f0c20aa8c5d978d0748e5932a9a2"
+  },
+  {
+   "case_id": "S-D18",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "9a4415ddafa6",
+   "expected_decision": "sustain_finding",
+   "severity_as_raised": "major",
+   "sha256": "e546960e3c6aeb4ad0fb2f6d7bed2782793b3f5e32ee11a56e3750cda45318e6"
+  },
+  {
+   "case_id": "S-D19",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "ae9e58378eee",
+   "expected_decision": "sustain_finding",
+   "severity_as_raised": "major",
+   "sha256": "7c86932dcf7aee528050cfbb8570063a95d12dde87de65e626198a9b6881b456"
+  },
+  {
+   "case_id": "S-D20",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "bca4074a632c",
+   "expected_decision": "sustain_refutation",
+   "severity_as_raised": "major",
+   "sha256": "3e5109e230e7968b41a56b80faf5701bb5a8871b466c2873032d097fe0c1ffa8"
+  },
+  {
+   "case_id": "S-D21",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "c5f02551d077",
+   "expected_decision": "sustain_refutation",
+   "severity_as_raised": "major",
+   "sha256": "307f4b12aa7f85cf53b9bb0b7fd0c58601b03dab9baadee25dde76bc84c971ed"
+  },
+  {
+   "case_id": "S-D22",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "d93089253022",
+   "expected_decision": "sustain_refutation",
+   "severity_as_raised": "major",
+   "sha256": "712579dda5526778af21a4feb8760d1f14a241672b9227669f1c14b85bd253cc"
+  },
+  {
+   "case_id": "S-D23",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "e1e22d48db4d",
+   "expected_decision": "sustain_refutation",
+   "severity_as_raised": "major",
+   "sha256": "4a8bd611ae2e01b2661e3e55eacfd1ac05aa2652ffa7b0fdd4c759f83b3ad898"
+  },
+  {
+   "case_id": "S-D24",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "eae8137a6db3",
+   "expected_decision": "sustain_finding",
+   "severity_as_raised": "major",
+   "sha256": "db6f4400a4003fe7c5d8e61bb637a03f6fade085abebcf8b82d632bf09d72d00"
+  },
+  {
+   "case_id": "S-D25",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "ec925437d0e3",
+   "expected_decision": "sustain_finding",
+   "severity_as_raised": "major",
+   "sha256": "763cd88e59c5b3f3096d4ac27ce6592f358a932a70535798fbf2342a9b2021d3"
+  },
+  {
+   "case_id": "S-D26",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "f56cd4a0b6c9",
+   "expected_decision": "sustain_finding",
+   "severity_as_raised": "major",
+   "sha256": "49115cc1a5c0aa75c5b2b62ce3eb6f14bb15ef7f81da2246064e7c8df1f3798b"
+  },
+  {
+   "case_id": "S-D27",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "4cba208656d3",
+   "expected_decision": "sustain_refutation",
+   "severity_as_raised": "major",
+   "sha256": "7492d00285f074048a094e1d45f1868f3c3f6a70f3a964d81ed30ad993b1555b"
+  },
+  {
+   "case_id": "S-D28",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "97feb799979e",
+   "expected_decision": "sustain_refutation",
+   "severity_as_raised": "major",
+   "sha256": "7677fbb95709c2cb07d713b091e84eb0e0036e394b3a93b69b319a793c90468f"
+  },
+  {
+   "case_id": "S-D29",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "60eb09183ee5",
+   "expected_decision": "sustain_refutation",
+   "severity_as_raised": "major",
+   "sha256": "87048c8768af4689558da438cae223fbb9a1f6b6df83ba13dd6d31783d7c1dc2"
+  },
+  {
+   "case_id": "S-D30",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "127ddee9be1b",
+   "expected_decision": "sustain_refutation",
+   "severity_as_raised": "major",
+   "sha256": "bedeabc542c205ca60fcc872099843cd3d757c26efbeb91f6843e51ebf30adaf"
+  },
+  {
+   "case_id": "S-D31",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "7514429a36b2",
+   "expected_decision": "sustain_refutation",
+   "severity_as_raised": "major",
+   "sha256": "0d37d7de43b78d45c0da3e964a536626245d25b26b3df6eb2f923da65a3c1b66"
+  },
+  {
+   "case_id": "S-D32",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "99fe18f50ec3",
+   "expected_decision": "sustain_finding",
+   "severity_as_raised": "major",
+   "sha256": "4ade3efb199ecfdfe652bcc0be44723ba1c00f4c659e6beb8721de960521c83f"
+  },
+  {
+   "case_id": "S-D33",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "e1570280c036",
+   "expected_decision": "sustain_refutation",
+   "severity_as_raised": "major",
+   "sha256": "48550b36f3139cf24933abcf2532f69cea8a427fe3958c97881c8cc52d825316"
+  },
+  {
+   "case_id": "S-D34",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "55752b0dc5b7",
+   "expected_decision": "sustain_refutation",
+   "severity_as_raised": "major",
+   "sha256": "2e6dc5f56851817a049c4b23af8673f22e8f590301344d7d359b84566d2b14aa"
+  },
+  {
+   "case_id": "S-D35",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "934fab88a12e",
+   "expected_decision": "sustain_finding",
+   "severity_as_raised": "major",
+   "sha256": "1afcf2e5c4c4614678bfd9a8f0efded93ee41057a83d3da8792020731e572d47"
+  },
+  {
+   "case_id": "S-D36",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "179ece0e030e",
+   "expected_decision": "sustain_finding",
+   "severity_as_raised": "major",
+   "sha256": "42f3e48f14b6c79332ba59fb5c8e36fcaa40d8f3a88d0f0081f8754e502f3956"
+  },
+  {
+   "case_id": "S-D37",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "b2b1f776d566",
+   "expected_decision": "sustain_finding",
+   "severity_as_raised": "major",
+   "sha256": "f95fe6c60fc676a174a79dcebf827dd57d4bed0065c3579cd08d63d127d706b8"
+  },
+  {
+   "case_id": "S-D38",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "30b316c77b43",
+   "expected_decision": "sustain_finding",
+   "severity_as_raised": "major",
+   "sha256": "5a66b9da0f2403e0f34efc83998afc85ad2f41e919b519d2b6286ebaf6cc2945"
+  },
+  {
+   "case_id": "S-D39",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "2eb60efeeace",
+   "expected_decision": "sustain_refutation",
+   "severity_as_raised": "major",
+   "sha256": "64e37bac8651b94a6090eb4613ed68b592925ba9b896bc16213b9cbd66afccde"
+  },
+  {
+   "case_id": "S-D40",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "ba2479886886",
+   "expected_decision": "sustain_refutation",
+   "severity_as_raised": "major",
+   "sha256": "1f431143e310b4c78430d38f86eb21581c9a777df86c54cba499f99f6a49c7d8"
+  },
+  {
+   "case_id": "S-D41",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "07a9a2646925",
+   "expected_decision": "sustain_refutation",
+   "severity_as_raised": "major",
+   "sha256": "be63ce161eb416c86c5ab00004bd742c6e068b2558e6eaaaa3c1c6ae8ad06c88"
+  },
+  {
+   "case_id": "S-D42",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "55c815ff5fbe",
+   "expected_decision": "sustain_finding",
+   "severity_as_raised": "major",
+   "sha256": "57d245f24a50eea7075232766969374c8bbc08469af983ab68d8bb5bf06cd5be"
+  },
+  {
+   "case_id": "S-D43",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "8479293e76ed",
+   "expected_decision": "sustain_refutation",
+   "severity_as_raised": "major",
+   "sha256": "872c6a968ffa653c1a58270c906d95778e5972a9eeb78031b6c139bf7aba2855"
+  },
+  {
+   "case_id": "S-D44",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "f46397a84121",
+   "expected_decision": "sustain_finding",
+   "severity_as_raised": "major",
+   "sha256": "608688f3e93e85d8a680ae0a9057a70233c3fb36f42068eeaaae14f0c272a17b"
+  },
+  {
+   "case_id": "S-D45",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "e8c5d3fd8a25",
+   "expected_decision": "split",
+   "severity_as_raised": "major",
+   "sha256": "29e7c9407f331b4929afe36c68203164333d564dc55c419725a4a96498d28e5e"
+  },
+  {
+   "case_id": "S-D46",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "8f77565b56a4",
+   "expected_decision": "sustain_refutation",
+   "severity_as_raised": "major",
+   "sha256": "96bfdf2620a733375e44bc22718a8d9065942da341564ef881aa0d6601629db9"
+  },
+  {
+   "case_id": "S-D47",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "536112b7d4dd",
+   "expected_decision": "sustain_refutation",
+   "severity_as_raised": "major",
+   "sha256": "b706c217faec01712ce443d1ef6561fa93e52d452ba19d37cf446ca6da290917"
+  },
+  {
+   "case_id": "S-D48",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "610a06422389",
+   "expected_decision": "sustain_refutation",
+   "severity_as_raised": "major",
+   "sha256": "ac5b2ae14adcad65f31fabb9105006a873d38b3071ea5ec6524839ef4346b05a"
+  },
+  {
+   "case_id": "S-D49",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "44ace5079160",
+   "expected_decision": "sustain_refutation",
+   "severity_as_raised": "major",
+   "sha256": "fb4fac79987818fa2de353c42d84fc59062c83a5801f7e38fbcf98e6b7941cd1"
+  },
+  {
+   "case_id": "S-D50",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "42011b7abf72",
+   "expected_decision": "sustain_refutation",
+   "severity_as_raised": "major",
+   "sha256": "1e44d942cb2182380d225d489fa4b370ae910543610cf3f766f7af6203fc540a"
+  },
+  {
+   "case_id": "S-D51",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "b7d613672e71",
+   "expected_decision": "split",
+   "severity_as_raised": "major",
+   "sha256": "d664f3990f8614e985a5c0afa8eb72ce3ef0336a6df74494619cad9d8c1b0ef8"
+  },
+  {
+   "case_id": "S-D52",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "5e89ea2d985b",
+   "expected_decision": "sustain_refutation",
+   "severity_as_raised": "major",
+   "sha256": "fbb46c49b2346b4d33a1522fe26615721c679a9175877a870b7f2a5aff2186d8"
+  },
+  {
+   "case_id": "S-D53",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "ad6e36800a86",
+   "expected_decision": "sustain_refutation",
+   "severity_as_raised": "major",
+   "sha256": "6b718ec5cbfcf5e869ffcf4137914650da49a7d69456b1acfe7e5bb8f343b5e8"
+  },
+  {
+   "case_id": "S-D54",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "69a23ebb9f27",
+   "expected_decision": "sustain_refutation",
+   "severity_as_raised": "major",
+   "sha256": "325775430d895f61ce507a7cf1b29e02cc50d8a5afa167769492acb34d77ac85"
+  },
+  {
+   "case_id": "S-D55",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "32587160c9fc",
+   "expected_decision": "sustain_refutation",
+   "severity_as_raised": "major",
+   "sha256": "354d52239c2276d6cfb099fafb88952ff6e6b11f39fb3f5d134d384ec0d8fff4"
+  },
+  {
+   "case_id": "S-D56",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "f43f2968433d",
+   "expected_decision": "sustain_refutation",
+   "severity_as_raised": "major",
+   "sha256": "fc60e6f7678a0ed9369517fbb538d0f37710a0a8b8915215ec40a6f127a0b721"
+  },
+  {
+   "case_id": "S-D57",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "9489ee49db6f",
+   "expected_decision": "sustain_finding",
+   "severity_as_raised": "major",
+   "sha256": "5f0822b311a926c6c90fdd59b5eeb812401db324f793f3b602340b14ed2e141c"
+  },
+  {
+   "case_id": "S-D58",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "21bb4af17e22",
+   "expected_decision": "sustain_finding",
+   "severity_as_raised": "major",
+   "sha256": "9a2591952c17e9c1f4284997d7c2a7750d4ee2407afd49f61fb3749424666bd8"
+  },
+  {
+   "case_id": "S-D59",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "b9e2819976fe",
+   "expected_decision": "split",
+   "severity_as_raised": "major",
+   "sha256": "db4e9180dd718b30e647d40b06a7cdcb0d74875c244b8f4283727037bd2b633e"
+  },
+  {
+   "case_id": "S-D60",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "afe66da23121",
+   "expected_decision": "sustain_finding",
+   "severity_as_raised": "major",
+   "sha256": "931f6b4916df5704873c609fe157309e95eef405452e4c8f238e6f3390f5b371"
+  },
+  {
+   "case_id": "S-D61",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "887c490bd9eb",
+   "expected_decision": "sustain_finding",
+   "severity_as_raised": "major",
+   "sha256": "03c23ccbb44a323b8b26e00e5a26821ae1b3a79a5926c883390e693d8b5c4bc8"
+  },
+  {
+   "case_id": "S-D62",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "ca9fcd9ca7c2",
+   "expected_decision": "sustain_finding",
+   "severity_as_raised": "minor",
+   "sha256": "0506a90dec0e57b852d0d42bd9c8a8a1eaae0fa3c3ddf3adddbcff850c70e6a9"
+  },
+  {
+   "case_id": "S-D63",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "6508525840b4",
+   "expected_decision": "sustain_finding",
+   "severity_as_raised": "minor",
+   "sha256": "59bfe4285446b234e53dc4651f1aef8e10c1138589ac6bd57b9142ee26942937"
+  },
+  {
+   "case_id": "S-D64",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "531bd4e5a458",
+   "expected_decision": "sustain_refutation",
+   "severity_as_raised": "major",
+   "sha256": "81f076c39b554beee6158d5640cbda9b54e1d486fbfd9559434b1aafc162e7ca"
+  },
+  {
+   "case_id": "S-D65",
+   "case_class": "sealed_disposition",
+   "record_finding_id": "dd391599588d",
+   "expected_decision": "sustain_refutation",
+   "severity_as_raised": "major",
+   "sha256": "3bccf9668152afc7ae95928447b1b4389fb29bc4e8a5e799f9f5596e296dba26"
+  },
+  {
+   "case_id": "S-H66",
+   "case_class": "sealed_machinery_holdout",
+   "record_finding_id": "4ce0212286e0",
+   "expected_decision": "split",
+   "severity_as_raised": "major",
+   "sha256": "0333952d43a5ca9845052e4656766591865fa5168bd982ee15c7255386a7ae10"
+  },
+  {
+   "case_id": "S-H67",
+   "case_class": "sealed_machinery_holdout",
+   "record_finding_id": "6b29fe953939",
+   "expected_decision": "split",
+   "severity_as_raised": "major",
+   "sha256": "5192809c21de8fd2196b7b686bfb201fefdf98d27e4793c648c2a18db2e29524"
+  },
+  {
+   "case_id": "S-H68",
+   "case_class": "sealed_machinery_holdout",
+   "record_finding_id": "bf4c451e8751",
+   "expected_decision": "sustain_refutation",
+   "severity_as_raised": "major",
+   "sha256": "58f7eb5f03b762d082b0bd849288cfd6e7ea9490c149c1909c9894603126f7f2"
+  },
+  {
+   "case_id": "S-F01",
+   "case_class": "sealed_fp_corpus",
+   "record_finding_id": "7c5396bfde36",
+   "expected_decision": "sustain_refutation",
+   "severity_as_raised": "minor",
+   "sha256": "5f0cbc6720c382db2ac7a5103d7e76ba74b225ee7899936ba3effa8adf86a65a"
+  },
+  {
+   "case_id": "S-F02",
+   "case_class": "sealed_fp_corpus",
+   "record_finding_id": "f6869eb188d5",
+   "expected_decision": "sustain_refutation",
+   "severity_as_raised": "minor",
+   "sha256": "4dafcb1d8947f3930d850f1aac0e474a5df0853b3d8bdaf4728939095f601b5a"
+  },
+  {
+   "case_id": "S-F03",
+   "case_class": "sealed_fp_corpus",
+   "record_finding_id": "d39a517bc276",
+   "expected_decision": "sustain_refutation",
+   "severity_as_raised": "minor",
+   "sha256": "1fd578b38de8660f554f1e174fecb6d59c4ceef55e34235c8d3fbe00d63ebd18"
+  },
+  {
+   "case_id": "S-F04",
+   "case_class": "sealed_fp_corpus",
+   "record_finding_id": "82a44ce5e721",
+   "expected_decision": "sustain_refutation",
+   "severity_as_raised": "major",
+   "sha256": "484036d9986c38df3c57562123bf937ea41952af0930450892343c44786a543a"
+  },
+  {
+   "case_id": "S-F05",
+   "case_class": "sealed_fp_corpus",
+   "record_finding_id": "f0e6f4c3a44a",
+   "expected_decision": "sustain_refutation",
+   "severity_as_raised": "minor",
+   "sha256": "f382d855cd2f41fa05d9f14f50b40d6c8a5124aa4c161c3b269ca542f1f3577f"
+  },
+  {
+   "case_id": "S-F06",
+   "case_class": "sealed_fp_corpus",
+   "record_finding_id": "74798f3ab150",
+   "expected_decision": "sustain_refutation",
+   "severity_as_raised": "minor",
+   "sha256": "8e57e5a8a0e9e3c6cd1ccb6c63c91291b9f42778861ac2b699101e09bbf84bec"
+  },
+  {
+   "case_id": "S-F07",
+   "case_class": "sealed_fp_corpus",
+   "record_finding_id": "07ac0287263a",
+   "expected_decision": "sustain_refutation",
+   "severity_as_raised": "minor",
+   "sha256": "c5f154cbb3ad94a568f83d8c2a74158b34dfa5b1dbc82ba655bb8982bbac6a5e"
+  }
+ ],
+ "excluded_dispositions": [
+  {
+   "finding_id": "3c39c4bdc15a",
+   "type": "sustain_refutation",
+   "route": "no-basis",
+   "reason": "no basis_evidence; recorded 2026-11-05T01:26Z or later, i.e. not before the first shadow Tech Lead output existed (acceptance run started 01:14:59Z) \u2014 temporal label independence cannot be established from the store"
+  },
+  {
+   "finding_id": "2fa2b04e08d5",
+   "type": "sustain_refutation",
+   "route": "no-basis",
+   "reason": "no basis_evidence; recorded 2026-11-05T01:26Z or later, i.e. not before the first shadow Tech Lead output existed (acceptance run started 01:14:59Z) \u2014 temporal label independence cannot be established from the store"
+  },
+  {
+   "finding_id": "212878ab6bba",
+   "type": "retired_archived_subject",
+   "route": "non-merits",
+   "reason": "type records no decision on the claim (retired/superseded)"
+  },
+  {
+   "finding_id": "4ce0212286e0",
+   "type": "split",
+   "route": "route-b",
+   "reason": "machinery hold-out \u2014 sealed via route (b)"
+  },
+  {
+   "finding_id": "6b29fe953939",
+   "type": "split",
+   "route": "route-b",
+   "reason": "machinery hold-out \u2014 sealed via route (b)"
+  },
+  {
+   "finding_id": "7baa0147d8d4",
+   "type": "retired_archived_subject",
+   "route": "non-merits",
+   "reason": "type records no decision on the claim (retired/superseded)"
+  },
+  {
+   "finding_id": "7ea4e96603e9",
+   "type": "retired_archived_subject",
+   "route": "non-merits",
+   "reason": "type records no decision on the claim (retired/superseded)"
+  },
+  {
+   "finding_id": "bf4c451e8751",
+   "type": "sustain_refutation",
+   "route": "route-b",
+   "reason": "machinery hold-out \u2014 sealed via route (b)"
+  },
+  {
+   "finding_id": "e7fc93e0bb77",
+   "type": "sustain_refutation",
+   "route": "no-basis",
+   "reason": "no basis_evidence; recorded 2026-11-05T01:26Z or later, i.e. not before the first shadow Tech Lead output existed (acceptance run started 01:14:59Z) \u2014 temporal label independence cannot be established from the store"
+  },
+  {
+   "finding_id": "833912a09fa3",
+   "type": "sustain_finding",
+   "route": "basis-unverifiable",
+   "reason": "basis_evidence hash recorded but the artifact at the recorded path now hashes differently (post-fix probe re-run overwrote the pre-fix output); artifact not found anywhere in the workspace"
+  },
+  {
+   "finding_id": "4cf81c69d7cf",
+   "type": "sustain_finding",
+   "route": "basis-unverifiable",
+   "reason": "basis_evidence hash recorded but the artifact at the recorded path now hashes differently (post-fix probe re-run overwrote the pre-fix output); artifact not found anywhere in the workspace"
+  },
+  {
+   "finding_id": "633acb885291",
+   "type": "sustain_finding",
+   "route": "basis-unverifiable",
+   "reason": "basis_evidence hash recorded but the artifact at the recorded path now hashes differently (post-fix probe re-run overwrote the pre-fix output); artifact not found anywhere in the workspace"
+  },
+  {
+   "finding_id": "bbad4502fc6a",
+   "type": "sustain_refutation",
+   "route": "no-basis",
+   "reason": "no basis_evidence; recorded 2026-11-05T01:26Z or later, i.e. not before the first shadow Tech Lead output existed (acceptance run started 01:14:59Z) \u2014 temporal label independence cannot be established from the store"
+  },
+  {
+   "finding_id": "ae8ecbc07ce1",
+   "type": "downgraded",
+   "route": "no-basis",
+   "reason": "no basis_evidence; recorded 2026-11-05T01:26Z or later, i.e. not before the first shadow Tech Lead output existed (acceptance run started 01:14:59Z) \u2014 temporal label independence cannot be established from the store"
+  },
+  {
+   "finding_id": "72d0d3e96ada",
+   "type": "downgraded",
+   "route": "no-basis",
+   "reason": "no basis_evidence; recorded 2026-11-05T01:26Z or later, i.e. not before the first shadow Tech Lead output existed (acceptance run started 01:14:59Z) \u2014 temporal label independence cannot be established from the store"
+  },
+  {
+   "finding_id": "5de156e310f2",
+   "type": "downgraded",
+   "route": "no-basis",
+   "reason": "no basis_evidence; recorded 2026-11-05T01:26Z or later, i.e. not before the first shadow Tech Lead output existed (acceptance run started 01:14:59Z) \u2014 temporal label independence cannot be established from the store"
+  },
+  {
+   "finding_id": "f5607d9df22e",
+   "type": "sustain_refutation",
+   "route": "no-basis",
+   "reason": "no basis_evidence; recorded 2026-11-05T01:26Z or later, i.e. not before the first shadow Tech Lead output existed (acceptance run started 01:14:59Z) \u2014 temporal label independence cannot be established from the store"
+  },
+  {
+   "finding_id": "1f64a6be5c10",
+   "type": "superseded",
+   "route": "non-merits",
+   "reason": "type records no decision on the claim (retired/superseded)"
+  },
+  {
+   "finding_id": "0011f9970c38",
+   "type": "superseded",
+   "route": "non-merits",
+   "reason": "type records no decision on the claim (retired/superseded)"
+  },
+  {
+   "finding_id": "328a5ff6fa51",
+   "type": "superseded",
+   "route": "non-merits",
+   "reason": "type records no decision on the claim (retired/superseded)"
+  },
+  {
+   "finding_id": "f9ca50d61cad",
+   "type": "superseded",
+   "route": "non-merits",
+   "reason": "type records no decision on the claim (retired/superseded)"
+  },
+  {
+   "finding_id": "023d2c9b1b20",
+   "type": "superseded",
+   "route": "non-merits",
+   "reason": "type records no decision on the claim (retired/superseded)"
+  },
+  {
+   "finding_id": "62576759aaad",
+   "type": "superseded",
+   "route": "non-merits",
+   "reason": "type records no decision on the claim (retired/superseded)"
+  },
+  {
+   "finding_id": "b5b9741171b3",
+   "type": "superseded",
+   "route": "non-merits",
+   "reason": "type records no decision on the claim (retired/superseded)"
+  },
+  {
+   "finding_id": "6d2d43b7bc3e",
+   "type": "superseded",
+   "route": "non-merits",
+   "reason": "type records no decision on the claim (retired/superseded)"
+  },
+  {
+   "finding_id": "b23274a96efb",
+   "type": "downgraded",
+   "route": "no-basis",
+   "reason": "no basis_evidence; recorded 2026-11-05T01:26Z or later, i.e. not before the first shadow Tech Lead output existed (acceptance run started 01:14:59Z) \u2014 temporal label independence cannot be established from the store"
+  },
+  {
+   "finding_id": "19abd575191e",
+   "type": "retired_out_of_scope",
+   "route": "non-merits",
+   "reason": "type records no decision on the claim (retired/superseded)"
+  },
+  {
+   "finding_id": "78d6c78b3865",
+   "type": "fixed",
+   "route": "no-basis",
+   "reason": "no basis_evidence; recorded 2026-11-05T01:26Z or later, i.e. not before the first shadow Tech Lead output existed (acceptance run started 01:14:59Z) \u2014 temporal label independence cannot be established from the store"
+  },
+  {
+   "finding_id": "0bb1b939ab67",
+   "type": "fixed",
+   "route": "no-basis",
+   "reason": "no basis_evidence; recorded 2026-11-05T01:26Z or later, i.e. not before the first shadow Tech Lead output existed (acceptance run started 01:14:59Z) \u2014 temporal label independence cannot be established from the store"
+  },
+  {
+   "finding_id": "e9ef62daa1a0",
+   "type": "fixed",
+   "route": "no-basis",
+   "reason": "no basis_evidence; recorded 2026-11-05T01:26Z or later, i.e. not before the first shadow Tech Lead output existed (acceptance run started 01:14:59Z) \u2014 temporal label independence cannot be established from the store"
+  },
+  {
+   "finding_id": "03eb527e1e44",
+   "type": "fixed",
+   "route": "no-basis",
+   "reason": "no basis_evidence; recorded 2026-11-05T01:26Z or later, i.e. not before the first shadow Tech Lead output existed (acceptance run started 01:14:59Z) \u2014 temporal label independence cannot be established from the store"
+  },
+  {
+   "finding_id": "cc0e75a507fd",
+   "type": "fixed",
+   "route": "no-basis",
+   "reason": "no basis_evidence; recorded 2026-11-05T01:26Z or later, i.e. not before the first shadow Tech Lead output existed (acceptance run started 01:14:59Z) \u2014 temporal label independence cannot be established from the store"
+  },
+  {
+   "finding_id": "5683aa292958",
+   "type": "fixed",
+   "route": "no-basis",
+   "reason": "no basis_evidence; recorded 2026-11-05T01:26Z or later, i.e. not before the first shadow Tech Lead output existed (acceptance run started 01:14:59Z) \u2014 temporal label independence cannot be established from the store"
+  },
+  {
+   "finding_id": "764e1d15a218",
+   "type": "fixed",
+   "route": "no-basis",
+   "reason": "no basis_evidence; recorded 2026-11-05T01:26Z or later, i.e. not before the first shadow Tech Lead output existed (acceptance run started 01:14:59Z) \u2014 temporal label independence cannot be established from the store"
+  },
+  {
+   "finding_id": "b55a82da564b",
+   "type": "retired_out_of_scope",
+   "route": "non-merits",
+   "reason": "type records no decision on the claim (retired/superseded)"
+  },
+  {
+   "finding_id": "3208f6f6f185",
+   "type": "retired_out_of_scope",
+   "route": "non-merits",
+   "reason": "type records no decision on the claim (retired/superseded)"
+  },
+  {
+   "finding_id": "5809b43af807",
+   "type": "retired_out_of_scope",
+   "route": "non-merits",
+   "reason": "type records no decision on the claim (retired/superseded)"
+  },
+  {
+   "finding_id": "1608bc89b954",
+   "type": "retired_out_of_scope",
+   "route": "non-merits",
+   "reason": "type records no decision on the claim (retired/superseded)"
+  },
+  {
+   "finding_id": "e48b43201f50",
+   "type": "retired_out_of_scope",
+   "route": "non-merits",
+   "reason": "type records no decision on the claim (retired/superseded)"
+  },
+  {
+   "finding_id": "20aaa6d4cedd",
+   "type": "retired_out_of_scope",
+   "route": "non-merits",
+   "reason": "type records no decision on the claim (retired/superseded)"
+  },
+  {
+   "finding_id": "fa61a4a54d1c",
+   "type": "retired_out_of_scope",
+   "route": "non-merits",
+   "reason": "type records no decision on the claim (retired/superseded)"
+  },
+  {
+   "finding_id": "f62ebf2dc0e3",
+   "type": "retired_out_of_scope",
+   "route": "non-merits",
+   "reason": "type records no decision on the claim (retired/superseded)"
+  },
+  {
+   "finding_id": "07c80cba9033",
+   "type": "retired_out_of_scope",
+   "route": "non-merits",
+   "reason": "type records no decision on the claim (retired/superseded)"
+  },
+  {
+   "finding_id": "efae60d4f419",
+   "type": "retired_out_of_scope",
+   "route": "non-merits",
+   "reason": "type records no decision on the claim (retired/superseded)"
+  },
+  {
+   "finding_id": "df160cd55adb",
+   "type": "retired_out_of_scope",
+   "route": "non-merits",
+   "reason": "type records no decision on the claim (retired/superseded)"
+  },
+  {
+   "finding_id": "ff4f08624ea7",
+   "type": "retired_out_of_scope",
+   "route": "non-merits",
+   "reason": "type records no decision on the claim (retired/superseded)"
+  },
+  {
+   "finding_id": "3fc43145aad1",
+   "type": "retired_out_of_scope",
+   "route": "non-merits",
+   "reason": "type records no decision on the claim (retired/superseded)"
+  },
+  {
+   "finding_id": "e58a7a210be7",
+   "type": "retired_out_of_scope",
+   "route": "non-merits",
+   "reason": "type records no decision on the claim (retired/superseded)"
+  },
+  {
+   "finding_id": "ccf336248731",
+   "type": "retired_out_of_scope",
+   "route": "non-merits",
+   "reason": "type records no decision on the claim (retired/superseded)"
+  },
+  {
+   "finding_id": "0bfd42f23d0a",
+   "type": "retired_out_of_scope",
+   "route": "non-merits",
+   "reason": "type records no decision on the claim (retired/superseded)"
+  },
+  {
+   "finding_id": "68b8818bb3dd",
+   "type": "retired_out_of_scope",
+   "route": "non-merits",
+   "reason": "type records no decision on the claim (retired/superseded)"
+  }
+ ]
+}

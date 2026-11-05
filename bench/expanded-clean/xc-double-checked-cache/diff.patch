@@ -1,0 +1,35 @@
+diff --git a/src/main/java/com/example/cache/LazyCache.java b/src/main/java/com/example/cache/LazyCache.java
+--- /dev/null
++++ b/src/main/java/com/example/cache/LazyCache.java
+@@ -0,0 +1,31 @@
++package com.example.cache;
++
++import java.util.function.Supplier;
++
++public final class LazyCache<T> {
++
++    private volatile T value;
++    private final Supplier<T> supplier;
++
++    public LazyCache(Supplier<T> supplier) {
++        this.supplier = supplier;
++    }
++
++    public T get() {
++        T result = value;
++        if (result == null) {
++            synchronized (this) {
++                result = value;
++                if (result == null) {
++                    result = supplier.get();
++                    if (result == null) {
++                        throw new IllegalStateException(
++                                "supplier returned null");
++                    }
++                    value = result;
++                }
++            }
++        }
++        return result;
++    }
++}

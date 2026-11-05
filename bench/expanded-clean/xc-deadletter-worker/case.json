@@ -1,0 +1,11 @@
+{
+  "id": "xc-deadletter-worker",
+  "title": "Queue consumer with dead-lettering after N attempts and strict ack discipline",
+  "category": "clean",
+  "split": "expanded-clean",
+  "source": "Authored for the CodeReview benchmark corpus (expanded clean stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "expanded-clean",
+  "false_flag_note": "A reviewer may flag the 'continue' on DLQ failure or the broad except around the handler as losing messages. The ack discipline is the correct one: a message is acked only after it is processed or after its copy is durably in the dead-letter queue; a failed attempt below the limit is nacked so it is redelivered; if sending to the DLQ itself fails, the original is deliberately left un-acked (the continue) so it will be redelivered rather than silently dropped; and per-message handler failures are contained so one poison message cannot kill the consumer loop."
+}

@@ -1,0 +1,51 @@
+{
+ "case_id": "S-D54",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "Disputes freshness check crashes when no inventory file is supplied",
+ "finding": {
+  "claim": "Disputes freshness check crashes when no inventory file is supplied",
+  "evidence": "The new --check path initializes inventory_ids to an empty set and only populates it inside the optional args.inventory branch, but then always calls the freshness checker with that set. If the checker expects the same optional contract as the non-span path, this changes behavior for the common '--check --span ...' case and can reject or mis-handle all open disputes instead of treating inventory a",
+  "file": "src/codereview/cli.py",
+  "line": 1200,
+  "severity_as_raised": "major",
+  "evidence_quote": "        inventory_ids = set()",
+  "recommendation": "Preserve the absence/presence distinction by using None when --inventory is not provided, and only pass a set when a file was actually loaded. Add a test for 'codereview disputes --check --span A..B' without --inventory.",
+  "raised_by_family": "openai",
+  "record_finding_id": "69a23ebb9f27"
+ },
+ "code_region": {
+  "commit": "2fbf94f2ca6feec0ad1180a71d3c9064bf1cef4d",
+  "path": "src/codereview/cli.py",
+  "located": true,
+  "start_line": 1263,
+  "end_line": 1283,
+  "text": "            with open(args.overrides, encoding=\"utf-8\") as fh:\n                overrides = json.load(fh)\n        except Exception as exc:  # noqa: BLE001\n            print(f\"codereview: could not read the overrides: \"\n                  f\"{exc}\", file=sys.stderr)\n            return 2\n\n    if args.check:\n        inventory_ids = set()\n        if args.inventory:\n            try:\n                inventory_ids = \\\n                    disputes_mod.inventory_ids_from_file(\n                        args.inventory)\n            except Exception as exc:  # noqa: BLE001\n                print(f\"codereview: could not read the \"\n                      f\"inventory file: {exc}\", file=sys.stderr)\n                return 2\n        if args.span:\n            try:\n                result = disputes_mod.check_freshness("
+ },
+ "refutation": {
+  "by_family": "nvidia",
+  "quote": "        inventory_ids = set()",
+  "reason": "The code initializes inventory_ids to an empty set and only populates it inside the optional args.inventory branch, but then always calls the freshness checker with that set. If the checker expects the same optional contract as the non-span path, this changes behavior for the common '--check --span ",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "No-inventory probe (`probes/closingB_disputes_registry.py`, 69a23ebb9f27 section; cli.py:1270-1317, disputes.py:578-591): `disputes --check` was run with NO --inventory. Span path: rc=0 — a verdict, where a crash would raise. check_freshness called directly with the inventory defaulted: returned violations=0, touching=0, unscoped=14. No-span path: rc=1 — again a verdict (rc 0/1 are the check's verdict codes). The claimed crash on missing inventory does not occur on either path.",
+  "basis_evidence_sha256": [
+   "98ee17da46b2b3eef9de0550cca9b1162a085569abd7e3d80a386ef5b372efa9"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/closingB-disputes-registry.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_refutation",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry 69a23ebb9f27 (decider=owner, marker=ratified, 2026-11-05T04:07:59+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-closing-r1-2026-11-04/31-69a23ebb9f27.md; source record: review-closing-r1-attempt1/codereview-20261105-031306.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": []
+}

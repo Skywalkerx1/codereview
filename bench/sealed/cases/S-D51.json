@@ -1,0 +1,58 @@
+{
+ "case_id": "S-D51",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "Worktree add failure leaves 'out' undefined and crashes the script in finally/parse flow",
+ "finding": {
+  "claim": "Worktree add failure leaves 'out' undefined and crashes the script in finally/parse flow",
+  "evidence": "The subprocess that creates the worktree is checked and can raise before 'out' is assigned, but the code later iterates 'out.splitlines()' unconditionally.",
+  "file": "probes/hardening_parent_fail.py",
+  "line": 50,
+  "severity_as_raised": "major",
+  "evidence_quote": "                        wt, PARENT], cwd=REPO, check=True,",
+  "recommendation": "Initialize 'out' before the try block and return a controlled failure report when worktree creation or test execution fails. Also guard the parsing loop so it only runs when command output was actually captured.",
+  "raised_by_family": "openai",
+  "record_finding_id": "b7d613672e71"
+ },
+ "code_region": {
+  "commit": "2fbf94f2ca6feec0ad1180a71d3c9064bf1cef4d",
+  "path": "probes/hardening_parent_fail.py",
+  "located": true,
+  "start_line": 49,
+  "end_line": 69,
+  "text": "def main():\n    tmp = tempfile.mkdtemp(prefix=\"pt1-hardening-pf-\")\n    wt = os.path.join(tmp, \"wt\")\n    lines = [\"HARDENING PARENT-FAIL VERIFICATION\",\n             f\"Test file from HEAD overlaid on parent {PARENT} \"\n             \"(pre-hardening).\", \"\"]\n    try:\n        subprocess.run([\"git\", \"worktree\", \"add\", \"--detach\",\n                        wt, PARENT], cwd=REPO, check=True,\n                       capture_output=True, text=True)\n        shutil.copy(os.path.join(\n            REPO, \"tests\", \"test_v111_hardening.py\"),\n            os.path.join(wt, \"tests\", \"test_v111_hardening.py\"))\n        proc = subprocess.run(\n            [sys.executable, \"-m\", \"unittest\", \"-v\",\n             \"tests.test_v111_hardening\"],\n            cwd=wt, capture_output=True, text=True)\n        out = proc.stdout + proc.stderr\n    finally:\n        subprocess.run([\"git\", \"worktree\", \"remove\", \"--force\",\n                        wt], cwd=REPO, capture_output=True)"
+ },
+ "refutation": {
+  "by_family": "nvidia",
+  "quote": "                        wt, PARENT], cwd=REPO, check=True,",
+  "reason": "The code initializes 'out' via proc.stdout and proc.stderr before the finally block, and the finally block only removes the worktree; the subsequent loop iterates over 'out' which is always assigned when the loop executes because it is defined in the try block before the finally clause.",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "Probe-scripts probe (`probes/closing_probe_scripts_probe.py`, section b): the subject (the committed hardening_parent_fail probe) was executed with its git worktree-add forced to fail (bad revision). Exit code 1; the traceback is a CalledProcessError out of subprocess.run — NameError/UnboundLocalError present in the traceback: False. The claimed mechanism (a NameError from parsing an unbound 'out' after a swallowed failure) does NOT occur: the exception propagates through the finally and the parse loop is never reached. What IS true: the failure surfaces as an uncontrolled traceback rather than a controlled failure report — the substance of the claim (no error handling at this site) survives at probe-tooling severity.",
+  "basis_evidence_sha256": [
+   "8f7cd5ebf270740cc5e2fa4a93b20e664d80e8254595ac0671b07e17e52f0025"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/closing-probe-scripts.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "split",
+  "severity_after": null,
+  "scoring": "sealed_split",
+  "reasoning_validity": {
+   "claim": "partially_valid",
+   "refutation": "partially_valid"
+  }
+ },
+ "provenance": {
+  "source": "disposition store entry b7d613672e71 (decider=owner, marker=ratified, 2026-11-05T04:07:58+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-closing-r1-2026-11-04/28-b7d613672e71.md; source record: review-closing-r1-attempt1/codereview-20261105-031306.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": [
+  "split ruling: neither side wholly correct; scored under the sealed_split rule in SEALED.md",
+  "reason_corrected: the failure is a CalledProcessError propagating out of the probe, not a NameError inside it."
+ ]
+}

@@ -1,0 +1,51 @@
+{
+ "case_id": "S-D57",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "Falsy timeout values are ignored, so timeout 0 cannot disable or force immediate timeout as configured",
+ "finding": {
+  "claim": "Falsy timeout values are ignored, so timeout 0 cannot disable or force immediate timeout as configured",
+  "evidence": "            timeout = entry.get(\"timeout\") or default_timeout",
+  "file": "src/codereview/evidence.py",
+  "line": 412,
+  "severity_as_raised": "major",
+  "evidence_quote": "            timeout = entry.get(\"timeout\") or default_timeout",
+  "recommendation": "Distinguish an absent timeout from an explicit numeric value. For example, read the field with a sentinel check such as 'timeout = entry[\"timeout\"] if \"timeout\" in entry else default_timeout' and validate that the resulting value is a non-negative number. Apply the same fix to the adapter path and the top-level default timeout handling.",
+  "raised_by_family": "openai",
+  "record_finding_id": "9489ee49db6f"
+ },
+ "code_region": {
+  "commit": "2fbf94f2ca6feec0ad1180a71d3c9064bf1cef4d",
+  "path": "src/codereview/evidence.py",
+  "located": true,
+  "start_line": 399,
+  "end_line": 419,
+  "text": "                    entry.get(\"required\", False), \"error\", None, 0.0,\n                    b\"\", detail=f\"sandbox copy failed: {exc}\"))\n            return _record(config, source_dir, items,\n                           network_mode=\"not-run\")\n\n        for entry in config.get(\"commands\") or []:\n            command = str(entry.get(\"command\"))\n            name = str(entry.get(\"name\") or command)\n            timeout = entry.get(\"timeout\") or default_timeout\n            allow_network = bool(entry.get(\"allow_network\",\n                                           default_network))\n            env = _sandbox_env(sandbox_root, allow_network,\n                               environ=environ)\n            status, code, duration, output, net = _execute(\n                [\"sh\", \"-c\", command], workdir, timeout, env,\n                allow_network)\n            items.append(_result(\n                name, \"command\", entry.get(\"required\", True),\n                status, code, duration, output,\n                command=command, network_mode=net))\n"
+ },
+ "refutation": {
+  "by_family": "nvidia",
+  "quote": "            timeout = entry.get(\"timeout\") or default_timeout",
+  "reason": "The code explicitly uses `or` to fall back to `default_timeout` only when `entry.get(\"timeout\")` evaluates to falsy. An explicit `0` is a valid numeric timeout value that should disable or force immediate timeout, but the `or` operator treats `0` as falsy and substitutes the default, which is the ex",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "Evidence-timeout probe (`probes/closingB_evidence.py`, 9489ee49db6f section): a config entry with timeout 0 and a `sleep 2` command was executed through evidence collection: status='passed' after 2.0s. Had 0 been honoured the item would have timed out immediately; instead `entry.get(\"timeout\") or default_timeout` (evidence.py:407) substituted the 600s default and the command ran to completion. This is the falsey-defaulting class the owner ruled on in review-v13 (a non-positive timeout must be refused loudly at construction, never silently swapped for a default — the contract providers.py:264-270 documents).",
+  "basis_evidence_sha256": [
+   "c508dfd940d601ace58a4db50cb677f907db3851e7e31088af53170df5db165c"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/closingB-evidence.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_finding",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry 9489ee49db6f (decider=owner, marker=ratified, 2026-11-05T04:07:59+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-closing-r1-2026-11-04/34-9489ee49db6f.md; source record: review-closing-r1-attempt1/codereview-20261105-031306.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": []
+}

@@ -1,0 +1,11 @@
+{
+  "id": "xc-safe-yaml-config",
+  "title": "YAML config loaded with safe_load and validated against a schema",
+  "category": "clean",
+  "split": "expanded-clean",
+  "source": "Authored for the CodeReview benchmark corpus (expanded clean stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "expanded-clean",
+  "false_flag_note": "A reviewer may flag reading a config file as a code-execution risk or the strict unknown-key check as brittle. safe_load is used precisely so YAML tags cannot construct arbitrary Python objects; the loaded value must be a mapping; unknown keys are rejected so a typo fails loudly at startup instead of being silently ignored; bool is explicitly excluded where an int is required because bool is an int subclass in Python; and ranges (port, timeout) are range-checked before the config reaches the application."
+}

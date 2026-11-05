@@ -1,0 +1,50 @@
+diff --git a/src/debounceSearch.js b/src/debounceSearch.js
+--- /dev/null
++++ b/src/debounceSearch.js
+@@ -0,0 +1,46 @@
++export function attachDebouncedSearch(input, results, search, delayMs = 250) {
++  let timer = null;
++  let controller = null;
++  let latestId = 0;
++
++  function render(items) {
++    const nodes = items.map((text) => {
++      const li = document.createElement("li");
++      li.textContent = text;
++      return li;
++    });
++    results.replaceChildren(...nodes);
++  }
++
++  async function run(query) {
++    const id = ++latestId;
++    controller?.abort();
++    controller = new AbortController();
++    try {
++      const items = await search(query, { signal: controller.signal });
++      if (id !== latestId) {
++        return; // a newer query superseded this response
++      }
++      render(items);
++    } catch (err) {
++      if (err.name === "AbortError") {
++        return; // superseded or detached: nothing to report
++      }
++      if (id === latestId) {
++        results.textContent = "Search failed. Please try again.";
++      }
++    }
++  }
++
++  function onInput() {
++    clearTimeout(timer);
++    timer = setTimeout(() => run(input.value.trim()), delayMs);
++  }
++
++  input.addEventListener("input", onInput);
++  return function detach() {
++    clearTimeout(timer);
++    controller?.abort();
++    input.removeEventListener("input", onInput);
++  };
++}

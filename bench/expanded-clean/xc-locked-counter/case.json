@@ -1,0 +1,11 @@
+{
+  "id": "xc-locked-counter",
+  "title": "In-memory counters guarded by a single lock",
+  "category": "clean",
+  "split": "expanded-clean",
+  "source": "Authored for the CodeReview benchmark corpus (expanded clean stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "expanded-clean",
+  "false_flag_note": "A reviewer may flag the shared dict as a race or the per-call lock as a bottleneck. Every read and write of the dict happens under the same lock, increment returns the post-increment value read inside the critical section, and snapshot returns a copy so callers can never mutate or iterate the live dict while another thread updates it."
+}

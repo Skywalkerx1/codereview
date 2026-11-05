@@ -1,0 +1,54 @@
+{
+ "case_id": "S-D60",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "Archived-text classification depends on split_patch_sections output",
+ "finding": {
+  "claim": "Archived-text classification depends on split_patch_sections output",
+  "evidence": "_vfy_sections = split_patch_sections(clean_patch)",
+  "file": "src/codereview/core.py",
+  "line": 3966,
+  "severity_as_raised": "major",
+  "evidence_quote": "_vfy_sections = split_patch_sections(clean_patch)",
+  "recommendation": "Confirm that split_patch_sections handles all patch shapes produced by the chain, and add a unit test verifying the _split_archived_text result does not lose or duplicate findings.",
+  "raised_by_family": "nvidia",
+  "record_finding_id": "afe66da23121"
+ },
+ "code_region": {
+  "commit": "2fbf94f2ca6feec0ad1180a71d3c9064bf1cef4d",
+  "path": "src/codereview/core.py",
+  "located": true,
+  "start_line": 3926,
+  "end_line": 3946,
+  "text": "            # not cleared.\n            unjudged.append({**f, \"last_statuses\": statuses})\n    merged_new = merge_findings(new_findings)\n    # Archived-text classification (§5.4), same rule as the\n    # review path: a verification round's new findings that\n    # cite committed review records (or text preserved only\n    # inside them) are preserved as archived-text and never\n    # hold a verification gate hostage to historical evidence.\n    _vfy_sections = split_patch_sections(clean_patch)\n    _vfy_archived = [s for s in _vfy_sections\n                     if _archived_rule(s[0])]\n    _vfy_kept = [s for s in _vfy_sections\n                 if not _archived_rule(s[0])]\n    merged_new, archived_text_findings = _split_archived_text(\n        merged_new, {n for n, _t in _vfy_kept},\n        \"\\n\".join(t for _n, t in _vfy_kept), _vfy_archived)\n    all_open = remaining + [f for f in merged_new\n                            if f[\"severity\"] in blocking_sevs]\n    quorum_ok = len(ok_recs) >= 2 or len(providers) <= 1\n    if not any_success:\n        gate, reasons = \"inconclusive\", [\"no reviewer succeeded\"]"
+ },
+ "refutation": {
+  "by_family": null,
+  "quote": "_vfy_sections = split_patch_sections(clean_patch)",
+  "reason": "No panel refutation was recorded for this finding — it reached the workup undisputed. The opposing/confirmatory position is the executed probe in SS3 of the packet: Archived-text dependency probe (`probes/closingA_archived_text_dep.py`; composition at core.py:3953 in run_verification, `split_patch_sections` core.py:258, `_split_archived_text` core.py:183): the dependence the claim describes is real — verification's archived-text classification is entirely downstream of the section splitter's filename extraction. On a canonical diff it works exactly as designed: sections=['src/app.py', 'review-r1/rec.json'], archived section 'review-r1/rec.json' → finding kept=0 archived=1, basis={'rule': 'archived-text', 'basis': 'quote'} — no loss, no duplication. The residue is on shapes the chain does not produce: the same content as raw non-diff text, or with `diff --git` headers lacking a ` b/` target, yields sections named 'unknown', zero archived sections, and finding kept=1 archived=0 — the archived classification silently misses. The failure direction is the safe one: a missed classification leaves the finding KEPT in the reviewed set, never hidden or dropped.",
+  "provenance": "none-recorded: no dispute exists in the source record; the workup probe is the only counter-position"
+ },
+ "probe": {
+  "summary": "Archived-text dependency probe (`probes/closingA_archived_text_dep.py`; composition at core.py:3953 in run_verification, `split_patch_sections` core.py:258, `_split_archived_text` core.py:183): the dependence the claim describes is real — verification's archived-text classification is entirely downstream of the section splitter's filename extraction. On a canonical diff it works exactly as designed: sections=['src/app.py', 'review-r1/rec.json'], archived section 'review-r1/rec.json' → finding kept=0 archived=1, basis={'rule': 'archived-text', 'basis': 'quote'} — no loss, no duplication. The residue is on shapes the chain does not produce: the same content as raw non-diff text, or with `diff --git` headers lacking a ` b/` target, yields sections named 'unknown', zero archived sections, and finding kept=1 archived=0 — the archived classification silently misses. The failure direction is the safe one: a missed classification leaves the finding KEPT in the reviewed set, never hidden or dropped.",
+  "basis_evidence_sha256": [
+   "9403e53769f12508651e13c7af2f9b05dcd2f8bafbaf18e48994d353bea95223"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/closingA-archived-text-dep.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_finding",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry afe66da23121 (decider=owner, marker=ratified, 2026-11-05T04:08:01+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-closing-r1-2026-11-04/46-afe66da23121.md; source record: review-closing-r1/codereview-20261105-031927.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": [
+  "finding sustained at reduced severity (owner downgrade)",
+  "reason_corrected: the dependency is reframed from an unexamined risk to a measured one: correct on the shapes the chain produces, silently non-classifying (finding kept, never hidden) on shapes it does not."
+ ]
+}

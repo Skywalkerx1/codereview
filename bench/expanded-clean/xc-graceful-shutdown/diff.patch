@@ -1,0 +1,64 @@
+diff --git a/app/worker.py b/app/worker.py
+--- /dev/null
++++ b/app/worker.py
+@@ -0,0 +1,60 @@
++import concurrent.futures
++import logging
++import queue
++import signal
++import threading
++
++logger = logging.getLogger(__name__)
++POLL_SECONDS = 0.2
++
++
++class DrainWorker:
++    """Pull jobs from a queue until stopped, then drain before exiting.
++
++    Must be run from the main thread: install_signal_handlers uses
++    signal.signal, which Python only allows there.
++
++    Shutdown contract: once stop is requested no new jobs are pulled,
++    but every job already submitted runs to completion before run()
++    returns, so callers can exit the process knowing no unit of work
++    was abandoned half-written.
++    """
++
++    def __init__(self, source, handler, max_workers=4):
++        self._source = source
++        self._handler = handler
++        self._max_workers = max_workers
++        self._stop = threading.Event()
++
++    def request_stop(self, signum=None, frame=None):
++        # Signal handlers must do as little as possible: setting an
++        # Event is safe; logging, locking or I/O here would not be.
++        self._stop.set()
++
++    def install_signal_handlers(self):
++        signal.signal(signal.SIGINT, self.request_stop)
++        signal.signal(signal.SIGTERM, self.request_stop)
++
++    def _run_job(self, job):
++        try:
++            self._handler(job)
++        except Exception:
++            # One bad job must not kill the worker or lose the others;
++            # it is logged with a traceback and the pool moves on.
++            logger.exception("job failed: %r", job)
++
++    def run(self):
++        self.install_signal_handlers()
++        with concurrent.futures.ThreadPoolExecutor(
++            max_workers=self._max_workers
++        ) as pool:
++            while not self._stop.is_set():
++                try:
++                    job = self._source.get(timeout=POLL_SECONDS)
++                except queue.Empty:
++                    continue
++                pool.submit(self._run_job, job)
++            logger.info("stop requested; draining in-flight jobs")
++        # Exiting the with-block waits for all submitted jobs: drained.
++        logger.info("shutdown complete")
++        return 0

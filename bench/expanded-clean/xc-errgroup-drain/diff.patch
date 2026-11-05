@@ -1,0 +1,29 @@
+diff --git a/internal/jobs/run.go b/internal/jobs/run.go
+--- /dev/null
++++ b/internal/jobs/run.go
+@@ -0,0 +1,25 @@
++package jobs
++
++import (
++	"context"
++	"fmt"
++
++	"golang.org/x/sync/errgroup"
++)
++
++// Job is a unit of work that must honour ctx cancellation.
++type Job func(ctx context.Context) error
++
++// RunAll runs every job concurrently and waits for all of them; the
++// first failure cancels the shared context and is returned wrapped.
++func RunAll(ctx context.Context, jobs []Job) error {
++	g, ctx := errgroup.WithContext(ctx)
++	for _, job := range jobs {
++		job := job // capture per-iteration value for the closure
++		g.Go(func() error { return job(ctx) })
++	}
++	if err := g.Wait(); err != nil {
++		return fmt.Errorf("job group: %w", err)
++	}
++	return nil
++}

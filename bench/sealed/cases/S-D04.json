@@ -1,0 +1,54 @@
+{
+ "case_id": "S-D04",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "Role assignment can record the wrong seat and then crash on duplicate provider names",
+ "finding": {
+  "claim": "Role assignment can record the wrong seat and then crash on duplicate provider names",
+  "evidence": "When a role spec builds to a seat name already present in `providers`, the code keeps the existing callable but still records the new role against that seat name. If the existing seat came from a different provider, later metadata generation indexes `providers[seat_name]` under the wrong assumptions and can fail or misattribute the role.",
+  "file": "src/codereview/cli.py",
+  "line": 655,
+  "severity_as_raised": "major",
+  "evidence_quote": "        seat_roles[role] = seat_name",
+  "recommendation": "Detect collisions between an assigned role seat name and an existing provider seat built from a different spec. Either reject the configuration with a clear error, or namespace role-added seats so they cannot alias unrelated existing seats. Also derive role metadata from the actual callable inserted into `providers`, not just from `describe_spec(spec)`.",
+  "raised_by_family": "openai",
+  "record_finding_id": "19a537eb386b"
+ },
+ "code_region": {
+  "commit": null,
+  "path": "src/codereview/cli.py",
+  "located": false,
+  "start_line": null,
+  "end_line": null,
+  "text": "        seat_roles[role] = seat_name",
+  "note": "region text is the finding's validated evidence quote; full region could not be re-located at the record head"
+ },
+ "refutation": {
+  "by_family": "nvidia",
+  "quote": "        seat_roles[role] = seat_name",
+  "reason": "The code explicitly records the seat name into seat_roles regardless of whether the seat already existed in providers. The assignment overwrites the mapping, meaning a role can alias an existing provider seat, and the recorded seat_roles entry reflects the new role assignment, not a collision reject",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "Parent-fail fix-verification (`probes/fix_verification.py`, result `fix-verification.txt`): the fix commit's CrossKindRoleCollisionTests pass at 6f5e73c and FAIL at parent 69ab354 — both collision cases report 'ProviderError not raised' (the shadowing the claim described), while the same-kind merge control passes in both trees. The tests were extracted for the parent run because the fix commit created the test module (and the setup modules) wholesale; the extracted class imports only cli + providers, present at the parent. Ruled jointly with #16 (same seam).",
+  "basis_evidence_sha256": [
+   "f3d811a8959972b7df07c9ea7369106377d769655a9508393dc48cde432dcd16"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/fix-verification.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_finding",
+  "severity_after": "major",
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry 19a537eb386b (decider=owner, marker=ratified, 2026-11-05T02:16:31+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-17-2026-11-04/10-19a537eb386b.md; source record: /home/hatch/workspace/codereview-providers/review-providers-out/codereview-20261105-000549.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": [
+  "finding sustained and fixed in commit 6f5e73c"
+ ]
+}

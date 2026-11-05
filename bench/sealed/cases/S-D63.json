@@ -1,0 +1,51 @@
+{
+ "case_id": "S-D63",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "IPv4 hostname regex matches invalid dotted numbers, producing false positives in the exposure report",
+ "finding": {
+  "claim": "IPv4 hostname regex matches invalid dotted numbers, producing false positives in the exposure report",
+  "evidence": "        r\"|\\d{1,3}(?:\\.\\d{1,3}){3}\\b\"",
+  "file": "probes/records_scan.py",
+  "line": 61,
+  "severity_as_raised": "minor",
+  "evidence_quote": "        r\"|\\d{1,3}(?:\\.\\d{1,3}){3}\\b\"",
+  "recommendation": "Tighten the IPv4 pattern to valid octets, or post-validate matches before counting them as hostnames. Otherwise arbitrary version-like or numeric strings can be reported as exposed hostnames.",
+  "raised_by_family": "openai",
+  "record_finding_id": "6508525840b4"
+ },
+ "code_region": {
+  "commit": "2fbf94f2ca6feec0ad1180a71d3c9064bf1cef4d",
+  "path": "probes/records_scan.py",
+  "located": true,
+  "start_line": 43,
+  "end_line": 63,
+  "text": "os.makedirs(RESULTS, exist_ok=True)\n\nPATTERNS = {\n    \"local_path\": re.compile(\n        r\"(?:/home/[A-Za-z0-9_.-]+|/root|/opt/[A-Za-z0-9_./-]+\"\n        r\"|~/workspace)[^\\s\\\"'<>]*\"),\n    \"hostname\": re.compile(\n        r\"\\b(?:[A-Za-z0-9-]+\\.(?:loca\\.lt|local|internal|lan)\\b\"\n        r\"|\\d{1,3}(?:\\.\\d{1,3}){3}\\b\"\n        r\"|[A-Za-z0-9-]*-prod\\b)\"),\n    \"connector_name\": re.compile(\n        r\"\\b(?:custom\\.[a-z0-9-]+|gmail|google_calendar|\"\n        r\"google_drive|google_docs|stripe|meta_ads|threads|\"\n        r\"instagram|facebook_cli|messenger_read|onepassword|\"\n        r\"shop-pay|shopify|spotify|duffel|flightaware|\"\n        r\"ticketmaster|plaid|tailscale)\\b\"),\n    \"account_id\": re.compile(\n        r\"\\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}\\b\"),\n    \"key_shaped\": re.compile(\n        r\"(?:sk-[A-Za-z0-9_-]{16,}|AKIA[0-9A-Z]{16}\"\n        r\"|ghp_[A-Za-z0-9]{20,}|xox[baprs]-[A-Za-z0-9-]{10,}\""
+ },
+ "refutation": {
+  "by_family": null,
+  "quote": "        r\"|\\d{1,3}(?:\\.\\d{1,3}){3}\\b\"",
+  "reason": "No panel refutation was recorded for this finding — it reached the workup undisputed. The opposing/confirmatory position is the executed probe in SS3 of the packet: Secret-scan probe (`probes/closing_records_scan_probe.py`, section a): the IPv4-shape pattern at the centre of this finding was executed against candidate strings. It MATCHES '999.123.456.789', '256.1.1.1', and '300.300.300.300' — none of which are valid IPv4 addresses — alongside true positives ('10.0.0.1', '192.168.001.001'). The pattern validates shape only; octet range is unchecked. Consequence bounded: a false positive here over-redacts/reports a secret-shaped string in scan output — over-inclusive, never under-inclusive.",
+  "provenance": "none-recorded: no dispute exists in the source record; the workup probe is the only counter-position"
+ },
+ "probe": {
+  "summary": "Secret-scan probe (`probes/closing_records_scan_probe.py`, section a): the IPv4-shape pattern at the centre of this finding was executed against candidate strings. It MATCHES '999.123.456.789', '256.1.1.1', and '300.300.300.300' — none of which are valid IPv4 addresses — alongside true positives ('10.0.0.1', '192.168.001.001'). The pattern validates shape only; octet range is unchecked. Consequence bounded: a false positive here over-redacts/reports a secret-shaped string in scan output — over-inclusive, never under-inclusive.",
+  "basis_evidence_sha256": [
+   "6306129ab7d3d6c279f858e9359529269a90a7be1b15ce99540c7c1ce5154e38"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/closing-records-scan.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_finding",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry 6508525840b4 (decider=owner, marker=ratified, 2026-11-05T04:08:01+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-closing-r1-2026-11-04/49-6508525840b4.md; source record: review-closing-r1/codereview-20261105-031927.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": []
+}

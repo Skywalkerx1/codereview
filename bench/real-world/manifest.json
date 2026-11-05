@@ -1,0 +1,127 @@
+{
+ "schema": "codereview.benchcorpus/1",
+ "stratum": "real-world",
+ "version": "0",
+ "cases": [
+  {
+   "id": "axios-cve-2020-28168-proxy-protocol-ssrf",
+   "category": "security",
+   "split": "real-world",
+   "expected_defects": 1,
+   "license": "MIT (verified in repo at the fix commit)",
+   "source": "axios/axios fix commit e426910be7c417bdbcde9c18cb184ead826fc0e1"
+  },
+  {
+   "id": "commons-text-cve-2022-42889-text4shell",
+   "category": "security",
+   "split": "real-world",
+   "expected_defects": 1,
+   "license": "Apache-2.0 (verified in repo at the fix commit)",
+   "source": "apache/commons-text fix commit b9b40b903e2d1f9935039803c9852439576780ea"
+  },
+  {
+   "id": "django-cve-2021-44420-url-path-bypass",
+   "category": "security",
+   "split": "real-world",
+   "expected_defects": 1,
+   "license": "BSD-3-Clause (verified in repo at the fix commit)",
+   "source": "django/django fix commit d4dcd5b9dd9e462fec8220e33e3e6c822b7e88a6"
+  },
+  {
+   "id": "flask-cve-2023-30861-session-cookie-vary-cache",
+   "category": "security",
+   "split": "real-world",
+   "expected_defects": 1,
+   "license": "BSD-3-Clause (verified in repo at the fix commit)",
+   "source": "pallets/flask fix commit afd63b16170b7c047f5758eb910c416511e9c965"
+  },
+  {
+   "id": "guzzle-cve-2022-31042-sensitive-headers-redirect",
+   "category": "security",
+   "split": "real-world",
+   "expected_defects": 1,
+   "license": "MIT (verified in repo at the fix commit)",
+   "source": "guzzle/guzzle fix commit e3ff079b22820c2029d4c2a87796b6a0b8716ad8"
+  },
+  {
+   "id": "jinja-cve-2020-28493-urlize-redos",
+   "category": "security",
+   "split": "real-world",
+   "expected_defects": 1,
+   "license": "BSD-3-Clause (verified in repo at the fix commit)",
+   "source": "pallets/jinja fix commit ef658dc3b6389b091d608e710a810ce8b87995b3"
+  },
+  {
+   "id": "jwt-go-cve-2020-26160-audience-verification",
+   "category": "security",
+   "split": "real-world",
+   "expected_defects": 1,
+   "license": "MIT (verified in repo at the fix commit)",
+   "source": "dgrijalva/jwt-go fix commit 614772a640cb8e8f8aef45b6d22cec8350b8a492"
+  },
+  {
+   "id": "lodash-cve-2020-8203-zipobjectdeep-prototype-pollution",
+   "category": "security",
+   "split": "real-world",
+   "expected_defects": 1,
+   "license": "MIT (verified in repo at the fix commit)",
+   "source": "lodash/lodash fix commit c84fe82760fb2d3e03a63379b297a1cc1a2fce12"
+  },
+  {
+   "id": "minimist-cve-2021-44906-prototype-pollution",
+   "category": "security",
+   "split": "real-world",
+   "expected_defects": 1,
+   "license": "MIT (verified in repo at the fix commit)",
+   "source": "minimistjs/minimist fix commit c2b981977fa834b223b408cfb860f933c9811e4d"
+  },
+  {
+   "id": "node-tar-cve-2021-37701-path-escape",
+   "category": "security",
+   "split": "real-world",
+   "expected_defects": 1,
+   "license": "ISC (verified in repo at the fix commit)",
+   "source": "npm/node-tar fix commit 875a37e3ec031186fc6599f6807341f56c584598"
+  },
+  {
+   "id": "pillow-cve-2022-22817-imagemath-eval",
+   "category": "security",
+   "split": "real-world",
+   "expected_defects": 1,
+   "license": "HPND (verified in repo at the fix commit)",
+   "source": "python-pillow/Pillow fix commit 8531b01d6cdf0b70f256f93092caa2a5d91afc11"
+  },
+  {
+   "id": "pyyaml-cve-2020-1747-fullconstructor-rce",
+   "category": "security",
+   "split": "real-world",
+   "expected_defects": 1,
+   "license": "MIT (verified in repo at the fix commit)",
+   "source": "yaml/pyyaml fix commit 5080ba513377b6355a0502104846ee804656f1e0"
+  },
+  {
+   "id": "requests-cve-2023-32681-proxy-authorization-leak",
+   "category": "security",
+   "split": "real-world",
+   "expected_defects": 1,
+   "license": "Apache-2.0 (verified in repo at the fix commit)",
+   "source": "psf/requests fix commit 74ea7cf7a6a27a4eeb2ae24e162bcc942a6706d5"
+  },
+  {
+   "id": "semver-cve-2022-25883-redos",
+   "category": "security",
+   "split": "real-world",
+   "expected_defects": 1,
+   "license": "ISC (verified in repo at the fix commit)",
+   "source": "npm/node-semver fix commit 717534ee353682f3bcf33e60a8af4292626d4441"
+  },
+  {
+   "id": "urllib3-cve-2023-43804-cookie-header-redirect-leak",
+   "category": "security",
+   "split": "real-world",
+   "expected_defects": 1,
+   "license": "MIT (verified in repo at the fix commit)",
+   "source": "urllib3/urllib3 fix commit 644124ecd0b6e417c527191f866daa05a5a2056d"
+  }
+ ]
+}

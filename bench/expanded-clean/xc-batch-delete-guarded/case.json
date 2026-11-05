@@ -1,0 +1,11 @@
+{
+  "id": "xc-batch-delete-guarded",
+  "title": "Retention cleanup deletes in batches with a mandatory filter",
+  "category": "clean",
+  "split": "expanded-clean",
+  "source": "Authored for the CodeReview benchmark corpus (expanded clean stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "expanded-clean",
+  "false_flag_note": "A reviewer may flag the DELETE or the interpolated table/where as injection or data-loss risk. The defences are layered and deliberate: the table name must be on a hardcoded allowlist (it never comes from a request), an empty WHERE is rejected outright so a full-table delete is impossible to express, values are always bound parameters, the where fragment is documented as trusted internal call-site code rather than user input, dry_run defaults to True and only counts, deletes proceed in bounded LIMIT batches with a hard batch ceiling, and the loop stops as soon as a short batch signals the end."
+}

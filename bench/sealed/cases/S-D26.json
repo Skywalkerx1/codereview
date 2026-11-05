@@ -1,0 +1,53 @@
+{
+ "case_id": "S-D26",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "_apply_role_assignments no cooldown/dedup for role seat re-assignment",
+ "finding": {
+  "claim": "_apply_role_assignments no cooldown/dedup for role seat re-assignment",
+  "evidence": "for role, spec in assignments.items():",
+  "file": "src/codereview/cli.py",
+  "line": 839,
+  "severity_as_raised": "major",
+  "evidence_quote": "for role, spec in assignments.items():",
+  "recommendation": "Add dedup/cooldown logic so re-assigning a role seat does not repeatedly rebuild and re-merge the same provider, which could flood logs or exhaust resources.",
+  "raised_by_family": "nvidia",
+  "record_finding_id": "f56cd4a0b6c9"
+ },
+ "code_region": {
+  "commit": "e35d64b2a81f7af20e64e3662c79c2c16217a936",
+  "path": "src/codereview/cli.py",
+  "located": true,
+  "start_line": 732,
+  "end_line": 752,
+  "text": "    role_models): lens pins for the two review lenses, the\n    role -> seat-name map for the record, and the role ->\n    {seat, provider, model, family} detail the record carries so\n    anyone can see which model served which role. Raises\n    ValueError/ProviderError on a bad assignment — callers turn\n    that into exit 2, never a silent default.\"\"\"\n    assignments = registry.parse_role_assignments(role_values)\n    lens_seats, seat_roles, role_models = {}, {}, {}\n    for role, spec in assignments.items():\n        desc = describe_spec(spec)\n        built = build_providers([spec],\n                                agent_timeout=agent_timeout)\n        (seat_name, seat_fn), = built.items()\n        if seat_name in providers:\n            # Cross-kind collision (internal review, refutation-\n            # weak finding on this seam): an agent role seat whose\n            # name an API seat already owns (or the reverse) must\n            # not silently record the role as served by the other\n            # kind of seat. When the existing seat carries kind/\n            # family tags that prove the mismatch, refuse loudly —\n            # the same rule build_providers enforces inside one"
+ },
+ "refutation": {
+  "by_family": "openai",
+  "quote": "            providers[seat_name] = seat_fn",
+  "reason": "The code only builds and merges a role seat when its seat name is not already present in the providers map, so repeated assignment does not repeatedly re-merge the same seat. The claim as stated about missing dedup for seat re-assignment is not supported by this region.",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "Reachability probe (`probes/reachability_probe.py`, result `reachability-f56cd4a0b6c9.txt`): the same 3-role assignment set applied to one panel three times running (more than any CLI path does — each entry point applies once): 9 role-spec builds, 0 subprocess spawns, 0 provider calls, panel keys stable, the original seat object preserved in every round. The claimed re-merge does not occur (merges are name-guarded); the marginal cost of a repeat is one discarded callable construction per role. NO concrete harm sequence was found.",
+  "basis_evidence_sha256": [
+   "8de92dd45266938fff3c655157ac873933a1f1a915d300c3e51cc2f08ebf764f"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/reachability-f56cd4a0b6c9.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_finding",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry f56cd4a0b6c9 (decider=owner, marker=ratified, 2026-11-05T02:16:35+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-17-2026-11-04/14-f56cd4a0b6c9.md; source record: /home/hatch/workspace/codereview/review-v110/codereview-20261105-001944.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": [
+  "finding sustained at reduced severity (owner downgrade)"
+ ]
+}

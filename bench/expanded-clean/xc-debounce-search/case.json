@@ -1,0 +1,11 @@
+{
+  "id": "xc-debounce-search",
+  "title": "Debounced search input with abort and stale-response guard",
+  "category": "clean",
+  "split": "expanded-clean",
+  "source": "Authored for the CodeReview benchmark corpus (expanded clean stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "expanded-clean",
+  "false_flag_note": "A reviewer may flag the swallowed AbortError as error hiding, or the request-id check as redundant next to abort. Both guards are needed: aborting the previous request stops its network work, but a response already in flight can still resolve afterwards, so the monotonically increasing request id is what guarantees only the latest query renders. Non-abort failures are not swallowed \u2014 they put a visible error message in the results region. The detach function removes the listener, clears the pending timer, and aborts in-flight work."
+}

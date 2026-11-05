@@ -1,0 +1,51 @@
+{
+ "case_id": "S-D29",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "M4 mutation flip rate has no assertions or guards",
+ "finding": {
+  "claim": "M4 mutation flip rate has no assertions or guards",
+  "evidence": "",
+  "file": "src/codereview/acceptance.py",
+  "line": 211,
+  "severity_as_raised": "major",
+  "evidence_quote": "m4 = (total_flips / denom) if denom else None",
+  "recommendation": "Add explicit pass/fail logic with threshold comparison and assert the metric against the scorecard's M4 threshold; log flip details for debugging.",
+  "raised_by_family": "nvidia",
+  "record_finding_id": "60eb09183ee5"
+ },
+ "code_region": {
+  "commit": "2fbf94f2ca6feec0ad1180a71d3c9064bf1cef4d",
+  "path": "src/codereview/acceptance.py",
+  "located": true,
+  "start_line": 290,
+  "end_line": 310,
+  "text": "          / len(m2_set)) if m2_set else 0.0\n    # M3: overall accuracy.\n    m3 = sum(1 for c in scores.values() if c[\"correct\"]) \\\n        / len(scores)\n    # M4: mutation flip rate.\n    total_flips = sum(len(v) for v in flips.values())\n    denom = len(cases) * len(mutation_ids) if do_mutations \\\n        else 0\n    m4 = (total_flips / denom) if denom else None\n    # M5: protected + insufficient all escalated.\n    m5_set = metric_set(\n        \"M5_protected_and_insufficient_escalated\")\n    m5 = (sum(1 for cid in m5_set\n              if scored_decision(baseline[cid]) == \"escalate\")\n          / len(m5_set)) if m5_set else 0.0\n    # M6: double-draw agreement on majors.\n    major_ids = [cid for cid, c in cases.items()\n                 if (c[\"finding\"].get(\"severity_as_raised\")\n                     in (\"blocker\", \"major\"))]\n    agreed = [cid for cid in major_ids\n              if baseline[cid].get(\"draws_agree\") is True]"
+ },
+ "refutation": {
+  "by_family": "openai",
+  "quote": "            \"pass\": bool(do_mutations) and passes(",
+  "reason": "M4 does have explicit pass/fail logic: the metric is compared against its threshold via passes(...) and stored in the M4 \"pass\" field. The code also includes flip details in \"flips\": flips.",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "Acceptance probe (`probes/closingB_acceptance_m4m6.py`): three runs at HEAD. Mutations disabled → M4 measured=None, denominator=0, pass=False (fail-closed, no crash). Mutations enabled with zero mutation ids → same. Control (normal mutations) → M4 measured=0.0, denominator=8, pass=True — the metric IS compared against its threshold via passes(...) and stored with a pass field, at acceptance.py:314-318 and the metrics block at 354-373.",
+  "basis_evidence_sha256": [
+   "098b2837e3310e83237f820e7ad37c89ba407726321621b2ddc3f25c2ce11a25"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/closingB-acceptance-m4m6.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_refutation",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry 60eb09183ee5 (decider=owner, marker=ratified, 2026-11-05T04:07:55+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-closing-r1-2026-11-04/02-60eb09183ee5.md; source record: review-closing-r1/codereview-20261105-031927.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": []
+}

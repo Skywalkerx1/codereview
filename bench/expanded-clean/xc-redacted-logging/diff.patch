@@ -1,0 +1,49 @@
+diff --git a/app/log_redaction.py b/app/log_redaction.py
+--- /dev/null
++++ b/app/log_redaction.py
+@@ -0,0 +1,45 @@
++import copy
++import logging
++import re
++
++REDACTED = "[REDACTED]"
++SENSITIVE_KEYS = (
++    "password", "passwd", "token", "secret", "api_key", "apikey",
++    "authorization", "ssn", "card_number", "cvv",
++)
++_KEY_ALT = "|".join(re.escape(key) for key in SENSITIVE_KEYS)
++_KV_PATTERN = re.compile(
++    r"(?i)\b(" + _KEY_ALT + r")(\s*[:=]\s*)(\S+)"
++)
++_JSON_PATTERN = re.compile(
++    r"(?i)(\"(?:" + _KEY_ALT + r")\"\s*:\s*\")[^\"]*(\")"
++)
++
++
++def redact_text(text):
++    """Redact sensitive values in an already-rendered log line."""
++    text = _JSON_PATTERN.sub(r"\1" + REDACTED + r"\2", text)
++    return _KV_PATTERN.sub(r"\1\2" + REDACTED, text)
++
++
++def sanitize_mapping(payload):
++    """Return a deep copy of *payload* with sensitive values redacted."""
++    if isinstance(payload, dict):
++        return {
++            key: (
++                REDACTED
++                if str(key).lower() in SENSITIVE_KEYS
++                else sanitize_mapping(value)
++            )
++            for key, value in payload.items()
++        }
++    if isinstance(payload, list):
++        return [sanitize_mapping(item) for item in payload]
++    return copy.deepcopy(payload)
++
++
++class RedactingFormatter(logging.Formatter):
++    """Formatter that scrubs secrets/PII from every emitted line."""
++
++    def format(self, record):
++        return redact_text(super().format(record))

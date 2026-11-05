@@ -1,0 +1,51 @@
+{
+ "case_id": "S-D62",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "Empty CODEREVIEW_PROVIDERS now falls through to saved config and can fail startup unexpectedly",
+ "finding": {
+  "claim": "Empty CODEREVIEW_PROVIDERS now falls through to saved config and can fail startup unexpectedly",
+  "evidence": "When no --provider is given, an empty providers env now uses 'or userconfig.default_provider_specs()' inside the same try block, so an operator who intentionally set the env empty no longer gets the previous built-in defaults and may instead hit a ValueError from saved config.",
+  "file": "src/codereview/cli.py",
+  "line": 1938,
+  "severity_as_raised": "minor",
+  "evidence_quote": "                    or userconfig.default_provider_specs()",
+  "recommendation": "Preserve the old empty-env fallback behavior, or only consult saved config when the env variable is unset rather than empty. At minimum, distinguish invalid saved config from an explicit empty env override.",
+  "raised_by_family": "openai",
+  "record_finding_id": "ca9fcd9ca7c2"
+ },
+ "code_region": {
+  "commit": "2fbf94f2ca6feec0ad1180a71d3c9064bf1cef4d",
+  "path": "src/codereview/cli.py",
+  "located": true,
+  "start_line": 392,
+  "end_line": 412,
+  "text": "        providers = providers_override\n    else:\n        specs = args.provider\n        if not specs:\n            env = (os.environ.get(\"CODEREVIEW_PROVIDERS\") or os.environ.get(\"REVIEWLOOP_PROVIDERS\", \"\"))\n            try:\n                specs = [s.strip() for s in env.split(\",\")\n                         if s.strip()] \\\n                    or userconfig.default_provider_specs()\n            except ValueError as exc:\n                print(f\"codereview: {exc}\", file=sys.stderr)\n                return 2\n        if not specs:\n            print(userconfig.NOT_SET_UP, file=sys.stderr)\n            return 2\n        try:\n            providers = build_providers(specs)\n        except Exception as exc:  # noqa: BLE001\n            print(f\"codereview: provider setup failed: {exc}\",\n                  file=sys.stderr)\n            return 2"
+ },
+ "refutation": {
+  "by_family": null,
+  "quote": "                    or userconfig.default_provider_specs()",
+  "reason": "No panel refutation was recorded for this finding — it reached the workup undisputed. The opposing/confirmatory position is the executed probe in SS3 of the packet: Env-precedence probe (`probes/closingB_registry_timeouts.py`, section 4): with CODEREVIEW_PROVIDERS set to the EMPTY string and a saved config present, seat resolution fell through to the SAVED CONFIG — the set-but-empty variable did not disable the saved setup. The claim's mechanism is confirmed as executed: the resolution treats empty as unset.",
+  "provenance": "none-recorded: no dispute exists in the source record; the workup probe is the only counter-position"
+ },
+ "probe": {
+  "summary": "Env-precedence probe (`probes/closingB_registry_timeouts.py`, section 4): with CODEREVIEW_PROVIDERS set to the EMPTY string and a saved config present, seat resolution fell through to the SAVED CONFIG — the set-but-empty variable did not disable the saved setup. The claim's mechanism is confirmed as executed: the resolution treats empty as unset.",
+  "basis_evidence_sha256": [
+   "d253dd716ab083e82b518b250831fd4e3d49e5bf4424a0536943b9690f9c2ba5"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/closingB-cli-core.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_finding",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry ca9fcd9ca7c2 (decider=owner, marker=ratified, 2026-11-05T04:08:01+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-closing-r1-2026-11-04/48-ca9fcd9ca7c2.md; source record: review-closing-r1/codereview-20261105-031927.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": []
+}

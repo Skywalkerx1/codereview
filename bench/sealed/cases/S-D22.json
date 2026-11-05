@@ -1,0 +1,51 @@
+{
+ "case_id": "S-D22",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "Directory pattern matching now overmatches sibling paths",
+ "finding": {
+  "claim": "Directory pattern matching now overmatches sibling paths",
+  "evidence": "The new matcher treats any plain path as a directory prefix using 'if path == base or path.startswith(base + \"/\")', but 'base' is built with 'pat.rstrip(\"/\")'. For a manifest pattern like 'foo', this also matches 'foobar/...', so unrelated product files can be classified as fixtures and removed from the blocking set.",
+  "file": "src/codereview/core.py",
+  "line": 116,
+  "severity_as_raised": "major",
+  "evidence_quote": "            if path == base or path.startswith(base + \"/\"):",
+  "recommendation": "Require a path boundary for plain directory patterns. For example, normalize patterns and only treat them as directory prefixes when the pattern explicitly ends with '/' or refers to an existing directory marker; otherwise match exact file paths only.",
+  "raised_by_family": "openai",
+  "record_finding_id": "d93089253022"
+ },
+ "code_region": {
+  "commit": "e3fc6a8c12bae345ce0102933b90f47bd874d862",
+  "path": "src/codereview/core.py",
+  "located": true,
+  "start_line": 111,
+  "end_line": 131,
+  "text": "    run_review's `fixture_scope`): the patterns come from a\n    versioned fixture manifest, never from an ad-hoc skip list.\"\"\"\n    for pat in patterns or []:\n        pat = (pat or \"\").strip()\n        if not pat:\n            continue\n        if pat.endswith(\"/**\"):\n            base = pat[:-3]\n            if path == base or path.startswith(base + \"/\"):\n                return True\n        elif any(c in pat for c in \"*?[\"):\n            if fnmatch.fnmatchcase(path, pat):\n                return True\n        else:\n            base = pat.rstrip(\"/\")\n            if path == base or path.startswith(base + \"/\"):\n                return True\n    return False\n\n\nFIXTURE_MANIFEST_SCHEMA = \"codereview.fixture-manifest/1\""
+ },
+ "refutation": {
+  "by_family": "nvidia",
+  "quote": "            if path == base or path.startswith(base + \"/\"):",
+  "reason": "The code explicitly checks `path == base` before the `startswith` call, so an exact match like 'foo' matches 'foo' but does not match 'foobar/...' because the startswith condition requires the trailing slash separator.",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "P9 matrix executed (`probes/gap_matcher_probe.py`, result `gap-matcher-d93089253022.txt`) — 15 cases at HEAD: - Sibling prefixes never match: `foobar/x.py` vs `foo` → **False**; `foobar` vs `foo` → False; `tests/fixtures2/x.py` vs `tests/fixtures` → False; sibling vs `foo/` and vs `foo/**` → False. - True matches behave: `foo/x.py`, `foo`, `foo/` vs `foo` → True; `tests/fixtures/x.py` vs `tests/fixtures` → True; glob forms (`f*`, `foo/*.py`) still work.",
+  "basis_evidence_sha256": [
+   "61b6d226bbac198fe4f2f573b8fac74fd6c3641d746c4f9fcb1fb2a37942343a"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/gap-matcher-d93089253022.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_refutation",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry d93089253022 (decider=owner, marker=ratified, 2026-11-05T02:16:35+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-gap-2026-11-04/07-d93089253022.md; source record: /home/hatch/workspace/codereview/review-v15/codereview-20261104-224759.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": []
+}

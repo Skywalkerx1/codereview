@@ -1,0 +1,23 @@
+diff --git a/app/money.py b/app/money.py
+--- /dev/null
++++ b/app/money.py
+@@ -0,0 +1,19 @@
++from decimal import Decimal, ROUND_HALF_UP
++
++CENT = Decimal("0.01")
++
++def parse_money(value):
++    if isinstance(value, float):
++        raise TypeError("money must be str, int, or Decimal, not float")
++    amount = value if isinstance(value, Decimal) else Decimal(str(value))
++    return amount.quantize(CENT, rounding=ROUND_HALF_UP)
++
++def line_total(unit_price, quantity):
++    if quantity < 0:
++        raise ValueError("quantity must be non-negative")
++    return (parse_money(unit_price) * quantity).quantize(CENT, rounding=ROUND_HALF_UP)
++
++def total_with_tax(subtotal, tax_rate):
++    subtotal = parse_money(subtotal)
++    tax = (subtotal * Decimal(str(tax_rate))).quantize(CENT, rounding=ROUND_HALF_UP)
++    return subtotal + tax

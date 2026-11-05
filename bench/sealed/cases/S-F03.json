@@ -1,0 +1,49 @@
+{
+ "case_id": "S-F03",
+ "case_class": "sealed_fp_corpus",
+ "sealed": true,
+ "title": "Broad exception catch may mask other request failures",
+ "finding": {
+  "claim": "Broad exception catch may mask other request failures",
+  "evidence": "except requests.Timeout:",
+  "file": "app/feeds.py",
+  "line": 12,
+  "severity_as_raised": "minor",
+  "evidence_quote": "except requests.Timeout:",
+  "recommendation": "Catch only the expected exception types; let other request errors (ConnectionError, HTTPError) propagate or be handled separately.",
+  "raised_by_family": null,
+  "record_finding_id": "d39a517bc276"
+ },
+ "code_region": {
+  "commit": null,
+  "path": "app/feeds.py",
+  "located": true,
+  "start_line": null,
+  "end_line": null,
+  "text": "diff --git a/app/feeds.py b/app/feeds.py\n--- a/app/feeds.py\n+++ b/app/feeds.py\n@@ -9,6 +9,10 @@ import requests\n \n def poll(feed):\n-    resp = requests.get(feed.url)\n-    return resp.json()\n+    for attempt in range(2):\n+        try:\n+            resp = requests.get(feed.url, timeout=10)\n+            return resp.json()\n+        except requests.Timeout:\n+            if attempt == 1:\n+                raise\n",
+  "note": "region is the benchmark case diff under review (bench/corpus/clean-add-timeout-retry/diff.patch)"
+ },
+ "refutation": {
+  "by_family": "adjudication",
+  "quote": "except requests.Timeout:",
+  "reason": "Mischaracterizes the code: the except clause names exactly requests.Timeout, which is narrow (ConnectionError is not a subclass; other request errors propagate). The catch the finding asks for is the catch that exists.",
+  "provenance": "constructed-from-adjudication: the refutation position is the step-3 blind probe-first adjudication basis (SS2.3), not a recorded panel refutation"
+ },
+ "probe": {
+  "summary": "Mischaracterizes the code: the except clause names exactly requests.Timeout, which is narrow (ConnectionError is not a subclass; other request errors propagate). The catch the finding asks for is the catch that exists.",
+  "ref": "P12"
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_refutation",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "step-3 adjudication of the 91 unmatched benchmark findings (fp-corpus.jsonl, finding d39a517bc276, class speculative-false-positive)",
+  "label_independence": "label produced by blind probe-first adjudication before the redesigned Tech Lead existed; adjudicators were blind to the raising seat"
+ },
+ "notes": [
+  "benchmark case: clean-add-timeout-retry"
+ ]
+}

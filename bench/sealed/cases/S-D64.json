@@ -1,0 +1,53 @@
+{
+ "case_id": "S-D64",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "Evidence-sidecar verification accepts refs with empty or malformed sha256 values",
+ "finding": {
+  "claim": "Evidence-sidecar verification accepts refs with empty or malformed sha256 values",
+  "evidence": "digest = str(ref.get('sha256') or '')",
+  "file": "src/codereview/core.py",
+  "line": 5840,
+  "severity_as_raised": "major",
+  "evidence_quote": "        digest = str(ref.get(\"sha256\") or \"\")",
+  "recommendation": "Reject refs whose sha256 is not exactly 64 lowercase hex characters before attempting to load a sidecar file, and report them as invalid evidence refs. This should mirror the strict hash-format checks used elsewhere in the file.",
+  "raised_by_family": "openai",
+  "record_finding_id": "531bd4e5a458"
+ },
+ "code_region": {
+  "commit": "2fbf94f2ca6feec0ad1180a71d3c9064bf1cef4d",
+  "path": "src/codereview/core.py",
+  "located": true,
+  "start_line": 5820,
+  "end_line": 5840,
+  "text": "    if not refs:\n        return []\n    if evidence_dir is None:\n        return [f\"record carries {len(refs)} evidence sidecar \"\n                f\"ref(s) but no evidence directory was located\"]\n    problems = []\n    cache = {}\n    for container, key, ref in refs:\n        digest = str(ref.get(\"sha256\") or \"\")\n        label = f\"{key} (sha256 {digest[:12]}…)\"\n        if digest not in cache:\n            path = os.path.join(evidence_dir, digest)\n            if not os.path.isfile(path):\n                cache[digest] = None\n            else:\n                with open(path, encoding=\"utf-8\") as fh:\n                    cache[digest] = fh.read()\n        full = cache[digest]\n        if full is None:\n            problems.append(f\"{label}: sidecar file missing\")\n            continue"
+ },
+ "refutation": {
+  "by_family": null,
+  "quote": "        digest = str(ref.get(\"sha256\") or \"\")",
+  "reason": "No panel refutation was recorded for this finding — it reached the workup undisputed. The opposing/confirmatory position is the executed probe in SS3 of the packet: Sidecar-sha probe (`probes/closingA_sidecar_sha.py`) drives `core._validate_evidence_sidecars` directly (function at core.py:5855; cited line at core.py:5873 at HEAD) with hand-made refs. Every malformed shape fails closed — the problems list is non-empty in all four cases: - empty sha (`''`) → `sidecar file missing` - non-hex sha (`'zz-not-a-hash'`) → `sidecar file missing` - well-formed but absent sha (`'a'×64`) → `sidecar file missing` - traversal sha (`'../outside.txt'`) naming a REAL file outside the evidence dir → the file is loaded, then rejected: `sidecar content does not hash to its ref (tampered or corrupt)` - control (a genuine ref produced by `_attach_evidence_sidecars`) → problems=[] — valid refs still validate The mechanism is structural: the digest is used simultaneously as the sidecar's filename inside the evidence dir and as the expected hash of its content, so a ref validates only if a file exists whose own sha256 equals the ref string. No malformed value can satisfy that. Re-run at HEAD `61e137d` produced byte-identical output (sha256 unchanged, §5).",
+  "provenance": "none-recorded: no dispute exists in the source record; the workup probe is the only counter-position"
+ },
+ "probe": {
+  "summary": "Sidecar-sha probe (`probes/closingA_sidecar_sha.py`) drives `core._validate_evidence_sidecars` directly (function at core.py:5855; cited line at core.py:5873 at HEAD) with hand-made refs. Every malformed shape fails closed — the problems list is non-empty in all four cases: - empty sha (`''`) → `sidecar file missing` - non-hex sha (`'zz-not-a-hash'`) → `sidecar file missing` - well-formed but absent sha (`'a'×64`) → `sidecar file missing` - traversal sha (`'../outside.txt'`) naming a REAL file outside the evidence dir → the file is loaded, then rejected: `sidecar content does not hash to its ref (tampered or corrupt)` - control (a genuine ref produced by `_attach_evidence_sidecars`) → problems=[] — valid refs still validate The mechanism is structural: the digest is used simultaneously as the sidecar's filename inside the evidence dir and as the expected hash of its content, so a ref validates only if a file exists whose own sha256 equals the ref string. No malformed value can satisfy that. Re-run at HEAD `61e137d` produced byte-identical output (sha256 unchanged, §5).",
+  "basis_evidence_sha256": [
+   "c0b48b759192f95bf44457661bd34a1af2ca6baeaf49cdd0f5c4250e2eb900ed"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/closingA-sidecar-sha.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_refutation",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry 531bd4e5a458 (decider=owner, marker=ratified, 2026-11-05T04:42:53+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-closing-r1-2026-11-04/57-531bd4e5a458.md; source record: review-closing-r1/codereview-20261105-031927.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": [
+  "reason_corrected: the validation's strictness is structural rather than format-based: the digest serves as both the sidecar filename and its expected content hash, so acceptance requires a file whose own sha256 equals the ref. The absence of a 64-hex format pre-check is therefore not an acceptance hole."
+ ]
+}

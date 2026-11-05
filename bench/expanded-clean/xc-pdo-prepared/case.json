@@ -1,0 +1,11 @@
+{
+  "id": "xc-pdo-prepared",
+  "title": "User lookup and PDO factory with prepared statements and exceptions",
+  "category": "clean",
+  "split": "expanded-clean",
+  "source": "Authored for the CodeReview benchmark corpus (expanded clean stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "expanded-clean",
+  "false_flag_note": "A reviewer may flag ATTR_EMULATE_PREPARES or the factory as ceremony. Emulation is disabled so placeholders are real server-side prepares and values can never be reinterpreted as SQL; errmode is set to exceptions so a failed query cannot be mistaken for an empty result; the email is bound through execute() rather than concatenated; and fetch() returning false for 'no row' is normalised to null so callers get one consistent absence signal."
+}

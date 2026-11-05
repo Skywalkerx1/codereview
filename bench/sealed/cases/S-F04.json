@@ -1,0 +1,49 @@
+{
+ "case_id": "S-F04",
+ "case_class": "sealed_fp_corpus",
+ "sealed": true,
+ "title": "State file lost on crash between write and replace",
+ "finding": {
+  "claim": "State file lost on crash between write and replace",
+  "evidence": "tmp = STATE_PATH + \".tmp\"\n    with open(tmp, \"w\") as fh:\n        json.dump({\"signature\": sig}, fh)\n    os.replace(tmp, STATE_PATH)",
+  "file": "app/health_check.py",
+  "line": 17,
+  "severity_as_raised": "major",
+  "evidence_quote": "    tmp = STATE_PATH + \".tmp\"",
+  "recommendation": "Write state atomically using a single file-descriptor operation (e.g., write to STATE_PATH directly with O_EXCL or use os.open with O_CREAT|O_WRONLY|O_TRUNC and ftruncate, then rename), or ensure the temp file is only committed after all side-effects succeed.",
+  "raised_by_family": null,
+  "record_finding_id": "82a44ce5e721"
+ },
+ "code_region": {
+  "commit": null,
+  "path": "app/health_check.py",
+  "located": true,
+  "start_line": null,
+  "end_line": null,
+  "text": "diff --git a/app/health_check.py b/app/health_check.py\n--- a/app/health_check.py\n+++ b/app/health_check.py\n@@ -1,3 +1,4 @@\n import json\n+import os\n import smtplib\n@@ -10,8 +11,22 @@\n STATE_PATH = \"/var/lib/app/health_alert_state.json\"\n \n+def _alert_signature(violations):\n+    return \",\".join(sorted(v.name for v in violations))\n+\n def run_checks(db):\n     violations = db.query(\"SELECT * FROM invariant_violations\")\n-    if violations:\n-        report(violations)\n+    sig = _alert_signature(violations)\n+    state = _load_state(STATE_PATH)\n+    if violations and sig != state.get(\"signature\"):\n+        sendmail(\"admin@example.com\", \"ABNORMALITY set changed\",\n+                 _describe(violations))\n+    if not violations and state.get(\"signature\"):\n+        sendmail(\"admin@example.com\", \"RECOVERED\", \"all checks green\")\n+    tmp = STATE_PATH + \".tmp\"\n+    with open(tmp, \"w\") as fh:\n+        json.dump({\"signature\": sig}, fh)\n+    os.replace(tmp, STATE_PATH)\n     return len(violations)\n",
+  "note": "region is the benchmark case diff under review (bench/corpus/clean-health-guard-fix/diff.patch)"
+ },
+ "refutation": {
+  "by_family": "adjudication",
+  "quote": "    tmp = STATE_PATH + \".tmp\"",
+  "reason": "Refuted by probe: with tmp-write + os.replace, a crash before the replace leaves the previous state file intact and only orphans the tmp file; worst case is one repeated alert, not state loss. The claimed data-loss mechanism is exactly what this pattern prevents.",
+  "provenance": "constructed-from-adjudication: the refutation position is the step-3 blind probe-first adjudication basis (SS2.3), not a recorded panel refutation"
+ },
+ "probe": {
+  "summary": "Refuted by probe: with tmp-write + os.replace, a crash before the replace leaves the previous state file intact and only orphans the tmp file; worst case is one repeated alert, not state loss. The claimed data-loss mechanism is exactly what this pattern prevents.",
+  "ref": "P9"
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_refutation",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "step-3 adjudication of the 91 unmatched benchmark findings (fp-corpus.jsonl, finding 82a44ce5e721, class speculative-false-positive)",
+  "label_independence": "label produced by blind probe-first adjudication before the redesigned Tech Lead existed; adjudicators were blind to the raising seat"
+ },
+ "notes": [
+  "benchmark case: clean-health-guard-fix"
+ ]
+}

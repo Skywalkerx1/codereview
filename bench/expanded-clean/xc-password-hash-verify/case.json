@@ -1,0 +1,11 @@
+{
+  "id": "xc-password-hash-verify",
+  "title": "Login flow with password_verify, dummy-hash timing cover, and rehash",
+  "category": "clean",
+  "split": "expanded-clean",
+  "source": "Authored for the CodeReview benchmark corpus (expanded clean stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "expanded-clean",
+  "false_flag_note": "A reviewer may flag verifying a dummy hash for unknown users as wasted work, or returning the same null for every failure as hiding errors. Both are deliberate anti-enumeration measures: password_verify always runs (against a random per-process dummy hash when the account does not exist) so response timing does not reveal which emails are registered, and every failure mode collapses to the same null so the caller can only render one generic 'invalid credentials' message. Registration enforces a minimum length and stores only the password_hash digest, and a successful login transparently upgrades the stored hash when the algorithm parameters have moved on."
+}

@@ -1,0 +1,51 @@
+{
+ "case_id": "S-D14",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "Forced rerun can be rejected because old degraded records remain in memory",
+ "finding": {
+  "claim": "Forced rerun can be rejected because old degraded records remain in memory",
+  "evidence": "During '--force', the code still appends new records onto any previously loaded records via 'records.append(record)', but the post-run health check evaluates 'degraded = [r for r in records if r.get('degraded')]'. That means a prior degraded record in the existing file will cause the temp file swap to be refused even if every newly generated record in this forced rerun is healthy.",
+  "file": "src/codereview/bench.py",
+  "line": 553,
+  "severity_as_raised": "major",
+  "evidence_quote": "            degraded = [r for r in records if r.get(\"degraded\")]",
+  "recommendation": "When force is enabled, either clear 'records' before generating replacements, or track newly generated records separately and run the degraded check only against the replacement set that will be written to the temp file.",
+  "raised_by_family": "openai",
+  "record_finding_id": "474297e6ffdc"
+ },
+ "code_region": {
+  "commit": "e3fc6a8c12bae345ce0102933b90f47bd874d862",
+  "path": "src/codereview/bench.py",
+  "located": true,
+  "start_line": 564,
+  "end_line": 584,
+  "text": "            # instead of raising, so a force run made while a\n            # provider is down would otherwise replace good stored\n            # results with all-degraded ones (review-v14 finding\n            # [2] — the crash leg was already safe: an exception\n            # mid-run never reaches this line and the previous file\n            # stays intact). Refuse the swap, drop the temp file,\n            # and say so loudly; the operator re-runs when the\n            # providers are back.\n            degraded = [r for r in records if r.get(\"degraded\")]\n            if degraded:\n                try:\n                    os.remove(write_path)\n                except OSError:\n                    pass\n                raise ValueError(\n                    f\"bench --force: {len(degraded)} of \"\n                    f\"{len(records)} case(s) for config \"\n                    f\"{cfg['name']!r} came back degraded (a \"\n                    \"provider failed); the previous results file \"\n                    \"was left intact — re-run when the providers \"\n                    \"are healthy\")"
+ },
+ "refutation": {
+  "by_family": "nvidia",
+  "quote": "            degraded = [r for r in records if r.get(\"degraded\")]",
+  "reason": "The code region shows the degraded check operates on the full 'records' list, which includes previously loaded records. The finding claims the post-run health check refuses the temp file swap if any prior degraded record exists. However, the code at line 553 only defines the degraded list; it does n",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "P3 executed (`probes/gap_bench_force_probe.py`, result `gap-bench-force-474297e6ffdc.txt`): a stored results file whose sole record is degraded (valid resume hashes) was force-rerun with healthy seats — **accepted**; the file now holds the fresh healthy record. Control: a forced rerun whose NEW records degrade is **refused**, and the previous file survives byte-intact. Both halves of P3 pass at HEAD.",
+  "basis_evidence_sha256": [
+   "bdb143d7a41f3fa4fff7c1263d00511272a7ffea10859534a9b0e9a076548771"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/gap-bench-force-474297e6ffdc.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_refutation",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry 474297e6ffdc (decider=owner, marker=ratified, 2026-11-05T02:16:33+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-gap-2026-11-04/01-474297e6ffdc.md; source record: /home/hatch/workspace/codereview/review-v15/codereview-20261104-224759.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": []
+}

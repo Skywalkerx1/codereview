@@ -1,0 +1,53 @@
+{
+ "case_id": "S-D42",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "Freshness check silently skips records whose recorded range is a single commit",
+ "finding": {
+  "claim": "Freshness check silently skips records whose recorded range is a single commit",
+  "evidence": "When a record has a truthy 'range', the code always calls git rev-list on it and only falls back to 'head' when that returns None. For a single-commit range, rev-list returns an empty set rather than None, so the later 'head' fallback is skipped and the record is treated as not touching any span.",
+  "file": "src/codereview/disputes.py",
+  "line": 521,
+  "severity_as_raised": "major",
+  "evidence_quote": "            commits = _commit_set(repo, str(rng))",
+  "recommendation": "Treat an empty commit set from '_commit_set' as unresolved for this purpose, or explicitly detect single-commit ranges and include the recorded head/commit itself before deciding whether the record touches the span.",
+  "raised_by_family": "openai",
+  "record_finding_id": "55c815ff5fbe"
+ },
+ "code_region": {
+  "commit": "2fbf94f2ca6feec0ad1180a71d3c9064bf1cef4d",
+  "path": "src/codereview/disputes.py",
+  "located": true,
+  "start_line": 531,
+  "end_line": 551,
+  "text": "    for path in iter_record_files(root):\n        record = load_record(path)\n        if record is None:\n            continue\n        rel = os.path.relpath(path, root).replace(os.sep, \"/\")\n        commits = None\n        rng = record.get(\"range\")\n        if rng:\n            commits = _commit_set(repo, str(rng))\n        if commits is None and record.get(\"head\"):\n            one = _git_lines(repo, \"rev-parse\", \"--verify\",\n                             f\"{record['head']}^{{commit}}\")\n            commits = set(one) if one else None\n        if commits is None:\n            unscoped.append(rel)\n        elif commits & span_commits:\n            touching.append(rel)\n    return touching, unscoped\n\n\ndef inventory_ids_from_file(path):"
+ },
+ "refutation": {
+  "by_family": "nvidia",
+  "quote": "            commits = _commit_set(repo, str(rng))",
+  "reason": "The quoted line shows the code calls _commit_set with the range string, but the finding's claim that rev-list returns an empty set for single-commit ranges and skips the head fallback is not supported by the visible code. The region does not contain the _commit_set implementation or the subsequent h",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "Disputes probe (`probes/closing_disputes_probe.py`, section c): synthetic records were placed against a span containing their head. A record with the degenerate range `X..X` (rev-list yields an EMPTY set — not None, so the head fallback never ran) appeared in NEITHER the touching nor the unscoped list: silently dropped from the freshness check, although its head is inside the span. (A bare-sha range behaves oppositely — rev-list returns the commit and its ancestors.) FIXED in this workup: an empty resolution now falls back to the recorded head, and a record with neither lands in unscoped — named, never silent. Parent-fail verified by two new tests.",
+  "basis_evidence_sha256": [
+   "7e3f036035bc08aaa22e723679f68a4692faf113e235fa30ba4f5a9660f6f4af"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/closing-disputes.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_finding",
+  "severity_after": "major",
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry 55c815ff5fbe (decider=owner, marker=ratified, 2026-11-05T04:07:57+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-closing-r1-2026-11-04/17-55c815ff5fbe.md; source record: review-closing-r1/codereview-20261105-031927.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": [
+  "finding sustained and fixed in commit 99fe588"
+ ]
+}

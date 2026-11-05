@@ -1,0 +1,49 @@
+{
+ "case_id": "S-F07",
+ "case_class": "sealed_fp_corpus",
+ "sealed": true,
+ "title": "Missing observability: no logging or metrics emitted on click recording",
+ "finding": {
+  "claim": "Missing observability: no logging or metrics emitted on click recording",
+  "evidence": "def record_click(store, page_id):",
+  "file": "app/metrics.py",
+  "line": 17,
+  "severity_as_raised": "minor",
+  "evidence_quote": "def record_click(store, page_id):",
+  "recommendation": "Add structured logging or emit a metric counter when a click is recorded, consistent with the pattern used for view recording (if any).",
+  "raised_by_family": null,
+  "record_finding_id": "07ac0287263a"
+ },
+ "code_region": {
+  "commit": null,
+  "path": "app/metrics.py",
+  "located": true,
+  "start_line": null,
+  "end_line": null,
+  "text": "diff --git a/app/metrics.py b/app/metrics.py\n--- a/app/metrics.py\n+++ b/app/metrics.py\n@@ -12,3 +12,7 @@ def record_view(store, page_id):\n     count = store.get(f\"views:{page_id}\") or 0\n     store.set(f\"views:{page_id}\", count + 1)\n+\n+def record_click(store, page_id):\n+    count = store.get(f\"clicks:{page_id}\") or 0\n+    store.set(f\"clicks:{page_id}\", count + 1)\n",
+  "note": "region is the benchmark case diff under review (bench/corpus/race-counter-increment/diff.patch)"
+ },
+ "refutation": {
+  "by_family": "adjudication",
+  "quote": "def record_click(store, page_id):",
+  "reason": "Feature request, not a defect: the pre-existing record_view has no logging either (the finding hedges 'if any'); absence of observability in otherwise-correct new code is not a defect in this change.",
+  "provenance": "constructed-from-adjudication: the refutation position is the step-3 blind probe-first adjudication basis (SS2.3), not a recorded panel refutation"
+ },
+ "probe": {
+  "summary": "Feature request, not a defect: the pre-existing record_view has no logging either (the finding hedges 'if any'); absence of observability in otherwise-correct new code is not a defect in this change.",
+  "ref": null
+ },
+ "probe_settled": false,
+ "expected": {
+  "decision": "sustain_refutation",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "step-3 adjudication of the 91 unmatched benchmark findings (fp-corpus.jsonl, finding 07ac0287263a, class speculative-false-positive)",
+  "label_independence": "label produced by blind probe-first adjudication before the redesigned Tech Lead existed; adjudicators were blind to the raising seat"
+ },
+ "notes": [
+  "benchmark case: race-counter-increment"
+ ]
+}

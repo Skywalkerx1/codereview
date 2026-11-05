@@ -1,0 +1,51 @@
+{
+ "case_id": "S-D09",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "Verification fallback lens mapping is wrong for the second seat in a 2-provider panel",
+ "finding": {
+  "claim": "Verification fallback lens mapping is wrong for the second seat in a 2-provider panel",
+  "evidence": "The new mapping assigns each provider only `list(LENSES)[_i % len(LENSES)]`, but the comment says two seats split the lenses. With two providers and more than two lenses, seat 0 gets only the first lens and seat 1 gets only the second, so findings from other lenses raised by those seats will look up the wrong fallback or none at all.",
+  "file": "src/codereview/core.py",
+  "line": 1658,
+  "severity_as_raised": "major",
+  "evidence_quote": "            else [list(LENSES)[_i % len(LENSES)]])",
+  "recommendation": "Reuse the exact review-round seat-to-lens assignment logic from `_reviewer_tasks` instead of reconstructing it here. In particular, for 2 seats each seat should own the same lens set it would in review, not a single modulo-selected lens.",
+  "raised_by_family": null,
+  "record_finding_id": "35dbb7d20941"
+ },
+ "code_region": {
+  "commit": "2fbf94f2ca6feec0ad1180a71d3c9064bf1cef4d",
+  "path": "src/codereview/core.py",
+  "located": true,
+  "start_line": 3780,
+  "end_line": 3800,
+  "text": "    # (_reviewer_tasks): a seat's fallback is the one configured\n    # for the lens it would serve in a review round — two seats\n    # split the lenses, a single seat serves both, 3+ cycle.\n    provider_lenses = {}\n    _items = list(providers.items())\n    for _i, (_name, _fn) in enumerate(_items):\n        provider_lenses[_name] = (\n            list(LENSES) if len(_items) == 1\n            else [list(LENSES)[_i % len(LENSES)]])\n\n    per_provider = []\n    new_findings = list(deterministic_scan(patch, test_results))\n    any_success = False\n    degraded = False\n    fallback_notes = []\n    with concurrent.futures.ThreadPoolExecutor(\n            max_workers=max(2, len(providers) or 1)) as ex:\n        futs = {ex.submit(_review_job, fn, prompt, sleep): name\n                for name, fn in providers.items()}\n        for fut in concurrent.futures.as_completed(futs):\n            name = futs[fut]"
+ },
+ "refutation": {
+  "by_family": "nvidia",
+  "quote": "            else [list(LENSES)[_i % len(LENSES)]])",
+  "reason": "The code assigns each provider a full lens list (LENSES) when there is only one provider, and a modulo-selected single lens per provider when there are multiple. The claim that two seats split lenses with each getting only one modulo-selected lens is incorrect; the assignment logic here gives each p",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "Lens-mapping permutation probe (`probes/lens_mapping_probe.py`, result `lens-mapping-35dbb7d20941.txt`): both orderings of a 2-provider panel × each seat failing, a single-seat panel, and a 3-seat panel — in every case the serving fallback is the one configured for the lens `_reviewer_tasks` assigns the failed seat. Agreement 7/7.",
+  "basis_evidence_sha256": [
+   "21c2ec478713010f36ca26282e1d5852821903b6393d786216bff6aadf533a0b"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/lens-mapping-35dbb7d20941.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_refutation",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry 35dbb7d20941 (decider=owner, marker=ratified, 2026-11-05T02:16:32+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-17-2026-11-04/02-35dbb7d20941.md; source record: /home/hatch/workspace/codereview/review-v095-fix/codereview-20261104-230555.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": []
+}

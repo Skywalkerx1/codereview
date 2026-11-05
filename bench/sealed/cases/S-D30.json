@@ -1,0 +1,51 @@
+{
+ "case_id": "S-D30",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "_is_within may silently fail on Windows path edge cases",
+ "finding": {
+  "claim": "_is_within may silently fail on Windows path edge cases",
+  "evidence": "",
+  "file": "src/codereview/cli.py",
+  "line": 82,
+  "severity_as_raised": "major",
+  "evidence_quote": "    except ValueError:",
+  "recommendation": "Add explicit platform guard or logging to surface when _is_within returns False due to ValueError on non-POSIX systems, or ensure the function is only called in POSIX contexts with validated paths.",
+  "raised_by_family": "nvidia",
+  "record_finding_id": "127ddee9be1b"
+ },
+ "code_region": {
+  "commit": "2fbf94f2ca6feec0ad1180a71d3c9064bf1cef4d",
+  "path": "src/codereview/cli.py",
+  "located": true,
+  "start_line": 91,
+  "end_line": 111,
+  "text": "    containment failure, never a pass (v0.9.6, disputed findings\n    eae8137a6db3 / 3cecf66f6ce5: the mechanism was real, the\n    severity was not — one shared helper, used at both loader\n    call sites, so the two cannot drift apart again).\"\"\"\n    try:\n        p = os.path.realpath(path)\n        r = os.path.realpath(root)\n        return os.path.commonpath([p, r]) == r\n    except ValueError:\n        return False\n\n\ndef _load_fixture_scope(path, repo=\".\"):\n    \"\"\"Load a versioned fixture manifest (clean-gate solution §3):\n    returns the fixture_scope dict run_review records and\n    record-verify recomputes — manifest path (repo-relative),\n    content hash of the exact bytes, policy version, and the\n    enumerated fixture paths. The manifest declares which paths\n    are intentionally vulnerable test DATA; a review run only\n    classifies fixture findings when the operator passes one.\"\"\"\n    repo_abs = os.path.realpath(repo)"
+ },
+ "refutation": {
+  "by_family": "openai",
+  "quote": "    \"\"\"True when `path` resolves inside `root` — failing closed.",
+  "reason": "The code explicitly documents and implements a fail-closed behavior for ValueError cases, so returning False on Windows path edge cases is intentional rather than a silent correctness failure.",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "CLI probe (`probes/closingB_cli_core.py`, _is_within section): at HEAD (cli.py:85-100) an inside path returns True, an outside path False, and the simulated cross-drive ValueError returns False — the documented fail-closed behaviour, exercised. The supported-platform manifest adopted by the owner is POSIX-only (the closing record itself carries `supported_platforms: {'os': ['posix'], 'python': '>=3.11'}`); Windows path semantics are out of scope by decision, and where they can arise the helper fails closed rather than silently passing.",
+  "basis_evidence_sha256": [
+   "d253dd716ab083e82b518b250831fd4e3d49e5bf4424a0536943b9690f9c2ba5"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/closingB-cli-core.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_refutation",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry 127ddee9be1b (decider=owner, marker=ratified, 2026-11-05T04:07:55+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-closing-r1-2026-11-04/03-127ddee9be1b.md; source record: review-closing-r1/codereview-20261105-031927.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": []
+}

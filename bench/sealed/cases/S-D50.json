@@ -1,0 +1,51 @@
+{
+ "case_id": "S-D50",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "Probe can crash with UnboundLocalError if _doctor_main does not call the patched role-assignment hook",
+ "finding": {
+  "claim": "Probe can crash with UnboundLocalError if _doctor_main does not call the patched role-assignment hook",
+  "evidence": "The variable used after monkeypatching is only assigned inside the fake hook, but is read unconditionally after restoring the original function.",
+  "file": "probes/gap_doctor_timeout_probe.py",
+  "line": 65,
+  "severity_as_raised": "major",
+  "evidence_quote": "        return [], {}, {}, None",
+  "recommendation": "Initialize 'got' before the monkeypatch block or keep the reporting inside the try block with a fallback when the patched path is not exercised. More robustly, assert that the hook was called before formatting 'got'.",
+  "raised_by_family": "openai",
+  "record_finding_id": "42011b7abf72"
+ },
+ "code_region": {
+  "commit": "2fbf94f2ca6feec0ad1180a71d3c9064bf1cef4d",
+  "path": "probes/gap_doctor_timeout_probe.py",
+  "located": true,
+  "start_line": 78,
+  "end_line": 98,
+  "text": "    def fake_build(specs, agent_timeout=None, **kw):\n        captured.append((\"build_providers\", list(specs),\n                         agent_timeout))\n        return {\"fake\": ok_fn}\n\n    def fake_roles(providers, roles, agent_timeout=None, **kw):\n        captured.append((\"_apply_role_assignments\", list(roles),\n                         agent_timeout))\n        return [], {}, {}, None\n\n    cli.build_providers = fake_build\n    cli._apply_role_assignments = fake_roles\n    try:\n        out = io.StringIO()\n        with redirect_stdout(out):\n            cli._doctor_main(\n                [\"--timeout\", \"7\", \"--provider\", \"seat-a\",\n                 \"--fallback\", \"correctness=seat-b\",\n                 \"--role\", \"tech_lead=seat-c\"])\n    finally:\n        cli.build_providers = real_build"
+ },
+ "refutation": {
+  "by_family": "nvidia",
+  "quote": "        return [], {}, {}, None",
+  "reason": "The fake_roles function unconditionally returns None for the fourth element, which is the value read after the monkeypatch block. The claim that the variable is UnboundLocalError because it is only assigned inside the fake hook and read unconditionally after restoring the original function is incorr",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "Probe-scripts probe (`probes/closing_probe_scripts_probe.py`, section a): the subject is the committed gap_doctor_timeout probe. Occurrences of the name 'got' as a variable in it: 0 — the claimed unbound variable does not exist in the file. The probe's own captured-state handling initialises before use, so the half-applied state the claim fears requires a variable and an ordering the code does not have.",
+  "basis_evidence_sha256": [
+   "8f7cd5ebf270740cc5e2fa4a93b20e664d80e8254595ac0671b07e17e52f0025"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/closing-probe-scripts.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_refutation",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry 42011b7abf72 (decider=owner, marker=ratified, 2026-11-05T04:07:58+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-closing-r1-2026-11-04/27-42011b7abf72.md; source record: review-closing-r1-attempt1/codereview-20261105-031306.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": []
+}

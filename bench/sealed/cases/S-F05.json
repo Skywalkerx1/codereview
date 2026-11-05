@@ -1,0 +1,49 @@
+{
+ "case_id": "S-F05",
+ "case_class": "sealed_fp_corpus",
+ "sealed": true,
+ "title": "os.system return value not checked or documented",
+ "finding": {
+  "claim": "os.system return value not checked or documented",
+  "evidence": "return os.system(\"ping -c1 \" + host)",
+  "file": "app/nettools.py",
+  "line": 8,
+  "severity_as_raised": "minor",
+  "evidence_quote": "return os.system(\"ping -c1 \" + host)",
+  "recommendation": "Check the return code or use subprocess.run with check=True to surface failures.",
+  "raised_by_family": null,
+  "record_finding_id": "f0e6f4c3a44a"
+ },
+ "code_region": {
+  "commit": null,
+  "path": "app/nettools.py",
+  "located": true,
+  "start_line": null,
+  "end_line": null,
+  "text": "diff --git a/app/nettools.py b/app/nettools.py\n--- a/app/nettools.py\n+++ b/app/nettools.py\n@@ -1,4 +1,6 @@\n import os\n+import subprocess\n \n def ping(host):\n-    return os.popen(\"ping -c 1 \" + host).read()\n+    return os.system(\"ping -c1 \" + host)\n",
+  "note": "region is the benchmark case diff under review (bench/corpus/command-injection-shell/diff.patch)"
+ },
+ "refutation": {
+  "by_family": "adjudication",
+  "quote": "return os.system(\"ping -c1 \" + host)",
+  "reason": "Literal claim is wrong at this site: the os.system status is not dropped or unchecked-in-place - ping() returns it to the caller. The genuine contract problem is captured by new defect D1.",
+  "provenance": "constructed-from-adjudication: the refutation position is the step-3 blind probe-first adjudication basis (SS2.3), not a recorded panel refutation"
+ },
+ "probe": {
+  "summary": "Literal claim is wrong at this site: the os.system status is not dropped or unchecked-in-place - ping() returns it to the caller. The genuine contract problem is captured by new defect D1.",
+  "ref": null
+ },
+ "probe_settled": false,
+ "expected": {
+  "decision": "sustain_refutation",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "step-3 adjudication of the 91 unmatched benchmark findings (fp-corpus.jsonl, finding f0e6f4c3a44a, class speculative-false-positive)",
+  "label_independence": "label produced by blind probe-first adjudication before the redesigned Tech Lead existed; adjudicators were blind to the raising seat"
+ },
+ "notes": [
+  "benchmark case: command-injection-shell"
+ ]
+}
