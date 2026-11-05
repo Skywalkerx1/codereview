@@ -12,8 +12,13 @@ setup`. The user, not the product, chooses the models:
      pick becomes a spec, indistinguishable from a hand-typed
      agent seat from then on;
   1. pick providers (registry presets, custom specs, agent
-     seats) — the registry's default models are shown as
-     SUGGESTIONS to confirm or replace, never as decisions;
+     seats, local model servers) — the registry's default
+     models are shown as SUGGESTIONS to confirm or replace,
+     never as decisions. Local presets (Epic L5: ollama,
+     lmstudio, or any local:<name>:<base-url>|<model>
+     endpoint) are listed as their own section with the
+     short recipe for each; they are keyless, so step 2
+     never prompts for a key for them — there is none;
   2. keys: for each API seat the wizard names the environment
      variable that must hold the user's key and reports whether
      it is currently set. The wizard never asks for a key value,
@@ -175,9 +180,24 @@ def run_wizard(input_fn=input, print_fn=print, environ=None,
              "name|type|base|model|KEY_ENV spec, or "
              "agent:<name>:<command>):")
     for name, preset in registry.PRESETS.items():
+        if preset.get("family") == registry.LOCAL_FAMILY:
+            continue  # local presets get their own section
         print_fn(f"  {name:<12} suggested model: "
                  f"{preset['model']}   key env: "
                  f"{preset['key_env']}")
+    print_fn("Local model servers — they run on your own "
+             "machine: no API key, and the review never "
+             "leaves the machine (no network):")
+    for name, preset in registry.local_presets().items():
+        print_fn(f"  {name:<12} endpoint: "
+                 f"{preset['base_url']}   suggested model: "
+                 f"{preset['model']}")
+        print_fn(f"  {'':<12} recipe: {preset['recipe']}")
+    print_fn("  any other local server: "
+             "local:<name>:<base-url>|<model> (e.g. "
+             "local:box:http://localhost:8080/v1|my-model) — "
+             "start the server, pick the spec, then probe "
+             "with `codereview doctor`")
     providers = []
     attempts = 0
     while not providers:
@@ -260,6 +280,11 @@ def run_wizard(input_fn=input, print_fn=print, environ=None,
         if desc["kind"] == "agent":
             print_fn(f"  seat {desc['seat']}: agent seat — it "
                      "authenticates as itself, no key env.")
+        elif desc["family"] == registry.LOCAL_FAMILY:
+                print_fn(f"  seat {desc['seat']}: local model "
+                     f"server at {desc['base_url']} — no API "
+                     "key; it runs on your machine, so the "
+                     "review never leaves it (no network).")
         elif desc["key_env"]:
             state = ("set" if environ.get(desc["key_env"])
                      else "NOT set")

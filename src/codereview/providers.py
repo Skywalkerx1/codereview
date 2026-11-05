@@ -13,6 +13,11 @@ Custom:  name|openai-compatible|https://base.url/v1|model|KEY_ENV
          name|gemini|-|model|KEY_ENV
          name|anthropic|-|model|KEY_ENV
          openai-compatible:<base>|<model>|<KEY_ENV (escape hatch)
+Local:   local:<name>:<base-url>|<model> — a named local model
+         server (Epic L5), plus the registry's local presets
+         (ollama, lmstudio). Keyless: no key env is read and no
+         Authorization header is sent — the endpoint is the
+         user's own machine. Family tag 'local'.
 Agent:   agent:<name>:<command> — a local agent CLI (Claude Code,
          Codex, Gemini CLI, a wrapper script, ...) seated as a
          reviewer or solver. The prompt is written to a temp file
@@ -111,7 +116,13 @@ def openai_compatible(base_url, model, key_env, extra_payload=None,
     `omit_temperature` drops the temperature field entirely for
     models whose API rejects a caller-set value (registry quirk
     table — e.g. OpenAI's gpt-5 line answers HTTP 400); the field
-    is omitted, never replaced with a fabricated default."""
+    is omitted, never replaced with a fabricated default.
+
+    `key_env` None is the keyless local form (Epic L5): no
+    credential is read and NO Authorization header is sent — the
+    endpoint is a model server on the user's own machine, which
+    expects none. Keyed callers are untouched: same header, same
+    _key failure when the env var is unset."""
     def call(prompt):
         payload = {
             "model": model,
@@ -123,9 +134,11 @@ def openai_compatible(base_url, model, key_env, extra_payload=None,
             payload["temperature"] = 0.1
         if extra_payload:
             payload.update(extra_payload)
+        headers = {} if key_env is None else {
+            "Authorization": f"Bearer {_key(key_env)}"}
         data = _post_json(
             base_url.rstrip("/") + "/chat/completions",
-            {"Authorization": f"Bearer {_key(key_env)}"}, payload)
+            headers, payload)
         try:
             text = (data["choices"][0]["message"].get("content")
                     or "").strip()
@@ -920,6 +933,32 @@ PRESETS = {
 }
 
 
+def parse_local_spec(spec):
+    """local:<name>:<base-url>|<model> -> (name, base_url, model).
+
+    The named local-endpoint form (Epic L5). The base URL keeps
+    its own colons (scheme, port) — only the FIRST colon after
+    the name separates, and the model rides after the '|' the
+    other spec forms already use. Name and model are required:
+    a local seat is an ordinary seat, and a seat without a model
+    cannot be called. Raises ProviderError on a malformed spec."""
+    rest = spec.strip()[len(registry.LOCAL_SPEC_PREFIX):]
+    name, colon, tail = rest.partition(":")
+    base, pipe, model = tail.partition("|")
+    name, base, model = name.strip(), base.strip(), model.strip()
+    if not colon or not name or not base or not pipe or not model:
+        raise ProviderError(
+            f"bad local provider spec {spec!r}: want "
+            "local:<name>:<base-url>|<model> (e.g. "
+            "local:box:http://localhost:8080/v1|my-model)")
+    if not (base.startswith("http://")
+            or base.startswith("https://")):
+        raise ProviderError(
+            f"bad local provider spec {spec!r}: base-url must "
+            f"start with http:// or https://, got {base!r}")
+    return name, base, model
+
+
 def describe_spec(spec):
     """spec -> {seat, kind, preset, model, key_env, family,
     base_url} WITHOUT building or calling anything. The CLI uses
@@ -932,6 +971,11 @@ def describe_spec(spec):
                 "model": None, "key_env": None, "family": "agent",
                 "base_url": None}
     stripped = spec.strip()
+    if stripped.lower().startswith(registry.LOCAL_SPEC_PREFIX):
+        name, base, model = parse_local_spec(stripped)
+        return {"seat": name, "kind": "openai-compatible",
+                "preset": None, "model": model, "key_env": None,
+                "family": registry.LOCAL_FAMILY, "base_url": base}
     if stripped.lower().startswith("openai-compatible:"):
         rest = stripped[len("openai-compatible:"):]
         parts = [p.strip() for p in rest.split("|")]
@@ -1033,6 +1077,15 @@ def build_provider(spec, occurrence=1, text_mode=False,
         return desc["seat"], openai_compatible(
             desc["base_url"], desc["model"], desc["key_env"],
             system=system), desc["key_env"]
+    if spec.strip().lower().startswith(registry.LOCAL_SPEC_PREFIX):
+        # Epic L5 named local endpoint: keyless by construction
+        # (key_env None — no credential read, no Authorization
+        # header). The account label names the seat, never a
+        # credential: there is none.
+        desc = describe_spec(spec)
+        return desc["seat"], openai_compatible(
+            desc["base_url"], desc["model"], None,
+            system=system), f"local:{desc['seat']}"
     if "|" in spec:
         parts = [p.strip() for p in spec.split("|")]
         if len(parts) != 5:
@@ -1054,7 +1107,10 @@ def build_provider(spec, occurrence=1, text_mode=False,
     name = desc["preset"]
     kind, base, model, key_env, extra = PRESETS[name]
     model = desc["model"]
-    if occurrence > 1:
+    if occurrence > 1 and key_env is not None:
+        # Account rotation renames the KEY env; a keyless local
+        # preset (Epic L5) has no accounts to rotate — every
+        # occurrence is the same local server.
         key_env = f"{key_env}_{occurrence}"
     if kind == "gemini":
         return name, gemini(model, key_env, system=system,
@@ -1062,10 +1118,15 @@ def build_provider(spec, occurrence=1, text_mode=False,
     if kind == "anthropic":
         return name, anthropic(model, key_env,
                                system=system), key_env
+    # The account label is the key env for keyed presets; a
+    # keyless local preset (Epic L5) labels itself local:<preset>
+    # — records show what served, and there is no credential
+    # the label could leak.
+    label = key_env if key_env is not None else f"local:{name}"
     return name, openai_compatible(
         base, model, key_env, extra, system=system,
         omit_temperature=registry.omit_temperature(name, model)), \
-        key_env
+        label
 
 
 _RETRYABLE_MARKERS = ("429", "500", "502", "503", "504", "401", "403",
@@ -1171,6 +1232,17 @@ def build_providers(specs, text_mode=False, agent_timeout=None,
         if spec.startswith("agent:"):
             base, _options, _cmd = _parse_agent_spec(spec)
             parsed.append(("agent", base, spec))
+        elif spec.strip().lower().startswith(
+                registry.LOCAL_SPEC_PREFIX):
+            # Epic L5: the seat's base name is the name INSIDE
+            # the spec (local:<name>:<base-url>|<model>), so two
+            # distinct local endpoints are two seats — pooling
+            # them under 'local' would merge different servers
+            # into one seat — and the family-tag pass below finds
+            # each seat by that name.
+            nm, _base, _model = parse_local_spec(spec.strip())
+            parsed.append(("api", nm, spec))
+            api_names.add(nm.lower())
         elif spec.strip().lower().startswith("openai-compatible:"):
             parsed.append(("api", "openai-compatible", spec))
             api_names.add("openai-compatible")
