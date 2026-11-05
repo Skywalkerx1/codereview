@@ -36,6 +36,7 @@ import sys
 
 import inspect
 
+from . import agentsmd
 from . import bench as bench_mod
 from . import core
 from . import disputes as disputes_mod
@@ -1868,6 +1869,19 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
                          "capped per file and in total, with "
                          "truncation marked in the text and "
                          "listed in the record)")
+    ap.add_argument("--no-agents-context", action="store_true",
+                    help="do not ingest AGENTS.md project "
+                         "guidance into the reviewer prompts "
+                         "(default for repo reviews: AGENTS.md at "
+                         "the repo root and nested along the "
+                         "changed paths is attached as advisory, "
+                         "untrusted context alongside — never "
+                         "instead of — .codereview.toml; its "
+                         "'## Code Review Rules' section is "
+                         "surfaced as rules the panel may cite; "
+                         "redacted, capped per file and in total "
+                         "with truncation recorded, provenance "
+                         "(path + sha256) written to the record)")
     ap.add_argument("--verify-previous",
                     help="previous report JSON: run a verification round")
     ap.add_argument("--builder-response", default="",
@@ -2294,6 +2308,36 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
             if not file_context:
                 file_context = None
 
+    agents_context = None
+    if not args.verify_previous and not args.patch \
+            and not args.files and not args.no_agents_context:
+        # Epic L1: ingest the repository's AGENTS.md guidance
+        # (root + nested along the changed paths) as advisory
+        # reviewer context. The files are untrusted: the
+        # collector redacts them, run_review delimits them as
+        # data in the prompt, and their provenance lands in the
+        # record — they never touch the policy, the panel, or
+        # the gate. A collection problem degrades to no guidance
+        # with the reason on stderr, exactly like file context.
+        try:
+            agents_context, ag_entries = \
+                agentsmd.collect_agents_context(
+                    args.repo or ".", patch)
+        except Exception as exc:  # noqa: BLE001
+            print(f"codereview: AGENTS.md context unavailable "
+                  f"({exc}); reviewing without project guidance",
+                  file=sys.stderr)
+            agents_context = None
+        if agents_context is not None:
+            skipped = [e for e in ag_entries if e.get("skipped")]
+            print(f"codereview: AGENTS.md context: "
+                  f"{len(agents_context['files'])} file(s) "
+                  f"ingested ({agents_context['total_chars']} "
+                  f"chars), {len(skipped)} skipped"
+                  + ("; truncation recorded"
+                     if agents_context["truncated"] else ""),
+                  file=sys.stderr)
+
     if args.verify_previous:
         try:
             with open(args.verify_previous, encoding="utf-8") as fh:
@@ -2323,6 +2367,7 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
             precedents=precedents, policy=project_policy,
             gate_profile=args.gate_profile,
             file_context=file_context, progress=_seat_progress,
+            agents_context=agents_context,
             tech_lead_timeout=args.timeout, **review_kwargs)
 
     jpath, mpath = core.write_report(report, args.out)

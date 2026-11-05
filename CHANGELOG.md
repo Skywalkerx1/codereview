@@ -1,5 +1,45 @@
 # Changelog
 
+## Unreleased — Epic L1 (AGENTS.md ingestion)
+
+Reviewer context now includes the repository's own guidance:
+`AGENTS.md` at the repo root and nested along the changed
+paths is ingested at run start, alongside (never instead of)
+`.codereview.toml`.
+
+- **Ingestion** (`codereview.agentsmd`, wired into repo
+  reviews; `--no-agents-context` opts out): discovery is
+  deterministic — the root plus the ancestor directories of
+  the changed paths, ordered nearest-wins (root first; the
+  file nearest a changed file governs on conflict, and the
+  prompt says so). A `## Code Review Rules` section is
+  surfaced at the head of the attached context as advisory
+  review rules the panel may cite in findings.
+- **Trust model:** the files are untrusted content on the
+  diff's own terms — passed through the review path's
+  redaction, delimited in the prompt as data under a header
+  that forbids following instructions inside them, and
+  structurally unable to change a gate rule, the panel, or
+  a record field (pinned by a prompt-injection test: a
+  hostile AGENTS.md demanding a pass leaves the gate, the
+  findings, the panel, and the gate-profile section
+  byte-identical to the no-guidance control run). The TOML
+  policy remains the only machine-enforced layer.
+- **Bounds + provenance:** capped per file (16,000 chars)
+  and in total (32,000), truncation marked in the text and
+  recorded per file; the run record's `agents_context`
+  section carries each ingested file's path and the sha256
+  of its raw bytes, its sizes, and whether its rules section
+  was present. Nothing is silently dropped — the collector's
+  ledger covers skipped files with reasons.
+- **Equivalence:** with no AGENTS.md on any changed path
+  (or with the opt-out), prompts and records are
+  byte-identical to the pre-L1 construction; the bench and
+  registered confirmation runs never pass the new argument,
+  so their prompts are unchanged. 17 new tests
+  (`tests/test_agents_md.py`), none passing on pre-L1
+  master; full suite 990/990.
+
 ## Unreleased — Epic K3b (herdr ecosystem artefact)
 
 Presence in herdr's ecosystem, with the engine staying in
