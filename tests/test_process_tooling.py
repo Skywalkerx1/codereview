@@ -381,6 +381,68 @@ class FreshnessTests(unittest.TestCase):
         self.assertEqual(result["violations"], [])
         self.assertEqual(result["touching"], [])
 
+    def test_degenerate_range_record_checked_via_head(self):
+        # A record whose range is the degenerate X..X (rev-list
+        # yields an empty set) still takes part in the check
+        # through its recorded head, instead of being silently
+        # skipped (55c815ff5fbe).
+        rec = _dispute_record()
+        rec["range"] = f"{self.c2}..{self.c2}"
+        rec["head"] = self.c2
+        rdir = os.path.join(self.repo, "review-t2")
+        os.makedirs(rdir)
+        with open(os.path.join(rdir, "rec.json"), "w",
+                  encoding="utf-8") as fh:
+            json.dump(rec, fh)
+        result = disputes.check_freshness(
+            self.repo, self.repo, self.span, [], set())
+        self.assertIn("review-t2/rec.json", result["touching"])
+        self.assertEqual(
+            {r["id"] for r in result["violations"]},
+            {FID_A, FID_B})
+
+    def test_degenerate_range_without_head_is_unscoped(self):
+        rec = {"schema": "codereview.report/1",
+               "range": f"{self.c2}..{self.c2}"}
+        rdir = os.path.join(self.repo, "review-t3")
+        os.makedirs(rdir)
+        with open(os.path.join(rdir, "rec.json"), "w",
+                  encoding="utf-8") as fh:
+            json.dump(rec, fh)
+        touching, unscoped = disputes.records_touching_span(
+            self.repo, self.repo, self.span)
+        self.assertIn("review-t3/rec.json", unscoped)
+        self.assertNotIn("review-t3/rec.json", touching)
+
+    def test_span_scan_caches_range_specs(self):
+        # Records sharing the span's own range spec cost no
+        # rev-list beyond the span resolution itself
+        # (e9ef62daa1a0).
+        rec = _dispute_record()
+        rec["range"] = self.span
+        rec["head"] = self.c2
+        rdir = os.path.join(self.repo, "review-t4")
+        os.makedirs(rdir)
+        with open(os.path.join(rdir, "rec.json"), "w",
+                  encoding="utf-8") as fh:
+            json.dump(rec, fh)
+        calls = []
+        real = disputes._git_lines
+
+        def counting(repo, *args):
+            calls.append(args)
+            return real(repo, *args)
+
+        disputes._git_lines = counting
+        try:
+            disputes.records_touching_span(
+                self.repo, self.repo, self.span)
+        finally:
+            disputes._git_lines = real
+        revlists = [a for a in calls if a[0] == "rev-list"]
+        self.assertEqual(
+            revlists.count(("rev-list", self.span)), 1)
+
     def test_cli_check_exit_codes(self):
         with contextlib.redirect_stdout(io.StringIO()):
             rc = cli.main(["disputes", "--repo", self.repo,

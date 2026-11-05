@@ -538,6 +538,26 @@ def records_touching_span(repo, root, span):
     if span_commits is None:
         raise ValueError(f"span {span!r} does not resolve in "
                          f"{repo!r}")
+    # Range/head resolutions are cached per scan: records
+    # overwhelmingly share a handful of range specs, and an
+    # uncached rev-list per record made the scan O(records)
+    # subprocess calls (e9ef62daa1a0). Each git call stays
+    # individually timeout-bounded (see _git_lines).
+    cache = {span: span_commits}
+
+    def range_commits(spec):
+        if spec not in cache:
+            cache[spec] = _commit_set(repo, spec)
+        return cache[spec]
+
+    def head_commit(sha):
+        key = ("head", sha)
+        if key not in cache:
+            one = _git_lines(repo, "rev-parse", "--verify",
+                             f"{sha}^{{commit}}")
+            cache[key] = set(one) if one else None
+        return cache[key]
+
     touching, unscoped = [], []
     for path in iter_record_files(root):
         record = load_record(path)
@@ -547,12 +567,16 @@ def records_touching_span(repo, root, span):
         commits = None
         rng = record.get("range")
         if rng:
-            commits = _commit_set(repo, str(rng))
-        if commits is None and record.get("head"):
-            one = _git_lines(repo, "rev-parse", "--verify",
-                             f"{record['head']}^{{commit}}")
-            commits = set(one) if one else None
-        if commits is None:
+            commits = range_commits(str(rng))
+        if not commits and record.get("head"):
+            # Fall back to the recorded head when the range
+            # resolves to nothing usable — including the
+            # degenerate X..X range, whose rev-list is an
+            # EMPTY set (not None): without this, such a
+            # record was silently dropped from the check
+            # altogether (55c815ff5fbe).
+            commits = head_commit(str(record["head"]))
+        if not commits:
             unscoped.append(rel)
         elif commits & span_commits:
             touching.append(rel)
