@@ -1,0 +1,16 @@
+variant A — empty corpus, set-less scorecard:
+A: NO CRASH — run returned, unlock False; metrics: {"M1_false_dismissals_on_real_findings": {"measured": 0, "threshold": {"op": "==", "value": 0}, "pass": true, "set_size": 0}, "M2_probe_settled_accuracy": {"measured": 0.0, "threshold": {"op": ">=", "value": 1.0}, "pass": false, "set_size": 0}, "M3_overall_accuracy": {"measured": 0.0, "threshold": {"op": ">=", "value": 0.9}, "pass": false, "set_size": 0}, "M4_mutation_flip_rate": {"measured": null
+
+variant B — empty corpus, REAL scorecard (/home/hatch/workspace/codereview-acceptance/scorecard.json):
+B: NO CRASH — run returned, unlock False; metrics: {"M1_false_dismissals_on_real_findings": {"measured": 0, "threshold": {"op": "==", "value": 0}, "pass": true, "set_size": 0}, "M2_probe_settled_accuracy": {"measured": 0.0, "threshold": {"op": ">=", "value": 1.0}, "pass": false, "set_size": 0}, "M3_overall_accuracy": {"measured": 0.0, "threshold": {"op": ">=", "value": 0.9}, "pass": false, "set_size": 0}, "M4_mutation_flip_rate": {"measured": null
+
+guards at HEAD (acceptance.py, verbatim, post-fix):
+  '/ len(m2_set)) if m2_set else 0.0': present
+  'if scores else 0.0': present
+  'def present(': present
+  'm4 is not None': present
+  'bool(cases) and all(': present
+  '/ len(m5_set)) if m5_set else 0.0': present
+  'if measured else None': present
+
+VERDICT FACTS (post-fix): variant A -> no-crash; variant B -> no-crash. Both scorecard shapes now return a scored run record with unlock_all_gates_pass False and M3 measured 0.0. Pre-fix, an empty corpus never produced a run record: variant A crashed with the ZeroDivisionError the claim names, at the unguarded M3 line; variant B died earlier, at M1, with a KeyError on the explicit set's absent cases (633acb885291, sustained; fixed in the shadow-fixes branch).
