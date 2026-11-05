@@ -46,7 +46,7 @@ import subprocess
 import threading
 import time
 
-VERSION = "0.10.0"
+VERSION = "0.11.0"
 SCHEMA = "codereview.report/1"
 
 SEVERITIES = ("blocker", "major", "minor", "nit")
