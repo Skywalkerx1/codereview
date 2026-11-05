@@ -1,0 +1,42 @@
+{
+ "preflight": {
+  "gemini": {
+   "model": "gemini-3.8-flash",
+   "ok": false,
+   "error": "ProviderError: gemini quota: HTTP 429",
+   "latency_s": 0.9
+  },
+  "nvidia": {
+   "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+   "ok": true,
+   "sample": "{\"ok\": true}",
+   "latency_s": 0.8
+  },
+  "openai": {
+   "model": "gpt-5.4",
+   "configured": true,
+   "ok": true,
+   "sample": "{\"ok\": true}",
+   "latency_s": 2.4
+  },
+  "deepseek": {
+   "model": "deepseek-flash",
+   "configured": true,
+   "ok": true,
+   "sample": "{\"ok\": true}",
+   "latency_s": 2.1
+  }
+ }
+}
+panel (seat order): ['openai', 'nvidia', 'deepseek']
+cases: 9 holdout + 35 expanded-clean = 44
+[holdout] auth-admin-or-true: gate=blocked degraded=False findings=2 (14.3s)
+[holdout] clean-auth-check-added: gate=pass degraded=True findings=2 (4.8s)
+[holdout] clean-input-validation: gate=pass degraded=True findings=3 (5.1s)
+[holdout] drop-table-migration: gate=blocked degraded=True findings=2 (6.5s)
+[holdout] payment-refund-partial: gate=blocked degraded=True findings=2 (5.9s)
+[holdout] race-check-then-act: gate=inconclusive degraded=True findings=2 (16.1s)
+[holdout] secret-aws-key: gate=blocked degraded=True findings=1 (7.4s)
+[holdout] sql-injection-concat: gate=blocked degraded=True findings=2 (9.7s)
+[holdout] xss-innerhtml: gate=inconclusive degraded=True findings=1 (6.4s)
+[expanded-clean] xc-atomic-state-writer: gate=inconclusive degraded=True findings=0 (13.3s)

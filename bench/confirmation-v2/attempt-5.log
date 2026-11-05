@@ -1,0 +1,33 @@
+ABORT (REQUIRE_FULL_PANEL): the full registered panel ['openai', 'nvidia', 'deepseek'] is not healthy; no case has run, this is not an attempt.
+{
+ "preflight": {
+  "gemini": {
+   "model": "gemini-3.8-flash",
+   "ok": false,
+   "error": "ProviderError: gemini quota: HTTP 429",
+   "latency_s": 0.8
+  },
+  "nvidia": {
+   "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+   "ok": false,
+   "error": "ProviderError: nvidia quota: HTTP 429",
+   "latency_s": 0.8
+  },
+  "openai": {
+   "model": "gpt-5.4",
+   "configured": true,
+   "ok": true,
+   "sample": "{\"ok\": true}",
+   "latency_s": 1.7
+  },
+  "deepseek": {
+   "model": "deepseek-flash",
+   "configured": true,
+   "ok": true,
+   "sample": "{\"ok\": true}",
+   "latency_s": 1.4
+  }
+ }
+}
+panel (seat order): ['openai', 'deepseek']
+excluded at preflight (dead): ['nvidia']

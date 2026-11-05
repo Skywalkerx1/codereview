@@ -1,0 +1,33 @@
+{
+ "attempt": 3,
+ "preflight": {
+  "gemini": {
+   "model": "gemini-3.8-flash",
+   "ok": false,
+   "error": "ProviderError: gemini overloaded: HTTP 503",
+   "latency_s": 13.0
+  },
+  "nvidia": {
+   "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+   "ok": false,
+   "error": "ProviderError: nvidia quota: HTTP 429",
+   "latency_s": 0.7
+  },
+  "openai": {
+   "model": "gpt-5.4",
+   "configured": true,
+   "ok": true,
+   "sample": "{\"ok\": true}",
+   "latency_s": 1.6
+  },
+  "deepseek": {
+   "model": "deepseek-flash",
+   "configured": true,
+   "ok": true,
+   "sample": "{\"ok\": true}",
+   "latency_s": 1.5
+  }
+ },
+ "gemini_seated": false,
+ "gemini_exclusion": "not in the v1 panel; comparability governs (registration \u00a71 / step-7 terms)"
+}

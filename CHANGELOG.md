@@ -18,6 +18,21 @@
 
 ## Unreleased — 2026-11-05
 
+- Baseline v2 confirmation (step 7): VOID — no counting attempt
+  completed. The pre-registered confirmation of policy B1 on the
+  A5 holdout + expanded clean stratum was started six times on
+  2026-11-05; every start was voided or aborted on
+  provider-environment grounds (the DeepSeek seat errored in
+  every degraded case; the NVIDIA free tier was quota-dead at
+  three preflights; Gemini dead at every preflight, excluded as
+  in the v1 baseline). No confirmation metric was measured and
+  no pre-registered threshold is met or failed; B1 remains
+  unconfirmed and the default gate profile stays `strict`.
+  Attempts consumed under the registration: 0 (voids do not
+  count); the sets remain unconsumed under the same
+  pre-registration. Full accounting:
+  bench/BASELINE-V2-2026-11-05.md (the standing quotable baseline
+  remains bench/BASELINE-2026-11-04.md).
 - Gate profiles (step 6 of the adopted honest-negatives
   solution; candidate frozen by the step-4 replay sweep):
   policy B1 (per-lens corroboration) ships as the `balanced`

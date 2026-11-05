@@ -1,0 +1,49 @@
+{
+ "preflight": {
+  "gemini": {
+   "model": "gemini-3.8-flash",
+   "ok": false,
+   "error": "ProviderError: gemini quota: HTTP 429",
+   "latency_s": 0.9
+  },
+  "nvidia": {
+   "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+   "ok": true,
+   "sample": "{\"ok\": true}",
+   "latency_s": 0.8
+  },
+  "openai": {
+   "model": "gpt-5.4",
+   "configured": true,
+   "ok": true,
+   "sample": "{\"ok\": true}",
+   "latency_s": 1.6
+  },
+  "deepseek": {
+   "model": "deepseek-flash",
+   "configured": true,
+   "ok": true,
+   "sample": "{\"ok\": true}",
+   "latency_s": 1.9
+  }
+ }
+}
+panel (seat order): ['openai', 'nvidia', 'deepseek']
+cases: 9 holdout + 35 expanded-clean = 44
+[holdout] auth-admin-or-true: gate=blocked degraded=False findings=3 (15.4s)
+[holdout] clean-auth-check-added: gate=pass degraded=False findings=5 (27.4s)
+[holdout] clean-input-validation: gate=pass degraded=False findings=4 (22.2s)
+[holdout] drop-table-migration: gate=blocked degraded=False findings=6 (40.3s)
+[holdout] payment-refund-partial: gate=blocked degraded=False findings=4 (16.9s)
+[holdout] race-check-then-act: gate=blocked degraded=False findings=6 (23.7s)
+[holdout] secret-aws-key: gate=blocked degraded=False findings=4 (9.3s)
+[holdout] sql-injection-concat: gate=blocked degraded=False findings=4 (12.2s)
+[holdout] xss-innerhtml: gate=blocked degraded=False findings=4 (18.5s)
+[expanded-clean] xc-atomic-state-writer: gate=pass degraded=False findings=4 (46.7s)
+[expanded-clean] xc-batch-delete-guarded: gate=blocked degraded=False findings=10 (85.0s)
+[expanded-clean] xc-bigdecimal-invoice: gate=pass degraded=False findings=10 (34.2s)
+[expanded-clean] xc-bounded-response-read: gate=blocked degraded=False findings=8 (63.7s)
+[expanded-clean] xc-circuit-breaker: gate=blocked degraded=False findings=6 (102.4s)
+[expanded-clean] xc-constant-time-compare: gate=pass degraded=False findings=6 (33.3s)
+[expanded-clean] xc-context-http-timeout: gate=blocked degraded=False findings=8 (28.2s)
+[expanded-clean] xc-csrf-token-check: gate=inconclusive degraded=True findings=2 (52.5s)
