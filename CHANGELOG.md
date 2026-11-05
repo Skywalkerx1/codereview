@@ -44,6 +44,47 @@ pattern classes touched, dependency files).
   class, size tiers, the pattern cap, determinism, policy
   schema errors, and record integration through
   `run_review` with stub seats.
+
+## Unreleased — Epic E3 (panel-diversity enforcement)
+
+A project can now enforce panel diversity in the
+`[diversity]` table of its `.codereview.toml`, judged on the
+COMPOSED panel before any seat is called:
+
+- **Minimum families:** `min_families = N` requires the panel
+  to span at least N distinct known vendor families (seat
+  metadata — registry tags or `--seat-meta`; `unknown` never
+  counts). This is distinct from `[panel] min_families`,
+  which judges the seats that actually served, after the
+  round. A violation labels the run degraded with the cause
+  `panel diversity below minimum` and is recorded in the
+  record's `diversity` section and as an applied
+  `diversity.min_families` rule in the policy section.
+- **Enforcement mode:** `enforce = "degrade"` (the default)
+  records the violation as advisory — never gate-changing.
+  `enforce = "block"` additionally makes it a blocking
+  policy violation, exactly like any other.
+- **Builder exclusion:** with `exclude_builder_family =
+  true`, when the run's caller knows the builder's vendor
+  family (the `builder_family` argument — no CLI run path
+  knows it today, so there the exclusion simply never
+  engages; no builder identity is ever invented), seats of
+  that family are excluded from the panel when the remaining
+  panel still meets the minimum — otherwise they stay, and
+  the record says why. An excluded seat's lens is never
+  reassigned by the check: the seat->lens binding machinery
+  treats it as an absent seat.
+- **Equivalence:** with no `[diversity]` configuration, a
+  run is unchanged in every particular — no `diversity` key
+  in the record, no applied rule, identical verdicts; the
+  registered bench sets are untouched.
+- **Verification:** 27 new tests (`tests/test_diversity.py`)
+  — panel assessment (minimum met/breached, unknown-family
+  handling, builder exclusion possible/refused/emptying/
+  unknown/absent), policy schema + rendering, and run_review
+  integration (degrade vs block, exclusion never calling the
+  builder's seats, unconfigured equivalence).
+
 ## Unreleased — Epic C4 (builder-claim verification in the run record)
 
 Builder-claim verification now lands in the run record. The

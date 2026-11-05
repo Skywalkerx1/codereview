@@ -76,6 +76,33 @@ Schema (every key optional; defaults in parentheses):
   max_age_days = 0         # >0: a waiver older than this (or with
                            # no usable date) is expired
 
+  [diversity]              # Epic E3 panel-diversity
+  min_families = 0         # enforcement, judged on the
+                           # COMPOSED panel before any seat is
+                           # called (distinct from [panel]
+                           # min_families, which judges the
+                           # seats that SERVED): the panel must
+                           # span at least this many distinct
+                           # known vendor families (0 = check
+                           # off unless exclusion is enabled)
+  exclude_builder_family = false
+                           # true: when the run's caller knows
+                           # the builder's vendor family, seats of
+                           # that family are excluded from the
+                           # panel when the remaining panel still
+                           # meets min_families (or, with no
+                           # minimum, still leaves a seat); when
+                           # exclusion would breach the minimum
+                           # the seats stay and the record says
+                           # why. No caller knowing the family ⇒
+                           # the exclusion never engages.
+  enforce = "degrade"      # what a diversity violation does:
+                           # "degrade" (the default) labels the
+                           # run degraded and records the
+                           # violation as advisory — never
+                           # gate-changing; "block" additionally
+                           # makes it a blocking policy violation
+
   [hooks]                  # Epic L3 lifecycle hooks: shell
   pre_run = ""             # commands fired around the run —
                            # pre_run before any seat call,
@@ -156,8 +183,11 @@ _RISK_KEYS = ("enabled", "medium_threshold", "high_threshold")
 # pairs together so they cannot drift.
 _RISK_DEFAULT_MEDIUM_THRESHOLD = 35
 _RISK_DEFAULT_HIGH_THRESHOLD = 70
+_DIVERSITY_KEYS = ("min_families", "exclude_builder_family",
+                   "enforce")
+_DIVERSITY_ENFORCE_LEVELS = ("degrade", "block")
 _TABLES = ("panel", "evidence", "gate", "paths", "waivers",
-           "hooks", "risk")
+           "hooks", "risk", "diversity")
 
 
 class PolicyError(ValueError):
@@ -184,6 +214,9 @@ def default_policy():
                   "on_blocked": None, "timeout": None},
         "risk": {"enabled": False, "medium_threshold": None,
                  "high_threshold": None},
+        "diversity": {"min_families": 0,
+                      "exclude_builder_family": False,
+                      "enforce": "degrade"},
     }
 
 
@@ -458,6 +491,26 @@ def load_policy(path):
               f"below high_threshold ({_high}) — the bands "
               f"would be empty or inverted", "risk",
               "high_threshold")
+    diversity = data.get("diversity") or {}
+    _check_keys(diversity, _DIVERSITY_KEYS, path, lines,
+                "diversity")
+    if "min_families" in diversity:
+        policy["diversity"]["min_families"] = _check_int(
+            diversity["min_families"], path, lines, "diversity",
+            "min_families")
+    if "exclude_builder_family" in diversity:
+        policy["diversity"]["exclude_builder_family"] = \
+            _check_bool(diversity["exclude_builder_family"],
+                        path, lines, "diversity",
+                        "exclude_builder_family")
+    if "enforce" in diversity:
+        if diversity["enforce"] not in _DIVERSITY_ENFORCE_LEVELS:
+            _fail(path, lines,
+                  f"[diversity] enforce must be one of "
+                  f"{', '.join(_DIVERSITY_ENFORCE_LEVELS)}, got "
+                  f"{diversity['enforce']!r}", "diversity",
+                  "enforce")
+        policy["diversity"]["enforce"] = diversity["enforce"]
     return policy
 
 
@@ -535,6 +588,21 @@ def render_effective(policy):
         lines += ["", "[risk]", "enabled = true",
                   f"medium_threshold = {medium}",
                   f"high_threshold = {high}"]
+    diversity = policy.get("diversity") or {}
+    if diversity.get("min_families") \
+            or diversity.get("exclude_builder_family") \
+            or diversity.get("enforce") not in (None, "degrade"):
+        # Rendered only when diversity enforcement is actually
+        # configured, so a policy without it renders exactly as
+        # it did before Epic E3.
+        lines += [
+            "",
+            "[diversity]",
+            f"min_families = {diversity.get('min_families') or 0}",
+            "exclude_builder_family = "
+            + _b(bool(diversity.get("exclude_builder_family"))),
+            f"enforce = \"{diversity.get('enforce') or 'degrade'}\"",
+        ]
     return "\n".join(lines)
 
 

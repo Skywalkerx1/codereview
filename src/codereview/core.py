@@ -48,6 +48,7 @@ import subprocess
 import threading
 import time
 
+from . import diversity as diversity_mod
 from . import herdrhost
 from . import notify as notify_mod
 from . import policy as policy_mod
@@ -3527,7 +3528,7 @@ def run_review(patch, providers, context="", test_results=None,
                policy=None, waivers=None, evidence=None,
                tech_lead_shadow=False, tech_lead_shadow_seat=None,
                gate_profile=None, file_context=None, progress=None,
-               agents_context=None, notify=None):
+               agents_context=None, notify=None, builder_family=None):
     """One review round. `providers` maps name -> callable(prompt)->str.
 
     Returns the report dict. Never raises for provider failures; they
@@ -3708,7 +3709,26 @@ def run_review(patch, providers, context="", test_results=None,
     the bench never passes it, so bench records carry the
     persisted summaries with no live stream. A blocked seat
     is an ordinary failed job here: it degrades the run and
-    can force INCONCLUSIVE exactly as any seat failure does."""
+    can force INCONCLUSIVE exactly as any seat failure does.
+
+    Panel diversity (Epic E3): when the policy configures its
+    [diversity] table, the composed panel is assessed before
+    any seat is called (diversity.assess_panel): too few
+    distinct known vendor families labels the run degraded
+    with the cause 'panel diversity below minimum' and, under
+    the table's enforce = "block", also raises a blocking
+    policy violation. `builder_family` is the vendor family of
+    the change's builder, when the CALLER knows it — no CLI
+    run path knows it today, so there the policy's builder
+    exclusion simply never engages (see diversity.py); when
+    known and the policy opts in, seats of that family are
+    excluded from the panel before tasks are derived, if the
+    remaining panel still meets the minimum. An excluded
+    seat's lens is never reassigned by the check — the S1
+    binding machinery treats it as an absent seat. With no
+    [diversity] configuration the round is byte-identical to
+    the pre-E3 construction; the bench and registered
+    confirmation runs never configure it."""
     test_results = test_results or []
     # Gate profile resolution (step 6): explicit argument >
     # policy file's [gate] profile > "strict" default. An
@@ -3767,6 +3787,29 @@ def run_review(patch, providers, context="", test_results=None,
         section_text.setdefault(name, text)
 
     provider_items = list(providers.items())
+    # Epic E3: panel-diversity enforcement on the COMPOSED
+    # panel, before any seat is called. The assessment (and
+    # any builder-family exclusion) happens here; the
+    # degraded labelling is applied once degraded_causes
+    # exists below, and the policy-section entry is added
+    # where the policy is evaluated. Unconfigured ⇒
+    # diversity_outcome stays None and nothing changes.
+    diversity_cfg = diversity_mod.policy_config(policy)
+    diversity_outcome = None
+    if diversity_cfg is not None:
+        diversity_outcome = diversity_mod.assess_panel(
+            {name: _seat_meta(seat_meta, name)["family"]
+             for name, _fn in provider_items},
+            min_families=diversity_cfg["min_families"],
+            builder_family=builder_family,
+            exclude_builder=diversity_cfg[
+                "exclude_builder_family"])
+        diversity_outcome["enforce"] = diversity_cfg["enforce"]
+        if diversity_outcome["excluded_seats"]:
+            _excluded = set(diversity_outcome["excluded_seats"])
+            provider_items = [
+                (n, f) for n, f in provider_items
+                if n not in _excluded]
     binding = None
     if seat_lenses is not None:
         binding = normalize_seat_lenses(seat_lenses)
@@ -3783,6 +3826,19 @@ def run_review(patch, providers, context="", test_results=None,
     # appended in the order they occur; "reviewer failure" is the
     # only one that licenses the reviewer-failure gate reason.
     degraded_causes = []
+
+    # Epic E3: a diversity violation is a fact of the panel
+    # the run brought, known before the first seat call — its
+    # cause therefore precedes any cause the round itself
+    # produces. The gate consequence beyond the label rides
+    # the policy evaluation below (advisory under "degrade",
+    # blocking under "block").
+    if diversity_outcome is not None \
+            and diversity_outcome["violation"]:
+        degraded = True
+        cause = "panel diversity below minimum"
+        if cause not in degraded_causes:
+            degraded_causes.append(cause)
 
     # S1: with an explicit binding, a lens whose bound seat(s)
     # are absent from the panel is UNSERVED. A configured
@@ -4815,6 +4871,32 @@ def run_review(patch, providers, context="", test_results=None,
             reviewer_reports=reviewer_reports,
             test_results=test_results, waivers=waivers,
             path_matches=path_matches)
+        if diversity_outcome is not None:
+            # Epic E3: the composition verdict joins the policy
+            # evaluation — evaluate_policy judges the seats
+            # that SERVED and cannot see the composed panel, so
+            # the diversity rule is entered here: an applied
+            # rule either way, and on violation a violation
+            # entry whose enforce level is the [diversity]
+            # table's own ("block" ⇒ blocking; "degrade" ⇒
+            # advisory — the degraded label above is that
+            # mode's consequence, never the gate).
+            policy_outcome["applied"].append({
+                "rule": "diversity.min_families",
+                "requirement":
+                    "composed panel spans at least "
+                    f"{diversity_cfg['min_families']} distinct "
+                    "vendor families",
+                "status": "violated"
+                if diversity_outcome["violation"]
+                else "satisfied"})
+            if diversity_outcome["violation"]:
+                policy_outcome["violations"].append({
+                    "rule": "diversity.min_families",
+                    "detail": diversity_outcome["detail"],
+                    "enforce": "block"
+                    if diversity_cfg["enforce"] == "block"
+                    else "advisory"})
         blocking_violations = [
             v for v in policy_outcome["violations"]
             if v["enforce"] == "block"]
@@ -4907,6 +4989,12 @@ def run_review(patch, providers, context="", test_results=None,
             "files": agents_context["files"],
             "total_chars": agents_context["total_chars"],
             "truncated": agents_context["truncated"]}
+    if diversity_outcome is not None:
+        # E3: the composition verdict — the panel's families
+        # before/after any builder exclusion, what was
+        # excluded (or why the builder's seats were kept), and
+        # the violation fact under the table's enforce mode.
+        report["diversity"] = diversity_outcome
     if binding is not None:
         # S1: the record proves the panel's seat->lens binding
         # and any lens it left unserved.
