@@ -94,6 +94,23 @@ Schema (every key optional; defaults in parentheses):
                            # hooks.py). An empty/absent command
                            # means the event does not fire.
 
+  [risk]                   # Epic E1 risk scorer: when
+  enabled = false          # enabled, every review run's
+                           # record gains a `risk` section —
+                           # the deterministic score, band, and
+                           # reasons computed by risk.py from
+                           # the change's paths, size, touched
+                           # sensitive patterns, and dependency
+                           # changes. Descriptive only in E1:
+                           # the score never changes a verdict
+                           # (tiering/escalation consume it in
+                           # E2/E4). Disabled (the default)
+                           # leaves records byte-identical.
+  medium_threshold = 35    # score >= this is band "medium"
+  high_threshold = 70      # score >= this is band "high";
+                           # each threshold is 0..100 and
+                           # medium must be below high.
+
 With no policy file, the effective policy is the defaults
 above: no requirements at all. CodeReview ships no imposed
 project policy, exactly as it ships no default panel.
@@ -132,8 +149,15 @@ _PATH_KEYS = ("match", "require_full_panel", "require_tests",
 _WAIVER_KEYS = ("allow", "require_reason", "max_age_days")
 _HOOK_KEYS = ("pre_run", "post_verdict", "on_blocked", "timeout")
 _HOOK_COMMAND_KEYS = ("pre_run", "post_verdict", "on_blocked")
+_RISK_KEYS = ("enabled", "medium_threshold", "high_threshold")
+# Mirror risk.DEFAULT_MEDIUM_THRESHOLD /
+# risk.DEFAULT_HIGH_THRESHOLD (Epic E1), kept here under the
+# same import-free discipline as KNOWN_LENSES; a test pins the
+# pairs together so they cannot drift.
+_RISK_DEFAULT_MEDIUM_THRESHOLD = 35
+_RISK_DEFAULT_HIGH_THRESHOLD = 70
 _TABLES = ("panel", "evidence", "gate", "paths", "waivers",
-           "hooks")
+           "hooks", "risk")
 
 
 class PolicyError(ValueError):
@@ -158,6 +182,8 @@ def default_policy():
                     "max_age_days": 0},
         "hooks": {"pre_run": None, "post_verdict": None,
                   "on_blocked": None, "timeout": None},
+        "risk": {"enabled": False, "medium_threshold": None,
+                 "high_threshold": None},
     }
 
 
@@ -401,6 +427,37 @@ def load_policy(path):
                   f"of seconds, got {value!r}", "hooks",
                   "timeout")
         policy["hooks"]["timeout"] = value
+
+    risk = data.get("risk") or {}
+    _check_keys(risk, _RISK_KEYS, path, lines, "risk")
+    if "enabled" in risk:
+        policy["risk"]["enabled"] = _check_bool(
+            risk["enabled"], path, lines, "risk", "enabled")
+    for key in ("medium_threshold", "high_threshold"):
+        if key in risk:
+            value = _check_int(risk[key], path, lines, "risk",
+                               key)
+            if value > 100:
+                _fail(path, lines,
+                      f"[risk] {key} must be at most 100, got "
+                      f"{value}", "risk", key)
+            policy["risk"][key] = value
+    # The effective band pair (stored values over the module
+    # defaults) must be ordered, whether or not scoring is
+    # enabled — an inverted pair is a broken policy either way
+    # and B1 errors are loud, never deferred to first use.
+    _medium = policy["risk"]["medium_threshold"]
+    if _medium is None:
+        _medium = _RISK_DEFAULT_MEDIUM_THRESHOLD
+    _high = policy["risk"]["high_threshold"]
+    if _high is None:
+        _high = _RISK_DEFAULT_HIGH_THRESHOLD
+    if _medium >= _high:
+        _fail(path, lines,
+              f"[risk] medium_threshold ({_medium}) must be "
+              f"below high_threshold ({_high}) — the bands "
+              f"would be empty or inverted", "risk",
+              "high_threshold")
     return policy
 
 
@@ -464,6 +521,20 @@ def render_effective(policy):
         # a hookless policy renders exactly as it did before
         # Epic L3.
         lines += ["", "[hooks]"] + hook_lines
+    risk = policy.get("risk") or {}
+    if risk.get("enabled"):
+        # Rendered only when risk scoring is enabled, so a
+        # riskless policy renders exactly as it did before
+        # Epic E1 (same rule as [hooks] above).
+        medium = risk.get("medium_threshold")
+        if medium is None:
+            medium = _RISK_DEFAULT_MEDIUM_THRESHOLD
+        high = risk.get("high_threshold")
+        if high is None:
+            high = _RISK_DEFAULT_HIGH_THRESHOLD
+        lines += ["", "[risk]", "enabled = true",
+                  f"medium_threshold = {medium}",
+                  f"high_threshold = {high}"]
     return "\n".join(lines)
 
 

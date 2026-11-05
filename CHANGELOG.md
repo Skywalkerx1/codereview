@@ -1,5 +1,50 @@
 # Changelog
 
+## Unreleased — Epic E1 (risk scorer)
+
+A review run can now record a deterministic risk score for
+the change under review. When the project policy's new
+`[risk]` table sets `enabled = true`, the run record gains a
+`risk` section: the score (0–100), its band (`low` /
+`medium` / `high`), a human-readable reason for every point,
+and the per-signal breakdown (files and lines changed,
+pattern classes touched, dependency files).
+
+- **Deterministic by contract:** `codereview.risk` is a pure
+  function of the kept diff sections and the resolved
+  thresholds — no model calls, no randomness, no clock. The
+  same diff under the same policy scores identically on
+  every run (test-pinned, including section order).
+- **Signals:** touched sensitive patterns — auth, payments,
+  crypto, migrations, secrets, deserialization — matched on
+  changed paths and added lines, each class contributing its
+  points once with the pattern subtotal capped at 60;
+  dependency-manifest changes (+15: package/requirements/
+  cargo/go/composer/gem manifests and lockfiles, `*.txt`
+  under a `requirements/` directory included); change size
+  in fixed tiers up to +25.
+- **Descriptive only:** in E1 the score never changes a
+  verdict, a finding, or any gate input (test-compared with
+  risk on vs off). Tiering (E2) and escalation (E4) consume
+  the section next.
+- **Schema:** `[risk]` (`enabled`, `medium_threshold`,
+  `high_threshold`) is validated by the policy loader with
+  line-referenced errors like every other table — non-bool
+  `enabled`, thresholds outside 0–100, and an inverted
+  medium/high pair are loud errors. `codereview policy
+  check` renders the table when — and only when — scoring
+  is enabled.
+- **Equivalence:** with `[risk]` absent or disabled, a run
+  is unchanged in every particular — no `risk` key in the
+  record; the registered bench sets are untouched.
+- **Verification:** 38 new tests (`tests/test_risk.py`),
+  37 failing on pre-E1 master (the module does not exist
+  there; the one pass is an unknown-table coincidence in a
+  negative-validation test) — scorer fixtures per pattern
+  class, size tiers, the pattern cap, determinism, policy
+  schema errors, and record integration through
+  `run_review` with stub seats.
+
 ## Unreleased — Epic L3 (lifecycle hooks)
 
 A project can now declare shell commands in the `[hooks]`
