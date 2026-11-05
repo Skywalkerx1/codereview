@@ -546,12 +546,13 @@ Rules:
 - "fixed" requires evidence in the NEW diff (or in passing test results) that the problem is gone or properly guarded. A builder claim alone is not evidence.
 - "invalid" means the original finding was wrong, and you must say why from the code.
 - Anything you cannot confirm is "unclear" — unclear keeps the block.
+- You are shown ONE section of the new diff and ONE part of the prior findings per pass; your passes over the other sections and parts are combined mechanically. Judge each listed finding against the section shown: if the resolving evidence is not in THIS section, mark the finding "unclear" for this pass — an honest "unclear" here never blocks a fix you confirm in another pass. A "still_present" verdict in any pass stands.
 - Also report any NEW blocking problems the fix introduced, in "new_findings" (same schema as a normal review, including an "evidence_quote" copied exactly from the new diff, without the leading '+').
 - Severity rubric (adopted policy): a NEW finding at major or above requires a demonstrated, reachable defect with impact in a supported configuration (POSIX operating systems, Python 3.11 or newer), with the reachable path cited in its evidence. Claims that depend only on an unsupported platform, on operator-supplied input being malicious, or on hypothetical future seat kinds are minor or nit at most, with the dependency stated.
 - Output ONLY one JSON object, no prose, no code fences:
 {{"resolutions": [{{"finding_id": "...", "status": "fixed|still_present|invalid|unclear", "evidence": "what in the new diff proves it"}}], "new_findings": [{{"severity": "blocker|major|minor|nit", "category": "...", "file": "path", "line": 123, "title": "...", "evidence": "...", "evidence_quote": "...", "recommendation": "...", "confidence": 0.0-1.0}}]}}
 
-Prior blocking findings:
+Prior blocking findings ({prior_part} — resolve ONLY the findings listed in this part):
 {prior}
 
 Builder's response:
@@ -560,7 +561,7 @@ Builder's response:
 Test results:
 {tests}
 
-New diff:
+New diff ({batch}):
 {patch}
 """
 
@@ -3777,6 +3778,70 @@ def _validate_resolution(raw_status, evidence, haystack_tokens):
     return status, False
 
 
+_VERIFY_PRIOR_BATCH_CHARS = 20000
+
+
+def _batch_prior_findings(prior, max_chars=_VERIFY_PRIOR_BATCH_CHARS):
+    """Group prior findings into prompt batches by serialised
+    size, returning [(serialised_list_text, [finding_id, ...])].
+
+    EVERY finding lands in exactly one batch, whole — the batch
+    budget groups findings, it never cuts one: a single finding
+    whose serialisation alone exceeds the budget gets a batch of
+    its own, over budget and complete. (The pre-fix verify path
+    serialised the whole list and cut it at 20,000 chars, so in
+    a 20-blocker round the last findings never reached the panel
+    at all — they defaulted to "unclear" and the block could not
+    clear no matter what the diff showed.) An empty prior list
+    still yields one (empty) batch, so the panel is always asked
+    for new findings."""
+    batches, cur_texts, cur_ids = [], [], []
+    for f in prior:
+        text = json.dumps(f, ensure_ascii=False, indent=1)
+        joined = (sum(len(t) for t in cur_texts) + len(text)
+                  + 2 * len(cur_texts) + 4)
+        if cur_texts and joined > max_chars:
+            batches.append((cur_texts, cur_ids))
+            cur_texts, cur_ids = [], []
+        cur_texts.append(text)
+        cur_ids.append(f.get("id"))
+    if cur_texts or not batches:
+        batches.append((cur_texts, cur_ids))
+    return [("[\n" + ",\n".join(texts) + "\n]" if texts else "[]",
+             ids) for texts, ids in batches]
+
+
+def _combine_resolution(cands, finding, batch_files):
+    """Combine one seat's per-pass verdicts on one finding into
+    the seat's single recorded resolution. `cands` is a list of
+    (diff_batch_index, entry) — the seat judged the finding once
+    per diff section it was shown. Combination is conservative:
+    a "still_present" from any pass stands (the pattern was seen
+    alive somewhere); otherwise a clear verdict (fixed/invalid)
+    from any pass wins over "unclear" passes that simply did not
+    contain the evidence — preferring the pass whose diff batch
+    carries the finding's own file, then "fixed" over "invalid"
+    (both clear; the distinction is preserved in the per-job
+    record). Only when every pass was unclear is the seat's
+    verdict unclear."""
+    for _bi, entry in cands:
+        if entry["status"] == "still_present":
+            return entry
+    clears = [(bi, e) for bi, e in cands
+              if e["status"] in ("fixed", "invalid")]
+    if clears:
+        own = [(bi, e) for bi, e in clears
+               if (finding.get("file") or "")
+               in (batch_files[bi] if bi < len(batch_files)
+                   else [])]
+        pool = own or clears
+        for _bi, entry in pool:
+            if entry["status"] == "fixed":
+                return entry
+        return pool[0][1]
+    return cands[0][1]
+
+
 def run_verification(patch, providers, previous_report, builder_response,
                      test_results=None, max_patch_chars=80000,
                      allow_major=False, strict=False, seat_meta=None,
@@ -3799,25 +3864,56 @@ def run_verification(patch, providers, previous_report, builder_response,
     primary, summed attempts). Without it, a quota-failed primary
     left the family that raised a finding unable to finder-confirm
     its own clearance — the finding came back unjudged and the
-    round degraded to a single family."""
+    round degraded to a single family.
+
+    Prompt construction is archived-aware and sectioned, with
+    the same §5.4 partition and batching the review path uses:
+    generated record artifacts never consume the evidence
+    window, every kept diff section reaches the panel in some
+    batch, and the prior findings are batched by serialised
+    size — grouped, never truncated — so every blocking finding
+    is judged by every seat. Each seat judges each findings
+    part against every diff batch; its per-pass verdicts are
+    combined by _combine_resolution, and `truncated` now means
+    batching INCOMPLETE (kept content could not be placed), the
+    review path's semantics."""
     test_results = test_results or []
     blocking_sevs = ("blocker",) if allow_major else BLOCKING_DEFAULT
     prior = [f for f in previous_report.get("findings") or []
              if f.get("severity") in blocking_sevs]
     clean_patch = redact_secrets(patch)
-    if len(clean_patch) > max_patch_chars:
-        clean_patch = clean_patch[:max_patch_chars]
-        truncated = True
-    else:
-        truncated = False
-    prompt = _VERIFY_PROMPT.format(
-        prior=json.dumps(prior, ensure_ascii=False, indent=1)[:20000],
-        response=(builder_response or "")[:6000],
-        tests=_test_summary(test_results), patch=clean_patch)
-    # Vocabulary a genuine resolution's evidence can draw on: the new
-    # diff, the test output, the prior findings, the builder response.
+    # Archived-aware, sectioned prompt construction — parity with
+    # the review path (§5.4): generated record artifacts are
+    # excluded from the evidence window BEFORE batching and the
+    # kept sections are batched whole, never prefix-cut. The
+    # pre-fix path showed seats an 80k-char PREFIX of the delta;
+    # on a record-dominated delta the actual fix hunks sat beyond
+    # the prefix, so the panel was asked to confirm fixes it
+    # could not see and every resolution came back "unclear".
+    all_sections = split_patch_sections(clean_patch)
+    sections, archived_sections, archived_exclusions = [], [], []
+    for _name, _text in all_sections:
+        _rule = _archived_rule(_name)
+        if _rule:
+            archived_sections.append((_name, _text))
+            archived_exclusions.append(
+                {"path": _name, "rule": _rule})
+        else:
+            sections.append((_name, _text))
+    batches, batch_files, truncated = _batch_sections_detailed(
+        sections, max_patch_chars)
+    kept_text = "\n".join(t for _n, t in sections)
+    # Prior findings are batched by serialised size, never
+    # truncated: every blocking finding reaches every seat in
+    # exactly one part (see _batch_prior_findings).
+    prior_batches = _batch_prior_findings(prior)
+    tests_txt = _test_summary(test_results)
+    response_txt = _prompt_slice(builder_response or "", 6000)
+    # Vocabulary a genuine resolution's evidence can draw on: the
+    # kept (non-archived) diff in full, the test output, the
+    # prior findings, the builder response.
     haystack_tokens = _word_tokens(
-        clean_patch + "\n" + _test_summary(test_results) + "\n"
+        kept_text + "\n" + tests_txt + "\n"
         + json.dumps(prior, ensure_ascii=False) + "\n"
         + (builder_response or ""))
 
@@ -3832,114 +3928,212 @@ def run_verification(patch, providers, previous_report, builder_response,
             list(LENSES) if len(_items) == 1
             else [list(LENSES)[_i % len(LENSES)]])
 
-    per_provider = []
+    # Jobs: every seat judges every prior-findings part against
+    # every kept diff batch (cross product), so each finding is
+    # judged by each seat with the full kept diff available
+    # across that seat's passes; per-pass verdicts are combined
+    # per seat by _combine_resolution. The fallback contract is
+    # per job, exactly as it was per round before batching.
+    def _verify_job(name, fn, prompt):
+        res = _review_job(fn, prompt, sleep)
+        out = {"slot": name, "ok": False, "parsed": None,
+               "serving_name": name, "serving_fn": fn,
+               "attempts": res["attempts"],
+               "error_classes": list(res["error_classes"]),
+               "error": "", "fallback_for": None,
+               "primary_error": ""}
+        if not res["ok"] and fallbacks:
+            fb_name = fb_fn = None
+            for lens in provider_lenses.get(name, []):
+                if lens in fallbacks:
+                    fb_name, fb_fn = fallbacks[lens]
+                    break
+            if fb_name is not None and fb_name != name:
+                # Same bounded-substitution contract as a
+                # review round: the reason is recorded and the
+                # fallback gets only the attempts the job
+                # budget has left.
+                remaining = _MAX_JOB_ATTEMPTS - res["attempts"]
+                fb = None
+                if remaining <= 0:
+                    fallback_notes.append(
+                        f"verification fallback seat "
+                        f"{fb_name!r} not attempted for "
+                        f"{name!r}: job attempt budget "
+                        f"({_MAX_JOB_ATTEMPTS}) exhausted by "
+                        f"the primary")
+                    out["error"] = (
+                        f"{res['error']} | fallback "
+                        f"{fb_name!r} not attempted: job "
+                        f"attempt budget exhausted")[:300]
+                else:
+                    fb = _review_job(fb_fn, prompt, sleep,
+                                     max_attempts=remaining)
+                    out["attempts"] = (res["attempts"]
+                                       + fb["attempts"])
+                if fb is not None and fb["ok"]:
+                    fallback_notes.append(
+                        f"verification served by fallback "
+                        f"seat {fb_name!r} (primary {name!r} "
+                        f"failed: "
+                        f"{res['error_classes'][-1] if res['error_classes'] else 'error'})")
+                    out["serving_name"] = fb_name
+                    out["serving_fn"] = fb_fn
+                    out["fallback_for"] = name
+                    out["primary_error"] = str(res["error"])[:300]
+                    out["error_classes"] = (
+                        res["error_classes"] + fb["error_classes"])
+                    res = fb
+                elif fb is not None:
+                    out["error"] = (
+                        f"{res['error']} | fallback "
+                        f"{fb_name!r} also failed: "
+                        f"{fb['error']}")[:300]
+        if res["ok"]:
+            out["ok"] = True
+            out["parsed"] = res["parsed"]
+        elif not out["error"]:
+            out["error"] = str(res["error"])[:300]
+        return out
+
+    jobs = []
+    for bi, batch in enumerate(batches):
+        for fi, (prior_text, _fids) in enumerate(prior_batches):
+            prompt = _VERIFY_PROMPT.format(
+                prior=prior_text,
+                prior_part=(f"part {fi + 1} of "
+                            f"{len(prior_batches)}"),
+                response=response_txt, tests=tests_txt,
+                batch=f"batch {bi + 1} of {len(batches)}",
+                patch=batch)
+            for name, fn in providers.items():
+                jobs.append((name, fn, bi, fi, prompt))
+
     new_findings = list(deterministic_scan(patch, test_results))
     any_success = False
     degraded = False
     fallback_notes = []
+    slot_outcomes = {name: [] for name in providers}
     with concurrent.futures.ThreadPoolExecutor(
-            max_workers=max(2, len(providers) or 1)) as ex:
-        futs = {ex.submit(_review_job, fn, prompt, sleep): name
-                for name, fn in providers.items()}
+            max_workers=max(2, min(6, len(jobs) or 1))) as ex:
+        futs = {ex.submit(_verify_job, name, fn, prompt):
+                (name, bi, fi)
+                for name, fn, bi, fi, prompt in jobs}
         for fut in concurrent.futures.as_completed(futs):
-            name = futs[fut]
-            res = fut.result()
-            serving_name, serving_fn = name, providers[name]
-            rec = {"provider": name, "status": "error", "error": "",
-                   "resolutions": {},
-                   "attempts": res["attempts"],
-                   "error_classes": res["error_classes"]}
-            if not res["ok"] and fallbacks:
-                fb_name = fb_fn = None
-                for lens in provider_lenses.get(name, []):
-                    if lens in fallbacks:
-                        fb_name, fb_fn = fallbacks[lens]
-                        break
-                if fb_name is not None and fb_name != name:
-                    # Same bounded-substitution contract as a
-                    # review round: the reason is recorded and the
-                    # fallback gets only the attempts the job
-                    # budget has left.
-                    remaining = _MAX_JOB_ATTEMPTS - res["attempts"]
-                    fb = None
-                    if remaining <= 0:
-                        fallback_notes.append(
-                            f"verification fallback seat "
-                            f"{fb_name!r} not attempted for "
-                            f"{name!r}: job attempt budget "
-                            f"({_MAX_JOB_ATTEMPTS}) exhausted by "
-                            f"the primary")
-                        rec["error"] = (
-                            f"{res['error']} | fallback "
-                            f"{fb_name!r} not attempted: job "
-                            f"attempt budget exhausted")[:300]
-                    else:
-                        fb = _review_job(fb_fn, prompt, sleep,
-                                         max_attempts=remaining)
-                        rec["attempts"] = (res["attempts"]
-                                           + fb["attempts"])
-                    if fb is not None and fb["ok"]:
-                        fallback_notes.append(
-                            f"verification served by fallback "
-                            f"seat {fb_name!r} (primary {name!r} "
-                            f"failed: "
-                            f"{res['error_classes'][-1] if res['error_classes'] else 'error'})")
-                        rec.update({
-                            "provider": fb_name,
-                            "fallback_for": name,
-                            "primary_error": str(res["error"])[:300],
-                            "error_classes":
-                                res["error_classes"]
-                                + fb["error_classes"]})
-                        serving_name, serving_fn = fb_name, fb_fn
-                        res = fb
-                    elif fb is not None:
-                        rec["error"] = (
-                            f"{res['error']} | fallback "
-                            f"{fb_name!r} also failed: "
-                            f"{fb['error']}")[:300]
-            try:
-                if not res["ok"]:
-                    raise res["error"]
-                parsed = res["parsed"]
-                for r in parsed.get("resolutions") or []:
-                    if isinstance(r, dict) and r.get("finding_id"):
-                        raw_status = str(r.get("status") or "unclear")
-                        evidence = str(r.get("evidence") or "")
-                        status, downgraded = _validate_resolution(
-                            raw_status, evidence, haystack_tokens)
-                        entry = {"status": status, "evidence": evidence}
-                        if downgraded:
-                            entry["raw_status"] = raw_status
-                            entry["downgraded"] = (
-                                "resolution downgraded to unclear: "
-                                "status not allowed or evidence not "
-                                "supported by the diff/test material")
-                        rec["resolutions"][str(r["finding_id"])] = entry
-                for raw_f in parsed.get("new_findings") or []:
-                    nf = _normalize_finding(raw_f, serving_name)
-                    if nf:
-                        new_findings.append(nf)
-                rec["status"] = "ok"
-                rec.update(_provider_meta(serving_fn))
-                rec.update(_seat_meta(seat_meta, serving_name))
-                any_success = True
-            except Exception as exc:  # noqa: BLE001
-                rec["error"] = rec["error"] or str(exc)[:300]
-                rec.update(_provider_meta(serving_fn))
-                rec.update(_seat_meta(seat_meta, serving_name))
+            name, bi, fi = futs[fut]
+            out = fut.result()
+            out["diff_idx"], out["prior_idx"] = bi, fi
+            slot_outcomes[name].append(out)
+
+    finding_by_id = {f.get("id"): f for f in prior}
+    per_provider = []
+    for name, fn in providers.items():
+        outcomes = sorted(slot_outcomes[name],
+                          key=lambda o: (o["diff_idx"],
+                                         o["prior_idx"]))
+        rec = {"provider": name, "status": "error", "error": "",
+               "resolutions": {}, "attempts": 0,
+               "error_classes": []}
+        cands = {}
+        judged = set()
+        job_marks = []
+        ok_outcomes = []
+        for oc in outcomes:
+            rec["attempts"] += oc["attempts"]
+            rec["error_classes"] += oc["error_classes"]
+            job_marks.append({
+                "batch": oc["diff_idx"] + 1,
+                "prior_part": oc["prior_idx"] + 1,
+                "provider": oc["serving_name"],
+                "status": "ok" if oc["ok"] else "error"})
+            if not oc["ok"]:
                 degraded = True
-            per_provider.append(rec)
+                if not rec["error"]:
+                    rec["error"] = oc["error"]
+                elif oc["error"] and \
+                        oc["error"] not in rec["error"]:
+                    rec["error"] = (
+                        rec["error"] + "; " + oc["error"])[:600]
+                continue
+            ok_outcomes.append(oc)
+            any_success = True
+            part_ids = prior_batches[oc["prior_idx"]][1]
+            judged.update(x for x in part_ids if x is not None)
+            parsed = oc["parsed"] or {}
+            for r in parsed.get("resolutions") or []:
+                if isinstance(r, dict) and r.get("finding_id"):
+                    fid = str(r["finding_id"])
+                    if fid not in part_ids:
+                        # Not this pass's findings: a verdict on
+                        # a finding the seat was not shown in
+                        # this pass is not evidence.
+                        continue
+                    raw_status = str(r.get("status") or "unclear")
+                    evidence = str(r.get("evidence") or "")
+                    status, downgraded = _validate_resolution(
+                        raw_status, evidence, haystack_tokens)
+                    entry = {"status": status, "evidence": evidence}
+                    if downgraded:
+                        entry["raw_status"] = raw_status
+                        entry["downgraded"] = (
+                            "resolution downgraded to unclear: "
+                            "status not allowed or evidence not "
+                            "supported by the diff/test material")
+                    cands.setdefault(fid, []).append(
+                        (oc["diff_idx"], entry))
+            for raw_f in parsed.get("new_findings") or []:
+                nf = _normalize_finding(raw_f, oc["serving_name"])
+                if nf:
+                    new_findings.append(nf)
+        rec["jobs"] = job_marks
+        serving_name, serving_fn = name, fn
+        if ok_outcomes:
+            rec["status"] = "ok"
+            if len(ok_outcomes) == len(outcomes):
+                rec["error"] = ""
+            rec["judged_finding_ids"] = sorted(judged, key=str)
+            for fid, lst in cands.items():
+                rec["resolutions"][fid] = _combine_resolution(
+                    lst, finding_by_id.get(fid) or {}, batch_files)
+            fb_names = {oc["serving_name"] for oc in ok_outcomes
+                        if oc["fallback_for"]}
+            if len(fb_names) == 1 and all(
+                    oc["serving_name"] in fb_names
+                    for oc in ok_outcomes):
+                # Every pass was served by the same fallback
+                # seat: the slot's record takes the serving
+                # seat's identity, exactly as the single-pass
+                # path recorded it.
+                serving_name = fb_names.pop()
+                serving_fn = ok_outcomes[0]["serving_fn"]
+                rec["provider"] = serving_name
+                rec["fallback_for"] = name
+                rec["primary_error"] = ok_outcomes[0][
+                    "primary_error"]
+            elif fb_names:
+                rec["fallback_jobs"] = sum(
+                    1 for oc in ok_outcomes if oc["fallback_for"])
+        rec.update(_provider_meta(serving_fn))
+        rec.update(_seat_meta(seat_meta, serving_name))
+        per_provider.append(rec)
 
     cleared, remaining, unjudged = [], [], []
     ok_recs = [r for r in per_provider if r["status"] == "ok"]
-    ok_names = {r["provider"] for r in ok_recs}
     det_open_ids = {f["id"] for f in new_findings
                     if "deterministic" in (f.get("sources") or [])}
     for f in prior:
         fid = f.get("id")
-        statuses = [r["resolutions"].get(fid, {}).get("status", "unclear")
-                    for r in ok_recs]
+        # Speakers on this finding: successful seats that were
+        # actually shown it in a served pass (judged_finding_ids)
+        # and returned a combined verdict. A seat whose covering
+        # passes all failed never spoke on it — it contributes
+        # neither a status nor finder confirmation.
+        speakers = {}
+        for r in ok_recs:
+            if fid in (r.get("judged_finding_ids") or []):
+                speakers[r["provider"]] = r["resolutions"].get(
+                    fid, {}).get("status", "unclear")
+        statuses = list(speakers.values())
         srcs = f.get("sources") or []
         if "deterministic" in srcs:
             # Mechanical truth: the pattern either still fires in
@@ -3952,11 +4146,12 @@ def run_verification(patch, providers, previous_report, builder_response,
             # rest on reviewers who never saw the finding, and
             # "consensus" may not mean one surviving reviewer
             # (v0.7.0 external review, finding 2). Findings with no
-            # recorded source fall back to any successful reviewer.
-            finder_ok = (any(s in ok_names for s in srcs)
-                         if srcs else bool(ok_recs))
+            # recorded source fall back to any successful reviewer
+            # that was shown the finding.
+            finder_ok = (any(s in speakers for s in srcs)
+                         if srcs else bool(speakers))
             pattern_open = False
-        if ok_recs and finder_ok and not pattern_open \
+        if speakers and finder_ok and not pattern_open \
                 and all(s in ("fixed", "invalid") for s in statuses):
             cleared.append({**f, "cleared_by": statuses})
         elif pattern_open or any(s in ("still_present", "unclear")
@@ -3976,14 +4171,11 @@ def run_verification(patch, providers, previous_report, builder_response,
     # cite committed review records (or text preserved only
     # inside them) are preserved as archived-text and never
     # hold a verification gate hostage to historical evidence.
-    _vfy_sections = split_patch_sections(clean_patch)
-    _vfy_archived = [s for s in _vfy_sections
-                     if _archived_rule(s[0])]
-    _vfy_kept = [s for s in _vfy_sections
-                 if not _archived_rule(s[0])]
+    # The partition is the one prompt construction already made
+    # over the FULL patch — not a prefix slice.
     merged_new, archived_text_findings = _split_archived_text(
-        merged_new, {n for n, _t in _vfy_kept},
-        "\n".join(t for _n, t in _vfy_kept), _vfy_archived)
+        merged_new, {n for n, _t in sections},
+        kept_text, archived_sections)
     all_open = remaining + [f for f in merged_new
                             if f["severity"] in blocking_sevs]
     quorum_ok = len(ok_recs) >= 2 or len(providers) <= 1
@@ -4048,6 +4240,8 @@ def run_verification(patch, providers, previous_report, builder_response,
         "degraded": degraded, "truncated": truncated,
         "gate": gate, "gate_reasons": reasons,
     }
+    if archived_exclusions:
+        report["archived_exclusions"] = archived_exclusions
     if archived_text_findings:
         report["archived_text_findings"] = archived_text_findings
         report["gate_reasons"] = reasons + [
