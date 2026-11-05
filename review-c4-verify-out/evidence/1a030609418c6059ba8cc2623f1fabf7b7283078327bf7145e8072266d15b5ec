@@ -1,0 +1,1 @@
+Same design contract as b4572a1c56ac. The section is attached after the gate is decided; the CLI comment explicitly states claim verification is evidence not a gate input. The gate-invariance test passes (1095/1095). The section carries a boundary field restating the invariance in every record.

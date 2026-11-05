@@ -1,0 +1,1 @@
+The diff removes the literal AWS key from test_claims.py; it is now built from fragments ("AKIA" + "IOSFODNN7EXAMPLE") using the test_v090_fixes convention, so deterministic hardcoded-secret scans have nothing literal to match. The redaction assertion ([REDACTED-AWS-KEY] present, key absent) remains unweakened.
