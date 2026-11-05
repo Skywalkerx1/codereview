@@ -2828,21 +2828,110 @@ def _call_with_retry(fn, prompt, sleep=None, tally=None,
             sleep(delay + random.uniform(0, 0.25))
 
 
+_HTTP_CODES = (401, 403, 404, 408, 409, 425, 429,
+               500, 502, 503, 504)
+
+
+def _http_status_of(error):
+    """The HTTP status carried by a provider error, or None.
+
+    Structured first: a `status`/`status_code` attribute, or the
+    `code` attribute of an HTTPError-shaped exception. Otherwise
+    the status embedded in the message text — providers raise
+    strings like "HTTP 402 from api.deepseek.com"
+    (providers._post_json) and wrappers nest that ("ProviderError:
+    deepseek http: HTTP 402"). Codes match as whole tokens only,
+    the same discipline as _classify_error: a bare substring
+    search would invent a status out of any number in the text.
+    Nothing is invented — an error carrying no recognisable
+    status returns None."""
+    if error is None:
+        return None
+    for attr in ("status", "status_code"):
+        value = getattr(error, attr, None)
+        if isinstance(value, int) and 100 <= value <= 599:
+            return value
+    if type(error).__name__.endswith("HTTPError"):
+        value = getattr(error, "code", None)
+        if isinstance(value, int) and 100 <= value <= 599:
+            return value
+    msg = str(error)
+    m = re.search(r"\bHTTP (\d{3})\b", msg)
+    if m:
+        return int(m.group(1))
+    for code in _HTTP_CODES:
+        if re.search(rf"\b{code}\b", msg):
+            return code
+    return None
+
+
+def reviewer_report_entry(report):
+    """The persisted form of one reviewer report, shared by every
+    record writer (bench result records, generation attempt
+    records) so no writer trims a report on its own.
+
+    Additive by construction: the historical fields (provider,
+    lens, status, attempts) come first and unchanged. The rest
+    rides along as the in-memory report carries it — including
+    `error_detail` (step-3 error persistence, void forensics
+    recommendation 3): the FULL error string, its HTTP status
+    when the error carries one, and the failure classes, for
+    every errored report. The bench writer used to trim reports
+    to the four historical fields, which is why the voided
+    confirmation attempts' failure classes were unrecoverable
+    from their records. No record hash covers reviewer reports
+    (record-verify recomputes the patch hash and checks named
+    fields), so the added keys cannot invalidate stored records;
+    readers treat a missing error_detail as a legacy record,
+    never as corruption."""
+    entry = {
+        "provider": report.get("provider"),
+        "lens": report.get("lens"),
+        "status": report.get("status"),
+        "attempts": report.get("attempts"),
+        "error": report.get("error") or "",
+        "error_classes": list(report.get("error_classes") or []),
+        "duration_ms": report.get("duration_ms"),
+        "prompt_chars": report.get("prompt_chars"),
+    }
+    if report.get("fallback_for"):
+        entry["fallback_for"] = report["fallback_for"]
+    if report.get("primary_error"):
+        entry["primary_error"] = report["primary_error"]
+    if "error_detail" in report:
+        # Copied by PRESENCE, not truthiness (verification-round
+        # finding): a persistence layer keeps what the report
+        # carries — a detail block holding only a fallback_error,
+        # or null-valued fields, must not be dropped for being
+        # falsy.
+        entry["error_detail"] = report["error_detail"]
+    return entry
+
+
 def _review_job(fn, prompt, sleep=None, max_attempts=None):
     """One reviewer call, never raising: returns a result dict the
-    caller folds into a reviewer report."""
+    caller folds into a reviewer report. Carries the job's
+    wall-clock duration and prompt size (chars) so a persisted
+    report can prove both (step-3 error persistence)."""
     tally = {}
+    started = time.monotonic()
     try:
         parsed = _call_with_retry(fn, prompt, sleep=sleep,
                                   tally=tally,
                                   max_attempts=max_attempts)
         return {"ok": True, "parsed": parsed, "error": None,
                 "attempts": tally.get("attempts", 1),
-                "error_classes": tally.get("error_classes", [])}
+                "error_classes": tally.get("error_classes", []),
+                "duration_ms": int(
+                    (time.monotonic() - started) * 1000),
+                "prompt_chars": len(prompt or "")}
     except Exception as exc:  # noqa: BLE001 — recorded by caller
         return {"ok": False, "parsed": None, "error": exc,
                 "attempts": tally.get("attempts", 1),
-                "error_classes": tally.get("error_classes", [])}
+                "error_classes": tally.get("error_classes", []),
+                "duration_ms": int(
+                    (time.monotonic() - started) * 1000),
+                "prompt_chars": len(prompt or "")}
 
 
 # Per-call ceiling for a Tech Lead adjudication call (seconds).
@@ -2870,7 +2959,9 @@ def _review_job_bounded(fn, prompt, max_attempts=None, timeout=None):
         return {"ok": False, "parsed": None,
                 "error": (f"invalid adjudication timeout "
                           f"{timeout!r}: must be positive"),
-                "attempts": 0, "error_classes": []}
+                "attempts": 0, "error_classes": [],
+                "duration_ms": 0,
+                "prompt_chars": len(prompt or "")}
     box = queue.Queue(maxsize=1)
 
     def _work():
@@ -2881,18 +2972,24 @@ def _review_job_bounded(fn, prompt, max_attempts=None, timeout=None):
             # is documented never to raise; belt and braces so
             # the waiter can never hang on an empty queue.
             box.put({"ok": False, "parsed": None, "error": exc,
-                     "attempts": 0, "error_classes": []})
+                     "attempts": 0, "error_classes": [],
+                     "duration_ms": 0,
+                     "prompt_chars": len(prompt or "")})
 
     worker = threading.Thread(target=_work, daemon=True,
                               name="codereview-tech-lead-call")
     worker.start()
+    started = time.monotonic()
     try:
         return box.get(timeout=timeout)
     except queue.Empty:
         return {"ok": False, "parsed": None,
                 "error": (f"Tech Lead call timed out after "
                           f"{timeout}s"),
-                "attempts": 0, "error_classes": ["timeout"]}
+                "attempts": 0, "error_classes": ["timeout"],
+                "duration_ms": int(
+                    (time.monotonic() - started) * 1000),
+                "prompt_chars": len(prompt or "")}
 
 
 def _probe_call_bounded(fn, prompt, timeout):
@@ -3327,7 +3424,16 @@ def run_review(patch, providers, context="", test_results=None,
                    "batch": bi + 1, "status": "error",
                    "error": "", "summary": "", "findings": [],
                    "attempts": res["attempts"],
-                   "error_classes": res["error_classes"]}
+                   "error_classes": res["error_classes"],
+                   "duration_ms": res.get("duration_ms"),
+                   "prompt_chars": res.get("prompt_chars")}
+            # Step-3 error persistence: keep the primary's error
+            # OBJECT (the record's `error` field truncates its
+            # string at 300 chars) so the persisted error_detail
+            # below can carry the full string + HTTP status.
+            primary_exc = res["error"]
+            primary_classes = list(res["error_classes"])
+            fb_exc = None
             if not res["ok"] and fallbacks and lens in fallbacks:
                 fb_name, fb_fn = fallbacks[lens]
                 if fb_name != name:
@@ -3353,6 +3459,10 @@ def run_review(patch, providers, context="", test_results=None,
                     else:
                         fb = _review_job(fb_fn, prompt, sleep,
                                          max_attempts=remaining)
+                        fb_exc = fb["error"]
+                        rec["duration_ms"] = (
+                            (res.get("duration_ms") or 0)
+                            + (fb.get("duration_ms") or 0))
                         # The report's attempt count is the TOTAL
                         # calls spent on this lens (primary +
                         # fallback): cost accounting reads it, so
@@ -3407,6 +3517,29 @@ def run_review(patch, providers, context="", test_results=None,
                 degraded = True
                 if "reviewer failure" not in degraded_causes:
                     degraded_causes.append("reviewer failure")
+            if primary_exc is not None and (
+                    rec["status"] == "error"
+                    or rec.get("fallback_for")):
+                # Step-3 error persistence (void forensics
+                # recommendation 3): an errored report — and a
+                # report whose primary failed before a fallback
+                # served — persists the FULL error string, the
+                # HTTP status it carries (None when it carries
+                # none; never invented), and the failure classes,
+                # alongside the job's duration and prompt size
+                # already on the report. Without this, a stored
+                # record shows only status: "error" and the exact
+                # failure class is unrecoverable.
+                detail = {
+                    "error": str(primary_exc),
+                    "http_status": _http_status_of(primary_exc),
+                    "error_classes": primary_classes,
+                }
+                if fb_exc is not None:
+                    detail["fallback_error"] = str(fb_exc)
+                    detail["fallback_http_status"] = \
+                        _http_status_of(fb_exc)
+                rec["error_detail"] = detail
             rec.update(_provider_meta(serving_fn))
             rec.update(_seat_meta(seat_meta, serving_name))
             if (name, lens, bi) in job_fallback_for:

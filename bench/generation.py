@@ -255,7 +255,8 @@ class GenerationSeat:
 
     def _event(self, qh, outcome, started_iso, attempts=0,
                error_class=None, detail=None, tokens=(0, 0, False),
-               cached=False):
+               cached=False, duration_ms=None, prompt_chars=None,
+               http_status=None):
         ev = {"seat": self.name, "prompt_hash": qh,
               "outcome": outcome, "error_class": error_class,
               "attempts": attempts,
@@ -264,7 +265,18 @@ class GenerationSeat:
               "started_at": started_iso,
               "finished_at": self.now_iso()}
         if detail:
-            ev["detail"] = str(detail)[:200]
+            # Step-3 error persistence: the cap is generous
+            # (2000) so the class-determining part of a provider
+            # error string always survives into the record —
+            # the void forensics found 200 chars and summary-only
+            # records too little to reconstruct a failure from.
+            ev["detail"] = str(detail)[:2000]
+        if duration_ms is not None:
+            ev["duration_ms"] = duration_ms
+        if prompt_chars is not None:
+            ev["prompt_chars"] = prompt_chars
+        if http_status is not None:
+            ev["http_status"] = http_status
         self.events.append(ev)
         return ev
 
@@ -321,13 +333,19 @@ class GenerationSeat:
                     f"generation budget exhausted for seat "
                     f"{self.name}: {reason}")
             state["attempts"] += 1
+            attempt_started = self.clock()
             try:
                 raw = self.transport(prompt)
             except Exception as exc:  # noqa: BLE001 — classified
                 kind, _tries = core._classify_error(exc)
                 self._event(qh, "transport_error", started_iso,
                             attempts=1, error_class=kind,
-                            detail=exc)
+                            detail=exc,
+                            duration_ms=int(
+                                (self.clock() - attempt_started)
+                                * 1000),
+                            prompt_chars=len(prompt),
+                            http_status=core._http_status_of(exc))
                 if kind in RETRYABLE_KINDS and \
                         self._within_budget(state):
                     self._backoff(state["attempts"])
@@ -337,13 +355,17 @@ class GenerationSeat:
                 raise
             text, usage = (raw if isinstance(raw, tuple)
                            else (raw, None))
+            attempt_ms = int(
+                (self.clock() - attempt_started) * 1000)
             if text is None or not str(text).strip():
                 # Empty body from the transport layer: a
                 # transport failure (§3.2), never cached.
                 self._event(qh, "transport_error", started_iso,
                             attempts=1, error_class="empty_body",
                             detail="transport returned an empty "
-                                   "body")
+                                   "body",
+                            duration_ms=attempt_ms,
+                            prompt_chars=len(prompt))
                 if self._within_budget(state):
                     self._backoff(state["attempts"])
                     continue
@@ -366,7 +388,9 @@ class GenerationSeat:
                 # that machinery run exactly as in the product.
                 self._event(qh, "content_invalid", started_iso,
                             attempts=1, tokens=tokens,
-                            error_class="content")
+                            error_class="content",
+                            duration_ms=attempt_ms,
+                            prompt_chars=len(prompt))
                 return text
             if self.cache is not None:
                 self.cache.put(key, {
@@ -379,7 +403,8 @@ class GenerationSeat:
                     "attempts": state["attempts"],
                     "stored_at": self.now_iso()})
             self._event(qh, "ok", started_iso, attempts=1,
-                        tokens=tokens)
+                        tokens=tokens, duration_ms=attempt_ms,
+                        prompt_chars=len(prompt))
             return text
 
 
@@ -438,7 +463,7 @@ def _seat_case_record(case, seat_name, lens, model, ph, events,
             status = "unscored_infra"
         else:
             status = "unscored_infra"
-    return {
+    record = {
         "schema": GENERATION_SCHEMA,
         "case_id": case["id"], "split": case.get("split"),
         "seat": seat_name, "lens": lens,
@@ -462,6 +487,27 @@ def _seat_case_record(case, seat_name, lens, model, ph, events,
         "finished_at": max((e["finished_at"] for e in mine),
                            default=None),
     }
+    # Step-3 error persistence (void forensics rec. 3): the
+    # folded record used to keep only error_classes, dropping
+    # each failure's error string, HTTP status, duration and
+    # prompt size — the per-event detail now rides along so a
+    # failed seat's exact failure class is recoverable from the
+    # record alone. Events from before this field existed simply
+    # contribute None values; absence of the block on a stored
+    # record means a legacy record, not corruption.
+    error_detail = [{
+        "outcome": e["outcome"],
+        "error_class": e.get("error_class"),
+        "error": e.get("detail"),
+        "http_status": e.get("http_status"),
+        "duration_ms": e.get("duration_ms"),
+        "prompt_chars": e.get("prompt_chars"),
+        "started_at": e.get("started_at"),
+    } for e in mine if e["outcome"] in
+        ("transport_error", "content_invalid")]
+    if error_detail:
+        record["error_detail"] = error_detail
+    return record
 
 
 def case_complete(records, seat_lenses):
@@ -487,14 +533,12 @@ def to_attempt_record(case, report, cfg_name, cfg_sha, attempt,
                       created_at):
     calls = sum(int(r.get("attempts") or 1)
                 for r in report["reviewer_reports"])
-    reps = []
-    for r in report["reviewer_reports"]:
-        entry = {"provider": r["provider"], "lens": r["lens"],
-                 "status": r["status"],
-                 "attempts": r.get("attempts")}
-        if r.get("fallback_for"):
-            entry["fallback_for"] = r["fallback_for"]
-        reps.append(entry)
+    # Shared persisted form (core.reviewer_report_entry) — the
+    # same shape the bench writer stores, error_detail included,
+    # so an attempt record never trims what the bench record
+    # keeps (step-3 error persistence).
+    reps = [core.reviewer_report_entry(r)
+            for r in report["reviewer_reports"]]
     return {
         "schema": "codereview.benchresult/1",
         "run": run_label,
