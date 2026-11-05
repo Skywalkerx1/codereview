@@ -1,0 +1,1 @@
+fh.write(spec["code"])

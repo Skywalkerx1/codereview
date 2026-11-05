@@ -1,0 +1,2 @@
+    (result["found"] if _quote_grounded(c, region_text)
+         else result["missing"]).append(c)

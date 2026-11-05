@@ -1,0 +1,1 @@
+            cache[path] = source_lookup(path)

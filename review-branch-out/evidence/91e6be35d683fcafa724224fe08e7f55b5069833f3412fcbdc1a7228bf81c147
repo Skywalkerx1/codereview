@@ -1,0 +1,2 @@
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)

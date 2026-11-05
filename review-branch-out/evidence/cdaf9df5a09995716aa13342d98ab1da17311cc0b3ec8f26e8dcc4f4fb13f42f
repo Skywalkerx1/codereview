@@ -1,0 +1,4 @@
+    if major_plus and decision in ("sustain_finding", "sustain_refutation"):
+        draw2 = _shadow_draw(...)
+        entry["draws"].append(draw2)
+        entry["draws_agree"] = draw2["decision"] == decision

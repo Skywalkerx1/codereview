@@ -1,0 +1,1 @@
+The provided diff text does not contain the line `json.dumps(probe_result, sort_keys=True, default=str)`. The finding references this line at `src/codereview/core.py:772`, but the diff only shows code up to the shadow adjudication section and does not include line 772 or the `_shadow_cache_key` function body. Therefore, the evidence quote cannot be verified from this text.

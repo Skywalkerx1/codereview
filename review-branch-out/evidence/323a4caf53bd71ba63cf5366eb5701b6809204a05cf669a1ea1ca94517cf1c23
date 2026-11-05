@@ -1,0 +1,1 @@
+The cited code wraps the call in a try/except and stores None on exception, so the specific claim that it calls source_lookup(path) without a null check is incorrect as stated; the issue described concerns the return value after the call, not a null check before calling it.

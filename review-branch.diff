@@ -1,0 +1,3326 @@
+diff --git a/src/codereview/acceptance.py b/src/codereview/acceptance.py
+new file mode 100644
+index 0000000..26f83f2
+--- /dev/null
++++ b/src/codereview/acceptance.py
+@@ -0,0 +1,364 @@
++"""Tech Lead acceptance runner (refutation-process solution
++§6, owner-adopted 2026-11-04): run the SHADOW Tech Lead over
++the known-answer corpus at ~/workspace/codereview-acceptance/
++and score the adopted gates M1–M6.
++
++The corpus is the contract: case sets, scoring rules and
++thresholds are read from the corpus's scorecard.json, never
++hardcoded here. Scoring follows the scorecard's
++scored-decision definition — probes are NOT executed (probe
++results ship inside the cases and are presented as context);
++a needs_probe outcome scores as escalate; a decision whose
++deciding quote does not validate scores as escalate (the
++shadow draw machinery already enforces that normalization).
++
++The machinery stratum's isolation rule is honoured by
++construction: shadow adjudication never consults the
++precedent store, and every (case, variant) run uses a fresh
++decision cache.
++"""
++
++from __future__ import annotations
++
++import json
++import os
++
++from . import core
++
++
++def load_corpus(corpus_dir):
++    def read(name):
++        with open(os.path.join(corpus_dir, name),
++                  encoding="utf-8") as fh:
++            return json.load(fh)
++
++    index = read("index.json")
++    cases = {}
++    for item in index["cases"]:
++        cid = item["case_id"]
++        cases[cid] = read(os.path.join("cases", f"{cid}.json"))
++    return {"index": index, "scorecard": read("scorecard.json"),
++            "mutations": read("mutations.json"), "cases": cases}
++
++
++def _independence(seat_family, raiser_fam, refuter_fam):
++    if seat_family in (raiser_fam, refuter_fam, "unknown", None):
++        return "reduced"
++    return "independent"
++
++
++def case_inputs(case, seat_family, *, family_swap=False,
++                vendor_strip=False, paraphrase=None):
++    """Map a corpus case to (finding, dispute, region,
++    independence) for shadow_adjudicate, applying the
++    requested mutation to the PRESENTED inputs only — quotes
++    and the code region are never mutated."""
++    f0 = case["finding"]
++    r0 = case["refutation"]
++    evidence = f0.get("evidence") or f0.get("claim") or ""
++    reason = r0.get("reason") or ""
++    if paraphrase is not None:
++        evidence, reason = paraphrase
++    if vendor_strip:
++        evidence = core._scrub_vendor(evidence)
++        reason = core._scrub_vendor(reason)
++    raiser_fam = f0.get("raised_by_family")
++    refuter_fam = r0.get("by_family")
++    if family_swap:
++        raiser_fam, refuter_fam = refuter_fam, raiser_fam
++    finding = {
++        "id": case["case_id"],
++        "file": f0.get("file"), "line": f0.get("line"),
++        "severity": f0.get("severity_as_raised"),
++        "title": f0.get("claim") or "",
++        "evidence": evidence,
++        "evidence_quote": f0.get("evidence_quote") or ""}
++    dispute = {
++        "by": "refuter", "family": refuter_fam,
++        "raiser_family": raiser_fam,
++        "evidence_quote": r0.get("quote") or "",
++        "reason": reason}
++    region = (case.get("code_region") or {}).get("text") or ""
++    return finding, dispute, region, _independence(
++        seat_family, raiser_fam, refuter_fam)
++
++
++def scored_decision(entry):
++    """The scored decision per scorecard.json: the entry's
++    final decision, with every non-decision state normalized
++    to escalate."""
++    decision = (entry or {}).get("decision")
++    if decision in ("sustain_finding", "sustain_refutation"):
++        return decision
++    return "escalate"
++
++
++def scored_severity(entry):
++    return ((entry or {}).get("severity_after_rubric") or {}
++            ).get("level")
++
++
++def score_case(case, entry):
++    """Score one baseline entry under the case's own scoring
++    rule. Returns {"correct", "false_dismissal",
++    "scored_decision"}."""
++    expected = case.get("expected") or {}
++    rule = expected.get("scoring") or "exact"
++    scored = scored_decision(entry)
++    out = {"correct": False, "false_dismissal": False,
++           "scored_decision": scored, "rule": rule}
++    if rule == "dismissal_evidence_rule":
++        if scored == "escalate":
++            out["correct"] = True
++        elif scored == "sustain_refutation":
++            quote = ((entry.get("deciding_evidence") or {})
++                     .get("quote") or "")
++            region = (case.get("code_region") or {}).get(
++                "text") or ""
++            refuter_quote = (case.get("refutation") or {}).get(
++                "quote") or ""
++            out["correct"] = bool(
++                quote
++                and core._quote_grounded(quote, region)
++                and core._norm_quote(quote)
++                != core._norm_quote(refuter_quote))
++        return out
++    if rule == "machinery_two_field":
++        want = expected.get("decision")
++        if want == "refutation_rejected":
++            decision_ok = scored == "sustain_finding"
++        else:
++            decision_ok = scored == want
++        validity = expected.get("reasoning_validity") or {}
++        assess = entry.get("reasoning_assessment") or {}
++        claim_ok = ("true" if assess.get("claim_valid")
++                    else "false") == validity.get("claim")
++        refutation_ok = assess.get(
++            "refutation_validity") == validity.get("refutation")
++        out["correct"] = bool(
++            decision_ok and claim_ok and refutation_ok)
++        out["reasoning_match"] = {
++            "claim": claim_ok, "refutation": refutation_ok}
++        return out
++    # exact
++    if scored != expected.get("decision"):
++        return out
++    want_sev = expected.get("severity_after")
++    if want_sev is not None \
++            and scored_severity(entry) != want_sev:
++        return out
++    out["correct"] = True
++    return out
++
++
++_PARAPHRASE_PROMPT = (
++    "Paraphrase the following text, preserving every factual "
++    "claim and its direction exactly, changing only the "
++    "wording. Return ONLY the paraphrased text.\n\n{text}")
++
++
++def _paraphrase(seat_fn, text, timeout):
++    """One paraphrase call through the seat itself (the
++    mutation protocol allows an LLM paraphrase under a
++    semantics-preserving instruction). Plain-text call — the
++    JSON job machinery does not apply; the seat's own
++    transport timeout bounds it. A failed paraphrase keeps
++    the original text and the case is scored as-is."""
++    if not text:
++        return text
++    try:
++        out = seat_fn(_PARAPHRASE_PROMPT.format(text=text[:4000]))
++    except Exception:  # noqa: BLE001
++        return text
++    return str(out).strip() or text
++
++
++def run_acceptance(corpus_dir, seat_fn, *, seat_family,
++                   seat_name="acceptance-tech-lead",
++                   do_mutations=True, timeout=180, log=None):
++    """Run the full acceptance protocol and return the run
++    record: per-case entries and scores, mutation flips, and
++    the M1–M6 measurements against the scorecard's own
++    thresholds. The unlock verdict requires EVERY gate metric
++    to pass on this single run."""
++    log = log or (lambda _msg: None)
++    corpus = load_corpus(corpus_dir)
++    cases = corpus["cases"]
++    scorecard = corpus["scorecard"]
++    metrics_spec = {m["id"]: m
++                    for m in scorecard.get("metrics") or []}
++
++    def adjudicate(case, **kw):
++        finding, dispute, region, indep = case_inputs(
++            case, seat_family, **kw)
++        return core.shadow_adjudicate(
++            seat_fn, finding, region, dispute,
++            seat_name=seat_name, seat_family=seat_family,
++            independence=indep, probe_fn=None,
++            probe_context=case.get("probe"), cache={},
++            timeout=timeout)
++
++    baseline = {}
++    scores = {}
++    for cid in sorted(cases):
++        entry = adjudicate(cases[cid])
++        baseline[cid] = entry
++        scores[cid] = score_case(cases[cid], entry)
++        log(f"baseline {cid}: {scored_decision(entry)} "
++            f"(correct={scores[cid]['correct']})")
++
++    mutation_ids = [m["id"] for m in
++                    (corpus["mutations"].get("mutations") or [])]
++    flips = {mid: [] for mid in mutation_ids}
++    paraphrases = {}
++    if do_mutations:
++        for cid in sorted(cases):
++            case = cases[cid]
++            base = (scored_decision(baseline[cid]),
++                    scored_severity(baseline[cid]))
++            for mid in mutation_ids:
++                if mid == "position_swap":
++                    # Force the opposite A/B order relative to
++                    # the baseline draw for this case.
++                    finding, dispute, region, indep = \
++                        case_inputs(case, seat_family)
++                    entry = core.shadow_adjudicate(
++                        seat_fn, finding, region, dispute,
++                        seat_name=seat_name,
++                        seat_family=seat_family,
++                        independence=indep, probe_fn=None,
++                        probe_context=case.get("probe"),
++                        cache={}, timeout=timeout,
++                        force_swap=True)
++                elif mid == "family_swap":
++                    entry = adjudicate(case, family_swap=True)
++                elif mid == "vendor_strip":
++                    entry = adjudicate(case, vendor_strip=True)
++                elif mid == "reason_paraphrase":
++                    pair = (
++                        _paraphrase(
++                            seat_fn,
++                            case["finding"].get("evidence")
++                            or case["finding"].get("claim")
++                            or "", timeout),
++                        _paraphrase(
++                            seat_fn,
++                            case["refutation"].get("reason")
++                            or "", timeout))
++                    paraphrases[cid] = {
++                        "evidence": pair[0], "reason": pair[1]}
++                    entry = adjudicate(case, paraphrase=pair)
++                else:
++                    continue
++                now = (scored_decision(entry),
++                       scored_severity(entry))
++                if now != base:
++                    flips[mid].append(cid)
++                log(f"mutation {mid} {cid}: {now[0]} "
++                    f"(flip={now != base})")
++
++    def metric_set(mid):
++        spec = metrics_spec.get(mid) or {}
++        s = spec.get("set")
++        if isinstance(s, list):
++            return s
++        return sorted(cases)
++
++    def threshold(mid):
++        spec = metrics_spec.get(mid) or {}
++        return spec.get("threshold") or {}
++
++    def passes(value, mid):
++        th = threshold(mid)
++        op, want = th.get("op"), th.get("value")
++        if op == "==":
++            return value == want
++        if op == ">=":
++            return value >= want
++        if op == "<=":
++            return value <= want
++        return False
++
++    # M1: false dismissals on the real-finding set.
++    m1_set = metric_set("M1_false_dismissals_on_real_findings")
++    m1 = sum(1 for cid in m1_set
++             if scored_decision(baseline[cid])
++             == "sustain_refutation")
++    # M2: accuracy on the probe-settled set.
++    m2_set = metric_set("M2_probe_settled_accuracy")
++    m2 = (sum(1 for cid in m2_set if scores[cid]["correct"])
++          / len(m2_set)) if m2_set else 0.0
++    # M3: overall accuracy.
++    m3 = sum(1 for c in scores.values() if c["correct"]) \
++        / len(scores)
++    # M4: mutation flip rate.
++    total_flips = sum(len(v) for v in flips.values())
++    denom = len(cases) * len(mutation_ids) if do_mutations \
++        else 0
++    m4 = (total_flips / denom) if denom else None
++    # M5: protected + insufficient all escalated.
++    m5_set = metric_set(
++        "M5_protected_and_insufficient_escalated")
++    m5 = (sum(1 for cid in m5_set
++              if scored_decision(baseline[cid]) == "escalate")
++          / len(m5_set)) if m5_set else 0.0
++    # M6: double-draw agreement on majors.
++    major_ids = [cid for cid, c in cases.items()
++                 if (c["finding"].get("severity_as_raised")
++                     in ("blocker", "major"))]
++    agreed = [cid for cid in major_ids
++              if baseline[cid].get("draws_agree") is True]
++    measured = [cid for cid in major_ids
++                if baseline[cid].get("draws_agree") is not None]
++    m6 = (len(agreed) / len(measured)) if measured else None
++
++    metrics = {
++        "M1_false_dismissals_on_real_findings": {
++            "measured": m1, "threshold": threshold(
++                "M1_false_dismissals_on_real_findings"),
++            "pass": passes(
++                m1, "M1_false_dismissals_on_real_findings"),
++            "set_size": len(m1_set)},
++        "M2_probe_settled_accuracy": {
++            "measured": m2, "threshold": threshold(
++                "M2_probe_settled_accuracy"),
++            "pass": passes(m2, "M2_probe_settled_accuracy"),
++            "set_size": len(m2_set)},
++        "M3_overall_accuracy": {
++            "measured": m3,
++            "threshold": threshold("M3_overall_accuracy"),
++            "pass": passes(m3, "M3_overall_accuracy"),
++            "set_size": len(scores)},
++        "M4_mutation_flip_rate": {
++            "measured": m4,
++            "threshold": threshold("M4_mutation_flip_rate"),
++            "pass": bool(do_mutations) and passes(
++                m4, "M4_mutation_flip_rate"),
++            "flips": flips, "denominator": denom},
++        "M5_protected_and_insufficient_escalated": {
++            "measured": m5, "threshold": threshold(
++                "M5_protected_and_insufficient_escalated"),
++            "pass": passes(
++                m5, "M5_protected_and_insufficient_escalated"),
++            "set_size": len(m5_set)},
++        "M6_double_draw_agreement_on_majors": {
++            "measured": m6, "threshold": threshold(
++                "M6_double_draw_agreement_on_majors"),
++            "pass": m6 is not None and passes(
++                m6, "M6_double_draw_agreement_on_majors"),
++            "majors": len(major_ids),
++            "measured_cases": len(measured),
++            "agreed_cases": len(agreed)},
++    }
++    unlock = all(m["pass"] for m in metrics.values())
++    return {
++        "seat_family": seat_family, "seat_name": seat_name,
++        "corpus": corpus_dir,
++        "protocol_version": core.ADJUDICATION_PROTOCOL_VERSION,
++        "rubric_version": core.RUBRIC_VERSION,
++        "cases": {cid: {"entry": baseline[cid],
++                        "score": scores[cid]}
++                  for cid in sorted(cases)},
++        "paraphrases": paraphrases,
++        "metrics": metrics,
++        "unlock_all_gates_pass": unlock}
+diff --git a/src/codereview/cli.py b/src/codereview/cli.py
+index 86e27bc..eb2c5a9 100644
+--- a/src/codereview/cli.py
++++ b/src/codereview/cli.py
+@@ -1126,12 +1126,86 @@ def _bench_main(argv, providers_override=None):
+     return 0
+ 
+ 
++def _acceptance_main(argv, providers_override=None):
++    """codereview acceptance — run the shadow Tech Lead over
++    the known-answer acceptance corpus and score the adopted
++    gates M1–M6 (refutation-process solution §6). The seat is
++    built from --provider specs (or supplied by the caller via
++    providers_override, as the swarm runner supplies its
++    seats); its family must be a third family relative to the
++    corpus's raiser/refuter families for the run to mean
++    anything."""
++    ap = argparse.ArgumentParser(prog="codereview acceptance")
++    ap.add_argument("--corpus", required=True,
++                    help="path to the acceptance corpus "
++                         "directory (index.json + cases/ + "
++                         "scorecard.json + mutations.json)")
++    ap.add_argument("--provider", action="append", default=[],
++                    help="provider spec for the Tech Lead seat, "
++                         "e.g. deepseek:deepseek-chat (the "
++                         "first seat is used)")
++    ap.add_argument("--seat-family", default=None,
++                    help="family tag for the seat (defaults to "
++                         "the seat's provider family)")
++    ap.add_argument("--out", default=None,
++                    help="write the full run record (JSON) to "
++                         "this directory")
++    ap.add_argument("--no-mutations", action="store_true",
++                    help="skip the M4 mutation battery")
++    ap.add_argument("--timeout", type=int, default=180,
++                    help="per-call timeout in seconds")
++    args = ap.parse_args(argv)
++    if providers_override:
++        seats = dict(providers_override)
++    elif args.provider:
++        try:
++            seats = build_providers(
++                args.provider, agent_timeout=args.timeout)
++        except Exception as exc:  # noqa: BLE001
++            print(f"codereview: provider setup failed: {exc}",
++                  file=sys.stderr)
++            return 2
++    else:
++        print("codereview: acceptance needs a seat: pass "
++              "--provider <spec>", file=sys.stderr)
++        return 2
++    if not seats:
++        print("codereview: no seat available", file=sys.stderr)
++        return 2
++    seat_name, seat_fn = next(iter(seats.items()))
++    seat_family = args.seat_family or getattr(
++        seat_fn, "_codereview_family", None) or seat_name
++    from . import acceptance as acceptance_mod
++    result = acceptance_mod.run_acceptance(
++        args.corpus, seat_fn, seat_family=seat_family,
++        seat_name=seat_name,
++        do_mutations=not args.no_mutations,
++        timeout=args.timeout,
++        log=lambda m: print(m, file=sys.stderr))
++    for mid, m in result["metrics"].items():
++        print(f"{mid}: measured={m['measured']} "
++              f"threshold={m['threshold']} "
++              f"pass={m['pass']}")
++    print(f"unlock (all gates on one run): "
++          f"{result['unlock_all_gates_pass']}")
++    if args.out:
++        os.makedirs(args.out, exist_ok=True)
++        path = os.path.join(args.out, "acceptance-run.json")
++        with open(path, "w", encoding="utf-8") as fh:
++            json.dump(result, fh, indent=1, default=str)
++        print(f"record: {path}")
++    return 0 if result["unlock_all_gates_pass"] else 1
++
++
+ def main(argv=None, providers_override=None, seat_meta_override=None,
+          fallbacks_override=None):
+     if argv is None:
+         argv = sys.argv[1:]
+     if argv and argv[0] == "setup":
+         return _setup_main(argv[1:])
++    if argv and argv[0] == "acceptance":
++        return _acceptance_main(
++            argv[1:], providers_override=providers_override)
+     if argv and argv[0] == "doctor":
+         return _doctor_main(argv[1:],
+                             providers_override=providers_override,
+@@ -1238,6 +1312,20 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
+                          "substituted, loudly, on the record. "
+                          "Without a designation, the first "
+                          "independent seat serves")
++    ap.add_argument("--tech-lead-shadow", action="store_true",
++                    help="run the Tech Lead in SHADOW mode: for "
++                         "every disputed finding the full "
++                         "structured adjudication is produced and "
++                         "recorded in the record's "
++                         "shadow_adjudications section — blinded "
++                         "A/B positions, double-drawn for majors "
++                         "— but the decisions are non-binding and "
++                         "never change the gate verdict. The seat "
++                         "is the --tech-lead seat when designated, "
++                         "else an independent seat, else any "
++                         "served seat under reduced independence. "
++                         "Equivalent to the CODEREVIEW_TECH_LEAD_"
++                         "SHADOW=1 environment variable")
+     ap.add_argument("--attempts-log",
+                     help="append one JSON line describing this run "
+                          "(seats, error classes, gate) to this file. "
+@@ -1255,6 +1343,14 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
+                          "for primary AND fallback seats, like "
+                          "doctor/intake); also the wait bound for "
+                          "Tech Lead adjudication calls")
++    ap.add_argument("--probe-timeout", type=int, default=120,
++                    help="wall-clock bound in seconds for one "
++                         "harness probe (default 120)")
++    ap.add_argument("--no-probe-harness", action="store_true",
++                    help="do not wire the probe harness: a Tech "
++                         "Lead probe request then escalates for "
++                         "lack of a channel, as before the "
++                         "harness existed")
+     args = ap.parse_args(argv)
+ 
+     if args.timeout is not None and args.timeout <= 0:
+@@ -1436,6 +1532,18 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
+     test_results = _run_tests(args.test_command, cwd)
+ 
+     review_kwargs = {}
++    if not args.no_probe_harness:
++        # Probe harness (refutation-process solution §5.2):
++        # the Tech Lead's probe channel, wired by default so a
++        # needs_probe decision no longer auto-escalates for
++        # lack of a channel. Probes execute in the harness
++        # sandbox against a temp copy of the reviewed tree —
++        # never in the tree itself, never with the process
++        # environment. The swarm internal runner reaches this
++        # same wiring through cli.main.
++        from . import probe as probe_mod
++        review_kwargs["probe_fn"] = probe_mod.make_probe_fn(
++            args.repo or ".", timeout=args.probe_timeout)
+     if lens_seats:
+         review_kwargs["lens_seats"] = lens_seats
+     if tech_lead_seat and "tech_lead" in \
+@@ -1453,6 +1561,19 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
+         # --role/saved-setup assignment can; the command line wins
+         # (the same precedence --role has over the saved setup).
+         review_kwargs["tech_lead"] = args.tech_lead
++    shadow_role_seat = seat_roles.get("tech-lead-shadow")
++    if args.tech_lead_shadow or shadow_role_seat or os.environ.get(
++            "CODEREVIEW_TECH_LEAD_SHADOW") == "1":
++        # Shadow Tech Lead: recorded, non-binding, gate-neutral
++        # (the engine guarantees verdict invariance). Seat
++        # precedence: an explicit tech-lead-shadow role, then
++        # the binding --tech-lead designation, then the engine's
++        # own independent-seat choice.
++        review_kwargs["tech_lead_shadow"] = True
++        shadow_seat = shadow_role_seat or args.tech_lead \
++            or tech_lead_seat
++        if shadow_seat:
++            review_kwargs["tech_lead_shadow_seat"] = shadow_seat
+ 
+     if args.verify_previous:
+         try:
+diff --git a/src/codereview/core.py b/src/codereview/core.py
+index 1d42e9d..a0b51e4 100644
+--- a/src/codereview/core.py
++++ b/src/codereview/core.py
+@@ -33,6 +33,8 @@ from __future__ import annotations
+ 
+ import ast
+ import concurrent.futures
++
++from .probe import parse_probe_spec
+ import copy
+ import datetime
+ import fnmatch
+@@ -688,6 +690,32 @@ def _xconfirm_call(fn, finding, region):
+ # amendment review, confirmed major f6064fc5e515).
+ MAX_PROBE_ROUNDS = 1
+ 
++# Shadow Tech Lead (refutation-process solution Q2/Q4 +
++# four-disputed solution, owner-adopted 2026-11-04): the FULL
++# structured adjudication, run in shadow — decisions recorded
++# in the record's shadow_adjudications section, labelled
++# non-binding, never consulted by the gate. Protocol and
++# rubric versions ride in every decision and in its cache key.
++ADJUDICATION_PROTOCOL_VERSION = 1
++RUBRIC_VERSION = 1
++RUBRIC_CLAUSES = {
++    "R1": "reachable defect not demonstrated (a blocker or "
++          "major requires a demonstrated, reachable defect "
++          "with the reachable path cited)",
++    "R2": "outside the supported configuration (depends only "
++          "on an unsupported platform or configuration)",
++    "R3": "impact overstated for the severity",
++    "R4": "by-design or documented behaviour",
++    "R5": "evidence insufficient to support the severity",
++}
++PLATFORM_MANIFEST = dict(SUPPORTED_PLATFORMS)
++
++
++def _manifest_hash():
++    return hashlib.sha256(json.dumps(
++        PLATFORM_MANIFEST, sort_keys=True).encode(
++            "utf-8")).hexdigest()
++
+ 
+ def _norm_quote(text):
+     """Normalize a quote for the adequacy comparison: strip, drop
+@@ -716,6 +744,107 @@ def _refutation_weak(finding, quote):
+     return _norm_quote(quote) == cited
+ 
+ 
++_CITED_CONSTRUCT_RE = re.compile(
++    r"`([^`\n]{2,120})`|\"([^\"\n]{2,120})\"")
++
++
++def _reason_check(dispute, region_text):
++    """Shadow reason check (four-disputed solution §4,
++    P0/P1): grade the refutation's MECHANISM, deterministically,
++    against the cited file's text. Code constructs the reason
++    cites (backtick- or double-quoted spans) are existence-
++    checked in the region: every cited construct present ->
++    "verified"; constructs cited but NONE present ->
++    "contradicted" (the Case-4 pattern — a guard asserted
++    that exists nowhere in the source); nothing checkable, or
++    a mixed result -> "unverified" with the detail attached.
++    Computed and recorded only — this changes no routing."""
++    reason = str((dispute or {}).get("reason") or "")
++    cited = []
++    for m in _CITED_CONSTRUCT_RE.finditer(reason):
++        text = (m.group(1) or m.group(2) or "").strip()
++        if text and text not in cited:
++            cited.append(text)
++    result = {"status": "unverified", "cited": cited[:5],
++              "found": [], "missing": []}
++    if not cited or not region_text:
++        return result
++    for c in cited[:5]:
++        if len(c) < 4:
++            continue  # below the grounding floor: uncheckable
++        (result["found"] if _quote_grounded(c, region_text)
++         else result["missing"]).append(c)
++    if result["found"] and not result["missing"]:
++        result["status"] = "verified"
++    elif result["missing"] and not result["found"]:
++        result["status"] = "contradicted"
++    return result
++
++
++def _trace_gate_shadow(finding, region_text):
++    """Shadow trace-gate evaluation (four-disputed solution
++    §5): for a major-or-above claim ABOUT a callee, would the
++    claim clear the evidence bar — a quoted line from the
++    callee's body, or a structured failure_witness? Returns
++    the evaluation with `would_downgrade` set when it would
++    not. LOGGED ONLY: enforcement is P3, deliberately out of
++    scope here, so this changes nothing."""
++    result = {"applies": False, "about_callee": [],
++              "callee_body_quoted": False,
++              "failure_witness": False, "would_downgrade": False}
++    if str(finding.get("severity") or "") not in (
++            "major", "critical", "blocker"):
++        return result
++    if not region_text:
++        return result
++    lines = region_text.splitlines()
++    line_no = finding.get("line") or 0
++    cited_line = lines[line_no - 1] if 0 < line_no <= len(lines) \
++        else ""
++    callees = []
++    if cited_line.strip():
++        try:
++            expr = ast.parse(cited_line.strip())
++        except (SyntaxError, ValueError):
++            expr = None
++        if expr is not None:
++            for sub in ast.walk(expr):
++                if isinstance(sub, ast.Call):
++                    fn = sub.func
++                    name = fn.id if isinstance(fn, ast.Name) \
++                        else (fn.attr if isinstance(
++                            fn, ast.Attribute) else None)
++                    if name and name not in callees:
++                        callees.append(name)
++    defs = _scan_functions(region_text) or []
++    by_bare = {}
++    for node, qual in defs:
++        by_bare.setdefault(qual.rsplit(".", 1)[-1], node)
++    evidence = str(finding.get("evidence") or "") + "\n" + str(
++        finding.get("evidence_quote") or "")
++    about = []
++    body_quoted = False
++    for name in callees:
++        node = by_bare.get(name)
++        if node is None:
++            continue
++        about.append(name)
++        span = lines[(node.lineno - 1):(node.end_lineno
++                                        or node.lineno)]
++        for body_line in span[1:]:
++            if body_line.strip() and _quote_grounded(
++                    body_line.strip(), evidence):
++                body_quoted = True
++    result["applies"] = bool(about)
++    result["about_callee"] = about
++    result["callee_body_quoted"] = body_quoted
++    result["failure_witness"] = isinstance(
++        finding.get("failure_witness"), dict)
++    result["would_downgrade"] = bool(
++        about) and not (body_quoted or result["failure_witness"])
++    return result
++
++
+ _TECH_LEAD_PROMPT = """You are the Tech Lead in a multi-model code review loop, in a TECH LEAD ADJUDICATION pass. Two reviewers from two other vendor families disagree about the blocking finding below: one raised it, the second refuted it. You are neither of them. Your decision is the FINAL gate disposition for this finding — there is no majority vote to hide behind; decide from the claim, the code, and the evidence.
+ 
+ Rules:
+@@ -723,7 +852,7 @@ Rules:
+ - Decide ONE of:
+   - "sustain_finding": the defect is real as described. You may set "severity" LOWER than the finding's severity when the adopted severity rubric says the claim is overstated (a blocker or major requires a demonstrated, reachable defect with impact in a supported configuration — POSIX operating systems, Python 3.11 or newer — with the reachable path cited); you may never raise it.
+   - "sustain_refutation": the claim is wrong; the refutation stands.
+-  - "needs_probe": the evidence shown cannot settle the claim and a concrete builder probe could. State exactly what to probe in "probe_request". A probe can only rebut — you will decide again on the combined evidence.
++  - "needs_probe": the evidence shown cannot settle the claim and a concrete probe could. Put a machine-executable spec in "probe_request" — a JSON object {{"kind": "python", "code": "<a short script whose exit 0 means the claim's prediction fails>", "claim": "..."}} or {{"kind": "test", "target": "tests/test_x.py"}} or {{"kind": "command", "argv": [...]}} — and the harness will execute it in a sandbox (no network, no secrets) against the reviewed tree. A probe can only rebut — you will decide again on the combined evidence.
+   - "escalate": the evidence is genuinely insufficient, or the panel state below makes a decision unsafe, and the case must go to the project owner as an appeal/exception. Say why in "rationale". Escalation is the exception, not a default.
+ - "sustain_finding" and "sustain_refutation" count only with "evidence_quote": a line copied EXACTLY from the region below, character for character, without the leading '+', that supports your decision. A decision whose quote does not appear in the region is not a decision.
+ - Panel state: {panel_state}. Refutation adequacy grade: {adequacy} (a "weak" refutation quoted only the line the finding itself cites — it carries no counter-evidence of its own).
+@@ -818,6 +947,19 @@ def _tech_lead_call(fn, finding, region, dispute, probe=None,
+     return out
+ 
+ 
++def _tech_lead_eligible(family, served, raiser_fam, refuter_fam):
++    """THE Tech Lead eligibility predicate (four-disputed
++    solution §3): a seat may adjudicate a finding only when it
++    served on the panel and its family is neither the
++    raiser's nor the refuter's (an unknown family can never
++    show independence). This single predicate is used by seat
++    selection AND by the boundary assertion at the point the
++    adjudication is recorded — one definition, so the two can
++    never drift apart."""
++    return bool(served) and family not in (
++        raiser_fam, refuter_fam, "unknown", None)
++
++
+ def _select_tech_lead(seat_fns, ok_seats, fam_by_seat, designated,
+                       raiser_fam, refuter_fam):
+     """Choose the Tech Lead seat for one disputed finding
+@@ -835,8 +977,8 @@ def _select_tech_lead(seat_fns, ok_seats, fam_by_seat, designated,
+         return fam_by_seat.get(n)
+ 
+     def eligible(n):
+-        return n in ok_seats and fam_of(n) not in (
+-            raiser_fam, refuter_fam, "unknown", None)
++        return _tech_lead_eligible(
++            fam_of(n), n in ok_seats, raiser_fam, refuter_fam)
+ 
+     substitution = None
+     if designated:
+@@ -878,6 +1020,374 @@ def _select_tech_lead(seat_fns, ok_seats, fam_by_seat, designated,
+             "raiser and the refuter served on this panel")
+ 
+ 
++# ---------------- shadow Tech Lead (non-binding) ----------------
++
++_VENDOR_SCRUB_RE = re.compile(
++    r"\b(openai|gpt-?\d[\w.]*|nvidia|nemotron|gemini|google|"
++    r"anthropic|claude|deepseek|meta|llama|mistral|xai|grok|"
++    r"moonshot|kimi|minimax)\b", re.IGNORECASE)
++
++
++def _scrub_vendor(text, extra=()):
++    """Strip vendor/model fingerprints from a position text
++    before it is shown to the shadow Tech Lead (adopted
++    blinding rule): family names, seat names, and known vendor
++    or model names become neutral markers. Applied only to
++    what the adjudicator SEES; the record keeps the originals."""
++    out = str(text or "")
++    for token in extra:
++        if token:
++            out = re.sub(re.escape(str(token)), "[seat]",
++                         out, flags=re.IGNORECASE)
++    return _VENDOR_SCRUB_RE.sub("[model]", out)
++
++
++_SHADOW_TECH_LEAD_PROMPT = """You are the TECH LEAD deciding a disputed code-review finding in SHADOW MODE: your decision is recorded for evaluation and changes nothing. Two reviewers disagreed about the claim below. Their identities are hidden: their positions are presented as POSITION A and POSITION B in an order chosen at random. Judge only the claim, the two positions, and the code region.
++
++Rules:
++- Restate the claim in your own words; say whether it is falsifiable by an executable check.
++- Grade each position: does its quoted evidence actually address the claim? Say why. (The two grading fields are keyed by position: position_a / position_b.)
++- Your deciding evidence must be quoted VERBATIM from the code region.
++- If the case can be settled by running code, set "probe_request" to a machine-executable spec as a JSON string — {{"kind": "python", "code": "..."}} or {{"kind": "command", "argv": ["...", "..."]}} or {{"kind": "test", "target": "path::name"}} — and decision "needs_probe". A probe result, when present, can only rebut a claim; it never proves one by itself.
++- severity_after_rubric: keep the finding's severity unless a rubric clause lowers it. Clauses: R1 reachable-defect-not-demonstrated; R2 outside-supported-configuration; R3 impact-overstated; R4 by-design-or-documented-behaviour; R5 evidence-insufficient. Never raise severity; any change must name its clause.
++- reasoning_assessment.refutation_validity grades the OPPOSING position's reasoning mechanism: "valid", "weak_self_quote" (it merely restates the cited line), or "contradicted" (it asserts something the code shows is false).
++
++Finding (severity {severity}): {finding}
++Code region (the cited file's section):
++{region}
++
++POSITION A argues:
++{A_text}
++A's evidence quote: {A_quote}
++
++POSITION B argues:
++{B_text}
++B's evidence quote: {B_quote}
++{probe_block}
++Respond with ONLY a JSON object:
++{{"claim_restated": "...", "claim_falsifiable": true, "position_a_addresses_claim": {{"value": true, "why": "..."}}, "position_b_addresses_claim": {{"value": false, "why": "..."}}, "reasoning_assessment": {{"claim_valid": true, "refutation_validity": "valid"}}, "deciding_evidence": {{"quote": "..."}}, "probe_request": null, "decision": "sustain_finding | sustain_refutation | needs_probe | escalate", "severity_after_rubric": {{"level": "{severity}", "rubric_clause": null}}, "confidence": "high | medium | low", "rationale": "..."}}"""
++
++
++def _shadow_cache_key(finding, region, probe_result=None):
++    """The adopted decision-cache tuple (solution Q4):
++    fingerprint, function hash + callee hashes, platform
++    manifest hash, rubric + protocol versions, probe-result
++    hash — serialized and hashed."""
++    fk = finding.get("function_key") or {}
++    if fk.get("function_hash"):
++        function_part = {"function_hash": fk["function_hash"],
++                         "callees": fk.get("callees") or {}}
++    else:
++        function_part = {"region_hash": hashlib.sha256(
++            (region or "").encode("utf-8")).hexdigest()}
++    probe_hash = None
++    if probe_result is not None:
++        probe_hash = hashlib.sha256(json.dumps(
++            probe_result, sort_keys=True, default=str).encode(
++                "utf-8")).hexdigest()
++    payload = {
++        "fingerprint": finding.get("id"),
++        **function_part,
++        "manifest_hash": _manifest_hash(),
++        "rubric_version": RUBRIC_VERSION,
++        "protocol_version": ADJUDICATION_PROTOCOL_VERSION,
++        "probe_result_hash": probe_hash}
++    return hashlib.sha256(json.dumps(
++        payload, sort_keys=True, default=str).encode(
++            "utf-8")).hexdigest()
++
++
++def _shadow_draw(fn, finding, region, dispute, rng, probe=None,
++                 timeout=None, force_swap=False):
++    """One blinded shadow draw. Positions are assigned to A/B
++    by the run's rng (or forced swapped for mutation testing);
++    the returned draw carries the position mapping so the
++    recorder can key the grades canonically. A draw whose
++    deciding quote does not validate, or that changes severity
++    without a rubric clause, is normalized to escalate — the
++    eligibility discipline applies to shadow draws too."""
++    raiser_text = _scrub_vendor(
++        (finding.get("title") or "") + "\n"
++        + (finding.get("evidence") or ""),
++        extra=(dispute.get("raiser_family"),))
++    refuter_text = _scrub_vendor(
++        dispute.get("reason") or "",
++        extra=(dispute.get("family"),))
++    positions = {"raiser": (raiser_text,
++                            finding.get("evidence_quote") or ""),
++                 "refuter": (refuter_text,
++                             dispute.get("evidence_quote") or "")}
++    swap = rng.random() < 0.5
++    if force_swap:
++        swap = not swap
++    order = ("refuter", "raiser") if swap else ("raiser",
++                                               "refuter")
++    probe_block = ""
++    if probe is not None:
++        probe_block = (
++            "\nProbe result (a probe can only rebut; it never "
++            "decides):\n" + json.dumps(
++                probe, ensure_ascii=False, default=str)[:1500]
++            + "\n")
++    prompt = _SHADOW_TECH_LEAD_PROMPT.format(
++        finding=_finding_public(finding),
++        severity=finding.get("severity") or "",
++        region=(region or "")[:20000],
++        A_text=positions[order[0]][0][:1500],
++        A_quote=positions[order[0]][1][:400],
++        B_text=positions[order[1]][0][:1500],
++        B_quote=positions[order[1]][1][:400],
++        probe_block=probe_block)
++    draw = {"positions": {"A": order[0], "B": order[1]},
++            "decision": "escalate", "error": None}
++    res = _review_job_bounded(fn, prompt, max_attempts=2,
++                              timeout=timeout)
++    if not res["ok"]:
++        draw["error"] = f"shadow Tech Lead call failed: " \
++                        f"{res['error']}"
++        return draw
++    parsed = res["parsed"] or {}
++
++    def grade(key):
++        g = parsed.get(key) or {}
++        if not isinstance(g, dict):
++            g = {}
++        return {"value": bool(g.get("value")),
++                "why": str(g.get("why") or "")}
++
++    grades = {order[0]: grade("position_a_addresses_claim"),
++              order[1]: grade("position_b_addresses_claim")}
++    draw["raiser_evidence_addresses_claim"] = grades["raiser"]
++    draw["refuter_evidence_addresses_claim"] = grades["refuter"]
++    draw["claim_restated"] = str(
++        parsed.get("claim_restated") or "")
++    draw["claim_falsifiable"] = bool(
++        parsed.get("claim_falsifiable"))
++    assess = parsed.get("reasoning_assessment") or {}
++    if not isinstance(assess, dict):
++        assess = {}
++    validity = str(assess.get("refutation_validity") or "")
++    draw["reasoning_assessment"] = {
++        "claim_valid": bool(assess.get("claim_valid")),
++        "refutation_validity": validity if validity in (
++            "valid", "weak_self_quote", "contradicted")
++        else "valid"}
++    deciding = parsed.get("deciding_evidence") or {}
++    if not isinstance(deciding, dict):
++        deciding = {}
++    draw["deciding_quote"] = str(deciding.get("quote") or "")
++    draw["deciding_line"] = deciding.get("line")
++    pr = parsed.get("probe_request")
++    draw["probe_request"] = pr if isinstance(
++        pr, (str, dict)) else None
++    draw["probe_spec"] = parse_probe_spec(pr)
++    draw["rationale"] = str(parsed.get("rationale") or "")
++    conf = str(parsed.get("confidence") or "").strip().lower()
++    draw["confidence"] = conf if conf in (
++        "high", "medium", "low") else "low"
++    sev_after = parsed.get("severity_after_rubric") or {}
++    if not isinstance(sev_after, dict):
++        sev_after = {}
++    level = str(sev_after.get("level") or "").strip().lower()
++    clause = sev_after.get("rubric_clause")
++    clause = str(clause).strip().upper() \
++        if clause else None
++    base_level = finding.get("severity") or ""
++    if level not in _SEV_RANK:
++        level = base_level
++    if _SEV_RANK[level] < _SEV_RANK.get(base_level, 99):
++        draw["error"] = "shadow draw attempted to RAISE " \
++                        "severity; normalized to escalate"
++        return draw
++    if level != base_level and clause not in RUBRIC_CLAUSES:
++        draw["error"] = "severity change without a valid " \
++                        "rubric clause; normalized to escalate"
++        return draw
++    draw["severity_after_rubric"] = {
++        "level": level, "rubric_clause": clause}
++    decision = str(parsed.get("decision") or "").strip().lower()
++    if decision == "needs_probe":
++        draw["decision"] = "needs_probe"
++        return draw
++    if decision in ("sustain_finding", "sustain_refutation"):
++        if _quote_grounded(draw["deciding_quote"], region):
++            draw["decision"] = decision
++        else:
++            draw["error"] = "deciding quote does not appear " \
++                            "in the cited region"
++        return draw
++    if decision == "escalate":
++        return draw
++    draw["error"] = f"unrecognized shadow decision: " \
++                    f"{decision!r}"
++    return draw
++
++
++def shadow_adjudicate(fn, finding, region, dispute, *,
++                      seat_name=None, seat_family=None,
++                      independence="independent", probe_fn=None,
++                      probe_context=None, cache=None, timeout=None,
++                      rng=None, force_swap=False):
++    """Run the shadow Tech Lead over one disputed finding and
++    return the recorded entry for the record's
++    shadow_adjudications section. NON-BINDING by construction:
++    nothing here touches the finding or the gate.
++
++    Adopted discipline, shadow form: blinded A/B positions;
++    majors take TWO draws and a dismissal (or any decision)
++    stands only when both draws agree — disagreement
++    escalates; a falsifiable dismissal needs probe support or
++    a validated deciding quote (the draws enforce the quote);
++    under REDUCED independence (the seat's family is the
++    raiser's or the refuter's) a sustain stands but a major
++    DISMISSAL is recorded as adjudication-pending-independence
++    — the decision is kept, marked non-effective. Decisions
++    are cached on the adopted tuple when `cache` (a dict) is
++    supplied."""
++    severity = finding.get("severity") or ""
++    major_plus = severity in ("blocker", "critical", "major")
++    entry = {
++        "finding_id": finding.get("id"),
++        "file": finding.get("file"),
++        "line": finding.get("line"),
++        "mode": "shadow", "binding": False,
++        "seat": seat_name, "family": seat_family,
++        "independence": independence,
++        "protocol_version": ADJUDICATION_PROTOCOL_VERSION,
++        "rubric_version": RUBRIC_VERSION,
++        "state": "shadow_escalated", "decision": None,
++        "draws": [], "draws_agree": None, "cache_hit": False,
++        "probe_request": None, "probe_result": None,
++        "probe_context": probe_context,
++        "error": None}
++    if fn is None:
++        entry["state"] = "shadow_unavailable"
++        entry["error"] = "no shadow Tech Lead seat available"
++        entry["cache_key"] = _shadow_cache_key(finding, region)
++        return entry
++    if rng is None:
++        seed = int(hashlib.sha256(str(
++            finding.get("id") or "").encode(
++                "utf-8")).hexdigest()[:8], 16)
++        rng = random.Random(seed)
++    key_pre = _shadow_cache_key(finding, region)
++    if cache is not None and key_pre in cache:
++        hit = copy.deepcopy(cache[key_pre])
++        hit["cache_hit"] = True
++        hit["seat"] = seat_name
++        hit["family"] = seat_family
++        return hit
++    probe_result = None
++    draw = _shadow_draw(fn, finding, region, dispute, rng,
++                        probe=probe_context, timeout=timeout,
++                        force_swap=force_swap)
++    entry["draws"].append(draw)
++    decision = draw["decision"]
++    if decision == "needs_probe":
++        spec = draw.get("probe_spec")
++        if probe_fn is not None and spec is not None:
++            try:
++                probe_result = probe_fn(json.dumps(spec))
++            except Exception as exc:  # noqa: BLE001
++                probe_result = {"status": "error",
++                                "detail": f"probe failed: "
++                                          f"{exc}"}
++            entry["probe_request"] = draw.get("probe_request")
++            entry["probe_result"] = probe_result
++            draw = _shadow_draw(fn, finding, region, dispute,
++                                rng, probe=probe_result,
++                                timeout=timeout,
++                                force_swap=force_swap)
++            entry["draws"].append(draw)
++            decision = draw["decision"]
++            if decision == "needs_probe":
++                decision = "escalate"
++                draw = {**draw, "decision": "escalate",
++                        "error": "second needs_probe in shadow "
++                                 "mode escalates (one probe "
++                                 "round maximum)"}
++                entry["draws"][-1] = draw
++        else:
++            decision = "escalate"
++            entry["error"] = "needs_probe but no executable " \
++                             "probe channel/spec available"
++    if major_plus and decision in ("sustain_finding",
++                                   "sustain_refutation"):
++        draw2 = _shadow_draw(fn, finding, region, dispute, rng,
++                             probe=probe_result or probe_context,
++                             timeout=timeout, force_swap=force_swap)
++        entry["draws"].append(draw2)
++        entry["draws_agree"] = draw2["decision"] == decision
++        if not entry["draws_agree"]:
++            decision = "escalate"
++            entry["error"] = "double-draw disagreement on a " \
++                             "major: escalated"
++            draw = draw2
++    final = entry["draws"][-1]
++    entry["claim_restated"] = final.get("claim_restated")
++    entry["claim_falsifiable"] = final.get("claim_falsifiable")
++    entry["raiser_evidence_addresses_claim"] = final.get(
++        "raiser_evidence_addresses_claim")
++    entry["refuter_evidence_addresses_claim"] = final.get(
++        "refuter_evidence_addresses_claim")
++    entry["reasoning_assessment"] = final.get(
++        "reasoning_assessment")
++    entry["deciding_evidence"] = {
++        "file": finding.get("file"),
++        "line": final.get("deciding_line")
++        or finding.get("line"),
++        "quote": final.get("deciding_quote") or ""}
++    entry["severity_after_rubric"] = final.get(
++        "severity_after_rubric") or {
++            "level": severity, "rubric_clause": None}
++    entry["confidence"] = final.get("confidence")
++    entry["positions"] = final.get("positions")
++    if entry["error"] is None and final.get("error"):
++        entry["error"] = final["error"]
++    entry["decision"] = decision if decision in (
++        "sustain_finding", "sustain_refutation") else None
++    if decision == "sustain_finding":
++        entry["state"] = "shadow_sustained_finding"
++    elif decision == "sustain_refutation":
++        if major_plus and independence == "reduced":
++            entry["state"] = "adjudication-pending-independence"
++        else:
++            entry["state"] = "shadow_sustained_refutation"
++    else:
++        entry["state"] = "shadow_escalated"
++    entry["cache_key"] = _shadow_cache_key(
++        finding, region, probe_result)
++    if cache is not None:
++        cache[key_pre] = copy.deepcopy(entry)
++        cache[entry["cache_key"]] = copy.deepcopy(entry)
++    return entry
++
++
++def _shadow_evidence_targets(entry):
++    """(container, key, display cap) triples for a shadow
++    adjudication entry's evidence texts — the sidecar walk
++    extension for the shadow_adjudications section."""
++    if not isinstance(entry, dict):
++        return
++    yield entry, "claim_restated", 600
++    deciding = entry.get("deciding_evidence")
++    if isinstance(deciding, dict):
++        yield deciding, "quote", 400
++    for grade_key in ("raiser_evidence_addresses_claim",
++                      "refuter_evidence_addresses_claim"):
++        grade = entry.get(grade_key)
++        if isinstance(grade, dict):
++            yield grade, "why", 600
++    for draw in entry.get("draws") or []:
++        if isinstance(draw, dict):
++            yield draw, "deciding_quote", 400
++            yield draw, "rationale", 600
++    probe_result = entry.get("probe_result")
++    if isinstance(probe_result, dict):
++        yield probe_result, "detail", 2000
++        yield probe_result, "evidence_quote", 400
++
++
+ def _precedent_candidate(finding, precedents):
+     """Build the store entry a Tech Lead adjudication makes
+     eligible (owner amendment 2026-11-04): a sustained
+@@ -907,9 +1417,22 @@ def _precedent_candidate(finding, precedents):
+     if not blob and function_key(source,
+                                  finding.get("line")) is None:
+         return None
++    # P1: the adjudicator's deciding quote, validated against
++    # the cited source, is the basis evidence; the rationale
++    # is stored (origin "model-verified") only on that basis.
++    adj = finding.get("adjudication") or {}
++    basis = []
++    adj_quote = str(adj.get("evidence_quote") or "").strip()
++    if adj_quote and source and _quote_grounded(adj_quote,
++                                                source):
++        basis = [{"file": path, "line": finding.get("line"),
++                  "quote": adj_quote}]
+     entry = upsert_precedent(
+         [], finding, blob, "adjudication", "",
+-        summary="Tech Lead adjudication", source=source)
++        summary="Tech Lead adjudication", source=source,
++        basis_evidence=basis,
++        reason=str(adj.get("rationale") or "") or None,
++        reason_origin="model-verified" if basis else None)
+     return entry[0] if entry else None
+ 
+ 
+@@ -960,19 +1483,21 @@ def _ast_hash(node):
+     ).hexdigest()
+ 
+ 
+-def function_key(source, line):
+-    """Function-level content address (v15-closing-run solution
+-    §5d, owner-adopted): for the function enclosing `line` in
+-    Python `source`, return {"function": qualified name,
+-    "function_hash": normalized AST hash, "callees": {name:
+-    hash}} — or None when the function cannot be resolved
+-    (unparseable source, no line, or the line is not inside any
+-    function). Direct callees defined in the same module are
+-    hashed in, so a change to a callee the ruling depended on
+-    re-opens the precedent; edits elsewhere in the file do NOT
+-    move the key, so a ruling survives unrelated changes."""
+-    if not source or not line:
++_FUNC_SCAN_CACHE = {}
++_FUNC_SCAN_CACHE_MAX = 64
++
++
++def _scan_functions(source):
++    """Parse `source` once and return the module's function
++    definitions as [(node, qualified_name)] in document order,
++    or None when the source cannot be parsed. Cached by the
++    source's content hash (the four-disputed solution §2B:
++    AST parses are cached by blob hash)."""
++    if not source:
+         return None
++    digest = hashlib.sha256(source.encode("utf-8")).hexdigest()
++    if digest in _FUNC_SCAN_CACHE:
++        return _FUNC_SCAN_CACHE[digest]
+     try:
+         tree = ast.parse(source)
+     except (SyntaxError, ValueError):
+@@ -990,18 +1515,17 @@ def function_key(source, line):
+                 visit(child, f"{prefix}{child.name}.")
+ 
+     visit(tree, "")
+-    target = None
+-    for node, qual in defs:
+-        end = node.end_lineno or node.lineno
+-        if node.lineno <= line <= end:
+-            if target is None or (
+-                    end - node.lineno
+-                    < (target[0].end_lineno or target[0].lineno)
+-                    - target[0].lineno):
+-                target = (node, qual)
+-    if target is None:
+-        return None
+-    node, qual = target
++    if len(_FUNC_SCAN_CACHE) >= _FUNC_SCAN_CACHE_MAX:
++        _FUNC_SCAN_CACHE.clear()
++    _FUNC_SCAN_CACHE[digest] = defs
++    return defs
++
++
++def _key_for_node(node, qual, defs):
++    """The function key for one definition: normalized AST
++    hash of the function plus the hashes of its direct
++    callees defined in the same module (bare-name resolution,
++    first definition wins — the §5d semantics)."""
+     by_name = {}
+     for n, _q in defs:
+         by_name.setdefault(n.name, n)
+@@ -1018,8 +1542,205 @@ def function_key(source, line):
+             "callees": callees}
+ 
+ 
++def function_key(source, line):
++    """Function-level content address (v15-closing-run solution
++    §5d, owner-adopted): for the function enclosing `line` in
++    Python `source`, return {"function": qualified name,
++    "function_hash": normalized AST hash, "callees": {name:
++    hash}} — or None when the function cannot be resolved
++    (unparseable source, no line, or the line is not inside any
++    function). Direct callees defined in the same module are
++    hashed in, so a change to a callee the ruling depended on
++    re-opens the precedent; edits elsewhere in the file do NOT
++    move the key, so a ruling survives unrelated changes."""
++    if not source or not line:
++        return None
++    defs = _scan_functions(source)
++    if defs is None:
++        return None
++    target = None
++    for node, qual in defs:
++        end = node.end_lineno or node.lineno
++        if node.lineno <= line <= end:
++            if target is None or (
++                    end - node.lineno
++                    < (target[0].end_lineno or target[0].lineno)
++                    - target[0].lineno):
++                target = (node, qual)
++    if target is None:
++        return None
++    node, qual = target
++    return _key_for_node(node, qual, defs)
++
++
++def function_key_by_name(source, qual):
++    """Resolve a function key by QUALIFIED NAME (four-disputed
++    solution §2B): the lookup half of raise-time keying — no
++    line number is involved, so unrelated insertions elsewhere
++    in the file cannot drift the resolution. Returns
++    (key, status) with status "ok" | "absent" | "ambiguous" |
++    "unparseable". Duplicate qualified names (conditional
++    definitions, redefinitions) are ambiguous, which callers
++    treat as a miss — fail-safe, never a guess."""
++    defs = _scan_functions(source) if source else None
++    if defs is None:
++        return None, "unparseable"
++    matches = [(n, q) for n, q in defs if q == qual]
++    if not matches:
++        return None, "absent"
++    if len(matches) > 1:
++        return None, "ambiguous"
++    node, q = matches[0]
++    return _key_for_node(node, q, defs), "ok"
++
++
++def attach_function_keys(findings, source_lookup):
++    """Raise-time function keys (four-disputed solution §2B):
++    resolve each finding's enclosing function against the
++    snapshot its line refers to — the cited file's source as
++    this run sees it, via `source_lookup` — and persist the
++    key on the finding as `function_key`. Precedent lookup
++    then compares stored keys and resolves at HEAD by
++    qualified name; the stored line is never trusted again.
++    Findings whose function cannot be resolved carry no key
++    and stay on the legacy line-based path. Returns the
++    number of findings keyed."""
++    if not source_lookup:
++        return 0
++    cache = {}
++    keyed = 0
++    for f in findings:
++        if isinstance(f.get("function_key"), dict):
++            continue
++        path = f.get("file") or ""
++        if path not in cache:
++            try:
++                cache[path] = source_lookup(path)
++            except Exception:  # noqa: BLE001 — no source, no key
++                cache[path] = None
++        fk = function_key(cache[path], f.get("line"))
++        if fk is not None:
++            f["function_key"] = fk
++            keyed += 1
++    return keyed
++
++
++def _precedent_link(entry, fk):
++    return {
++        "scope": "function",
++        "blob": entry.get("blob"),
++        "function": fk["function"],
++        "function_hash": fk["function_hash"],
++        "callees": fk["callees"],
++        "disposition": entry.get("disposition") or {},
++        "repeats": len(entry.get("seen_in") or []),
++    }
++
++
++def _precedent_file_link(entry):
++    return {
++        "scope": "file",
++        "blob": entry.get("blob"),
++        "disposition": entry.get("disposition") or {},
++        "repeats": len(entry.get("seen_in") or []),
++    }
++
++
++def _function_precedent_outcome(finding, entry, source, blob_of):
++    """Classify one function-keyed precedent lookup
++    (four-disputed solution §2): returns (link, outcome) where
++    outcome is the miss-cause telemetry value — "hit",
++    "miss_hash_changed", "miss_name_absent", "miss_line_drift",
++    "miss_ambiguous", "fallback_blob", or "miss_unresolvable"
++    (the function cannot be resolved at all and the blob does
++    not carry the precedent either).
++
++    The safety gate is UNCHANGED from §5d/§2e: a link forms
++    only when the function resolved at HEAD has the entry's
++    qualified name AND hash AND callees. What changed is the
++    resolution: a finding carrying a raise-time `function_key`
++    is looked up by QUALIFIED NAME (no line number is trusted),
++    so insertions outside the function cannot drift it; a
++    legacy finding without a stored key keeps the line-based
++    resolution, with drift detected by the name scan."""
++    entry_key = {"function": entry.get("function"),
++                 "function_hash": entry.get("function_hash"),
++                 "callees": entry.get("callees") or {}}
++
++    def matches(key):
++        return key is not None \
++            and key["function"] == entry_key["function"] \
++            and key["function_hash"] == entry_key["function_hash"] \
++            and key["callees"] == entry_key["callees"]
++
++    def blob_fallback():
++        if entry.get("blob") and blob_of() == entry.get("blob"):
++            return _precedent_file_link(entry), "fallback_blob"
++        return None, "miss_unresolvable"
++
++    if source is None:
++        return blob_fallback()
++    head_key, status = function_key_by_name(
++        source, entry_key["function"])
++    stored = finding.get("function_key")
++    stored = stored if isinstance(stored, dict) else None
++    if stored is not None \
++            and stored.get("function") == entry_key["function"]:
++        # Raise-time key names the judged function: resolve at
++        # HEAD by name alone. The stored line plays no part.
++        if status == "ok":
++            if matches(head_key):
++                return _precedent_link(entry, head_key), "hit"
++            return None, "miss_hash_changed"
++        if status == "absent":
++            return None, "miss_name_absent"
++        if status == "ambiguous":
++            return None, "miss_ambiguous"
++        return blob_fallback()
++    if stored is not None:
++        # The finding's own function (resolved at raise time)
++        # is a DIFFERENT function than the entry's: the
++        # citation moved — rename or drift — while the entry's
++        # function may be intact under its name.
++        if status == "ok" and matches(head_key):
++            return None, "miss_line_drift"
++        if status == "absent":
++            return None, "miss_name_absent"
++        if status == "ambiguous":
++            return None, "miss_ambiguous"
++        if status == "unparseable":
++            return blob_fallback()
++        return None, "miss_hash_changed"
++    # Legacy finding (no raise-time key): line-based
++    # resolution, exactly the pre-P2 discipline, with the name
++    # scan classifying the misses it used to hide.
++    fk_line = function_key(source, finding.get("line"))
++    if fk_line is not None \
++            and fk_line["function"] == entry_key["function"]:
++        if matches(fk_line):
++            return _precedent_link(entry, fk_line), "hit"
++        return None, "miss_hash_changed"
++    if status == "ok" and matches(head_key):
++        # The judged function is intact under its name but the
++        # stored line no longer resolves to it: drift. If the
++        # file is byte-identical, the historical file-scope
++        # link still applies (the line was simply wrong).
++        if entry.get("blob") and blob_of() == entry.get("blob"):
++            return _precedent_file_link(entry), "fallback_blob"
++        return None, "miss_line_drift"
++    if status == "absent":
++        return None, "miss_name_absent"
++    if status == "ambiguous":
++        return None, "miss_ambiguous"
++    if status == "unparseable" or fk_line is None:
++        # Function unresolvable by line or by name: the
++        # historical file-level fallback.
++        return blob_fallback()
++    return None, "miss_hash_changed"
++
++
+ def apply_precedents(findings, entries, blob_lookup,
+-                     source_lookup=None):
++                     source_lookup=None, telemetry=None):
+     """Content-addressed rebuttal precedent (owner-adopted,
+     solution §2e): a finding whose fingerprint AND cited path
+     match a store entry, and whose cited file's CURRENT blob —
+@@ -1038,9 +1759,17 @@ def apply_precedents(findings, entries, blob_lookup,
+     file moved the file blob. An edit inside the judged function
+     (or one of its callees) re-opens the finding. When the
+     function cannot be resolved at all, matching falls back to
+-    the file-level blob the entry also carries. Returns
+-    (remaining, standing); nothing is dropped, the standing list
+-    is part of the record."""
++    the file-level blob the entry also carries.
++
++    P2 (four-disputed solution §2B): findings carrying a
++    raise-time `function_key` (see attach_function_keys) are
++    resolved at HEAD by QUALIFIED NAME — the stored line is
++    never trusted — which removes drift misses while the
++    name+hash+callees gate is unchanged. When `telemetry` (a
++    list) is supplied, every lookup against a store entry
++    appends its classified outcome to it. Returns (remaining,
++    standing); nothing is dropped, the standing list is part of
++    the record."""
+     by_key = {}
+     for e in entries or []:
+         by_key[(str(e.get("finding_id") or ""),
+@@ -1073,45 +1802,21 @@ def apply_precedents(findings, entries, blob_lookup,
+             continue
+         path = f.get("file") or ""
+         link = None
++        outcome = None
+         if entry.get("function") and entry.get("function_hash"):
+-            fk = function_key(source_of(path), f.get("line"))
+-            if fk is not None:
+-                if fk["function"] == entry.get("function") \
+-                        and fk["function_hash"] \
+-                        == entry.get("function_hash") \
+-                        and fk["callees"] \
+-                        == (entry.get("callees") or {}):
+-                    link = {
+-                        "scope": "function",
+-                        "blob": entry.get("blob"),
+-                        "function": fk["function"],
+-                        "function_hash": fk["function_hash"],
+-                        "callees": fk["callees"],
+-                        "disposition":
+-                            entry.get("disposition") or {},
+-                        "repeats": len(entry.get("seen_in") or []),
+-                    }
+-                # Resolved but changed: the judged code moved —
+-                # no precedent, and no file fallback (an AST
+-                # change implies a byte change, so the blob test
+-                # could not pass either).
+-            elif entry.get("blob") \
+-                    and blob_of(path) == entry.get("blob"):
+-                # Function unresolvable: file-level fallback.
+-                link = {
+-                    "scope": "file",
+-                    "blob": entry.get("blob"),
+-                    "disposition": entry.get("disposition") or {},
+-                    "repeats": len(entry.get("seen_in") or []),
+-                }
++            link, outcome = _function_precedent_outcome(
++                f, entry, source_of(path), lambda: blob_of(path))
+         elif entry.get("blob") \
+                 and blob_of(path) == entry.get("blob"):
+-            link = {
+-                "scope": "file",
+-                "blob": entry.get("blob"),
+-                "disposition": entry.get("disposition") or {},
+-                "repeats": len(entry.get("seen_in") or []),
+-            }
++            link = _precedent_file_link(entry)
++            outcome = "fallback_blob"
++        elif entry.get("blob"):
++            outcome = "miss_blob_changed"
++        if telemetry is not None and outcome is not None:
++            telemetry.append({
++                "finding_id": f.get("id"), "path": path,
++                "outcome": outcome,
++                "scope": (link or {}).get("scope")})
+         if link is not None:
+             sf = dict(f)
+             sf["standing"] = True
+@@ -1123,7 +1828,9 @@ def apply_precedents(findings, entries, blob_lookup,
+ 
+ 
+ def upsert_precedent(entries, finding, blob, round_label,
+-                     disposition_file, summary="", source=None):
++                     disposition_file, summary="", source=None,
++                     basis_evidence=None, reason=None,
++                     reason_origin=None):
+     """Record (or refresh) a precedent entry for a dispositioned
+     finding. Returns a NEW entries list; the caller persists it
+     to the store. `blob` is the cited file's git blob id at the
+@@ -1131,9 +1838,35 @@ def upsert_precedent(entries, finding, blob, round_label,
+     `source` (the cited file's text at disposition time) is
+     supplied and the finding's line resolves to an enclosing
+     function, the entry ALSO carries that function's key (§5d),
+-    so the precedent survives unrelated edits to the file."""
++    so the precedent survives unrelated edits to the file.
++
++    P1 (four-disputed solution §4): a disposition REASON is
++    stored only when it rides on verified basis evidence —
++    `basis_evidence` items whose quotes the caller validated
++    against the source — and is tagged with its `reason_origin`
++    ("model-verified" or "owner-corrected"). A reason offered
++    without verified basis is WITHHELD, never copied: a
++    precedent must not carry an unverified reason forward as
++    if it were established fact."""
+     fk = function_key(source, finding.get("line")) \
+         if source else None
++    verified_basis = [
++        b for b in (basis_evidence or [])
++        if isinstance(b, dict) and str(b.get("quote") or "")
++        .strip()]
++
++    def disposition():
++        d = {"round": round_label, "file": disposition_file,
++             "summary": summary}
++        if reason:
++            if verified_basis and reason_origin:
++                d["reason"] = reason
++                d["reason_origin"] = reason_origin
++            else:
++                d["reason_withheld"] = \
++                    "basis evidence not verified"
++        return d
++
+     out = [dict(e) for e in entries or []]
+     for e in out:
+         if e.get("finding_id") == finding.get("id") \
+@@ -1148,19 +1881,19 @@ def upsert_precedent(entries, finding, blob, round_label,
+                 e["function_hash"] = fk["function_hash"]
+                 e["callees"] = fk["callees"]
+                 e["scope"] = "function"
+-            e["disposition"] = {
+-                "round": round_label, "file": disposition_file,
+-                "summary": summary}
++            if verified_basis:
++                e["basis_evidence"] = verified_basis
++            e["disposition"] = disposition()
+             return out
+     entry = {
+         "finding_id": finding.get("id"),
+         "path": finding.get("file") or "",
+         "blob": blob,
+         "seen_in": [round_label],
+-        "disposition": {"round": round_label,
+-                        "file": disposition_file,
+-                        "summary": summary},
++        "disposition": disposition(),
+     }
++    if verified_basis:
++        entry["basis_evidence"] = verified_basis
+     if fk is not None:
+         entry["function"] = fk["function"]
+         entry["function_hash"] = fk["function_hash"]
+@@ -1662,7 +2395,8 @@ def run_review(patch, providers, context="", test_results=None,
+                seat_meta=None, fallbacks=None, sleep=None,
+                record_extra=None, fixture_scope=None, private=False,
+                precedents=None, tech_lead=None, probe_fn=None,
+-               tech_lead_timeout=None, lens_seats=None):
++               tech_lead_timeout=None, lens_seats=None,
++               tech_lead_shadow=False, tech_lead_shadow_seat=None):
+     """One review round. `providers` maps name -> callable(prompt)->str.
+ 
+     Returns the report dict. Never raises for provider failures; they
+@@ -2054,11 +2788,20 @@ def run_review(patch, providers, context="", test_results=None,
+     # disposition link. Blob-verified at record time and again by
+     # record-verify — a precedent cannot hide changed code.
+     standing_findings = []
++    precedent_telemetry = []
+     if precedents:
++        # Raise-time function keys (four-disputed solution
++        # §2B): persist each finding's enclosing-function key,
++        # resolved against the snapshot this run sees, BEFORE
++        # lookup — the precedent pass then resolves at HEAD by
++        # qualified name and never trusts the stored line.
++        attach_function_keys(
++            merged, precedents.get("source_lookup"))
+         merged, standing_findings = apply_precedents(
+             merged, precedents.get("entries") or [],
+             precedents.get("blob_lookup") or (lambda _p: None),
+-            precedents.get("source_lookup"))
++            precedents.get("source_lookup"),
++            telemetry=precedent_telemetry)
+     # Platform-scope labelling (§5c): a finding whose own text
+     # depends only on an unsupported platform leaves the blocking
+     # set and is preserved in out_of_scope_findings with its
+@@ -2107,6 +2850,11 @@ def run_review(patch, providers, context="", test_results=None,
+     weak_findings = []
+     adjudicated_refuted = []
+     escalated_findings = []
++    assertion_failures = []
++    shadow_reason_checks = []
++    shadow_trace_evals = []
++    shadow_entries = []
++    shadow_cache = {}
+     substitutions = []
+     precedent_candidates = []
+     fam_by_seat = {}
+@@ -2177,7 +2925,95 @@ def run_review(patch, providers, context="", test_results=None,
+             "raiser_family": fam,
+             "evidence_quote": quote, "reason": reason,
+             "adequacy": ("weak" if _refutation_weak(f, quote)
+-                         else "strong")}
++                         else "strong"),
++            # P1 schema (four-disputed solution §4): the
++            # refutation's mechanism graded as FIELDS, never a
++            # routing state. reason_check is the shadow
++            # existence check on cited constructs;
++            # reason_corrected stays None unless the owner
++            # corrects the reason on the record; basis_evidence
++            # is the refuter's validated quote — the evidence
++            # the reason stands on.
++            "reason_check": _reason_check(
++                {"reason": reason}, region),
++            "reason_corrected": None,
++            "basis_evidence": [{
++                "file": f.get("file"), "line": f.get("line"),
++                "quote": quote}],
++            # Shadow trace-gate evaluation (§5): logged,
++            # changes nothing (P3 enforcement is out of scope).
++            "trace_gate_shadow": _trace_gate_shadow(
++                f, region)}
++        shadow_reason_checks.append({
++            "finding_id": f.get("id"),
++            **f["dispute"]["reason_check"]})
++        shadow_trace_evals.append({
++            "finding_id": f.get("id"),
++            **f["dispute"]["trace_gate_shadow"]})
++        if tech_lead_shadow:
++            # Shadow Tech Lead: the FULL structured decision,
++            # recorded in shadow_adjudications, labelled
++            # non-binding, and NEVER consulted by the gate —
++            # the binding flow below proceeds exactly as it
++            # would with shadow off. Seat choice mirrors the
++            # binding discipline: an independent seat is
++            # preferred; the designated shadow seat or any
++            # served seat may act under reduced independence
++            # (sustain stands; a major dismissal is recorded
++            # as adjudication-pending-independence).
++            s_name = s_fn = s_fam = s_indep = None
++            if tech_lead_shadow_seat \
++                    and tech_lead_shadow_seat in seat_fns:
++                cand = tech_lead_shadow_seat
++                cand_fam = fam_by_seat.get(cand)
++                if _tech_lead_eligible(
++                        cand_fam, cand in ok_seats, fam,
++                        refuter_fam):
++                    s_name, s_fn, s_fam, s_indep = (
++                        cand, seat_fns[cand], cand_fam,
++                        "independent")
++                elif cand in ok_seats:
++                    s_name, s_fn, s_fam, s_indep = (
++                        cand, seat_fns[cand], cand_fam,
++                        "reduced")
++            if s_fn is None:
++                for n, fn2 in seat_fns.items():
++                    if _tech_lead_eligible(
++                            fam_by_seat.get(n), n in ok_seats,
++                            fam, refuter_fam):
++                        s_name, s_fn, s_fam, s_indep = (
++                            n, fn2, fam_by_seat.get(n),
++                            "independent")
++                        break
++            if s_fn is None:
++                for n, fn2 in seat_fns.items():
++                    if n in ok_seats:
++                        s_name, s_fn, s_fam, s_indep = (
++                            n, fn2, fam_by_seat.get(n),
++                            "reduced")
++                        break
++            try:
++                s_entry = shadow_adjudicate(
++                    s_fn, f, region, f["dispute"],
++                    seat_name=s_name, seat_family=s_fam,
++                    independence=s_indep or "reduced",
++                    probe_fn=probe_fn, cache=shadow_cache,
++                    timeout=tl_timeout)
++            except Exception as exc:  # noqa: BLE001
++                # Shadow must never break a run.
++                s_entry = {
++                    "finding_id": f.get("id"),
++                    "mode": "shadow", "binding": False,
++                    "state": "shadow_unavailable",
++                    "decision": None,
++                    "error": f"shadow adjudication failed: "
++                             f"{exc}"}
++            shadow_entries.append(s_entry)
++            f["tech_lead_shadow"] = {
++                "status": "recorded",
++                "state": s_entry.get("state"),
++                "decision": s_entry.get("decision"),
++                "binding": False}
+         tl_name, tl_fn, tl_fam, substitution, tl_unavailable = \
+             _select_tech_lead(seat_fns, ok_seats, fam_by_seat,
+                               tech_lead, fam, refuter_fam)
+@@ -2185,12 +3021,40 @@ def run_review(patch, providers, context="", test_results=None,
+             substitutions.append({
+                 **substitution, "finding_id": f.get("id"),
+                 "substitute": tl_name})
++        assertion_failure = None
++        if tl_name is not None and not _tech_lead_eligible(
++                tl_fam, tl_name in ok_seats, fam, refuter_fam):
++            # Boundary assertion (four-disputed solution §3):
++            # at the point the adjudication would be recorded,
++            # the seat must satisfy the SHARED eligibility
++            # predicate against the finding's actual raiser and
++            # refuter. Selection is supposed to guarantee this;
++            # if a future refactor of the selection helper
++            # breaks the guarantee, fail CLOSED — record the
++            # unavailable state, route the case to the owner,
++            # never proceed with the seat.
++            assertion_failure = {
++                "finding_id": f.get("id"), "seat": tl_name,
++                "family": tl_fam, "raiser_family": fam,
++                "refuter_family": refuter_fam,
++                "detail": "the selected Tech Lead seat does "
++                          "not satisfy the eligibility "
++                          "predicate at the record point"}
++            assertion_failures.append(assertion_failure)
++            tl_unavailable = (
++                "boundary assertion failed: the selected Tech "
++                "Lead seat is not eligible for this finding "
++                "(see tech_lead_assertion_failures)")
++            tl_name = None
+         if tl_name is None:
+             # No independent adjudicator served: the case keeps
+             # its pre-adjudication state for the owner, with the
+             # reason (and any rejected designation) on the record.
+             f["tech_lead"] = {"status": "unavailable",
+                               "reason": tl_unavailable}
++            if assertion_failure is not None:
++                f["tech_lead"]["assertion_failure"] = \
++                    assertion_failure
+             if substitution is not None:
+                 f["tech_lead"]["substitution"] = substitution
+             if f["dispute"]["adequacy"] == "weak":
+@@ -2402,6 +3266,13 @@ def run_review(patch, providers, context="", test_results=None,
+             f"{s.get('substitute') or 'no eligible seat'}; "
+             f"recorded on the finding"
+             for s in substitutions]
++    if assertion_failures:
++        reasons = reasons + [
++            f"{len(assertion_failures)} Tech Lead boundary "
++            f"assertion failure(s): a selected adjudicator "
++            f"failed the eligibility predicate at the record "
++            f"point and the case failed closed to the owner — "
++            f"preserved in tech_lead_assertion_failures"]
+     if out_of_scope_findings:
+         reasons = reasons + [
+             f"{len(out_of_scope_findings)} finding(s) labelled "
+@@ -2507,6 +3378,14 @@ def run_review(patch, providers, context="", test_results=None,
+         report["escalated_findings"] = escalated_findings
+     if substitutions:
+         report["tech_lead_substitutions"] = substitutions
++    if assertion_failures:
++        report["tech_lead_assertion_failures"] = assertion_failures
++    if shadow_reason_checks:
++        report["shadow_reason_checks"] = shadow_reason_checks
++    if shadow_trace_evals:
++        report["shadow_trace_gate"] = shadow_trace_evals
++    if shadow_entries:
++        report["shadow_adjudications"] = shadow_entries
+     if precedent_candidates:
+         report["precedent_candidates"] = precedent_candidates
+     if out_of_scope_findings:
+@@ -2517,6 +3396,8 @@ def run_review(patch, providers, context="", test_results=None,
+         report["archived_text_findings"] = archived_text_findings
+     if standing_findings:
+         report["standing_findings"] = standing_findings
++    if precedent_telemetry:
++        report["precedent_telemetry"] = precedent_telemetry
+     if precedents:
+         report["precedent_scope"] = {
+             "store_path": precedents.get("store_path"),
+@@ -3215,8 +4096,17 @@ def _validate_precedent_scope(record, ps, sfinds, repo, head):
+                 continue
+             try:
+                 raw = _git_show_bytes(repo, f"{head}:{key[1]}")
+-                fk = function_key(
+-                    raw.decode("utf-8", "replace"), f.get("line"))
++                src_at_head = raw.decode("utf-8", "replace")
++                # P2 resolution: by qualified NAME (the link's
++                # function), mirroring apply_precedents — the
++                # finding's stored line is not trusted. An
++                # ambiguous name falls back to the historical
++                # line-based recomputation so pre-P2 records
++                # verify exactly as they were made.
++                fk, _status = function_key_by_name(
++                    src_at_head, link.get("function") or "")
++                if _status == "ambiguous":
++                    fk = function_key(src_at_head, f.get("line"))
+             except Exception as exc:  # noqa: BLE001
+                 problems.append(
+                     f"standing finding {key[0]}: cited file "
+@@ -4461,6 +5351,14 @@ def _iter_evidence_refs(record):
+             if isinstance(entry, dict) \
+                     and isinstance(entry.get("evidence_ref"), dict):
+                 yield entry, "evidence", entry["evidence_ref"]
++    for entry in record.get("shadow_adjudications") or []:
++        if not isinstance(entry, dict):
++            continue
++        for container, key, _cap in _shadow_evidence_targets(
++                entry):
++            ref = container.get(key + "_ref")
++            if isinstance(ref, dict):
++                yield container, key, ref
+ 
+ 
+ def _attach_evidence_sidecars(report, out_dir):
+@@ -4521,6 +5419,10 @@ def _attach_evidence_sidecars(report, out_dir):
+                 # Resolution evidence displays at the historical
+                 # 300-char cap; the sidecar carries it in full.
+                 attach(entry, "evidence", 300)
++    for entry in rec.get("shadow_adjudications") or []:
++        for container, key, cap in _shadow_evidence_targets(
++                entry):
++            attach(container, key, cap)
+     if pending:
+         ev_dir = os.path.join(out_dir, "evidence")
+         os.makedirs(ev_dir, exist_ok=True)
+diff --git a/src/codereview/probe.py b/src/codereview/probe.py
+new file mode 100644
+index 0000000..f9899c6
+--- /dev/null
++++ b/src/codereview/probe.py
+@@ -0,0 +1,262 @@
++"""Probe harness (refutation-process solution §5.2,
++owner-adopted 2026-11-04): the harness — never a model —
++executes probes in a sandbox, and a Tech Lead (binding or
++shadow) may request exactly ONE probe round per case
++(MAX_PROBE_ROUNDS in core). The Tech Lead never executes
++anything itself; it emits a machine-executable probe SPEC,
++this module runs it, and the structured result goes back
++into the adjudication as evidence.
++
++Sandbox discipline:
++- The reviewed tree is COPIED to a fresh temp directory and
++  the probe runs there; the real tree is never the cwd, so a
++  probe cannot mutate the code under review.
++- The environment is an ALLOWLIST (PATH, LANG, LC_*, TERM,
++  plus a temp HOME/TMPDIR): provider keys, tokens and every
++  other process secret are absent by construction, not by
++  filtering.
++- Network: when the platform offers `unshare -n`, the probe
++  runs inside a network namespace with no interfaces; the
++  level actually achieved is recorded on the result —
++  never overstated.
++- A hard wall-clock timeout bounds every probe.
++
++Probe semantics: a probe tests the CLAIM's falsifiable
++prediction. Exit 0 means the probe's assertion held. The
++result carries `can_rebut: True, can_support: False` — the
++adopted asymmetry: probe evidence may rebut a finding (it
++feeds the refutation side's evidence); it can never sustain
++a finding by itself, and a sustain decision must still
++carry its own validated quote from the code region.
++"""
++
++import hashlib
++import json
++import os
++import re
++import shutil
++import subprocess
++import sys
++import tempfile
++import time
++
++PROBE_TIMEOUT_DEFAULT = 120
++_OUTPUT_CAP = 20000
++_ENV_ALLOW = ("PATH", "LANG", "LC_ALL", "LC_CTYPE", "TERM")
++_IGNORE = shutil.ignore_patterns(
++    ".git", "__pycache__", "*.pyc", "codereview-out",
++    "bench-out", "acceptance-out")
++
++_unshare_level = None
++
++
++def _network_prefix():
++    """argv prefix isolating the network namespace, or
++    ([], 'env-only') when the platform cannot. Probed once
++    per process; the achieved level is recorded, honestly."""
++    global _unshare_level
++    if _unshare_level is None:
++        _unshare_level = ([], "env-only")
++        exe = shutil.which("unshare")
++        if exe:
++            try:
++                res = subprocess.run(
++                    [exe, "-n", "true"], capture_output=True,
++                    timeout=10)
++                if res.returncode == 0:
++                    _unshare_level = ([exe, "-n"],
++                                      "network-namespace")
++            except Exception:  # noqa: BLE001 — level stays env-only
++                pass
++    return _unshare_level
++
++
++def parse_probe_spec(request):
++    """Normalize a probe request into an executable spec, or
++    None when the request carries nothing machine-executable.
++
++    Accepted shapes (dict, JSON text, or prose with one
++    embedded JSON object):
++      {"kind": "python",  "code": "<script>", "claim": "..."}
++      {"kind": "command", "argv": ["prog", "arg", ...]}
++      {"kind": "test",    "target": "tests/test_x.py"}
++    """
++    spec = None
++    if isinstance(request, dict):
++        spec = request
++    elif isinstance(request, str) and request.strip():
++        text = request.strip()
++        try:
++            parsed = json.loads(text)
++            spec = parsed if isinstance(parsed, dict) else None
++        except ValueError:
++            spec = None
++        if spec is None:
++            start = text.find("{")
++            while start != -1:
++                depth = 0
++                for i in range(start, len(text)):
++                    if text[i] == "{":
++                        depth += 1
++                    elif text[i] == "}":
++                        depth -= 1
++                        if depth == 0:
++                            try:
++                                parsed = json.loads(text[start:i + 1])
++                            except ValueError:
++                                parsed = None
++                            if isinstance(parsed, dict) \
++                                    and parsed.get("kind"):
++                                spec = parsed
++                            break
++                if spec is not None:
++                    break
++                start = text.find("{", start + 1)
++    if not isinstance(spec, dict):
++        return None
++    kind = str(spec.get("kind") or "").strip().lower()
++    out = {"kind": kind, "claim": str(spec.get("claim") or "")}
++    if kind == "python":
++        code = spec.get("code")
++        if not isinstance(code, str) or not code.strip():
++            return None
++        out["code"] = code
++        return out
++    if kind == "command":
++        argv = spec.get("argv")
++        if not isinstance(argv, list) or not argv \
++                or not all(isinstance(a, str) and a
++                           for a in argv):
++            return None
++        out["argv"] = list(argv)
++        return out
++    if kind == "test":
++        target = spec.get("target")
++        if not isinstance(target, str) or not target.strip():
++            return None
++        out["target"] = target
++        return out
++    return None
++
++
++def _sandbox_env(tmp, work):
++    env = {k: os.environ[k] for k in _ENV_ALLOW if k in os.environ}
++    env["HOME"] = tmp
++    env["TMPDIR"] = tmp
++    env["PYTHONDONTWRITEBYTECODE"] = "1"
++    # The copied tree root is importable, so a python probe
++    # can import the reviewed code exactly as the tree lays
++    # it out (the probe script itself lives in a subdir,
++    # whose directory would otherwise shadow sys.path).
++    env["PYTHONPATH"] = work
++    return env
++
++
++def run_probe(spec, tree_dir, timeout=PROBE_TIMEOUT_DEFAULT):
++    """Execute one probe spec against a temp COPY of
++    `tree_dir`. Returns the structured result:
++    {outcome: pass|fail|error|timeout, exit_code, duration_s,
++     output, output_sha256, sandbox, spec,
++     can_rebut: True, can_support: False}.
++    Never raises for probe failures — they are outcomes."""
++    spec = parse_probe_spec(spec)
++    if spec is None:
++        return {"outcome": "error", "exit_code": None,
++                "duration_s": 0.0, "output": "",
++                "output_sha256": hashlib.sha256(b"").hexdigest(),
++                "sandbox": {}, "spec": None,
++                "can_rebut": True, "can_support": False,
++                "detail": "probe request carried no "
++                          "machine-executable spec"}
++    tmp = tempfile.mkdtemp(prefix="codereview-probe-")
++    started = time.monotonic()
++    try:
++        work = os.path.join(tmp, "tree")
++        if tree_dir and os.path.isdir(tree_dir):
++            shutil.copytree(tree_dir, work, ignore=_IGNORE)
++        else:
++            os.makedirs(work)
++        if spec["kind"] == "python":
++            probe_dir = os.path.join(work, ".codereview-probe")
++            os.makedirs(probe_dir, exist_ok=True)
++            script = os.path.join(probe_dir, "probe_main.py")
++            with open(script, "w", encoding="utf-8") as fh:
++                fh.write(spec["code"])
++            argv = [sys.executable, script]
++        elif spec["kind"] == "command":
++            argv = list(spec["argv"])
++        else:  # test
++            argv = [sys.executable, spec["target"]]
++        prefix, net_level = _network_prefix()
++        try:
++            res = subprocess.run(
++                prefix + argv, cwd=work, env=_sandbox_env(tmp, work),
++                capture_output=True, text=True,
++                timeout=timeout)
++            output = (res.stdout or "") + (res.stderr or "")
++            outcome = "pass" if res.returncode == 0 else "fail"
++            exit_code = res.returncode
++        except subprocess.TimeoutExpired as exc:
++            output = ((exc.stdout or b"") if isinstance(
++                exc.stdout, bytes) else (exc.stdout or "")) \
++                + ((exc.stderr or b"") if isinstance(
++                    exc.stderr, bytes) else (exc.stderr or ""))
++            if isinstance(output, bytes):
++                output = output.decode("utf-8", "replace")
++            outcome, exit_code = "timeout", None
++        except Exception as exc:  # noqa: BLE001 — an outcome, not a crash
++            output = f"probe spawn failed: {exc}"
++            outcome, exit_code = "error", None
++        duration = time.monotonic() - started
++        return {
++            "outcome": outcome, "exit_code": exit_code,
++            "duration_s": round(duration, 3),
++            "output": output[:_OUTPUT_CAP],
++            "output_sha256": hashlib.sha256(
++                output.encode("utf-8")).hexdigest(),
++            "sandbox": {"cwd": "temp-copy",
++                        "network": net_level,
++                        "env": "allowlist",
++                        "timeout_s": timeout},
++            "spec": spec,
++            "can_rebut": True, "can_support": False,
++            "detail": (f"harness probe {outcome} "
++                       f"(exit {exit_code}, {duration:.1f}s)"),
++        }
++    finally:
++        shutil.rmtree(tmp, ignore_errors=True)
++
++
++def make_probe_fn(tree_dir, timeout=PROBE_TIMEOUT_DEFAULT):
++    """The probe_fn contract run_review consumes —
++    probe_fn(finding, request) -> {"outcome",
++    "evidence_quote", "detail", ...}. A request with no
++    executable spec is `inconclusive`, NOT an escalation for
++    lack of a channel: the channel exists; the request was
++    not executable."""
++    def probe_fn(finding, request):
++        spec = parse_probe_spec(request)
++        if spec is None:
++            return {"outcome": "inconclusive",
++                    "evidence_quote": "",
++                    "detail": "probe channel wired, but the "
++                              "request carried no "
++                              "machine-executable spec (want "
++                              "JSON: {\"kind\": \"python\", "
++                              "\"code\": ...} / {\"kind\": "
++                              "\"command\", \"argv\": [...]} / "
++                              "{\"kind\": \"test\", \"target\": "
++                              "...})",
++                    "can_rebut": True, "can_support": False}
++        res = run_probe(spec, tree_dir, timeout=timeout)
++        quote = ""
++        for line in (res.get("output") or "").splitlines():
++            if line.strip():
++                quote = line.strip()[:300]
++                break
++        return {**res, "evidence_quote": quote,
++                "detail": (f"{res['detail']}; output sha256 "
++                           f"{res['output_sha256'][:12]}…; "
++                           f"sandbox network="
++                           f"{res['sandbox'].get('network')}")}
++    return probe_fn
+diff --git a/src/codereview/registry.py b/src/codereview/registry.py
+index 84d27ec..57e0d94 100644
+--- a/src/codereview/registry.py
++++ b/src/codereview/registry.py
+@@ -42,7 +42,7 @@ from __future__ import annotations
+ 
+ # role -> the lens it pins, where the role IS a review lens.
+ ROLES = ("correctness", "operations", "verifier", "tech-lead",
+-         "solver")
++         "tech-lead-shadow", "solver")
+ LENS_ROLES = {"correctness": "correctness",
+               "operations": "operations"}
+ 
+diff --git a/src/codereview/setup_wizard.py b/src/codereview/setup_wizard.py
+index 7a8a8e8..b59c890 100644
+--- a/src/codereview/setup_wizard.py
++++ b/src/codereview/setup_wizard.py
+@@ -105,7 +105,12 @@ def run_wizard(input_fn=input, print_fn=print, environ=None,
+              "suggestion, type any provider spec to override, "
+              "'-' leaves the role to the panel.")
+     roles = {}
+-    for i, role in enumerate(registry.ROLES):
++    # The wizard assigns the serving roles; tech-lead-shadow is
++    # an opt-in evaluation seat assigned via --role or the saved
++    # config, not part of the first-run flow.
++    wizard_roles = [r for r in registry.ROLES
++                    if r != "tech-lead-shadow"]
++    for i, role in enumerate(wizard_roles):
+         suggestion = providers[i % len(providers)]
+         answer = _ask(
+             input_fn, print_fn,
+diff --git a/tests/test_probe_harness.py b/tests/test_probe_harness.py
+new file mode 100644
+index 0000000..26be1a9
+--- /dev/null
++++ b/tests/test_probe_harness.py
+@@ -0,0 +1,160 @@
++"""Probe harness tests (§5.2): sandboxed execution, spec
++parsing, env allowlist, timeout, and the probe_fn contract.
++No network, no real providers."""
++
++import json
++import os
++import sys
++import tempfile
++import time
++import unittest
++
++sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
++
++from codereview import probe as probe_mod  # noqa: E402
++
++
++def _tree(files):
++    root = tempfile.mkdtemp(prefix="probe-test-tree-")
++    for rel, text in files.items():
++        path = os.path.join(root, rel)
++        os.makedirs(os.path.dirname(path), exist_ok=True)
++        with open(path, "w", encoding="utf-8") as fh:
++            fh.write(text)
++    return root
++
++
++class ParseSpecTests(unittest.TestCase):
++    def test_dict_passthrough(self):
++        spec = probe_mod.parse_probe_spec(
++            {"kind": "python", "code": "pass"})
++        self.assertEqual(spec["kind"], "python")
++
++    def test_json_text(self):
++        spec = probe_mod.parse_probe_spec(
++            '{"kind": "test", "target": "tests/test_x.py"}')
++        self.assertEqual(spec["target"], "tests/test_x.py")
++
++    def test_embedded_json_in_prose(self):
++        spec = probe_mod.parse_probe_spec(
++            'please run {"kind": "command", "argv": ["true"]} '
++            'and check')
++        self.assertEqual(spec["argv"], ["true"])
++
++    def test_prose_only_is_none(self):
++        self.assertIsNone(probe_mod.parse_probe_spec(
++            "probe whether the guard exists"))
++
++    def test_bad_shapes_are_none(self):
++        self.assertIsNone(probe_mod.parse_probe_spec(
++            {"kind": "python"}))
++        self.assertIsNone(probe_mod.parse_probe_spec(
++            {"kind": "command", "argv": []}))
++        self.assertIsNone(probe_mod.parse_probe_spec(
++            {"kind": "teleport", "code": "x"}))
++        self.assertIsNone(probe_mod.parse_probe_spec(None))
++        self.assertIsNone(probe_mod.parse_probe_spec(""))
++
++
++class RunProbeTests(unittest.TestCase):
++    def test_python_probe_sees_tree_copy_and_passes(self):
++        root = _tree({"mod.py": "VALUE = 41\n"})
++        res = probe_mod.run_probe(
++            {"kind": "python",
++             "code": "import mod\n"
++                     "assert mod.VALUE == 41, mod.VALUE\n"
++                     "print('value-ok')"},
++            root, timeout=30)
++        self.assertEqual(res["outcome"], "pass")
++        self.assertIn("value-ok", res["output"])
++        self.assertTrue(res["can_rebut"])
++        self.assertFalse(res["can_support"])
++        self.assertEqual(res["sandbox"]["cwd"], "temp-copy")
++
++    def test_python_probe_failure_is_fail_not_crash(self):
++        root = _tree({})
++        res = probe_mod.run_probe(
++            {"kind": "python", "code": "raise SystemExit(3)"},
++            root, timeout=30)
++        self.assertEqual(res["outcome"], "fail")
++        self.assertEqual(res["exit_code"], 3)
++
++    def test_environment_is_allowlist_no_secrets(self):
++        root = _tree({})
++        sentinel = "CODEREVIEW_PROBE_TEST_SECRET_SENTINEL"
++        os.environ[sentinel] = "must-not-leak"
++        try:
++            res = probe_mod.run_probe(
++                {"kind": "python",
++                 "code": "import os\n"
++                         f"print('leaked' if os.environ.get("
++                         f"'{sentinel}') else 'clean')"},
++                root, timeout=30)
++        finally:
++            del os.environ[sentinel]
++        self.assertEqual(res["outcome"], "pass")
++        self.assertIn("clean", res["output"])
++        self.assertNotIn("must-not-leak", res["output"])
++
++    def test_probe_cannot_mutate_real_tree(self):
++        root = _tree({"mod.py": "VALUE = 1\n"})
++        res = probe_mod.run_probe(
++            {"kind": "python",
++             "code": "open('mod.py', 'w').write('VALUE = 2\\n')"},
++            root, timeout=30)
++        self.assertEqual(res["outcome"], "pass")
++        with open(os.path.join(root, "mod.py"),
++                  encoding="utf-8") as fh:
++            self.assertEqual(fh.read(), "VALUE = 1\n")
++
++    def test_timeout_bounds_the_probe(self):
++        root = _tree({})
++        started = time.monotonic()
++        res = probe_mod.run_probe(
++            {"kind": "python",
++             "code": "import time\ntime.sleep(30)"},
++            root, timeout=2)
++        self.assertEqual(res["outcome"], "timeout")
++        self.assertLess(time.monotonic() - started, 15)
++
++    def test_command_and_test_kinds(self):
++        root = _tree({"check.py": "print('test-kind-ok')\n"})
++        res = probe_mod.run_probe(
++            {"kind": "test", "target": "check.py"}, root,
++            timeout=30)
++        self.assertEqual(res["outcome"], "pass")
++        self.assertIn("test-kind-ok", res["output"])
++        res = probe_mod.run_probe(
++            {"kind": "command", "argv": [sys.executable, "-c",
++                                          "print('cmd-ok')"]},
++            root, timeout=30)
++        self.assertEqual(res["outcome"], "pass")
++        self.assertIn("cmd-ok", res["output"])
++
++    def test_output_is_hashed(self):
++        root = _tree({})
++        res = probe_mod.run_probe(
++            {"kind": "python", "code": "print('x')"}, root,
++            timeout=30)
++        self.assertEqual(len(res["output_sha256"]), 64)
++
++
++class ProbeFnContractTests(unittest.TestCase):
++    def test_unexecutable_request_is_inconclusive(self):
++        fn = probe_mod.make_probe_fn(_tree({}))
++        out = fn({"id": "x"}, "check the guard somehow")
++        self.assertEqual(out["outcome"], "inconclusive")
++        self.assertIn("machine-executable", out["detail"])
++
++    def test_executable_request_runs(self):
++        fn = probe_mod.make_probe_fn(_tree({}))
++        out = fn({"id": "x"},
++                 {"kind": "python", "code": "print('ran')"})
++        self.assertEqual(out["outcome"], "pass")
++        self.assertEqual(out["evidence_quote"], "ran")
++        self.assertIn("sha256", out["detail"])
++        self.assertFalse(out["can_support"])
++
++
++if __name__ == "__main__":
++    unittest.main()
+diff --git a/tests/test_shadow_acceptance.py b/tests/test_shadow_acceptance.py
+new file mode 100644
+index 0000000..d42a8db
+--- /dev/null
++++ b/tests/test_shadow_acceptance.py
+@@ -0,0 +1,183 @@
++"""Acceptance runner mechanics (scoring rules, mutation
++accounting, metric computation) over a synthetic mini-corpus
++with scripted seats. The live-corpus run is an execution
++step, not a unit test."""
++
++import json
++import os
++import sys
++import tempfile
++import unittest
++
++sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
++
++from codereview import acceptance  # noqa: E402
++
++REGION = "alpha line\nbeta line\ngamma line\n"
++
++
++def _case(cid, decision, scoring="exact", sev="major",
++          reasoning=None, real=False):
++    c = {"case_id": cid, "case_class": "synthetic",
++         "title": cid,
++         "finding": {"claim": f"claim {cid}",
++                     "evidence": "alpha line",
++                     "evidence_quote": "alpha line",
++                     "severity_as_raised": sev,
++                     "file": "x.py", "line": 1,
++                     "raised_by_family": "famA",
++                     "record_finding_id": cid},
++         "refutation": {"by_family": "famB",
++                        "quote": "beta line",
++                        "reason": "the claim is wrong"},
++         "code_region": {"path": "x.py", "start_line": 1,
++                         "end_line": 3, "text": REGION},
++         "probe": None,
++         "expected": {"decision": decision,
++                      "severity_after": None,
++                      "scoring": scoring}}
++    if reasoning:
++        c["expected"]["reasoning_validity"] = reasoning
++    return c
++
++
++def _write_corpus(root, cases, m1_set):
++    os.makedirs(os.path.join(root, "cases"))
++    index = {"cases": [{"case_id": c["case_id"]} for c in cases]}
++    with open(os.path.join(root, "index.json"), "w") as fh:
++        json.dump(index, fh)
++    for c in cases:
++        with open(os.path.join(
++                root, "cases", c["case_id"] + ".json"),
++                "w") as fh:
++            json.dump(c, fh)
++    scorecard = {"metrics": [
++        {"id": "M1_false_dismissals_on_real_findings",
++         "set": m1_set, "threshold": {"op": "==", "value": 0}},
++        {"id": "M2_probe_settled_accuracy", "set": [],
++         "threshold": {"op": ">=", "value": 1.0}},
++        {"id": "M3_overall_accuracy", "set": "all",
++         "threshold": {"op": ">=", "value": 0.9}},
++        {"id": "M4_mutation_flip_rate", "set": "all",
++         "threshold": {"op": "<=", "value": 0.05}},
++        {"id": "M5_protected_and_insufficient_escalated",
++         "set": [], "threshold": {"op": ">=", "value": 1.0}},
++        {"id": "M6_double_draw_agreement_on_majors",
++         "set": "majors",
++         "threshold": {"op": ">=", "value": 0.9}}]}
++    with open(os.path.join(root, "scorecard.json"), "w") as fh:
++        json.dump(scorecard, fh)
++    mutations = {"mutations": [{"id": "position_swap"},
++                               {"id": "family_swap"},
++                               {"id": "vendor_strip"},
++                               {"id": "reason_paraphrase"}]}
++    with open(os.path.join(root, "mutations.json"), "w") as fh:
++        json.dump(mutations, fh)
++
++
++def _payload(decision, quote="beta line", claim_valid=False,
++             validity="valid"):
++    return {"claim_restated": "restated",
++            "claim_falsifiable": True,
++            "position_a_addresses_claim": {"value": True,
++                                           "why": "w"},
++            "position_b_addresses_claim": {"value": True,
++                                           "why": "w"},
++            "reasoning_assessment": {
++                "claim_valid": claim_valid,
++                "refutation_validity": validity},
++            "deciding_evidence": {"quote": quote},
++            "probe_request": None,
++            "decision": decision,
++            "severity_after_rubric": {"level": "major",
++                                      "rubric_clause": None},
++            "confidence": "high", "rationale": "r"}
++
++
++class _Seat:
++    """Answers shadow prompts by the claim id in the prompt;
++    paraphrase prompts get a word-shuffled echo."""
++
++    def __init__(self, decisions):
++        self.decisions = decisions
++
++    def __call__(self, prompt):
++        if prompt.startswith("Paraphrase the following text"):
++            return "paraphrased prose here"
++        for cid, payloads in self.decisions.items():
++            if f"claim {cid}" in prompt:
++                p = payloads.pop(0) if len(payloads) > 1 \
++                    else payloads[0]
++                return json.dumps(p)
++        return json.dumps(_payload("escalate"))
++
++
++class AcceptanceRunnerTests(unittest.TestCase):
++    def test_scoring_and_metrics(self):
++        cases = [
++            _case("A1", "sustain_refutation"),
++            _case("A2", "sustain_finding"),
++            _case("A3", "escalate",
++                  scoring="dismissal_evidence_rule"),
++            _case("A4", "sustain_refutation",
++                  scoring="machinery_two_field",
++                  reasoning={"claim": "false",
++                             "refutation": "weak_self_quote"}),
++        ]
++        seat = _Seat({
++            "A1": [_payload("sustain_refutation")],
++            "A2": [_payload("sustain_finding",
++                            quote="alpha line")],
++            "A3": [_payload("escalate")],
++            "A4": [_payload("sustain_refutation",
++                            validity="weak_self_quote")],
++        })
++        with tempfile.TemporaryDirectory() as td:
++            _write_corpus(td, cases, m1_set=["A2"])
++            result = acceptance.run_acceptance(
++                td, seat, seat_family="famC",
++                do_mutations=False)
++        self.assertTrue(
++            all(result["cases"][c]["score"]["correct"]
++                for c in ("A1", "A2", "A3", "A4")))
++        m = result["metrics"]
++        self.assertEqual(
++            m["M1_false_dismissals_on_real_findings"]
++            ["measured"], 0)
++        self.assertEqual(m["M3_overall_accuracy"]["measured"],
++                         1.0)
++        self.assertEqual(
++            m["M6_double_draw_agreement_on_majors"]
++            ["measured"], 1.0)
++        self.assertFalse(result["unlock_all_gates_pass"])  # M2/M5 empty sets
++
++    def test_false_dismissal_counted(self):
++        cases = [_case("B1", "sustain_finding")]
++        seat = _Seat({"B1": [_payload("sustain_refutation")]})
++        with tempfile.TemporaryDirectory() as td:
++            _write_corpus(td, cases, m1_set=["B1"])
++            result = acceptance.run_acceptance(
++                td, seat, seat_family="famC",
++                do_mutations=False)
++        self.assertEqual(
++            result["metrics"]
++            ["M1_false_dismissals_on_real_findings"]
++            ["measured"], 1)
++        self.assertFalse(result["cases"]["B1"]["score"]
++                         ["correct"])
++
++    def test_dismissal_evidence_rule_rejects_self_quote(self):
++        entry = {"decision": "sustain_refutation",
++                 "deciding_evidence": {"quote": "beta line"},
++                 "severity_after_rubric": {"level": "major"}}
++        case = _case("C1", "escalate",
++                     scoring="dismissal_evidence_rule")
++        score = acceptance.score_case(case, entry)
++        self.assertFalse(score["correct"])
++        entry["deciding_evidence"]["quote"] = "gamma line"
++        score = acceptance.score_case(case, entry)
++        self.assertTrue(score["correct"])
++
++
++if __name__ == "__main__":
++    unittest.main()
+diff --git a/tests/test_shadow_p01.py b/tests/test_shadow_p01.py
+new file mode 100644
+index 0000000..c520c16
+--- /dev/null
++++ b/tests/test_shadow_p01.py
+@@ -0,0 +1,210 @@
++"""P0/P1 machinery (four-disputed solution §§4–5): the shadow
++reason_check (existence check on cited constructs), the shadow
++trace-gate evaluation, and the P1 record schema — reason fields
++on refutations and basis-evidence-gated precedent minting."""
++
++import json
++import os
++import sys
++import unittest
++
++sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
++
++from codereview import core  # noqa: E402
++
++SRC = (
++    "def compute_total(items):\n"
++    "    return sum(items)\n"
++    "\n"
++    "VALUE = compute_total(items)\n")
++
++
++class ReasonCheckTests(unittest.TestCase):
++    def test_verified_when_cited_construct_exists(self):
++        rc = core._reason_check(
++            {"reason": "the guard `return sum(items)` handles "
++                       "the empty case"}, SRC)
++        self.assertEqual(rc["status"], "verified")
++        self.assertEqual(rc["found"], ["return sum(items)"])
++
++    def test_contradicted_case4_pattern(self):
++        # The Case-4 shape: a guard asserted that exists
++        # nowhere in the source.
++        rc = core._reason_check(
++            {"reason": "safe because `if not tl_name` returns "
++                       "early"}, SRC)
++        self.assertEqual(rc["status"], "contradicted")
++        self.assertEqual(rc["missing"], ["if not tl_name"])
++
++    def test_unverified_without_constructs(self):
++        rc = core._reason_check(
++            {"reason": "membership works on any object"}, SRC)
++        self.assertEqual(rc["status"], "unverified")
++        self.assertEqual(rc["cited"], [])
++
++    def test_mixed_is_unverified_with_detail(self):
++        rc = core._reason_check(
++            {"reason": "`return sum(items)` exists but "
++                       "`missing_guard()` does not"}, SRC)
++        self.assertEqual(rc["status"], "unverified")
++        self.assertEqual(rc["found"], ["return sum(items)"])
++        self.assertEqual(rc["missing"], ["missing_guard()"])
++
++
++class TraceGateShadowTests(unittest.TestCase):
++    def _finding(self, **kw):
++        f = {"severity": "major", "file": "app.py", "line": 4,
++             "evidence": "VALUE = compute_total(items)",
++             "evidence_quote": "VALUE = compute_total(items)"}
++        f.update(kw)
++        return f
++
++    def test_major_callee_claim_without_body_would_downgrade(
++            self):
++        tg = core._trace_gate_shadow(self._finding(), SRC)
++        self.assertTrue(tg["applies"])
++        self.assertEqual(tg["about_callee"], ["compute_total"])
++        self.assertFalse(tg["callee_body_quoted"])
++        self.assertTrue(tg["would_downgrade"])
++
++    def test_body_quote_clears_the_shadow_gate(self):
++        tg = core._trace_gate_shadow(self._finding(
++            evidence="VALUE = compute_total(items)\n"
++                     "return sum(items)"), SRC)
++        self.assertTrue(tg["callee_body_quoted"])
++        self.assertFalse(tg["would_downgrade"])
++
++    def test_failure_witness_clears_the_shadow_gate(self):
++        tg = core._trace_gate_shadow(self._finding(
++            failure_witness={"input": "[]",
++                             "observed": "KeyError"}), SRC)
++        self.assertTrue(tg["failure_witness"])
++        self.assertFalse(tg["would_downgrade"])
++
++    def test_minor_does_not_apply(self):
++        tg = core._trace_gate_shadow(
++            self._finding(severity="minor"), SRC)
++        self.assertFalse(tg["applies"])
++        self.assertFalse(tg["would_downgrade"])
++
++    def test_callee_not_defined_here_does_not_apply(self):
++        tg = core._trace_gate_shadow(
++            self._finding(), "VALUE = compute_total(items)\n")
++        self.assertFalse(tg["applies"])
++
++
++class PrecedentBasisTests(unittest.TestCase):
++    F = {"id": "f1", "file": "app.py", "line": 2}
++
++    def test_reason_stored_with_verified_basis(self):
++        out = core.upsert_precedent(
++            [], self.F, "blob1", "r1", "doc.md",
++            basis_evidence=[{"file": "app.py", "line": 2,
++                             "quote": "return sum(items)"}],
++            reason="the refutation is correct",
++            reason_origin="model-verified")
++        d = out[0]["disposition"]
++        self.assertEqual(d["reason"], "the refutation is "
++                                      "correct")
++        self.assertEqual(d["reason_origin"], "model-verified")
++        self.assertEqual(out[0]["basis_evidence"][0]["quote"],
++                         "return sum(items)")
++
++    def test_reason_withheld_without_basis(self):
++        out = core.upsert_precedent(
++            [], self.F, "blob1", "r1", "doc.md",
++            reason="safe because `if not tl_name` returns",
++            reason_origin="model-verified")
++        d = out[0]["disposition"]
++        self.assertNotIn("reason", d)
++        self.assertEqual(d["reason_withheld"],
++                         "basis evidence not verified")
++
++    def test_no_reason_no_withholding_marker(self):
++        out = core.upsert_precedent(
++            [], self.F, "blob1", "r1", "doc.md")
++        self.assertNotIn("reason", out[0]["disposition"])
++        self.assertNotIn("reason_withheld",
++                         out[0]["disposition"])
++
++
++# --------------- run-level schema integration ---------------
++
++PATCH = (
++    "diff --git a/app.py b/app.py\n"
++    "--- a/app.py\n"
++    "+++ b/app.py\n"
++    "@@ -1,1 +1,4 @@\n"
++    " import os\n"
++    "+VALUE = compute_total(items)\n"
++    "+print(VALUE)\n"
++    "+RESULT = VALUE * 2\n")
++CITED = "VALUE = compute_total(items)"
++META3 = {"seatA": {"family": "famA", "tier": "paid"},
++         "seatB": {"family": "famB", "tier": "paid"},
++         "seatC": {"family": "famC", "tier": "paid"}}
++
++
++class _Seat:
++    def __init__(self, review=None, xconfirm=None):
++        self.review = review or {"verdict": "pass",
++                                 "findings": []}
++        self.xconfirm = xconfirm or {"verdict": "confirm"}
++
++    def __call__(self, prompt):
++        if "CROSS-FAMILY CONFIRMATION pass" in prompt:
++            payload = self.xconfirm
++        elif "RE-GROUND pass" in prompt:
++            payload = {"status": "withdrawn", "reason": "x"}
++        elif "TECH LEAD ADJUDICATION pass" in prompt:
++            payload = {"decision": "escalate",
++                       "evidence_quote": "print(VALUE)",
++                       "rationale": "owner decides"}
++        else:
++            payload = self.review
++        return payload if isinstance(payload, str) \
++            else json.dumps(payload)
++
++
++class RecordSchemaTests(unittest.TestCase):
++    def test_dispute_carries_p1_fields(self):
++        finding = {"severity": "major",
++                   "category": "correctness", "file": "app.py",
++                   "line": 2, "title": "Total without a guard",
++                   "evidence": CITED, "evidence_quote": CITED,
++                   "recommendation": "guard it",
++                   "confidence": 0.9}
++        panel = {
++            "seatA": _Seat(review={
++                "verdict": "changes_requested",
++                "findings": [finding]}),
++            "seatB": _Seat(xconfirm={
++                "verdict": "refute",
++                "evidence_quote": "print(VALUE)",
++                "reason": "no guard `if not items` exists"}),
++            "seatC": _Seat()}
++        rec = core.run_review(
++            PATCH, panel, seat_meta=META3,
++            sleep=lambda *_a: None)
++        escalated = rec.get("escalated_findings") or []
++        self.assertEqual(len(escalated), 1)
++        dispute = escalated[0]["dispute"]
++        self.assertIn("reason_check", dispute)
++        self.assertIn("reason_corrected", dispute)
++        self.assertIsNone(dispute["reason_corrected"])
++        self.assertEqual(
++            dispute["basis_evidence"][0]["quote"],
++            "print(VALUE)")
++        self.assertIn("trace_gate_shadow", dispute)
++        # The cited construct `if not items` is absent from
++        # the blob -> the shadow check says contradicted.
++        self.assertEqual(dispute["reason_check"]["status"],
++                         "contradicted")
++        self.assertEqual(
++            len(rec.get("shadow_reason_checks") or []), 1)
++        self.assertEqual(
++            len(rec.get("shadow_trace_gate") or []), 1)
++
++
++if __name__ == "__main__":
++    unittest.main()
+diff --git a/tests/test_shadow_p2.py b/tests/test_shadow_p2.py
+new file mode 100644
+index 0000000..4b7c58b
+--- /dev/null
++++ b/tests/test_shadow_p2.py
+@@ -0,0 +1,327 @@
++"""P2 machinery (four-disputed solution §2B + §3): raise-time
++function keys, qualified-name precedent lookup with miss-cause
++telemetry, and the shared Tech Lead eligibility predicate with
++its fail-closed boundary assertion.
++
++The precedent property tests follow the solution's acceptance
++list: insert lines outside the function -> hit; edit inside ->
++miss_hash_changed; rename -> miss_name_absent; never a hit on
++a different function under any insertion pattern."""
++
++import json
++import os
++import random
++import sys
++import unittest
++
++sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
++
++from codereview import core  # noqa: E402
++
++BASE = (
++    "import os\n"
++    "\n"
++    "def helper(x):\n"
++    "    return x + 1\n"
++    "\n"
++    "def target(items):\n"
++    "    total = 0\n"
++    "    for it in items:\n"
++    "        total += helper(it)\n"
++    "    return total\n"
++    "\n"
++    "def other():\n"
++    "    return 42\n")
++
++
++def _finding(source, line=9, fid="find1", stored=True):
++    f = {"id": fid, "file": "app.py", "line": line,
++         "title": "claim", "severity": "major"}
++    if stored:
++        key = core.function_key(source, line)
++        assert key is not None and key["function"] == "target"
++        f["function_key"] = key
++    return f
++
++
++def _entry(source, line=9, fid="find1"):
++    f = _finding(source, line, fid, stored=False)
++    entries = core.upsert_precedent(
++        [], f, "blob-v1", "round-1", "disp.md", source=source)
++    assert entries and entries[0].get("function") == "target"
++    return entries
++
++
++def _apply(finding, entries, source, blob="blob-v2"):
++    telemetry = []
++    remaining, standing = core.apply_precedents(
++        [finding], entries, lambda _p: blob,
++        lambda _p: source, telemetry=telemetry)
++    return remaining, standing, telemetry
++
++
++class FunctionKeyByNameTests(unittest.TestCase):
++    def test_ok_absent_ambiguous_unparseable(self):
++        key, status = core.function_key_by_name(BASE, "target")
++        self.assertEqual(status, "ok")
++        self.assertEqual(key["function"], "target")
++        _k, status = core.function_key_by_name(BASE, "nope")
++        self.assertEqual(status, "absent")
++        dup = "def f():\n    return 1\n\ndef f():\n    return 2\n"
++        _k, status = core.function_key_by_name(dup, "f")
++        self.assertEqual(status, "ambiguous")
++        _k, status = core.function_key_by_name("def (:", "f")
++        self.assertEqual(status, "unparseable")
++
++    def test_nested_and_method_qualified_names(self):
++        src = ("class C:\n"
++               "    def m(self):\n"
++               "        def inner():\n"
++               "            return 1\n"
++               "        return inner()\n")
++        key, status = core.function_key_by_name(src, "C.m.inner")
++        self.assertEqual(status, "ok")
++        self.assertEqual(key["function"], "C.m.inner")
++
++    def test_attach_function_keys(self):
++        findings = [{"file": "app.py", "line": 9},
++                    {"file": "app.py", "line": 1},
++                    {"file": "gone.py", "line": 3}]
++        n = core.attach_function_keys(
++            findings, lambda p: BASE if p == "app.py" else None)
++        self.assertEqual(n, 1)
++        self.assertEqual(
++            findings[0]["function_key"]["function"], "target")
++        self.assertNotIn("function_key", findings[1])
++
++
++class PrecedentPropertyTests(unittest.TestCase):
++    def test_insert_outside_function_is_a_hit(self):
++        entries = _entry(BASE)
++        for pad in (1, 3, 17):
++            drifted = ("# padding comment\n" * pad) + BASE
++            f = _finding(BASE)  # stored key from the ORIGINAL
++            remaining, standing, tel = _apply(f, entries, drifted)
++            self.assertEqual(len(standing), 1, f"pad={pad}")
++            self.assertEqual(remaining, [])
++            self.assertEqual(tel[0]["outcome"], "hit")
++            self.assertEqual(
++                standing[0]["precedent"]["function"], "target")
++
++    def test_insert_below_function_is_a_hit(self):
++        entries = _entry(BASE)
++        drifted = BASE + "\n# trailing comment\n" * 5
++        _r, standing, tel = _apply(_finding(BASE), entries,
++                                   drifted)
++        self.assertEqual(len(standing), 1)
++        self.assertEqual(tel[0]["outcome"], "hit")
++
++    def test_edit_inside_function_is_miss_hash_changed(self):
++        entries = _entry(BASE)
++        edited = BASE.replace("total += helper(it)",
++                              "total += helper(it) * 2")
++        remaining, standing, tel = _apply(
++            _finding(BASE), entries, edited)
++        self.assertEqual(standing, [])
++        self.assertEqual(len(remaining), 1)
++        self.assertEqual(tel[0]["outcome"], "miss_hash_changed")
++
++    def test_edit_inside_callee_is_miss_hash_changed(self):
++        entries = _entry(BASE)
++        edited = BASE.replace("return x + 1", "return x + 2")
++        _r, standing, tel = _apply(_finding(BASE), entries,
++                                   edited)
++        self.assertEqual(standing, [])
++        self.assertEqual(tel[0]["outcome"], "miss_hash_changed")
++
++    def test_rename_is_miss_name_absent(self):
++        entries = _entry(BASE)
++        renamed = BASE.replace("def target(items):",
++                               "def retarget(items):")
++        _r, standing, tel = _apply(_finding(BASE), entries,
++                                   renamed)
++        self.assertEqual(standing, [])
++        self.assertEqual(tel[0]["outcome"], "miss_name_absent")
++
++    def test_duplicate_qualified_name_is_miss_ambiguous(self):
++        entries = _entry(BASE)
++        dup = BASE + "\n\ndef target(items):\n    return 0\n"
++        _r, standing, tel = _apply(_finding(BASE), entries, dup)
++        self.assertEqual(standing, [])
++        self.assertEqual(tel[0]["outcome"], "miss_ambiguous")
++
++    def test_never_a_hit_on_a_different_function(self):
++        entries = _entry(BASE)
++        rng = random.Random(20261104)
++        for trial in range(60):
++            lines = BASE.splitlines()
++            # random insertions of comments / other functions
++            # OUTSIDE target's span (lines 6..11, 1-based)
++            inserts = []
++            for _ in range(rng.randint(0, 6)):
++                pos = rng.choice(
++                    [i for i in range(0, 5)]
++                    + [i for i in range(11, len(lines))])
++                inserts.append((pos, rng.choice([
++                    "# filler", "", "def extra_%d():" % trial,
++                    "    return 0"])))
++            for pos, text in sorted(inserts, reverse=True):
++                lines.insert(pos, text)
++            src = "\n".join(lines) + "\n"
++            _r, standing, _t = _apply(_finding(BASE), entries,
++                                      src)
++            for s in standing:
++                self.assertEqual(
++                    s["precedent"]["function"], "target")
++                self.assertEqual(
++                    s["precedent"]["function_hash"],
++                    entries[0]["function_hash"])
++
++    def test_legacy_line_drift_is_classified(self):
++        entries = _entry(BASE)
++        drifted = ("# pad\n" * 4) + BASE
++        # Legacy finding: NO stored key; its line (9) was the
++        # target's body in the original — after +4 lines it
++        # resolves elsewhere (or nowhere).
++        f = _finding(BASE, stored=False)
++        _r, standing, tel = _apply(f, entries, drifted)
++        self.assertEqual(standing, [])
++        self.assertEqual(tel[0]["outcome"], "miss_line_drift")
++
++    def test_legacy_unchanged_still_hits_by_line(self):
++        entries = _entry(BASE)
++        f = _finding(BASE, stored=False)
++        _r, standing, tel = _apply(f, entries, BASE,
++                                   blob="blob-v1")
++        self.assertEqual(len(standing), 1)
++        self.assertEqual(tel[0]["outcome"], "hit")
++
++    def test_blob_fallback_when_function_unresolvable(self):
++        entries = _entry(BASE)
++        f = _finding(BASE, stored=False)
++        _r, standing, tel = _apply(
++            f, entries, "this is not python at all ((", 
++            blob="blob-v1")
++        self.assertEqual(len(standing), 1)
++        self.assertEqual(standing[0]["precedent"]["scope"],
++                         "file")
++        self.assertEqual(tel[0]["outcome"], "fallback_blob")
++
++
++# ---------------- boundary assertion ----------------
++
++PATCH = (
++    "diff --git a/app.py b/app.py\n"
++    "--- a/app.py\n"
++    "+++ b/app.py\n"
++    "@@ -1,1 +1,4 @@\n"
++    " import os\n"
++    "+VALUE = compute_total(items)\n"
++    "+print(VALUE)\n"
++    "+RESULT = VALUE * 2\n")
++CITED = "VALUE = compute_total(items)"
++META3 = {"seatA": {"family": "famA", "tier": "paid"},
++         "seatB": {"family": "famB", "tier": "paid"},
++         "seatC": {"family": "famC", "tier": "paid"}}
++
++
++class _Seat:
++    def __init__(self, review=None, xconfirm=None,
++                 tech_lead=None):
++        self.review = review or {"verdict": "pass",
++                                 "findings": []}
++        self.xconfirm = xconfirm or {"verdict": "confirm"}
++        self.tech_lead = tech_lead or {
++            "decision": "sustain_refutation",
++            "evidence_quote": "print(VALUE)",
++            "rationale": "the refutation is correct"}
++
++    def __call__(self, prompt):
++        if "TECH LEAD ADJUDICATION pass" in prompt:
++            payload = self.tech_lead
++        elif "CROSS-FAMILY CONFIRMATION pass" in prompt:
++            payload = self.xconfirm
++        elif "RE-GROUND pass" in prompt:
++            payload = {"status": "withdrawn", "reason": "x"}
++        else:
++            payload = self.review
++        return payload if isinstance(payload, str) \
++            else json.dumps(payload)
++
++
++def _panel():
++    finding = {"severity": "major", "category": "correctness",
++               "file": "app.py", "line": 2,
++               "title": "Total computed without a guard",
++               "evidence": CITED, "evidence_quote": CITED,
++               "recommendation": "guard it", "confidence": 0.9}
++    raiser = _Seat(review={"verdict": "changes_requested",
++                           "findings": [finding]})
++    refuter = _Seat(xconfirm={
++        "verdict": "refute", "evidence_quote": "print(VALUE)",
++        "reason": "the claim is wrong"})
++    lead = _Seat()
++    return {"seatA": raiser, "seatB": refuter, "seatC": lead}
++
++
++class BoundaryAssertionTests(unittest.TestCase):
++    def _run(self, **kw):
++        kw.setdefault("seat_meta", META3)
++        kw.setdefault("sleep", lambda *_a: None)
++        return core.run_review(PATCH, _panel(), **kw)
++
++    def test_selection_property_random_pools(self):
++        rng = random.Random(4102)
++        fams = ["famA", "famB", "famC", "unknown", None]
++        for _ in range(300):
++            names = [f"s{i}" for i in range(rng.randint(1, 5))]
++            fam_by = {n: rng.choice(fams) for n in names}
++            ok = {n for n in names if rng.random() < 0.8}
++            raiser, refuter = rng.choice(fams), rng.choice(fams)
++            name, _fn, fam, _sub, _un = core._select_tech_lead(
++                {n: (lambda p: "") for n in names}, ok, fam_by,
++                None, raiser, refuter)
++            if name is not None:
++                self.assertTrue(
++                    core._tech_lead_eligible(
++                        fam, name in ok, raiser, refuter),
++                    f"ineligible selection: {name} {fam}")
++
++    def test_normal_path_adjudicates(self):
++        rec = self._run()
++        self.assertEqual(
++            len(rec.get("adjudicated_refuted_findings") or []),
++            1)
++        self.assertNotIn("tech_lead_assertion_failures", rec)
++
++    def test_mutant_selection_is_caught_at_the_boundary(self):
++        # The Case-3 mutant: the independence check is removed
++        # from selection, which now hands back the REFUTER's
++        # own seat. The boundary assertion must fail closed.
++        original = core._select_tech_lead
++
++        def broken(seat_fns, ok_seats, fam_by_seat, designated,
++                   raiser_fam, refuter_fam):
++            return ("seatB", seat_fns["seatB"], "famB", None,
++                    None)
++
++        core._select_tech_lead = broken
++        try:
++            rec = self._run()
++        finally:
++            core._select_tech_lead = original
++        self.assertEqual(
++            rec.get("adjudicated_refuted_findings") or [], [])
++        failures = rec.get("tech_lead_assertion_failures") or []
++        self.assertEqual(len(failures), 1)
++        self.assertEqual(failures[0]["seat"], "seatB")
++        disputed = rec.get("disputed_findings") or []
++        self.assertEqual(len(disputed), 1)
++        self.assertEqual(
++            disputed[0]["tech_lead"]["status"], "unavailable")
++        self.assertIn("assertion_failure",
++                      disputed[0]["tech_lead"])
++
++
++if __name__ == "__main__":
++    unittest.main()
+diff --git a/tests/test_shadow_tl.py b/tests/test_shadow_tl.py
+new file mode 100644
+index 0000000..e942cfd
+--- /dev/null
++++ b/tests/test_shadow_tl.py
+@@ -0,0 +1,298 @@
++"""Shadow Tech Lead (refutation-process solution Q2/Q4):
++the full structured adjudication in shadow mode — blinded
++A/B positions, double-draw for majors, reduced-independence
++pending state, decision cache, probe round — and the
++cardinal invariant: shadow decisions NEVER change the gate."""
++
++import json
++import os
++import random
++import sys
++import unittest
++
++sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
++
++from codereview import core  # noqa: E402
++
++REGION = ("import os\n"
++          "VALUE = compute_total(items)\n"
++          "print(VALUE)\n"
++          "RESULT = VALUE * 2\n")
++FINDING = {"id": "fx1", "file": "app.py", "line": 2,
++           "severity": "major", "title": "Total without guard",
++           "evidence": "VALUE = compute_total(items)",
++           "evidence_quote": "VALUE = compute_total(items)"}
++DISPUTE = {"by": "seatB", "family": "famB",
++           "raiser_family": "famA",
++           "evidence_quote": "print(VALUE)",
++           "reason": "the claim fails on the printed value"}
++
++
++def payload(decision="sustain_refutation", quote="print(VALUE)",
++            **over):
++    p = {"claim_restated": "the total lacks a guard",
++         "claim_falsifiable": True,
++         "position_a_addresses_claim": {"value": True,
++                                        "why": "a addresses"},
++         "position_b_addresses_claim": {"value": False,
++                                        "why": "b misses"},
++         "reasoning_assessment": {
++             "claim_valid": False,
++             "refutation_validity": "valid"},
++         "deciding_evidence": {"quote": quote},
++         "probe_request": None,
++         "decision": decision,
++         "severity_after_rubric": {"level": "major",
++                                   "rubric_clause": None},
++         "confidence": "high",
++         "rationale": "the code shows it"}
++    p.update(over)
++    return p
++
++
++class ShadowSeat:
++    def __init__(self, payloads):
++        self.payloads = list(payloads)
++        self.prompts = []
++
++    def __call__(self, prompt):
++        self.prompts.append(prompt)
++        p = self.payloads.pop(0) if len(self.payloads) > 1 \
++            else self.payloads[0]
++        return p if isinstance(p, str) else json.dumps(p)
++
++
++def adjudicate(seat, **kw):
++    kw.setdefault("seat_name", "tl")
++    kw.setdefault("seat_family", "famC")
++    return core.shadow_adjudicate(
++        seat, dict(FINDING), REGION, dict(DISPUTE), **kw)
++
++
++class ShadowDecisionTests(unittest.TestCase):
++    def test_major_dismissal_double_draw_agrees(self):
++        seat = ShadowSeat([payload(), payload()])
++        e = adjudicate(seat)
++        self.assertEqual(e["state"], "shadow_sustained_refutation")
++        self.assertEqual(e["decision"], "sustain_refutation")
++        self.assertTrue(e["draws_agree"])
++        self.assertEqual(len(e["draws"]), 2)
++        self.assertFalse(e["binding"])
++        self.assertEqual(
++            e["deciding_evidence"]["quote"], "print(VALUE)")
++        self.assertTrue(e["cache_key"])
++        self.assertEqual(e["protocol_version"],
++                         core.ADJUDICATION_PROTOCOL_VERSION)
++
++    def test_double_draw_disagreement_escalates(self):
++        seat = ShadowSeat([
++            payload(),
++            payload(decision="sustain_finding",
++                    quote="VALUE = compute_total(items)")])
++        e = adjudicate(seat)
++        self.assertEqual(e["state"], "shadow_escalated")
++        self.assertFalse(e["draws_agree"])
++        self.assertIsNone(e["decision"])
++
++    def test_reduced_independence_dismissal_is_pending(self):
++        seat = ShadowSeat([payload(), payload()])
++        e = adjudicate(seat, independence="reduced")
++        self.assertEqual(e["state"],
++                         "adjudication-pending-independence")
++        # The decision is recorded, marked non-effective.
++        self.assertEqual(e["decision"], "sustain_refutation")
++
++    def test_reduced_independence_sustain_stands(self):
++        seat = ShadowSeat([
++            payload(decision="sustain_finding",
++                    quote="VALUE = compute_total(items)"),
++            payload(decision="sustain_finding",
++                    quote="VALUE = compute_total(items)")])
++        e = adjudicate(seat, independence="reduced")
++        self.assertEqual(e["state"], "shadow_sustained_finding")
++
++    def test_unvalidated_deciding_quote_escalates(self):
++        seat = ShadowSeat([
++            payload(quote="a line that is nowhere"), payload(
++                quote="a line that is nowhere")])
++        e = adjudicate(seat)
++        self.assertEqual(e["state"], "shadow_escalated")
++        self.assertIn("deciding quote", e["error"] or "")
++
++    def test_severity_change_needs_a_clause(self):
++        bad = payload(severity_after_rubric={
++            "level": "minor", "rubric_clause": None})
++        e = adjudicate(ShadowSeat([bad, bad]))
++        self.assertEqual(e["state"], "shadow_escalated")
++        good = payload(severity_after_rubric={
++            "level": "minor", "rubric_clause": "R3"})
++        e2 = adjudicate(ShadowSeat([good, good]))
++        self.assertEqual(e2["state"],
++                         "shadow_sustained_refutation")
++        self.assertEqual(
++            e2["severity_after_rubric"],
++            {"level": "minor", "rubric_clause": "R3"})
++
++    def test_probe_round_then_decision(self):
++        calls = []
++
++        def probe_fn(spec_text):
++            calls.append(spec_text)
++            return {"status": "supported",
++                    "detail": "probe output",
++                    "evidence_quote": "probe output"}
++
++        seat = ShadowSeat([
++            payload(decision="needs_probe",
++                    probe_request={"kind": "python",
++                                   "code": "print(1)"}),
++            payload(), payload()])
++        e = adjudicate(seat, probe_fn=probe_fn)
++        self.assertEqual(len(calls), 1)
++        self.assertIn('"python"', calls[0])
++        self.assertEqual(e["probe_result"]["status"],
++                         "supported")
++        self.assertEqual(e["state"],
++                         "shadow_sustained_refutation")
++        self.assertEqual(len(e["draws"]), 3)
++
++    def test_needs_probe_without_channel_escalates(self):
++        seat = ShadowSeat([payload(
++            decision="needs_probe",
++            probe_request={"kind": "python", "code": "x"})])
++        e = adjudicate(seat)
++        self.assertEqual(e["state"], "shadow_escalated")
++        self.assertIn("needs_probe", e["error"] or "")
++
++    def test_cache_hit_makes_no_second_call(self):
++        seat = ShadowSeat([payload()])
++        cache = {}
++        minor = dict(FINDING, severity="minor")
++        e1 = core.shadow_adjudicate(
++            seat, minor, REGION, dict(DISPUTE), cache=cache,
++            seat_name="tl", seat_family="famC")
++        e2 = core.shadow_adjudicate(
++            seat, minor, REGION, dict(DISPUTE), cache=cache,
++            seat_name="tl", seat_family="famC")
++        self.assertFalse(e1["cache_hit"])
++        self.assertTrue(e2["cache_hit"])
++        self.assertEqual(len(seat.prompts), 1)
++        self.assertEqual(e1["cache_key"], e2["cache_key"])
++
++    def test_blinding_strips_families(self):
++        seat = ShadowSeat([payload()])
++        adjudicate(seat)
++        prompt = seat.prompts[0]
++        self.assertNotIn("famA", prompt)
++        self.assertNotIn("famB", prompt)
++        self.assertIn("POSITION A", prompt)
++        self.assertIn("POSITION B", prompt)
++
++    def test_no_seat_is_unavailable_not_a_decision(self):
++        e = core.shadow_adjudicate(
++            None, dict(FINDING), REGION, dict(DISPUTE))
++        self.assertEqual(e["state"], "shadow_unavailable")
++        self.assertIsNone(e["decision"])
++
++
++# --------------- gate invariance under shadow ---------------
++
++PATCH = (
++    "diff --git a/app.py b/app.py\n"
++    "--- a/app.py\n"
++    "+++ b/app.py\n"
++    "@@ -1,1 +1,4 @@\n"
++    " import os\n"
++    "+VALUE = compute_total(items)\n"
++    "+print(VALUE)\n"
++    "+RESULT = VALUE * 2\n")
++CITED = "VALUE = compute_total(items)"
++META3 = {"seatA": {"family": "famA", "tier": "paid"},
++         "seatB": {"family": "famB", "tier": "paid"},
++         "seatC": {"family": "famC", "tier": "paid"}}
++
++
++class PanelSeat:
++    def __init__(self, review=None, xconfirm=None):
++        self.review = review or {"verdict": "pass",
++                                 "findings": []}
++        self.xconfirm = xconfirm or {"verdict": "confirm"}
++
++    def __call__(self, prompt):
++        if "SHADOW MODE" in prompt:
++            p = payload()
++        elif "TECH LEAD ADJUDICATION pass" in prompt:
++            p = {"decision": "sustain_refutation",
++                 "evidence_quote": "print(VALUE)",
++                 "rationale": "binding decision"}
++        elif "CROSS-FAMILY CONFIRMATION pass" in prompt:
++            p = self.xconfirm
++        elif "RE-GROUND pass" in prompt:
++            p = {"status": "withdrawn", "reason": "x"}
++        else:
++            p = self.review
++        return p if isinstance(p, str) else json.dumps(p)
++
++
++def _panel():
++    finding = {"severity": "major", "category": "correctness",
++               "file": "app.py", "line": 2,
++               "title": "Total computed without a guard",
++               "evidence": CITED, "evidence_quote": CITED,
++               "recommendation": "guard it", "confidence": 0.9}
++    return {
++        "seatA": PanelSeat(review={
++            "verdict": "changes_requested",
++            "findings": [finding]}),
++        "seatB": PanelSeat(xconfirm={
++            "verdict": "refute",
++            "evidence_quote": "print(VALUE)",
++            "reason": "the claim is wrong"}),
++        "seatC": PanelSeat()}
++
++
++LIST_KEYS = ("blocker_findings", "major_findings",
++             "disputed_findings", "refutation_weak_findings",
++             "adjudicated_refuted_findings",
++             "escalated_findings", "findings")
++
++
++class GateInvarianceTests(unittest.TestCase):
++    def _run(self, **kw):
++        kw.setdefault("seat_meta", META3)
++        kw.setdefault("sleep", lambda *_a: None)
++        return core.run_review(PATCH, _panel(), **kw)
++
++    def test_shadow_on_off_verdicts_identical(self):
++        off = self._run()
++        on = self._run(tech_lead_shadow=True)
++        self.assertEqual(off["gate"], on["gate"])
++        for key in LIST_KEYS:
++            off_ids = [f.get("id") for f in off.get(key) or []]
++            on_ids = [f.get("id") for f in on.get(key) or []]
++            self.assertEqual(off_ids, on_ids, key)
++        self.assertNotIn("shadow_adjudications", off)
++        entries = on.get("shadow_adjudications") or []
++        self.assertEqual(len(entries), 1)
++        self.assertFalse(entries[0]["binding"])
++        self.assertEqual(
++            entries[0]["state"], "shadow_sustained_refutation")
++        # Finding-level dispositions are byte-identical apart
++        # from the shadow annotation itself.
++        def strip(rec):
++            out = []
++            for key in LIST_KEYS:
++                for f in rec.get(key) or []:
++                    g = {k: v for k, v in f.items()
++                         if k != "tech_lead_shadow"}
++                    out.append((key, json.dumps(
++                        g, sort_keys=True, default=str)))
++            return sorted(out)
++        self.assertEqual(strip(off), strip(on))
++        refuted = on["adjudicated_refuted_findings"][0]
++        self.assertEqual(
++            refuted["tech_lead_shadow"]["binding"], False)
++
++
++if __name__ == "__main__":
++    unittest.main()

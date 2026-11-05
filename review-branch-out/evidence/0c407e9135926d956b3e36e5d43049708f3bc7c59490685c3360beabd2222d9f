@@ -1,0 +1,3 @@
+    probe_hash = hashlib.sha256(json.dumps(
+        probe_result, sort_keys=True, default=str).encode(
+            "utf-8")).hexdigest()

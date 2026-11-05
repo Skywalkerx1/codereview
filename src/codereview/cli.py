@@ -1597,6 +1597,77 @@ def _bench_main(argv, providers_override=None):
     return 0
 
 
+def _acceptance_main(argv, providers_override=None):
+    """codereview acceptance — run the shadow Tech Lead over
+    the known-answer acceptance corpus and score the adopted
+    gates M1–M6 (refutation-process solution §6). The seat is
+    built from --provider specs (or supplied by the caller via
+    providers_override, as the swarm runner supplies its
+    seats); its family must be a third family relative to the
+    corpus's raiser/refuter families for the run to mean
+    anything."""
+    ap = argparse.ArgumentParser(prog="codereview acceptance")
+    ap.add_argument("--corpus", required=True,
+                    help="path to the acceptance corpus "
+                         "directory (index.json + cases/ + "
+                         "scorecard.json + mutations.json)")
+    ap.add_argument("--provider", action="append", default=[],
+                    help="provider spec for the Tech Lead seat, "
+                         "e.g. deepseek:deepseek-chat (the "
+                         "first seat is used)")
+    ap.add_argument("--seat-family", default=None,
+                    help="family tag for the seat (defaults to "
+                         "the seat's provider family)")
+    ap.add_argument("--out", default=None,
+                    help="write the full run record (JSON) to "
+                         "this directory")
+    ap.add_argument("--no-mutations", action="store_true",
+                    help="skip the M4 mutation battery")
+    ap.add_argument("--timeout", type=int, default=180,
+                    help="per-call timeout in seconds")
+    args = ap.parse_args(argv)
+    if providers_override:
+        seats = dict(providers_override)
+    elif args.provider:
+        try:
+            seats = build_providers(
+                args.provider, agent_timeout=args.timeout)
+        except Exception as exc:  # noqa: BLE001
+            print(f"codereview: provider setup failed: {exc}",
+                  file=sys.stderr)
+            return 2
+    else:
+        print("codereview: acceptance needs a seat: pass "
+              "--provider <spec>", file=sys.stderr)
+        return 2
+    if not seats:
+        print("codereview: no seat available", file=sys.stderr)
+        return 2
+    seat_name, seat_fn = next(iter(seats.items()))
+    seat_family = args.seat_family or getattr(
+        seat_fn, "_codereview_family", None) or seat_name
+    from . import acceptance as acceptance_mod
+    result = acceptance_mod.run_acceptance(
+        args.corpus, seat_fn, seat_family=seat_family,
+        seat_name=seat_name,
+        do_mutations=not args.no_mutations,
+        timeout=args.timeout,
+        log=lambda m: print(m, file=sys.stderr))
+    for mid, m in result["metrics"].items():
+        print(f"{mid}: measured={m['measured']} "
+              f"threshold={m['threshold']} "
+              f"pass={m['pass']}")
+    print(f"unlock (all gates on one run): "
+          f"{result['unlock_all_gates_pass']}")
+    if args.out:
+        os.makedirs(args.out, exist_ok=True)
+        path = os.path.join(args.out, "acceptance-run.json")
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(result, fh, indent=1, default=str)
+        print(f"record: {path}")
+    return 0 if result["unlock_all_gates_pass"] else 1
+
+
 def main(argv=None, providers_override=None, seat_meta_override=None,
          fallbacks_override=None):
     if argv is None:
@@ -1605,6 +1676,9 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
         return _setup_main(argv[1:])
     if argv and argv[0] == "evidence":
         return _evidence_main(argv[1:])
+    if argv and argv[0] == "acceptance":
+        return _acceptance_main(
+            argv[1:], providers_override=providers_override)
     if argv and argv[0] == "doctor":
         return _doctor_main(argv[1:],
                             providers_override=providers_override,
@@ -1738,6 +1812,20 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
                          "substituted, loudly, on the record. "
                          "Without a designation, the first "
                          "independent seat serves")
+    ap.add_argument("--tech-lead-shadow", action="store_true",
+                    help="run the Tech Lead in SHADOW mode: for "
+                         "every disputed finding the full "
+                         "structured adjudication is produced and "
+                         "recorded in the record's "
+                         "shadow_adjudications section — blinded "
+                         "A/B positions, double-drawn for majors "
+                         "— but the decisions are non-binding and "
+                         "never change the gate verdict. The seat "
+                         "is the --tech-lead seat when designated, "
+                         "else an independent seat, else any "
+                         "served seat under reduced independence. "
+                         "Equivalent to the CODEREVIEW_TECH_LEAD_"
+                         "SHADOW=1 environment variable")
     ap.add_argument("--attempts-log",
                     help="append one JSON line describing this run "
                          "(seats, error classes, gate) to this file. "
@@ -1755,6 +1843,14 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
                          "for primary AND fallback seats, like "
                          "doctor/intake); also the wait bound for "
                          "Tech Lead adjudication calls")
+    ap.add_argument("--probe-timeout", type=int, default=120,
+                    help="wall-clock bound in seconds for one "
+                         "harness probe (default 120)")
+    ap.add_argument("--no-probe-harness", action="store_true",
+                    help="do not wire the probe harness: a Tech "
+                         "Lead probe request then escalates for "
+                         "lack of a channel, as before the "
+                         "harness existed")
     args = ap.parse_args(argv)
 
     if args.timeout is not None and args.timeout <= 0:
@@ -1954,6 +2050,18 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
     test_results = _run_tests(args.test_command, cwd)
 
     review_kwargs = {}
+    if not args.no_probe_harness:
+        # Probe harness (refutation-process solution §5.2):
+        # the Tech Lead's probe channel, wired by default so a
+        # needs_probe decision no longer auto-escalates for
+        # lack of a channel. Probes execute in the harness
+        # sandbox against a temp copy of the reviewed tree —
+        # never in the tree itself, never with the process
+        # environment. The swarm internal runner reaches this
+        # same wiring through cli.main.
+        from . import probe as probe_mod
+        review_kwargs["probe_fn"] = probe_mod.make_probe_fn(
+            args.repo or ".", timeout=args.probe_timeout)
     if lens_seats:
         review_kwargs["lens_seats"] = lens_seats
     if tech_lead_seat and "tech_lead" in \
@@ -1986,6 +2094,19 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
             return 2
         review_kwargs["evidence"] = evidence_mod.collect(
             evidence_cfg, cwd)
+    shadow_role_seat = seat_roles.get("tech-lead-shadow")
+    if args.tech_lead_shadow or shadow_role_seat or os.environ.get(
+            "CODEREVIEW_TECH_LEAD_SHADOW") == "1":
+        # Shadow Tech Lead: recorded, non-binding, gate-neutral
+        # (the engine guarantees verdict invariance). Seat
+        # precedence: an explicit tech-lead-shadow role, then
+        # the binding --tech-lead designation, then the engine's
+        # own independent-seat choice.
+        review_kwargs["tech_lead_shadow"] = True
+        shadow_seat = shadow_role_seat or args.tech_lead \
+            or tech_lead_seat
+        if shadow_seat:
+            review_kwargs["tech_lead_shadow_seat"] = shadow_seat
 
     if args.verify_previous:
         try:

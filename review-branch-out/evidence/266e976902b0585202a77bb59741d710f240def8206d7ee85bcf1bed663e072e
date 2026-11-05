@@ -1,0 +1,2 @@
+    m3 = sum(1 for c in scores.values() if c["correct"]) \
+        / len(scores)
