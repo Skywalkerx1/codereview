@@ -1,0 +1,1 @@
+for lens in stage2_lenses: if lens not in covered: triggers.append({...})

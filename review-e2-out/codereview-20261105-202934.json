@@ -1,0 +1,746 @@
+{
+  "schema": "codereview.report/1",
+  "version": "0.12.1",
+  "mode": "review",
+  "created_at": "2026-11-05T20:29:34+00:00",
+  "patch_sha256": "376c394c9e13f919939c7936599a5bc67b8a10307cb597245a826db8d6aae0df",
+  "patch_chars": 81037,
+  "files": [
+    "CHANGELOG.md",
+    "src/codereview/core.py",
+    "src/codereview/policy.py",
+    "src/codereview/tiering.py",
+    "tests/test_risk.py",
+    "tests/test_tiering.py"
+  ],
+  "context": "Epic E2+E4 for CodeReview: tiered panels driven by the E1 risk band ([risk] tiering=true in .codereview.toml; low=prescreen seat(s), medium=reduced panel, high=full panel + evidence required) with in-run escalation to the full panel on a blocking finding, reviewer failure, or unserved lens. New tiering.py (seat plan + pure trigger evaluation), policy.py [risk] keys with B1 validation, core.run_review staged execution via a nested _run_jobs (single stage = byte-identical when tiering off). Suite:",
+  "private": false,
+  "supported_platforms": {
+    "os": [
+      "posix"
+    ],
+    "python": ">=3.11"
+  },
+  "coverage": {
+    "batch_count": 2,
+    "truncated": false,
+    "complete": false,
+    "omissions": [
+      "CHANGELOG.md: no successful correctness review of batch(es) [1]",
+      "src/codereview/core.py: no successful correctness review of batch(es) [1]",
+      "src/codereview/policy.py: no successful correctness review of batch(es) [1]",
+      "src/codereview/tiering.py: no successful correctness review of batch(es) [1]",
+      "tests/test_risk.py: no successful correctness review of batch(es) [1]",
+      "tests/test_tiering.py: no successful correctness review of batch(es) [2]"
+    ],
+    "files": {
+      "CHANGELOG.md": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "src/codereview/core.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "src/codereview/policy.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "src/codereview/tiering.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "tests/test_risk.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "tests/test_tiering.py": {
+        "batches": [
+          2
+        ],
+        "lenses": {
+          "correctness": [],
+          "operations": [
+            2
+          ]
+        }
+      }
+    }
+  },
+  "test_results": [
+    {
+      "command": "python3 -m unittest discover -s tests",
+      "ok": false,
+      "exit_code": 1,
+      "output_tail": "Traceback (most recent call last):\n  File \"<frozen runpy>\", line 198, in _run_module_as_main\n  File \"<frozen runpy>\", line 88, in _run_code\n  File \"/usr/lib/python3.12/unittest/__main__.py\", line 18, in <module>\n    main(module=None)\n  File \"/usr/lib/python3.12/unittest/main.py\", line 104, in __init__\n    self.parseArgs(argv)\n  File \"/usr/lib/python3.12/unittest/main.py\", line 130, in parseArgs\n    self._do_discovery(argv[2:])\n  File \"/usr/lib/python3.12/unittest/main.py\", line 253, in _do_discovery\n    self.createTests(from_discovery=True, Loader=Loader)\n  File \"/usr/lib/python3.12/unittest/main.py\", line 160, in createTests\n    self.test = loader.discover(self.start, self.pattern, self.top)\n                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/lib/python3.12/unittest/loader.py\", line 307, in discover\n    raise ImportError('Start directory is not importable: %r' % start_dir)\nImportError: Start directory is not importable: 'tests'\n"
+    }
+  ],
+  "deterministic_findings": [
+    {
+      "id": "95173f20c884",
+      "rule": "test-failure",
+      "severity": "blocker",
+      "category": "testing",
+      "file": "",
+      "line": null,
+      "line_basis": "blob",
+      "title": "Test command failed: python3 -m unittest discover -s tests",
+      "evidence": "Traceback (most recent call last):\n  File \"<frozen runpy>\", line 198, in _run_module_as_main\n  File \"<frozen runpy>\", line 88, in _run_code\n  File \"/usr/lib/python3.12/unittest/__main__.py\", line 18, in <module>\n    main(module=None)\n  File \"/usr/lib/python3.12/unittest/main.py\", line 104, in __init__\n    self.parseArgs(argv)\n  File \"/usr/lib/python3.12/unittest/main.py\", line 130, in parseArgs\n  ",
+      "evidence_quote": "Traceback (most recent call last):\n  File \"<frozen runpy>\", line 198, in _run_module_as_main\n  File \"<frozen runpy>\", line 88, in _run_code\n  File \"/usr/lib/python3.12/unittest/__main__.py\", line 18, in <module>\n    main(module=None)\n  File \"/usr/lib/python3.12/unittest/main.py\", line 104, in __init__\n    self.parseArgs(argv)\n  File \"/usr/lib/python3.12/unittest/main.py\", line 130, in parseArgs\n  ",
+      "recommendation": "Fix the failing tests; a red suite is a blocking finding.",
+      "confidence": 1.0,
+      "sources": [
+        "deterministic"
+      ],
+      "source_lenses": {
+        "deterministic": [
+          "deterministic"
+        ]
+      },
+      "consensus": false,
+      "grounding": "not_applicable",
+      "evidence_ref": {
+        "sha256": "29c5de9b4839c6c93298564b7e1298590936fd92d1f3c0f482bfa0a22df9034c",
+        "length": 972,
+        "truncated": true
+      },
+      "evidence_quote_ref": {
+        "sha256": "29c5de9b4839c6c93298564b7e1298590936fd92d1f3c0f482bfa0a22df9034c",
+        "length": 972,
+        "truncated": true
+      }
+    }
+  ],
+  "reviewer_reports": [
+    {
+      "provider": "gemini",
+      "lens": "correctness",
+      "batch": 2,
+      "status": "error",
+      "error": "ProviderError (HTTP 429): gemini quota: HTTP 429 | fallback 'openai' also failed: ProviderError (HTTP 429): openai quota: HTTP 429",
+      "summary": "",
+      "findings": [],
+      "attempts": 2,
+      "error_classes": [
+        "quota"
+      ],
+      "duration_ms": 3470,
+      "prompt_chars": 32044,
+      "error_detail": {
+        "error": "gemini quota: HTTP 429",
+        "http_status": 429,
+        "error_classes": [
+          "quota"
+        ],
+        "fallback_error": "openai quota: HTTP 429",
+        "fallback_http_status": 429
+      },
+      "family": "google",
+      "tier": "free",
+      "seat_state": {
+        "state": "blocked",
+        "class": "quota",
+        "evidence": {
+          "error_class": "quota"
+        },
+        "transitions": [
+          {
+            "state": "pending",
+            "class": null,
+            "at_ms": 0
+          },
+          {
+            "state": "working",
+            "class": null,
+            "at_ms": 0
+          },
+          {
+            "state": "blocked",
+            "class": "quota",
+            "at_ms": 1719,
+            "evidence": {
+              "error_class": "quota"
+            },
+            "terminal": true
+          }
+        ]
+      },
+      "seat_state_primary": {
+        "state": "blocked",
+        "class": "quota",
+        "evidence": {
+          "error_class": "quota"
+        },
+        "transitions": [
+          {
+            "state": "pending",
+            "class": null,
+            "at_ms": 0
+          },
+          {
+            "state": "working",
+            "class": null,
+            "at_ms": 0
+          },
+          {
+            "state": "blocked",
+            "class": "quota",
+            "at_ms": 1751,
+            "evidence": {
+              "error_class": "quota"
+            },
+            "terminal": true
+          }
+        ]
+      }
+    },
+    {
+      "provider": "gemini",
+      "lens": "correctness",
+      "batch": 1,
+      "status": "error",
+      "error": "ProviderError (HTTP 429): gemini quota: HTTP 429 | fallback 'openai' also failed: ProviderError (HTTP 429): openai quota: HTTP 429",
+      "summary": "",
+      "findings": [],
+      "attempts": 2,
+      "error_classes": [
+        "quota"
+      ],
+      "duration_ms": 3780,
+      "prompt_chars": 58133,
+      "error_detail": {
+        "error": "gemini quota: HTTP 429",
+        "http_status": 429,
+        "error_classes": [
+          "quota"
+        ],
+        "fallback_error": "openai quota: HTTP 429",
+        "fallback_http_status": 429
+      },
+      "family": "google",
+      "tier": "free",
+      "seat_state": {
+        "state": "blocked",
+        "class": "quota",
+        "evidence": {
+          "error_class": "quota"
+        },
+        "transitions": [
+          {
+            "state": "pending",
+            "class": null,
+            "at_ms": 0
+          },
+          {
+            "state": "working",
+            "class": null,
+            "at_ms": 0
+          },
+          {
+            "state": "blocked",
+            "class": "quota",
+            "at_ms": 1935,
+            "evidence": {
+              "error_class": "quota"
+            },
+            "terminal": true
+          }
+        ]
+      },
+      "seat_state_primary": {
+        "state": "blocked",
+        "class": "quota",
+        "evidence": {
+          "error_class": "quota"
+        },
+        "transitions": [
+          {
+            "state": "pending",
+            "class": null,
+            "at_ms": 0
+          },
+          {
+            "state": "working",
+            "class": null,
+            "at_ms": 0
+          },
+          {
+            "state": "blocked",
+            "class": "quota",
+            "at_ms": 1845,
+            "evidence": {
+              "error_class": "quota"
+            },
+            "terminal": true
+          }
+        ]
+      }
+    },
+    {
+      "provider": "nvidia",
+      "lens": "operations",
+      "batch": 2,
+      "status": "ok",
+      "error": "",
+      "summary": "The test suite fails to discover/run due to a missing dependency or import error in the test runner, preventing validation of the tiering logic.",
+      "findings": [
+        {
+          "id": "68ead1792e7c",
+          "rule": "",
+          "severity": "major",
+          "category": "testing",
+          "file": "tests/test_tiering.py",
+          "line": 1,
+          "title": "Test discovery fails with import error",
+          "evidence": "File \"/usr/lib/python3.12/unittest/main.py\", line 130, in parseArgs self._do_discovery(argv[2:])",
+          "evidence_quote": "File \"/usr/lib/python3.12/unittest/main.py\", line 130, in parseArgs self._do_discovery(argv[2:])",
+          "recommendation": "Ensure the codereview package is installed or the src directory is on sys.path before running tests; verify that codereview.core, codereview.policy, and codereview.tiering are importable.",
+          "confidence": 0.95,
+          "sources": [
+            "nvidia"
+          ],
+          "consensus": false,
+          "source_lenses": {
+            "nvidia": [
+              "operations"
+            ]
+          },
+          "grounding": "withdrawn",
+          "reground_seat": "nvidia",
+          "withdrawn_reason": "The provided diff text for tests/test_tiering.py does not contain the quoted evidence line 'File \"/usr/lib/python3.12/unittest/main.py\", line 130, in parseArgs self._do_discovery(argv[2:])'. The diff only shows test fixture definitions, policy loading helpers, and tiering logic tests. There is no re",
+          "withdrawn_by": "nvidia",
+          "evidence_ref": {
+            "sha256": "ac57321860b01ee7871ff93ec763e00afc0c10034834da3697c440ca2841448e",
+            "length": 96,
+            "truncated": false
+          },
+          "evidence_quote_ref": {
+            "sha256": "ac57321860b01ee7871ff93ec763e00afc0c10034834da3697c440ca2841448e",
+            "length": 96,
+            "truncated": false
+          },
+          "withdrawn_reason_ref": {
+            "sha256": "f983aedcb47b916b77e1657b557e5f6b223d5a77b5f2c86546395d622909db3e",
+            "length": 421,
+            "truncated": true
+          }
+        }
+      ],
+      "attempts": 1,
+      "error_classes": [],
+      "duration_ms": 4639,
+      "prompt_chars": 32115,
+      "family": "nvidia",
+      "tier": "free",
+      "seat_state": {
+        "state": "done",
+        "class": null,
+        "evidence": {},
+        "transitions": [
+          {
+            "state": "pending",
+            "class": null,
+            "at_ms": 0
+          },
+          {
+            "state": "working",
+            "class": null,
+            "at_ms": 0
+          },
+          {
+            "state": "done",
+            "class": null,
+            "at_ms": 4639,
+            "terminal": true
+          }
+        ]
+      }
+    },
+    {
+      "provider": "nvidia",
+      "lens": "operations",
+      "batch": 1,
+      "status": "ok",
+      "error": "",
+      "summary": "The diff introduces tiered panel execution with escalation, but the test suite fails to discover — a critical reliability issue. Additionally, the tiering module's escalation logic has a defect where the lens unserved trigger only checks stage-1 reports and does not account for stage-2 tasks that could serve unserved lenses, and the policy load path does not validate that configured seats exist on the composed panel before tiering runs, risking silent misconfiguration. These issues risk alert fl",
+      "findings": [
+        {
+          "id": "ecd2f99028ab",
+          "rule": "",
+          "severity": "major",
+          "category": "reliability",
+          "file": "tests/test_risk.py",
+          "line": 359,
+          "title": "Test discovery failure — test suite cannot run",
+          "evidence": "",
+          "evidence_quote": "self.assertEqual(pol[\"risk\"], {\"enabled\": False, \"medium_threshold\": None, \"high_threshold\": None, \"tiering\": False, \"prescreen_seats\": [], \"medium_seats\": []})",
+          "recommendation": "Fix test discovery so the test suite can run; investigate why unittest discover fails on the branch and resolve the import or configuration issue.",
+          "confidence": 0.9,
+          "sources": [
+            "nvidia"
+          ],
+          "consensus": false,
+          "source_lenses": {
+            "nvidia": [
+              "operations"
+            ]
+          },
+          "grounding": "unresolved",
+          "reground_note": "no seat could re-ground this finding (tried: nvidia, gemini, openai): re-ground call failed: openai quota: HTTP 429",
+          "evidence_quote_ref": {
+            "sha256": "d3e53df184ebded662ffa34bea13105e5c8dd2f55264666e07a6e012daeeae2d",
+            "length": 160,
+            "truncated": false
+          }
+        },
+        {
+          "id": "60f2c9dd4ddf",
+          "rule": "",
+          "severity": "major",
+          "category": "reliability",
+          "file": "src/codereview/tiering.py",
+          "line": 151,
+          "title": "Escalation lens unserved trigger does not consider stage-2 seats",
+          "evidence": "",
+          "evidence_quote": "for lens in stage2_lenses: if lens not in covered: triggers.append({...})",
+          "recommendation": "Revise escalation_triggers to also check whether stage-2 tasks contain seats that could serve the unserved lens, or restructure the trigger to fire only when no stage-2 seat can cover the lens.",
+          "confidence": 0.85,
+          "sources": [
+            "nvidia"
+          ],
+          "consensus": false,
+          "source_lenses": {
+            "nvidia": [
+              "operations"
+            ]
+          },
+          "grounding": "withdrawn",
+          "reground_seat": "nvidia",
+          "withdrawn_reason": "The provided diff text for src/codereview/tiering.py does not contain the quoted evidence line 'for lens in stage2_lenses: if lens not in covered: triggers.append({...})'. The diff shows the escalation_triggers function but the specific loop body quoted in the finding is absent from the visible sect",
+          "withdrawn_by": "nvidia",
+          "evidence_quote_ref": {
+            "sha256": "62ce20aab6166a52c3e2919b46e71c39db5fd2a86adba1a495c522609d8a1548",
+            "length": 73,
+            "truncated": false
+          },
+          "withdrawn_reason_ref": {
+            "sha256": "542338fdfffcfcb45e00b76c1a5433f21dc565c8bb37c22343df1ea20995ca12",
+            "length": 333,
+            "truncated": true
+          }
+        },
+        {
+          "id": "9c8cf5bcc746",
+          "rule": "",
+          "severity": "major",
+          "category": "reliability",
+          "file": "src/codereview/policy.py",
+          "line": 512,
+          "title": "Policy load does not validate that configured seats exist on the composed panel",
+          "evidence": "",
+          "evidence_quote": "if key in risk: policy[\"risk\"][key] = _check_str_list(risk[key], path, lines, \"risk\", key)",
+          "recommendation": "Add validation in policy.py that checks configured prescreen_seats and medium_seats against the composed panel seats at load time, recording missing seats in the tiering section so the run falls back to full panel rather than silently proceeding with absent seats.",
+          "confidence": 0.85,
+          "sources": [
+            "nvidia"
+          ],
+          "consensus": false,
+          "source_lenses": {
+            "nvidia": [
+              "operations"
+            ]
+          },
+          "grounding": "withdrawn",
+          "reground_seat": "nvidia",
+          "withdrawn_reason": "The provided diff text does not contain the evidence_quote from the finding. The finding references line 512 with the quote 'if key in risk: policy[\"risk\"][key] = _check_str_list(risk[key], path, lines, \"risk\", key)', but this line and exact quote are absent from the diff section shown. Without a ma",
+          "withdrawn_by": "nvidia",
+          "evidence_quote_ref": {
+            "sha256": "507833e0dfe3e10579372805e1b73dfc46c04b5586112fc10d63a326e3b19d2f",
+            "length": 90,
+            "truncated": false
+          },
+          "withdrawn_reason_ref": {
+            "sha256": "039ff4942dc8a81b92a0d68ed29a2e6c5cfc0087e2d4244efa1276ae3ebf0ea9",
+            "length": 386,
+            "truncated": true
+          }
+        }
+      ],
+      "attempts": 1,
+      "error_classes": [],
+      "duration_ms": 9274,
+      "prompt_chars": 58204,
+      "family": "nvidia",
+      "tier": "free",
+      "seat_state": {
+        "state": "done",
+        "class": null,
+        "evidence": {},
+        "transitions": [
+          {
+            "state": "pending",
+            "class": null,
+            "at_ms": 0
+          },
+          {
+            "state": "working",
+            "class": null,
+            "at_ms": 0
+          },
+          {
+            "state": "done",
+            "class": null,
+            "at_ms": 9274,
+            "terminal": true
+          }
+        ]
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "95173f20c884",
+      "rule": "test-failure",
+      "severity": "blocker",
+      "category": "testing",
+      "file": "",
+      "line": null,
+      "line_basis": "blob",
+      "title": "Test command failed: python3 -m unittest discover -s tests",
+      "evidence": "Traceback (most recent call last):\n  File \"<frozen runpy>\", line 198, in _run_module_as_main\n  File \"<frozen runpy>\", line 88, in _run_code\n  File \"/usr/lib/python3.12/unittest/__main__.py\", line 18, in <module>\n    main(module=None)\n  File \"/usr/lib/python3.12/unittest/main.py\", line 104, in __init__\n    self.parseArgs(argv)\n  File \"/usr/lib/python3.12/unittest/main.py\", line 130, in parseArgs\n  ",
+      "evidence_quote": "Traceback (most recent call last):\n  File \"<frozen runpy>\", line 198, in _run_module_as_main\n  File \"<frozen runpy>\", line 88, in _run_code\n  File \"/usr/lib/python3.12/unittest/__main__.py\", line 18, in <module>\n    main(module=None)\n  File \"/usr/lib/python3.12/unittest/main.py\", line 104, in __init__\n    self.parseArgs(argv)\n  File \"/usr/lib/python3.12/unittest/main.py\", line 130, in parseArgs\n  ",
+      "recommendation": "Fix the failing tests; a red suite is a blocking finding.",
+      "confidence": 1.0,
+      "sources": [
+        "deterministic"
+      ],
+      "source_lenses": {
+        "deterministic": [
+          "deterministic"
+        ]
+      },
+      "consensus": false,
+      "grounding": "not_applicable",
+      "evidence_class": "E0",
+      "evidence_ref": {
+        "sha256": "29c5de9b4839c6c93298564b7e1298590936fd92d1f3c0f482bfa0a22df9034c",
+        "length": 972,
+        "truncated": true
+      },
+      "evidence_quote_ref": {
+        "sha256": "29c5de9b4839c6c93298564b7e1298590936fd92d1f3c0f482bfa0a22df9034c",
+        "length": 972,
+        "truncated": true
+      }
+    },
+    {
+      "id": "ecd2f99028ab",
+      "rule": "",
+      "severity": "major",
+      "category": "reliability",
+      "file": "tests/test_risk.py",
+      "line": 359,
+      "title": "Test discovery failure — test suite cannot run",
+      "evidence": "",
+      "evidence_quote": "self.assertEqual(pol[\"risk\"], {\"enabled\": False, \"medium_threshold\": None, \"high_threshold\": None, \"tiering\": False, \"prescreen_seats\": [], \"medium_seats\": []})",
+      "recommendation": "Fix test discovery so the test suite can run; investigate why unittest discover fails on the branch and resolve the import or configuration issue.",
+      "confidence": 0.9,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false,
+      "source_lenses": {
+        "nvidia": [
+          "operations"
+        ]
+      },
+      "grounding": "unresolved",
+      "reground_note": "no seat could re-ground this finding (tried: nvidia, gemini, openai): re-ground call failed: openai quota: HTTP 429",
+      "evidence_class": "E3",
+      "cross_family": "unavailable",
+      "evidence_quote_ref": {
+        "sha256": "d3e53df184ebded662ffa34bea13105e5c8dd2f55264666e07a6e012daeeae2d",
+        "length": 160,
+        "truncated": false
+      }
+    }
+  ],
+  "degraded": true,
+  "truncated": false,
+  "degraded_causes": [
+    "reviewer failure",
+    "coverage incomplete"
+  ],
+  "gate": "blocked",
+  "gate_reasons": [
+    "coverage incomplete: 6 file/lens omission(s) — run marked degraded",
+    "2 blocking finding(s) (blocker, major)",
+    "at least one reviewer failed (degraded review)",
+    "3 finding(s) withdrawn in the re-ground pass — preserved in withdrawn_findings",
+    "1 finding(s) could not be re-grounded (evidence quote unverifiable) — a human must decide them"
+  ],
+  "gate_profile": {
+    "profile": "strict",
+    "source": "default",
+    "demotions": []
+  },
+  "withdrawn_findings": [
+    {
+      "id": "68ead1792e7c",
+      "rule": "",
+      "severity": "major",
+      "category": "testing",
+      "file": "tests/test_tiering.py",
+      "line": 1,
+      "title": "Test discovery fails with import error",
+      "evidence": "File \"/usr/lib/python3.12/unittest/main.py\", line 130, in parseArgs self._do_discovery(argv[2:])",
+      "evidence_quote": "File \"/usr/lib/python3.12/unittest/main.py\", line 130, in parseArgs self._do_discovery(argv[2:])",
+      "recommendation": "Ensure the codereview package is installed or the src directory is on sys.path before running tests; verify that codereview.core, codereview.policy, and codereview.tiering are importable.",
+      "confidence": 0.95,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false,
+      "source_lenses": {
+        "nvidia": [
+          "operations"
+        ]
+      },
+      "grounding": "withdrawn",
+      "reground_seat": "nvidia",
+      "withdrawn_reason": "The provided diff text for tests/test_tiering.py does not contain the quoted evidence line 'File \"/usr/lib/python3.12/unittest/main.py\", line 130, in parseArgs self._do_discovery(argv[2:])'. The diff only shows test fixture definitions, policy loading helpers, and tiering logic tests. There is no re",
+      "withdrawn_by": "nvidia",
+      "evidence_ref": {
+        "sha256": "ac57321860b01ee7871ff93ec763e00afc0c10034834da3697c440ca2841448e",
+        "length": 96,
+        "truncated": false
+      },
+      "evidence_quote_ref": {
+        "sha256": "ac57321860b01ee7871ff93ec763e00afc0c10034834da3697c440ca2841448e",
+        "length": 96,
+        "truncated": false
+      },
+      "withdrawn_reason_ref": {
+        "sha256": "f983aedcb47b916b77e1657b557e5f6b223d5a77b5f2c86546395d622909db3e",
+        "length": 421,
+        "truncated": true
+      }
+    },
+    {
+      "id": "60f2c9dd4ddf",
+      "rule": "",
+      "severity": "major",
+      "category": "reliability",
+      "file": "src/codereview/tiering.py",
+      "line": 151,
+      "title": "Escalation lens unserved trigger does not consider stage-2 seats",
+      "evidence": "",
+      "evidence_quote": "for lens in stage2_lenses: if lens not in covered: triggers.append({...})",
+      "recommendation": "Revise escalation_triggers to also check whether stage-2 tasks contain seats that could serve the unserved lens, or restructure the trigger to fire only when no stage-2 seat can cover the lens.",
+      "confidence": 0.85,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false,
+      "source_lenses": {
+        "nvidia": [
+          "operations"
+        ]
+      },
+      "grounding": "withdrawn",
+      "reground_seat": "nvidia",
+      "withdrawn_reason": "The provided diff text for src/codereview/tiering.py does not contain the quoted evidence line 'for lens in stage2_lenses: if lens not in covered: triggers.append({...})'. The diff shows the escalation_triggers function but the specific loop body quoted in the finding is absent from the visible sect",
+      "withdrawn_by": "nvidia",
+      "evidence_quote_ref": {
+        "sha256": "62ce20aab6166a52c3e2919b46e71c39db5fd2a86adba1a495c522609d8a1548",
+        "length": 73,
+        "truncated": false
+      },
+      "withdrawn_reason_ref": {
+        "sha256": "542338fdfffcfcb45e00b76c1a5433f21dc565c8bb37c22343df1ea20995ca12",
+        "length": 333,
+        "truncated": true
+      }
+    },
+    {
+      "id": "9c8cf5bcc746",
+      "rule": "",
+      "severity": "major",
+      "category": "reliability",
+      "file": "src/codereview/policy.py",
+      "line": 512,
+      "title": "Policy load does not validate that configured seats exist on the composed panel",
+      "evidence": "",
+      "evidence_quote": "if key in risk: policy[\"risk\"][key] = _check_str_list(risk[key], path, lines, \"risk\", key)",
+      "recommendation": "Add validation in policy.py that checks configured prescreen_seats and medium_seats against the composed panel seats at load time, recording missing seats in the tiering section so the run falls back to full panel rather than silently proceeding with absent seats.",
+      "confidence": 0.85,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false,
+      "source_lenses": {
+        "nvidia": [
+          "operations"
+        ]
+      },
+      "grounding": "withdrawn",
+      "reground_seat": "nvidia",
+      "withdrawn_reason": "The provided diff text does not contain the evidence_quote from the finding. The finding references line 512 with the quote 'if key in risk: policy[\"risk\"][key] = _check_str_list(risk[key], path, lines, \"risk\", key)', but this line and exact quote are absent from the diff section shown. Without a ma",
+      "withdrawn_by": "nvidia",
+      "evidence_quote_ref": {
+        "sha256": "507833e0dfe3e10579372805e1b73dfc46c04b5586112fc10d63a326e3b19d2f",
+        "length": 90,
+        "truncated": false
+      },
+      "withdrawn_reason_ref": {
+        "sha256": "039ff4942dc8a81b92a0d68ed29a2e6c5cfc0087e2d4244efa1276ae3ebf0ea9",
+        "length": 386,
+        "truncated": true
+      }
+    }
+  ],
+  "open_disputes": {
+    "count": 0,
+    "ids": []
+  },
+  "evidence_sidecars": {
+    "dir": "evidence",
+    "files": 8,
+    "refs": 13
+  }
+}
