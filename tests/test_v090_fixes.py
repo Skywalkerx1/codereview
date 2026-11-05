@@ -428,7 +428,11 @@ class DoctorShapeTests(unittest.TestCase):
         original = cli.build_providers
         cli.build_providers = fake_build
         try:
-            rc = cli._doctor_main(["--timeout", "7"])
+            # An explicit --provider: since the first-run-setup
+            # amendment the doctor no longer falls back to a
+            # built-in panel when nothing is configured.
+            rc = cli._doctor_main(["--timeout", "7", "--provider",
+                                   "gemini"])
         finally:
             cli.build_providers = original
         self.assertEqual(rc, 0)

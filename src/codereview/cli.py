@@ -29,9 +29,14 @@ import os
 import subprocess
 import sys
 
+import inspect
+
 from . import bench as bench_mod
 from . import core
-from .providers import build_providers
+from . import registry
+from . import setup_wizard, userconfig
+from .providers import (ProviderError, build_providers,
+                        describe_spec)
 
 
 def _run_tests(commands, cwd):
@@ -224,6 +229,38 @@ def _load_precedents(path, repo="."):
     }
 
 
+def _stdin_is_tty():
+    try:
+        return bool(sys.stdin.isatty())
+    except Exception:  # noqa: BLE001 — no stdin, closed stdin
+        return False
+
+
+def _run_setup_wizard():
+    """The first-run wizard (test seam): the CLI wires the live
+    seat probe; tests substitute this to script a setup."""
+    return setup_wizard.run_wizard(
+        probe_fn=lambda providers: core.run_doctor(providers))
+
+
+def _setup_main(argv):
+    """codereview setup — first-run (or re-run) user setup:
+    pick providers, name the key env vars, assign per-role
+    models, save them as YOUR defaults. No panel is imposed."""
+    ap = argparse.ArgumentParser(
+        prog="codereview setup",
+        description="First-run setup: choose your providers, "
+                    "keys, and per-role models, and save them "
+                    "as your defaults (re-runnable to edit).")
+    ap.parse_args(argv)
+    try:
+        result = _run_setup_wizard()
+    except Exception as exc:  # noqa: BLE001
+        print(f"codereview setup: {exc}", file=sys.stderr)
+        return 2
+    return 0 if result else 2
+
+
 def _loop_main(argv, providers_override=None):
     """codereview loop — drive review -> builder fix -> verify ->
     advance until PASS or the builder-round budget runs out."""
@@ -266,8 +303,16 @@ def _loop_main(argv, providers_override=None):
         specs = args.provider
         if not specs:
             env = (os.environ.get("CODEREVIEW_PROVIDERS") or os.environ.get("REVIEWLOOP_PROVIDERS", ""))
-            specs = [s.strip() for s in env.split(",") if s.strip()] \
-                or ["gemini", "openai"]
+            try:
+                specs = [s.strip() for s in env.split(",")
+                         if s.strip()] \
+                    or userconfig.default_provider_specs()
+            except ValueError as exc:
+                print(f"codereview: {exc}", file=sys.stderr)
+                return 2
+        if not specs:
+            print(userconfig.NOT_SET_UP, file=sys.stderr)
+            return 2
         try:
             providers = build_providers(specs)
         except Exception as exc:  # noqa: BLE001
@@ -366,8 +411,16 @@ def _workflow_main(argv, providers_override=None):
         specs = args.provider
         if not specs:
             env = (os.environ.get("CODEREVIEW_PROVIDERS") or os.environ.get("REVIEWLOOP_PROVIDERS", ""))
-            specs = [s.strip() for s in env.split(",") if s.strip()] \
-                or ["gemini", "openai"]
+            try:
+                specs = [s.strip() for s in env.split(",")
+                         if s.strip()] \
+                    or userconfig.default_provider_specs()
+            except ValueError as exc:
+                print(f"codereview: {exc}", file=sys.stderr)
+                return 2
+        if not specs:
+            print(userconfig.NOT_SET_UP, file=sys.stderr)
+            return 2
         try:
             providers = build_providers(specs)
         except Exception as exc:  # noqa: BLE001
@@ -459,6 +512,12 @@ def _intake_main(argv, solvers_override=None):
                          "The first seat that answers is the primary. "
                          "Default: $CODEREVIEW_PROVIDERS or "
                          "gemini,nvidia")
+    ap.add_argument("--role", action="append", default=[],
+                    help="assign the solver role's model: "
+                         "solver=<provider-spec>; the seat becomes "
+                         "the primary solver, ahead of --provider "
+                         "seats. Intake assigns the solver role "
+                         "only")
     ap.add_argument("--timeout", type=int,
                     default=intake.DEFAULT_SOLVER_TIMEOUT,
                     help="per-solver deadline in seconds "
@@ -500,8 +559,32 @@ def _intake_main(argv, solvers_override=None):
         if not specs:
             env = (os.environ.get("CODEREVIEW_PROVIDERS")
                    or os.environ.get("REVIEWLOOP_PROVIDERS", ""))
-            specs = [s.strip() for s in env.split(",") if s.strip()] \
-                or ["gemini", "nvidia"]
+            try:
+                specs = [s.strip() for s in env.split(",")
+                         if s.strip()] \
+                    or userconfig.default_provider_specs()
+            except ValueError as exc:
+                print(f"codereview: {exc}", file=sys.stderr)
+                return 2
+        if args.role:
+            try:
+                assignments = registry.parse_role_assignments(
+                    args.role)
+            except ValueError as exc:
+                print(f"codereview: {exc}", file=sys.stderr)
+                return 2
+            non_solver = sorted(r for r in assignments
+                                if r != "solver")
+            if non_solver:
+                print(f"codereview: intake assigns the solver "
+                      f"role only; got role(s): "
+                      f"{', '.join(non_solver)}", file=sys.stderr)
+                return 2
+            if "solver" in assignments:
+                specs = [assignments["solver"]] + specs
+        if not specs:
+            print(userconfig.NOT_SET_UP, file=sys.stderr)
+            return 2
         try:
             solvers = build_solvers(specs, agent_timeout=args.timeout)
         except Exception as exc:  # noqa: BLE001
@@ -590,8 +673,16 @@ def _pr_main(argv, providers_override=None):
         specs = args.provider
         if not specs:
             env = (os.environ.get("CODEREVIEW_PROVIDERS") or os.environ.get("REVIEWLOOP_PROVIDERS", ""))
-            specs = [s.strip() for s in env.split(",") if s.strip()] \
-                or ["gemini", "openai"]
+            try:
+                specs = [s.strip() for s in env.split(",")
+                         if s.strip()] \
+                    or userconfig.default_provider_specs()
+            except ValueError as exc:
+                print(f"codereview: {exc}", file=sys.stderr)
+                return 2
+        if not specs:
+            print(userconfig.NOT_SET_UP, file=sys.stderr)
+            return 2
         try:
             providers = build_providers(specs)
         except Exception as exc:  # noqa: BLE001
@@ -626,7 +717,67 @@ def _pr_main(argv, providers_override=None):
 _FAMILY_BY_PRESET = {"gemini": "google", "openai": "openai",
                      "xai": "xai", "nvidia": "nvidia",
                      "deepseek": "deepseek",
-                     "anthropic": "anthropic"}
+                     "anthropic": "anthropic",
+                     "minimax": "minimax", "moonshot": "moonshot",
+                     "mistral": "mistral",
+                     "openrouter": "openrouter"}
+
+
+def _apply_role_assignments(providers, role_values,
+                            agent_timeout=None):
+    """Resolve --role <role>=<provider-spec> assignments against
+    the panel: each role's seat is built (once) and merged into
+    `providers` if not already present, so the role's model is
+    guaranteed a seat. Returns (lens_seats, seat_roles,
+    role_models): lens pins for the two review lenses, the
+    role -> seat-name map for the record, and the role ->
+    {seat, provider, model, family} detail the record carries so
+    anyone can see which model served which role. Raises
+    ValueError/ProviderError on a bad assignment — callers turn
+    that into exit 2, never a silent default."""
+    assignments = registry.parse_role_assignments(role_values)
+    lens_seats, seat_roles, role_models = {}, {}, {}
+    for role, spec in assignments.items():
+        desc = describe_spec(spec)
+        built = build_providers([spec],
+                                agent_timeout=agent_timeout)
+        (seat_name, seat_fn), = built.items()
+        if seat_name in providers:
+            # Cross-kind collision (internal review, refutation-
+            # weak finding on this seam): an agent role seat whose
+            # name an API seat already owns (or the reverse) must
+            # not silently record the role as served by the other
+            # kind of seat. When the existing seat carries kind/
+            # family tags that prove the mismatch, refuse loudly —
+            # the same rule build_providers enforces inside one
+            # spec list. Untagged override seats can't prove a
+            # mismatch and keep the historical merge.
+            existing = providers[seat_name]
+            existing_tags = (
+                getattr(existing, "_codereview_kind", None),
+                getattr(existing, "_codereview_family", None))
+            existing_is_agent = "agent" in existing_tags
+            if (desc["kind"] == "agent") != existing_is_agent \
+                    and any(t is not None for t in existing_tags):
+                raise ProviderError(
+                    f"role {role!r}: seat name {seat_name!r} is "
+                    f"already used by a different kind of seat "
+                    f"(agent vs API); rename the seat in the "
+                    f"role spec {spec!r}")
+        else:
+            providers[seat_name] = seat_fn
+        seat_roles[role] = seat_name
+        role_models[role] = {
+            "seat": seat_name,
+            "provider": desc["preset"] or desc["kind"],
+            "model": desc["model"],
+            "family": desc["family"],
+            "key_env": desc["key_env"],
+        }
+        if role in registry.LENS_ROLES:
+            lens_seats[registry.LENS_ROLES[role]] = seat_name
+    tech_lead = seat_roles.get("tech-lead")
+    return lens_seats, seat_roles, role_models, tech_lead
 
 
 def _default_seat_meta(providers):
@@ -645,6 +796,13 @@ def _default_seat_meta(providers):
         if getattr(fn, "_codereview_kind", None) == "agent" \
                 or name.startswith("agent:"):
             meta[name] = {"family": "agent", "tier": "unknown"}
+            continue
+        tagged = getattr(fn, "_codereview_family", None)
+        if tagged and tagged != "unknown":
+            # The registry family the seat was BUILT from wins
+            # over name guessing: a seat named 'kimi' from the
+            # moonshot preset is family 'moonshot'.
+            meta[name] = {"family": tagged, "tier": "unknown"}
             continue
         base = name.split("-")[0].lower() if name else ""
         family = _FAMILY_BY_PRESET.get(base)
@@ -681,10 +839,14 @@ def _doctor_main(argv, providers_override=None,
     ap.add_argument("--provider", action="append", default=[],
                     help="provider spec (same syntax as review); "
                          "repeatable. Default: $CODEREVIEW_PROVIDERS "
-                         "or gemini,openai")
+                         "or your saved setup (codereview setup)")
     ap.add_argument("--fallback", action="append", default=[],
                     help="fallback seat to probe too: "
                          "lens=provider-spec (same syntax as "
+                         "review); repeatable")
+    ap.add_argument("--role", action="append", default=[],
+                    help="role seat to probe too: "
+                         "<role>=<provider-spec> (same roles as "
                          "review); repeatable")
     ap.add_argument("--timeout", type=int, default=None,
                     help="per-seat timeout in seconds for agent "
@@ -704,8 +866,20 @@ def _doctor_main(argv, providers_override=None,
         if not specs:
             env = (os.environ.get("CODEREVIEW_PROVIDERS")
                    or os.environ.get("REVIEWLOOP_PROVIDERS", ""))
-            specs = [s.strip() for s in env.split(",") if s.strip()] \
-                or ["gemini", "openai"]
+            try:
+                specs = [s.strip() for s in env.split(",")
+                         if s.strip()] \
+                    or userconfig.default_provider_specs()
+            except ValueError as exc:
+                print(f"codereview: {exc}", file=sys.stderr)
+                return 2
+        if not specs:
+            print(json.dumps(
+                {"ok": False, "seats": [],
+                 "error": "not set up: pass --provider, set "
+                          "$CODEREVIEW_PROVIDERS, or run "
+                          "`codereview setup`"}))
+            return 2
         try:
             providers = build_providers(
                 specs, agent_timeout=args.timeout)
@@ -738,7 +912,22 @@ def _doctor_main(argv, providers_override=None,
                 return 2
             (fb_name, fb_fn), = built.items()
             fallbacks[lens] = (fb_name, fb_fn)
+    seat_roles, role_models = {}, {}
+    if args.role:
+        try:
+            _lens, seat_roles, role_models, _tl = \
+                _apply_role_assignments(
+                    providers, args.role,
+                    agent_timeout=args.timeout)
+        except Exception as exc:  # noqa: BLE001
+            print(json.dumps(
+                {"ok": False, "seats": [],
+                 "error": f"role assignment failed: {exc}"}))
+            return 2
     result = core.run_doctor(providers, fallbacks=fallbacks)
+    if seat_roles:
+        result = {**result, "seat_roles": seat_roles,
+                  "role_models": role_models}
     print(json.dumps(result, ensure_ascii=False, indent=1))
     return 0 if result["ok"] else 2
 
@@ -937,6 +1126,8 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
          fallbacks_override=None):
     if argv is None:
         argv = sys.argv[1:]
+    if argv and argv[0] == "setup":
+        return _setup_main(argv[1:])
     if argv and argv[0] == "doctor":
         return _doctor_main(argv[1:],
                             providers_override=providers_override,
@@ -972,10 +1163,13 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
     src.add_argument("--files", nargs="+",
                      help="review these files in full (new files)")
     ap.add_argument("--provider", action="append", default=[],
-                    help="provider preset (gemini, openai, xai, nvidia, "
-                         "deepseek) or name|type|base_url|model|key_env; "
-                         "repeatable. Default: $CODEREVIEW_PROVIDERS or "
-                         "gemini,openai")
+                    help="provider preset (openai, gemini, anthropic, "
+                         "deepseek, minimax, moonshot, nvidia, xai, "
+                         "mistral, openrouter; preset:model to pick "
+                         "the model) or name|type|base_url|model|"
+                         "key_env; repeatable. Default: "
+                         "$CODEREVIEW_PROVIDERS or your saved setup "
+                         "(codereview setup)")
     ap.add_argument("--context", default="",
                     help="builder's change description (or @file)")
     ap.add_argument("--test-command", action="append", default=[],
@@ -994,6 +1188,15 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
                     help="previous report JSON: run a verification round")
     ap.add_argument("--builder-response", default="",
                     help="builder's response to prior findings (or @file)")
+    ap.add_argument("--role", action="append", default=[],
+                    help="assign a model to a role: "
+                         "<role>=<provider-spec> with role one of "
+                         "correctness, operations, verifier, "
+                         "tech-lead, solver (e.g. "
+                         "tech-lead=deepseek:deepseek-reasoner, "
+                         "correctness=moonshot); repeatable. The "
+                         "role's seat joins the panel and the "
+                         "assignment is recorded in the report")
     ap.add_argument("--seat-meta", action="append", default=[],
                     help="tag a seat for the record: name:family[:tier] "
                          "(e.g. gemini:google:paid); repeatable")
@@ -1110,13 +1313,60 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
         specs = args.provider
         if not specs:
             env = (os.environ.get("CODEREVIEW_PROVIDERS") or os.environ.get("REVIEWLOOP_PROVIDERS", ""))
-            specs = [s.strip() for s in env.split(",") if s.strip()] \
-                or ["gemini", "openai"]
+            try:
+                specs = [s.strip() for s in env.split(",")
+                         if s.strip()] \
+                    or userconfig.default_provider_specs()
+            except ValueError as exc:
+                print(f"codereview: {exc}", file=sys.stderr)
+                return 2
+        if not specs and _stdin_is_tty():
+            # First open in a terminal: run the setup wizard,
+            # then use what the user just saved as their setup.
+            # An aborted wizard (EOF / Ctrl-C) is a clean stop,
+            # never a traceback: fall through to not-set-up.
+            try:
+                _run_setup_wizard()
+                specs = userconfig.default_provider_specs()
+            except (ValueError, EOFError,
+                    KeyboardInterrupt) as exc:
+                print(f"codereview: setup did not complete "
+                      f"({exc}); nothing was run.",
+                      file=sys.stderr)
+                return 2
+        if not specs:
+            print(userconfig.NOT_SET_UP, file=sys.stderr)
+            return 2
         try:
             providers = build_providers(
                 specs, agent_timeout=args.timeout)
         except Exception as exc:  # noqa: BLE001
             print(f"codereview: provider setup failed: {exc}",
+                  file=sys.stderr)
+            return 2
+
+    lens_seats, seat_roles, role_models, tech_lead_seat = {}, {}, {}, None
+    try:
+        _config_roles = userconfig.default_role_assignments()
+    except ValueError as exc:
+        print(f"codereview: {exc}", file=sys.stderr)
+        return 2
+    if args.role or _config_roles:
+        try:
+            _cli_roles = registry.parse_role_assignments(args.role)
+        except ValueError as exc:
+            print(f"codereview: {exc}", file=sys.stderr)
+            return 2
+        _merged_roles = {**_config_roles, **_cli_roles}
+        try:
+            lens_seats, seat_roles, role_models, tech_lead_seat = \
+                _apply_role_assignments(
+                    providers,
+                    [f"{r}={spec}" for r, spec
+                     in _merged_roles.items()],
+                    agent_timeout=args.timeout)
+        except Exception as exc:  # noqa: BLE001
+            print(f"codereview: role assignment failed: {exc}",
                   file=sys.stderr)
             return 2
 
@@ -1169,10 +1419,36 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
                 args.repo or ".", "rev-parse", "HEAD")
         except Exception:  # noqa: BLE001 — head is best-effort
             pass
+    if seat_roles:
+        # Which model served which role is part of the record
+        # (owner directive 2026-11-04): seat name, provider,
+        # model, and family for every assigned role.
+        record_extra = {**(record_extra or {}),
+                        "seat_roles": seat_roles,
+                        "role_models": role_models}
 
 
     cwd = args.repo or "."
     test_results = _run_tests(args.test_command, cwd)
+
+    review_kwargs = {}
+    if lens_seats:
+        review_kwargs["lens_seats"] = lens_seats
+    if tech_lead_seat and "tech_lead" in \
+            inspect.signature(core.run_review).parameters:
+        # Tech Lead designation seam: when the engine carries the
+        # adjudication role (step4 design), hand the designated
+        # seat over — the engine itself enforces the independence
+        # rule (its family must differ from raiser and refuter)
+        # and substitutes loudly when the designee is ineligible.
+        # Until the seam lands, the assignment travels in the
+        # record's seat_roles only.
+        review_kwargs["tech_lead"] = tech_lead_seat
+    if args.tech_lead:
+        # The explicit --tech-lead flag designates the same role a
+        # --role/saved-setup assignment can; the command line wins
+        # (the same precedence --role has over the saved setup).
+        review_kwargs["tech_lead"] = args.tech_lead
 
     if args.verify_previous:
         try:
@@ -1201,8 +1477,7 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
             record_extra=record_extra,
             fixture_scope=fixture_scope, private=args.private,
             precedents=precedents,
-            tech_lead=args.tech_lead or None,
-            tech_lead_timeout=args.timeout)
+            tech_lead_timeout=args.timeout, **review_kwargs)
 
     jpath, mpath = core.write_report(report, args.out)
     if args.attempts_log:

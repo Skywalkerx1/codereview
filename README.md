@@ -121,13 +121,59 @@ A prior blocker clears **only when every successful reviewer agrees** it is fixe
 
 ## Providers
 
-Any two (or more) independent models. Presets: `gemini`, `openai`, `xai` (Grok), `nvidia`, `deepseek`. Any OpenAI-compatible endpoint works too:
+### First run — you set up your models
+
+CodeReview ships **no default panel**: we don't choose the LLM for you. On first open, run:
+
+```bash
+codereview setup
+```
+
+The wizard walks you through it: pick one or more providers, see which environment variable must hold **your** key for each (keys are never typed into, echoed by, or stored in the config — it references env var names only), then assign a model per role (correctness, operations, verifier, tech-lead, solver), confirming each one. Your choices are saved to `~/.config/codereview/config.toml` (XDG; override with `$CODEREVIEW_CONFIG`) as *your* defaults, and every later run uses them — explicit `--provider`/`--role` flags and `$CODEREVIEW_PROVIDERS` still win per run. Re-run `codereview setup` any time to change them. With no setup and no flags, a run stops and tells you how to set up — it never quietly substitutes a vendor-chosen panel. (An interactive first review launches the wizard for you.)
+
+The model names in the table below are the registry's *suggestions* — what the wizard offers for you to confirm or replace — not decisions the product makes.
+
+Any two (or more) independent models, from any major vendor. Presets (each is also usable as `preset:model` to pick a specific model):
+
+| Preset | Default model | Your key in |
+|---|---|---|
+| `openai` | gpt-5-mini | `OPENAI_API_KEY` |
+| `gemini` | gemini-2.5-flash | `GEMINI_API_KEY` |
+| `anthropic` | claude-sonnet-4-5 | `ANTHROPIC_API_KEY` |
+| `deepseek` | deepseek-chat | `DEEPSEEK_API_KEY` |
+| `minimax` | MiniMax-M2 | `MINIMAX_API_KEY` |
+| `moonshot` | kimi-k2-0711-preview | `MOONSHOT_API_KEY` |
+| `nvidia` | nvidia/nemotron-3.5-lightning-30b-a3b | `NVIDIA_API_KEY` |
+| `xai` | grok-4-mini | `XAI_API_KEY` |
+| `mistral` | mistral-large-latest | `MISTRAL_API_KEY` |
+| `openrouter` | anthropic/claude-sonnet-4.5 | `OPENROUTER_API_KEY` |
+
+Any other OpenAI-compatible endpoint works too, either fully custom:
 
 ```
 --provider "mine|openai-compatible|https://api.example.com/v1|model-id|MY_KEY_ENV"
 ```
 
-Keys come from environment variables only. Secrets in the diff are redacted before anything is sent to a provider, and the diff is treated as untrusted data — reviewers are instructed to ignore instructions embedded in code and comments.
+or via the generic escape hatch `--provider "openai-compatible:https://api.example.com/v1|model-id|MY_KEY_ENV"`. (Anthropic's native Messages API and Gemini's native API are wired directly; everything else rides the OpenAI-compatible shape most vendors now expose.)
+
+Keys come from environment variables only — bring your own key for every provider; nothing is stored or logged. Secrets in the diff are redacted before anything is sent to a provider, and the diff is treated as untrusted data — reviewers are instructed to ignore instructions embedded in code and comments.
+
+### Pick the model for each role
+
+Reviewing isn't one job, and one model doesn't have to do all of it. `--role <role>=<provider-spec>` assigns a provider/model per role; the role's seat joins the panel, and the assignment (seat, provider, model, vendor family) is written into the run record. Roles: `correctness` and `operations` (the two review lenses — the assigned seat serves that lens), `verifier` (the verification-round panel), `tech-lead` (the dispute adjudicator), and `solver` (intake mode's plan writer, via `codereview intake --role solver=...`). Roles you assign in `codereview setup` are your standing defaults; `--role` on a run overrides them per role for that run.
+
+```bash
+# Strong models on the lenses, a cheap high-volume model as Tech Lead:
+codereview --repo . \
+  --provider anthropic --provider openai \
+  --role tech-lead=deepseek:deepseek-reasoner
+
+# Kimi on correctness, MiniMax on operations:
+codereview --repo . \
+  --role correctness=moonshot --role operations=minimax
+```
+
+Cost guidance: the Tech Lead and other high-volume seats are called once per dispute or round, so they are the natural home for the inexpensive, high-quality seats — DeepSeek, MiniMax, and Moonshot (Kimi) are first-class presets for exactly this. One independence rule is enforced by the record: each seat carries its vendor *family* from the registry (a seat built from `moonshot` is family `moonshot` whatever you name it), and the Tech Lead's family must differ from the families that raised and refuted a finding — pick the Tech Lead from a different vendor than your two reviewers.
 
 ### Agent seats — any agent as a reviewer
 

@@ -1566,17 +1566,38 @@ def _seat_meta(seat_meta, name):
             "tier": str(meta.get("tier") or "unknown")}
 
 
-def _reviewer_tasks(provider_items):
+def _reviewer_tasks(provider_items, lens_seats=None):
     """Assign lenses: two providers split the lenses; a single
-    provider is called twice, once per lens; 3+ cycle."""
+    provider is called twice, once per lens; 3+ cycle.
+
+    `lens_seats` optionally pins a lens to a named seat (the
+    per-role model assignment, registry.ROLES): a pinned seat
+    serves exactly its lens, and the remaining seats fill the
+    remaining lenses in the usual cycle. Pins naming a lens or
+    seat that does not exist are ignored — the CLI validates role
+    assignments before they reach here, and a stale pin must
+    never silently drop a lens: every lens is always tasked."""
     tasks = []
     names = [n for n, _ in provider_items]
-    if len(names) == 1:
-        for lens in LENSES:
-            tasks.append((names[0], provider_items[0][1], lens))
+    if not lens_seats:
+        if len(names) == 1:
+            for lens in LENSES:
+                tasks.append((names[0], provider_items[0][1], lens))
+            return tasks
+        for i, (name, fn) in enumerate(provider_items):
+            tasks.append((name, fn, list(LENSES)[i % len(LENSES)]))
         return tasks
-    for i, (name, fn) in enumerate(provider_items):
-        tasks.append((name, fn, list(LENSES)[i % len(LENSES)]))
+    by_name = dict(provider_items)
+    pinned = {lens: seat for lens, seat in lens_seats.items()
+              if lens in LENSES and seat in by_name}
+    for lens, seat in pinned.items():
+        tasks.append((seat, by_name[seat], lens))
+    remaining = [lens for lens in LENSES if lens not in pinned]
+    rest = [(n, f) for n, f in provider_items
+            if n not in set(pinned.values())] or list(provider_items)
+    for i, lens in enumerate(remaining):
+        name, fn = rest[i % len(rest)]
+        tasks.append((name, fn, lens))
     return tasks
 
 
@@ -1611,7 +1632,7 @@ def run_review(patch, providers, context="", test_results=None,
                seat_meta=None, fallbacks=None, sleep=None,
                record_extra=None, fixture_scope=None, private=False,
                precedents=None, tech_lead=None, probe_fn=None,
-               tech_lead_timeout=None):
+               tech_lead_timeout=None, lens_seats=None):
     """One review round. `providers` maps name -> callable(prompt)->str.
 
     Returns the report dict. Never raises for provider failures; they
@@ -1669,7 +1690,12 @@ def run_review(patch, providers, context="", test_results=None,
     and findings citing them (or text preserved only inside
     them) classify as archived-text in
     `archived_text_findings`: preserved, non-blocking, never
-    adjudicated."""
+    adjudicated.
+
+    Role assignments (owner directive 2026-11-04): `lens_seats`
+    pins a lens to a designated seat name ({lens: seat-name}) so
+    the model the user assigned to a role is the model that
+    serves it; unassigned lenses keep the round-robin panel."""
     test_results = test_results or []
     det = deterministic_scan(patch, test_results)
     clean_patch = redact_secrets(patch)
@@ -1706,7 +1732,7 @@ def run_review(patch, providers, context="", test_results=None,
         section_text.setdefault(name, text)
 
     provider_items = list(providers.items())
-    tasks = _reviewer_tasks(provider_items)
+    tasks = _reviewer_tasks(provider_items, lens_seats=lens_seats)
     reviewer_reports = []
     all_findings = list(det)
     any_success = False
