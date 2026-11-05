@@ -14,7 +14,10 @@ evidence sidecars), and the top-level review response and
 dispositions documents.
 
 Categories (regex-driven, counted per file; samples are
-masked for key-shaped material — shape and length only):
+scrubbed to the public-record profile before they are
+written: key-shaped material is masked — shape and length
+only — local paths are relativised, and account identifiers
+are masked to their domain):
   local_path      /home/<user>/..., /opt/..., /root/...,
                   ~/workspace/... absolute paths
   hostname        internal hostnames / tunnel domains /
@@ -63,9 +66,40 @@ PATTERNS = {
 }
 
 
+_HOME_RX = re.compile(r"^/home/[^/]+")
+
+
+def relativise(path):
+    """Public-record profile (ratified for ec925437d0e3): a
+    committed artifact carries repo-relative paths, never the
+    operator's absolute layout — no username, no machine tree.
+    Paths inside this repository become repo-relative; other
+    home-anchored paths collapse to their ~/ form."""
+    if path.startswith(REPO + os.sep):
+        return os.path.relpath(path, REPO)
+    if _HOME_RX.match(path):
+        return "~" + _HOME_RX.sub("", path, count=1)
+    if path == "/root":
+        return "~root"
+    if path.startswith("/root/"):
+        return "~root" + path[len("/root"):]
+    return path
+
+
 def mask(category, value):
     if category == "key_shaped":
         return f"{value[:4]}…({len(value)} chars)"
+    if category == "local_path":
+        return relativise(value)
+    if category == "account_id":
+        # Ratified for 20e4194e5ed9: committed artifacts do not
+        # republish account identifiers verbatim — the domain
+        # keeps the evidentiary value, the local part does not
+        # survive.
+        local, at, domain = value.partition("@")
+        if at:
+            return f"{local[:1]}***@{domain}"
+        return "***"
     return value
 
 
@@ -115,7 +149,8 @@ def main():
         lines.append(f"  {cat}: {n}")
     lines.append("")
     lines.append("Per-file detail (samples capped at 3 per "
-                 "category; key-shaped samples masked):")
+                 "category; key-shaped samples masked, paths "
+                 "relativised, account ids masked):")
     for rel, hits in per_file:
         lines.append(f"\n{rel}")
         for cat, found in hits.items():

@@ -673,6 +673,7 @@ def build_providers(specs, text_mode=False, agent_timeout=None):
     seats = {}
     counts = {}
     name_kind = {}
+    seat_models = {}
     for idx, (kind, base, spec) in enumerate(parsed):
         seat_key = (kind, base.lower())
         counts[seat_key] = counts.get(seat_key, 0) + 1
@@ -691,6 +692,16 @@ def build_providers(specs, text_mode=False, agent_timeout=None):
                 f"and an API seat; rename the agent seat "
                 f"(e.g. agent:{base}-cli:<command>)")
         seats.setdefault(name, []).append((label, fn))
+        # Remember which model each account of this seat serves,
+        # so a later consumer (the CLI's role assignments) can
+        # tell what an existing seat will ACTUALLY send — a pool
+        # built from repeated specs serves its specs' models, not
+        # whatever a later same-name spec requests (78ddf4d5ea27).
+        try:
+            seat_models.setdefault(name, []).append(
+                describe_spec(spec)["model"])
+        except ProviderError:
+            pass
     providers = {}
     for name, accounts in seats.items():
         providers[name] = accounts[0][1] if len(accounts) == 1 \
@@ -713,6 +724,15 @@ def build_providers(specs, text_mode=False, agent_timeout=None):
                     break
         try:
             providers[name]._codereview_family = fam or "unknown"
+        except Exception:  # noqa: BLE001 — tagging is advisory
+            pass
+        # The distinct model(s) this seat's accounts serve
+        # (78ddf4d5ea27): read by the CLI's role assignments so a
+        # role record credits the model that serves, never a
+        # discarded same-name override.
+        try:
+            providers[name]._codereview_models = tuple(sorted(
+                {m for m in seat_models.get(name, []) if m}))
         except Exception:  # noqa: BLE001 — tagging is advisory
             pass
         if name_kind.get(name) == "agent":

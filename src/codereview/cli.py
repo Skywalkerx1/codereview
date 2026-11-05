@@ -830,6 +830,9 @@ def _apply_role_assignments(providers, role_values,
     lens_seats, seat_roles, role_models = {}, {}, {}
     for role, spec in assignments.items():
         desc = describe_spec(spec)
+        record_model = desc["model"]
+        record_family = desc["family"]
+        requested_model = None
         built = build_providers([spec],
                                 agent_timeout=agent_timeout)
         (seat_name, seat_fn), = built.items()
@@ -855,16 +858,48 @@ def _apply_role_assignments(providers, role_values,
                     f"already used by a different kind of seat "
                     f"(agent vs API); rename the seat in the "
                     f"role spec {spec!r}")
+            # Record fidelity (ratified fix, 78ddf4d5ea27): the
+            # seat built from the role spec is DISCARDED here —
+            # the role is served by the EXISTING seat, whose model
+            # may differ from the role spec's (a pooled preset
+            # seat serves its own default, not a same-name
+            # override). Crediting the spec's model would record
+            # a model that never serves. When the existing seat's
+            # served model(s) are known (tagged at build time),
+            # the record carries the SERVED model and preserves
+            # the requested one alongside; a seat serving several
+            # distinct models cannot honestly be credited with
+            # any single one, so the assignment is refused.
+            served_models = getattr(existing,
+                                    "_codereview_models", None)
+            if desc["model"] is not None and served_models:
+                if len(served_models) > 1:
+                    raise ProviderError(
+                        f"role {role!r}: seat {seat_name!r} "
+                        f"already exists and its accounts serve "
+                        f"different models "
+                        f"{list(served_models)}; the role cannot "
+                        f"be credited to one model — give the "
+                        f"role its own seat via a distinct spec")
+                if desc["model"] != served_models[0]:
+                    requested_model = desc["model"]
+                    record_model = served_models[0]
+                    existing_family = getattr(
+                        existing, "_codereview_family", None)
+                    if existing_family:
+                        record_family = existing_family
         else:
             providers[seat_name] = seat_fn
         seat_roles[role] = seat_name
         role_models[role] = {
             "seat": seat_name,
             "provider": desc["preset"] or desc["kind"],
-            "model": desc["model"],
-            "family": desc["family"],
+            "model": record_model,
+            "family": record_family,
             "key_env": desc["key_env"],
         }
+        if requested_model is not None:
+            role_models[role]["requested_model"] = requested_model
         if role in registry.LENS_ROLES:
             lens_seats[registry.LENS_ROLES[role]] = seat_name
     tech_lead = seat_roles.get("tech-lead")
