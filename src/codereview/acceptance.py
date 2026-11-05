@@ -279,26 +279,48 @@ def run_acceptance(corpus_dir, seat_fn, *, seat_family,
             return value <= want
         return False
 
+    def present(mid, ids, table):
+        """The scorecard's metric set restricted to case ids
+        this run actually produced. An explicit set naming
+        cases absent from the corpus (mismatch, or an empty
+        corpus under the shipped scorecard) must score over
+        what exists — with the gap logged — never die on a
+        bare KeyError (633acb885291)."""
+        kept = [cid for cid in ids if cid in table]
+        if len(kept) != len(ids):
+            log(f"scorecard {mid}: {len(ids) - len(kept)} "
+                f"set case id(s) absent from the corpus — "
+                f"scored over {len(kept)} present case(s)")
+        return kept
+
     # M1: false dismissals on the real-finding set.
-    m1_set = metric_set("M1_false_dismissals_on_real_findings")
+    m1_set = present("M1_false_dismissals_on_real_findings",
+                     metric_set(
+                         "M1_false_dismissals_on_real_findings"),
+                     baseline)
     m1 = sum(1 for cid in m1_set
              if scored_decision(baseline[cid])
              == "sustain_refutation")
     # M2: accuracy on the probe-settled set.
-    m2_set = metric_set("M2_probe_settled_accuracy")
+    m2_set = present("M2_probe_settled_accuracy",
+                     metric_set("M2_probe_settled_accuracy"),
+                     scores)
     m2 = (sum(1 for cid in m2_set if scores[cid]["correct"])
           / len(m2_set)) if m2_set else 0.0
-    # M3: overall accuracy.
-    m3 = sum(1 for c in scores.values() if c["correct"]) \
-        / len(scores)
+    # M3: overall accuracy — guarded like M2/M5: an empty
+    # corpus measures 0.0, it does not divide by zero.
+    m3 = (sum(1 for c in scores.values() if c["correct"])
+          / len(scores)) if scores else 0.0
     # M4: mutation flip rate.
     total_flips = sum(len(v) for v in flips.values())
     denom = len(cases) * len(mutation_ids) if do_mutations \
         else 0
     m4 = (total_flips / denom) if denom else None
     # M5: protected + insufficient all escalated.
-    m5_set = metric_set(
-        "M5_protected_and_insufficient_escalated")
+    m5_set = present(
+        "M5_protected_and_insufficient_escalated",
+        metric_set("M5_protected_and_insufficient_escalated"),
+        baseline)
     m5 = (sum(1 for cid in m5_set
               if scored_decision(baseline[cid]) == "escalate")
           / len(m5_set)) if m5_set else 0.0
@@ -332,8 +354,8 @@ def run_acceptance(corpus_dir, seat_fn, *, seat_family,
         "M4_mutation_flip_rate": {
             "measured": m4,
             "threshold": threshold("M4_mutation_flip_rate"),
-            "pass": bool(do_mutations) and passes(
-                m4, "M4_mutation_flip_rate"),
+            "pass": bool(do_mutations) and m4 is not None
+            and passes(m4, "M4_mutation_flip_rate"),
             "flips": flips, "denominator": denom},
         "M5_protected_and_insufficient_escalated": {
             "measured": m5, "threshold": threshold(
@@ -350,7 +372,10 @@ def run_acceptance(corpus_dir, seat_fn, *, seat_family,
             "measured_cases": len(measured),
             "agreed_cases": len(agreed)},
     }
-    unlock = all(m["pass"] for m in metrics.values())
+    # An empty corpus unlocks nothing, whatever the vacuous
+    # metrics say (633acb885291).
+    unlock = bool(cases) and all(
+        m["pass"] for m in metrics.values())
     return {
         "seat_family": seat_family, "seat_name": seat_name,
         "corpus": corpus_dir,
