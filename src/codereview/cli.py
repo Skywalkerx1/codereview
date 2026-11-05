@@ -41,6 +41,7 @@ from . import bench as bench_mod
 from . import core
 from . import disputes as disputes_mod
 from . import herdrhost
+from . import notify as notify_mod
 from . import policy as policy_mod
 from . import evidence as evidence_mod
 from . import registry
@@ -2370,6 +2371,14 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
                      if agents_context["truncated"] else ""),
                   file=sys.stderr)
 
+    # Epic L4: attention notifications resolve from the USER
+    # SETUP's [notify] table only — never the project policy
+    # (notifications are operator preference, not project
+    # contract). Unset means no Notifier at all, and the run
+    # behaves exactly as before this epic.
+    notify = notify_mod.notifier_for(
+        userconfig.default_notify_command())
+
     if args.verify_previous:
         try:
             with open(args.verify_previous, encoding="utf-8") as fh:
@@ -2386,7 +2395,8 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
             allow_major=args.allow_major, strict=args.strict,
             seat_meta=seat_meta, fallbacks=fallbacks,
             record_extra=record_extra,
-            private=args.private, progress=_seat_progress)
+            private=args.private, progress=_seat_progress,
+            notify=notify)
     else:
         report = core.run_review(
             patch, providers, context=_maybe_file(args.context),
@@ -2399,7 +2409,7 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
             precedents=precedents, policy=project_policy,
             gate_profile=args.gate_profile,
             file_context=file_context, progress=_seat_progress,
-            agents_context=agents_context,
+            agents_context=agents_context, notify=notify,
             tech_lead_timeout=args.timeout, **review_kwargs)
 
     jpath, mpath = core.write_report(report, args.out)

@@ -49,6 +49,7 @@ import threading
 import time
 
 from . import herdrhost
+from . import notify as notify_mod
 from . import policy as policy_mod
 from . import seatstate
 
@@ -3472,6 +3473,50 @@ def _gate(findings, allow_major=False, degraded=False, incomplete=False,
     return "pass", reasons
 
 
+def _notify_progress(notify, progress):
+    """Epic L4: wrap the caller's progress sink so a seat's
+    TERMINAL blocked transition also fires the notifier's
+    seat_blocked event (K2 classes). With no notifier the sink
+    passes through untouched — the wrapper exists only when a
+    notify command is configured, and the transitions a job
+    emits are the same ones the record persists, so the
+    notification can never claim a state the record does not
+    carry. Notifications fire AFTER the caller's own sink has
+    seen the event, and a broken sink keeps the house rule: it
+    never breaks a review job."""
+    if notify is None:
+        return progress
+
+    def _wrapped(event):
+        if progress is not None:
+            try:
+                progress(event)
+            except Exception:  # noqa: BLE001 — same rule as
+                pass            # _review_job's own forwarder
+        if event.get("terminal") \
+                and event.get("state") == "blocked":
+            notify.seat_blocked(event.get("seat"),
+                                event.get("class"))
+
+    return _wrapped
+
+
+def _notify_verdict(notify, report, summary):
+    """Epic L4: fire the verdict event and attach every
+    notification outcome this run produced to the record's
+    `notifications` section. A run with no notifier — or one
+    whose notifier somehow produced nothing — gets no section
+    at all, so an unconfigured run's record is byte-identical
+    to before this epic. The verdict itself is already final
+    when this runs: a notifier outcome is recorded alongside
+    it, never an input to it."""
+    if notify is None:
+        return
+    notify.verdict(summary)
+    if notify.outcomes:
+        report["notifications"] = list(notify.outcomes)
+
+
 def run_review(patch, providers, context="", test_results=None,
                max_patch_chars=80000, allow_major=False, strict=False,
                seat_meta=None, fallbacks=None, sleep=None,
@@ -3482,7 +3527,7 @@ def run_review(patch, providers, context="", test_results=None,
                policy=None, waivers=None, evidence=None,
                tech_lead_shadow=False, tech_lead_shadow_seat=None,
                gate_profile=None, file_context=None, progress=None,
-               agents_context=None):
+               agents_context=None, notify=None):
     """One review round. `providers` maps name -> callable(prompt)->str.
 
     Returns the report dict. Never raises for provider failures; they
@@ -3626,6 +3671,19 @@ def run_review(patch, providers, context="", test_results=None,
     to the pre-L1 construction, which the bench and
     registered confirmation runs rely on: they never pass it.
 
+    Attention notifications (Epic L4): `notify` is a
+    notify.Notifier built from the operator's USER SETUP
+    ([notify] command — never the project policy). When
+    given, a seat's terminal blocked transition fires the
+    seat_blocked event and the finished gate fires the
+    verdict event; every outcome is recorded in the report's
+    `notifications` section. A notifier can never change a
+    finding or the verdict, and a hanging one is bounded by
+    its own timeout. Default None — no invocations, and the
+    record is byte-identical to the pre-L4 construction,
+    which the bench and registered confirmation runs rely
+    on: they never pass it.
+
     Seat-state supervision (Epic K2): every reviewer job
     carries a live state (pending -> working -> done /
     blocked:<class> / failed / timed-out), persisted per
@@ -3656,6 +3714,10 @@ def run_review(patch, providers, context="", test_results=None,
         raise ValueError(
             f"unknown gate profile {effective_profile!r} "
             f"(known: {', '.join(GATE_PROFILES)})")
+    # Epic L4: seat_blocked notifications ride the progress
+    # stream (see _notify_progress); with no notifier the
+    # caller's sink passes through untouched.
+    progress = _notify_progress(notify, progress)
     det = deterministic_scan(patch, test_results)
     clean_patch = redact_secrets(patch)
     for f in det:
@@ -4900,6 +4962,13 @@ def run_review(patch, providers, context="", test_results=None,
     if record_extra:
         report.update({k: v for k, v in record_extra.items()
                        if v is not None})
+    # Epic L4: the gate is final — notify the verdict and
+    # record every notification outcome on the way out.
+    _notify_verdict(
+        notify, report,
+        f"gate {report['gate']}: "
+        f"{len(report['findings'])} finding(s)"
+        + (", panel degraded" if report["degraded"] else ""))
     return report
 
 
@@ -4998,7 +5067,7 @@ def run_verification(patch, providers, previous_report, builder_response,
                      test_results=None, max_patch_chars=80000,
                      allow_major=False, strict=False, seat_meta=None,
                      fallbacks=None, sleep=None, record_extra=None,
-                     private=False, progress=None):
+                     private=False, progress=None, notify=None):
     """Verification round: a prior blocker clears only when every
     successful reviewer marks it fixed/invalid AND the seat that
     raised it is among them (deterministic findings clear when the
@@ -5030,6 +5099,9 @@ def run_verification(patch, providers, previous_report, builder_response,
     batching INCOMPLETE (kept content could not be placed), the
     review path's semantics."""
     test_results = test_results or []
+    # Epic L4: same notification wiring as run_review — the
+    # verification gate is a gate verdict too (see there).
+    progress = _notify_progress(notify, progress)
     blocking_sevs = ("blocker",) if allow_major else BLOCKING_DEFAULT
     prior = [f for f in previous_report.get("findings") or []
              if f.get("severity") in blocking_sevs]
@@ -5442,6 +5514,12 @@ def run_verification(patch, providers, previous_report, builder_response,
     if record_extra:
         report.update({k: v for k, v in record_extra.items()
                        if v is not None})
+    # Epic L4: verdict notification + outcomes, as run_review.
+    _notify_verdict(
+        notify, report,
+        f"gate {report['gate']}: "
+        f"{len(report['cleared'])} cleared, "
+        f"{len(report['remaining'])} remaining")
     return report
 
 
