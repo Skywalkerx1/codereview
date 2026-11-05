@@ -102,8 +102,34 @@ def load_user_config(environ=None):
             f"list of seat names, got "
             f"{type(raw_herdr).__name__}")
     hosting = {"herdr": [str(s) for s in raw_herdr]}
+    # Epic L4: the optional [notify] table — one key,
+    # `command`, the argv of the operator's local attention
+    # command (see notify.py). It lives HERE, in the user
+    # setup, by design: notifications are operator preference,
+    # never project contract, so the project policy has no
+    # notify key (policy.load_policy rejects the table).
+    # Type-validated like the rest — a malformed table is a
+    # loud ValueError, never a silently ignored command.
+    raw_notify = data.get("notify")
+    if raw_notify is None:
+        raw_notify = {}
+    if not isinstance(raw_notify, dict):
+        raise ValueError(
+            f"user config {path}: 'notify' must be a table "
+            f"of notification settings, got "
+            f"{type(raw_notify).__name__}")
+    raw_command = raw_notify.get("command")
+    if raw_command is None:
+        raw_command = []
+    if not isinstance(raw_command, list) or not all(
+            isinstance(c, str) for c in raw_command):
+        raise ValueError(
+            f"user config {path}: 'notify.command' must be a "
+            f"list of strings (the notify command's argv), "
+            f"got {raw_command!r}")
+    notify = {"command": [str(c) for c in raw_command]}
     return {"providers": providers, "roles": roles,
-            "hosting": hosting, "path": path}
+            "hosting": hosting, "notify": notify, "path": path}
 
 
 def _toml_str(value):
@@ -113,12 +139,13 @@ def _toml_str(value):
 
 
 def save_user_config(providers, roles, environ=None,
-                     hosting=None):
+                     hosting=None, notify=None):
     """Write the setup file (specs only — never a key value) and
     return its path. `hosting` ({"herdr": [seat names]}) adds
-    the [hosting] table; the default None writes exactly the
-    bytes earlier versions wrote, so an unchanged setup stays
-    byte-identical."""
+    the [hosting] table; `notify` ({"command": [argv...]})
+    adds the [notify] table (Epic L4); the defaults write
+    exactly the bytes earlier versions wrote, so an unchanged
+    setup stays byte-identical."""
     path = config_path(environ)
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     lines = [
@@ -143,6 +170,20 @@ def save_user_config(providers, roles, environ=None,
             "headless.",
             "herdr = [" + ", ".join(
                 _toml_str(s) for s in herdr_seats) + "]",
+        ]
+    notify_command = list((notify or {}).get("command") or [])
+    if notify_command:
+        lines += [
+            "",
+            "[notify]",
+            "# Attention notifications (Epic L4): this local "
+            "command is",
+            "# run with the event name and a one-line summary "
+            "appended",
+            "# when a seat blocks or the gate reaches a "
+            "verdict.",
+            "command = [" + ", ".join(
+                _toml_str(c) for c in notify_command) + "]",
         ]
     with open(path, "w", encoding="utf-8") as fh:
         fh.write("\n".join(lines) + "\n")
@@ -185,6 +226,16 @@ def default_hosting_herdr_seats(environ=None):
     if not cfg:
         return []
     return list((cfg.get("hosting") or {}).get("herdr") or [])
+
+
+def default_notify_command(environ=None):
+    """The saved setup's [notify] command argv (Epic L4; []
+    when no setup or no [notify] table). The ONLY source of a
+    notify command: the project policy cannot set one."""
+    cfg = load_user_config(environ)
+    if not cfg:
+        return []
+    return list((cfg.get("notify") or {}).get("command") or [])
 
 
 NOT_SET_UP = (
