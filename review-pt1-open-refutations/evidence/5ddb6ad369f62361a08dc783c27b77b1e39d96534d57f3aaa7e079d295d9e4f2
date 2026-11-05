@@ -1,0 +1,1 @@
+The added results file includes concrete workstation paths from prior records, for example '/home/hatch/workspace/codereview/tests/test_v093_fixes.py:373:'. Committing these paths leaks operator username and machine layout to anyone with repository access.

@@ -1,0 +1,909 @@
+{
+  "schema": "codereview.report/1",
+  "version": "0.11.1",
+  "mode": "review",
+  "created_at": "2026-11-05T00:49:39+00:00",
+  "patch_sha256": "20abde3785f23614cbeb6bfb2f7ea399daf644dcfb1af9e2c9aee6ea42f55866",
+  "patch_chars": 128395,
+  "files": [
+    "probes/README.md",
+    "probes/duplicate_seat_probe.py",
+    "probes/finding_public_probe.py",
+    "probes/fix_verification.py",
+    "probes/lens_mapping_probe.py",
+    "probes/oversize_probe.py",
+    "probes/reachability_probe.py",
+    "probes/records_scan.py",
+    "probes/regeneration_probe.py",
+    "probes/results/duplicate-seat-78ddf4d5ea27.txt",
+    "probes/results/finding-public-4ce0212286e0.txt",
+    "probes/results/fix-verification.txt",
+    "probes/results/lens-mapping-35dbb7d20941.txt",
+    "probes/results/oversize-6219e04d4c00.txt",
+    "probes/results/reachability-f56cd4a0b6c9.txt",
+    "probes/results/records-scan-a3a2d492b51a.txt",
+    "probes/results/regeneration-212878ab6bba.txt",
+    "probes/results/regeneration-7baa0147d8d4.txt",
+    "probes/results/regeneration-7ea4e96603e9.txt",
+    "probes/results/stub-payload-e1e22d48db4d.txt",
+    "probes/results/unknown-family-3d9645200bc5.txt",
+    "probes/stub_payload_rerun.py",
+    "probes/unknown_family_probe.py",
+    "src/codereview/core.py",
+    "src/codereview/userconfig.py",
+    "tests/test_v111_dispute_probes.py",
+    "tests/test_v111_hardening.py"
+  ],
+  "context": "",
+  "private": false,
+  "supported_platforms": {
+    "os": [
+      "posix"
+    ],
+    "python": ">=3.11"
+  },
+  "coverage": {
+    "batch_count": 2,
+    "truncated": false,
+    "complete": true,
+    "omissions": [],
+    "files": {
+      "probes/README.md": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "probes/duplicate_seat_probe.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "probes/finding_public_probe.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "probes/fix_verification.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "probes/lens_mapping_probe.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "probes/oversize_probe.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "probes/reachability_probe.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "probes/records_scan.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "probes/regeneration_probe.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "probes/results/duplicate-seat-78ddf4d5ea27.txt": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "probes/results/finding-public-4ce0212286e0.txt": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "probes/results/fix-verification.txt": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "probes/results/lens-mapping-35dbb7d20941.txt": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "probes/results/oversize-6219e04d4c00.txt": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "probes/results/reachability-f56cd4a0b6c9.txt": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "probes/results/records-scan-a3a2d492b51a.txt": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "probes/results/regeneration-212878ab6bba.txt": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "probes/results/regeneration-7baa0147d8d4.txt": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "probes/results/regeneration-7ea4e96603e9.txt": {
+        "batches": [
+          2
+        ],
+        "lenses": {
+          "correctness": [
+            2
+          ],
+          "operations": [
+            2
+          ]
+        }
+      },
+      "probes/results/stub-payload-e1e22d48db4d.txt": {
+        "batches": [
+          2
+        ],
+        "lenses": {
+          "correctness": [
+            2
+          ],
+          "operations": [
+            2
+          ]
+        }
+      },
+      "probes/results/unknown-family-3d9645200bc5.txt": {
+        "batches": [
+          2
+        ],
+        "lenses": {
+          "correctness": [
+            2
+          ],
+          "operations": [
+            2
+          ]
+        }
+      },
+      "probes/stub_payload_rerun.py": {
+        "batches": [
+          2
+        ],
+        "lenses": {
+          "correctness": [
+            2
+          ],
+          "operations": [
+            2
+          ]
+        }
+      },
+      "probes/unknown_family_probe.py": {
+        "batches": [
+          2
+        ],
+        "lenses": {
+          "correctness": [
+            2
+          ],
+          "operations": [
+            2
+          ]
+        }
+      },
+      "src/codereview/core.py": {
+        "batches": [
+          2
+        ],
+        "lenses": {
+          "correctness": [
+            2
+          ],
+          "operations": [
+            2
+          ]
+        }
+      },
+      "src/codereview/userconfig.py": {
+        "batches": [
+          2
+        ],
+        "lenses": {
+          "correctness": [
+            2
+          ],
+          "operations": [
+            2
+          ]
+        }
+      },
+      "tests/test_v111_dispute_probes.py": {
+        "batches": [
+          2
+        ],
+        "lenses": {
+          "correctness": [
+            2
+          ],
+          "operations": [
+            2
+          ]
+        }
+      },
+      "tests/test_v111_hardening.py": {
+        "batches": [
+          2
+        ],
+        "lenses": {
+          "correctness": [
+            2
+          ],
+          "operations": [
+            2
+          ]
+        }
+      }
+    }
+  },
+  "test_results": [
+    {
+      "command": "python3 -m unittest discover -s tests",
+      "ok": true,
+      "exit_code": 0,
+      "output_tail": "me/hatch/workspace/codereview/tests/../src/codereview/bench.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/cli.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/core.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/github.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/intake.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/providers.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/registry.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/setup_wizard.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/userconfig.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n........................................../home/hatch/workspace/codereview/tests/test_v094_probes.py:127: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/cli.py' mode='r' encoding='utf-8'>\n  \"core.py\", \"cli.py\"), encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n...../home/hatch/workspace/codereview/tests/test_v094_probes.py:91: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/providers.py' mode='r' encoding='utf-8'>\n  encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n.................................codereview: tier policy: seat 'stubfree' runs on a free-tier credential, which must not review private repositories\n......................................................\n----------------------------------------------------------------------\nRan 425 tests in 35.438s\n\nOK\n"
+    }
+  ],
+  "deterministic_findings": [
+    {
+      "id": "19abd575191e",
+      "rule": "shell-exec",
+      "severity": "major",
+      "category": "security",
+      "file": "probes/reachability_probe.py",
+      "line": 58,
+      "title": "Shell execution in added code",
+      "evidence": "def counting_popen(*a, **kw):",
+      "evidence_quote": "def counting_popen(*a, **kw):",
+      "recommendation": "Verify no untrusted input can reach the command; prefer argv lists with shell=False.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false,
+      "grounding": "grounded",
+      "evidence_ref": {
+        "sha256": "273ea3176edea85973ad01a756e87698cf984aeba9aa57562d1dfc88fba3ff87",
+        "length": 29,
+        "truncated": false
+      },
+      "evidence_quote_ref": {
+        "sha256": "273ea3176edea85973ad01a756e87698cf984aeba9aa57562d1dfc88fba3ff87",
+        "length": 29,
+        "truncated": false
+      }
+    }
+  ],
+  "reviewer_reports": [
+    {
+      "provider": "openai",
+      "lens": "correctness",
+      "batch": 2,
+      "status": "ok",
+      "error": "",
+      "summary": "The new prompt truncation helper can now exceed the requested cap, which reintroduces oversize prompt risk on long evidence fields. I did not find other correctness or security defects in the code changes from this diff alone.",
+      "findings": [
+        {
+          "id": "3f50bf6b3349",
+          "rule": "",
+          "severity": "major",
+          "category": "correctness",
+          "file": "src/codereview/core.py",
+          "line": 635,
+          "title": "Prompt truncation helper can return strings longer than the requested cap",
+          "evidence": "    return (f\"{cut} …[truncated, {len(text)} chars, \"",
+          "evidence_quote": "    return (f\"{cut} …[truncated, {len(text)} chars, \"",
+          "recommendation": "Reserve space for the truncation marker before slicing, so the final returned string length never exceeds `cap`. For example, compute the marker first, reduce the visible prefix budget by `len(marker)`, and then apply the boundary logic within that reduced budget.",
+          "confidence": 0.97,
+          "sources": [
+            "openai"
+          ],
+          "consensus": false,
+          "grounding": "grounded",
+          "evidence_ref": {
+            "sha256": "bb0c09df821d36fb81e468566324708ef402e1ed5638a7901e706c1bb1758d40",
+            "length": 53,
+            "truncated": false
+          },
+          "evidence_quote_ref": {
+            "sha256": "bb0c09df821d36fb81e468566324708ef402e1ed5638a7901e706c1bb1758d40",
+            "length": 53,
+            "truncated": false
+          }
+        }
+      ],
+      "attempts": 2,
+      "error_classes": [
+        "quota"
+      ],
+      "fallback_for": "gemini",
+      "primary_error": "gemini quota: HTTP 429",
+      "family": "openai",
+      "tier": "paid"
+    },
+    {
+      "provider": "openai",
+      "lens": "correctness",
+      "batch": 1,
+      "status": "ok",
+      "error": "",
+      "summary": "The new probe artifacts introduce committed files that expose local filesystem paths and account identifiers from prior review records. This is a supported, demonstrated information disclosure in the repository contents added by this diff.",
+      "findings": [
+        {
+          "id": "ec925437d0e3",
+          "rule": "",
+          "severity": "major",
+          "category": "security",
+          "file": "probes/results/records-scan-a3a2d492b51a.txt",
+          "line": 24,
+          "title": "Committed probe output republishes sensitive local paths from review records",
+          "evidence": "The added results file includes concrete workstation paths from prior records, for example '/home/hatch/workspace/codereview/tests/test_v093_fixes.py:373:'. Committing these paths leaks operator username and machine layout to anyone with repository access.",
+          "evidence_quote": "  local_path x22: /home/hatch/workspace/codereview/tests/test_v093_fixes.py:373:; /home/hatch/workspace/codereview/tests/../src/codereview/providers.py; /home/hatch/workspace/codereview/tests/test_v093_fixes.py:352:",
+          "recommendation": "Do not commit generated scan outputs containing raw matches. Either omit probes/results from version control, or redact path samples before writing the artifact so usernames and absolute paths are not stored in the repo.",
+          "confidence": 0.98,
+          "sources": [
+            "openai"
+          ],
+          "consensus": false,
+          "grounding": "grounded",
+          "evidence_ref": {
+            "sha256": "5ddb6ad369f62361a08dc783c27b77b1e39d96534d57f3aaa7e079d295d9e4f2",
+            "length": 256,
+            "truncated": false
+          },
+          "evidence_quote_ref": {
+            "sha256": "43f60634a93d6fcc46792183be2d9d37e8f003a17dd3103142622ef41b5f5038",
+            "length": 215,
+            "truncated": false
+          }
+        },
+        {
+          "id": "20e4194e5ed9",
+          "rule": "",
+          "severity": "major",
+          "category": "security",
+          "file": "probes/results/records-scan-a3a2d492b51a.txt",
+          "line": 39,
+          "title": "Committed probe output republishes account identifiers",
+          "evidence": "The generated results file also includes email addresses found in records, e.g. 'admin@example.com'. This is direct disclosure of account identifiers in a committed artifact.",
+          "evidence_quote": "  account_id x2: admin@example.com",
+          "recommendation": "Redact or suppress account-id samples in committed artifacts, or keep these outputs untracked. If the scan must be committed, report counts only and avoid embedding the matched identifiers.",
+          "confidence": 0.96,
+          "sources": [
+            "openai"
+          ],
+          "consensus": false,
+          "grounding": "grounded",
+          "evidence_ref": {
+            "sha256": "7b5d47c7554e22c969514bfd031cb926e917dc2d073e8732d43d8ff7b9fbe18e",
+            "length": 174,
+            "truncated": false
+          },
+          "evidence_quote_ref": {
+            "sha256": "02c1b971238e0bbb87caf019e4cd6ff8755d9304bb624364fdfa5eafd4716591",
+            "length": 34,
+            "truncated": false
+          }
+        }
+      ],
+      "attempts": 2,
+      "error_classes": [
+        "quota"
+      ],
+      "fallback_for": "gemini",
+      "primary_error": "gemini quota: HTTP 429",
+      "family": "openai",
+      "tier": "paid"
+    },
+    {
+      "provider": "nvidia",
+      "lens": "operations",
+      "batch": 1,
+      "status": "ok",
+      "error": "",
+      "summary": "All 11 probe scripts run to completion and report facts; each probe's assertions hold under the supported POSIX+Python 3.11 configuration. No production-breaking defects, data-loss risks, or security holes are introduced. The change adds new observability/reliability probes without weakening existing tests.",
+      "findings": [],
+      "attempts": 1,
+      "error_classes": [],
+      "family": "nvidia",
+      "tier": "free"
+    },
+    {
+      "provider": "nvidia",
+      "lens": "operations",
+      "batch": 2,
+      "status": "ok",
+      "error": "",
+      "summary": "The regeneration probe reveals a misleading gate line that pairs 'DEGRADED' with '(N of N reviewers succeeded)' even when degradation stems from coverage, not reviewer failure. This obscures the actual cause and violates the principle that the gate line must state the degraded cause. Additionally, the unknown-family probe confirms that two unknown-family seats on the same vendor fail the two-family independence check, which is correct but should be verified as a guard. The function_key and _prom",
+      "findings": [
+        {
+          "id": "5aa847a6a318",
+          "rule": "",
+          "severity": "major",
+          "category": "reliability",
+          "file": "probes/results/regeneration-7ea4e96603e9.txt",
+          "line": 1,
+          "title": "Gate line misleads on degraded cause",
+          "evidence": "REGENERATION PROBE — 7ea4e96603e9",
+          "evidence_quote": "REGENERATION PROBE — 7ea4e96603e9",
+          "recommendation": "Revise the gate-line renderer to surface the actual degraded cause (e.g., coverage incomplete) and only claim reviewer failure when a reviewer actually failed. Per solution §2, convert the archived-subject claim to a new finding against the renderer/gate-reason code (minor).",
+          "confidence": 0.9,
+          "sources": [
+            "nvidia"
+          ],
+          "consensus": false,
+          "grounding": "grounded",
+          "evidence_ref": {
+            "sha256": "30ead16804e6d124961bcbfde00f223349bd0dd797deccdf04f7fda1cd0577b4",
+            "length": 33,
+            "truncated": false
+          },
+          "evidence_quote_ref": {
+            "sha256": "30ead16804e6d124961bcbfde00f223349bd0dd797deccdf04f7fda1cd0577b4",
+            "length": 33,
+            "truncated": false
+          }
+        },
+        {
+          "id": "5ee84a00a164",
+          "rule": "",
+          "severity": "minor",
+          "category": "correctness",
+          "file": "probes/results/unknown-family-3d9645200bc5.txt",
+          "line": 1,
+          "title": "Unknown-family fail-closed: two seats same vendor both unknown",
+          "evidence": "UNKNOWN-FAMILY FAIL-CLOSED PROBE — 3d9645200bc5",
+          "evidence_quote": "UNKNOWN-FAMILY FAIL-CLOSED PROBE — 3d9645200bc5",
+          "recommendation": "No code change needed; the probe confirms the existing two-family independence check correctly rejects all-unknown records. This is a guard, not a defect.",
+          "confidence": 0.8,
+          "sources": [
+            "nvidia"
+          ],
+          "consensus": false,
+          "grounding": "grounded",
+          "evidence_ref": {
+            "sha256": "71ede20eac219aabfd40d9d3f558dc73a86012d03354338f21490ab88f7fc9a9",
+            "length": 47,
+            "truncated": false
+          },
+          "evidence_quote_ref": {
+            "sha256": "71ede20eac219aabfd40d9d3f558dc73a86012d03354338f21490ab88f7fc9a9",
+            "length": 47,
+            "truncated": false
+          }
+        }
+      ],
+      "attempts": 1,
+      "error_classes": [],
+      "family": "nvidia",
+      "tier": "free"
+    }
+  ],
+  "findings": [
+    {
+      "id": "19abd575191e",
+      "rule": "shell-exec",
+      "severity": "major",
+      "category": "security",
+      "file": "probes/reachability_probe.py",
+      "line": 58,
+      "title": "Shell execution in added code",
+      "evidence": "def counting_popen(*a, **kw):",
+      "evidence_quote": "def counting_popen(*a, **kw):",
+      "recommendation": "Verify no untrusted input can reach the command; prefer argv lists with shell=False.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false,
+      "grounding": "grounded",
+      "evidence_ref": {
+        "sha256": "273ea3176edea85973ad01a756e87698cf984aeba9aa57562d1dfc88fba3ff87",
+        "length": 29,
+        "truncated": false
+      },
+      "evidence_quote_ref": {
+        "sha256": "273ea3176edea85973ad01a756e87698cf984aeba9aa57562d1dfc88fba3ff87",
+        "length": 29,
+        "truncated": false
+      }
+    },
+    {
+      "id": "5aa847a6a318",
+      "rule": "",
+      "severity": "major",
+      "category": "reliability",
+      "file": "probes/results/regeneration-7ea4e96603e9.txt",
+      "line": 1,
+      "title": "Gate line misleads on degraded cause",
+      "evidence": "REGENERATION PROBE — 7ea4e96603e9",
+      "evidence_quote": "REGENERATION PROBE — 7ea4e96603e9",
+      "recommendation": "Revise the gate-line renderer to surface the actual degraded cause (e.g., coverage incomplete) and only claim reviewer failure when a reviewer actually failed. Per solution §2, convert the archived-subject claim to a new finding against the renderer/gate-reason code (minor).",
+      "confidence": 0.9,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false,
+      "grounding": "grounded",
+      "cross_family": "confirmed",
+      "evidence_ref": {
+        "sha256": "30ead16804e6d124961bcbfde00f223349bd0dd797deccdf04f7fda1cd0577b4",
+        "length": 33,
+        "truncated": false
+      },
+      "evidence_quote_ref": {
+        "sha256": "30ead16804e6d124961bcbfde00f223349bd0dd797deccdf04f7fda1cd0577b4",
+        "length": 33,
+        "truncated": false
+      }
+    },
+    {
+      "id": "5ee84a00a164",
+      "rule": "",
+      "severity": "minor",
+      "category": "correctness",
+      "file": "probes/results/unknown-family-3d9645200bc5.txt",
+      "line": 1,
+      "title": "Unknown-family fail-closed: two seats same vendor both unknown",
+      "evidence": "UNKNOWN-FAMILY FAIL-CLOSED PROBE — 3d9645200bc5",
+      "evidence_quote": "UNKNOWN-FAMILY FAIL-CLOSED PROBE — 3d9645200bc5",
+      "recommendation": "No code change needed; the probe confirms the existing two-family independence check correctly rejects all-unknown records. This is a guard, not a defect.",
+      "confidence": 0.8,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false,
+      "grounding": "grounded",
+      "evidence_ref": {
+        "sha256": "71ede20eac219aabfd40d9d3f558dc73a86012d03354338f21490ab88f7fc9a9",
+        "length": 47,
+        "truncated": false
+      },
+      "evidence_quote_ref": {
+        "sha256": "71ede20eac219aabfd40d9d3f558dc73a86012d03354338f21490ab88f7fc9a9",
+        "length": 47,
+        "truncated": false
+      }
+    }
+  ],
+  "degraded": false,
+  "truncated": false,
+  "gate": "blocked",
+  "gate_reasons": [
+    "2 blocking finding(s) (major)",
+    "correctness lens served by fallback seat 'openai' (primary 'gemini' failed: quota)",
+    "correctness lens served by fallback seat 'openai' (primary 'gemini' failed: quota)",
+    "3 refutation-weak finding(s): the refuting quote repeats the line the finding cites and carries no counter-evidence from another line — a routing state under the dispute ladder (§5a.1), preserved in refutation_weak_findings; no independent Tech Lead served to adjudicate, so the human gate decides"
+  ],
+  "refutation_weak_findings": [
+    {
+      "id": "20e4194e5ed9",
+      "rule": "",
+      "severity": "major",
+      "category": "security",
+      "file": "probes/results/records-scan-a3a2d492b51a.txt",
+      "line": 39,
+      "title": "Committed probe output republishes account identifiers",
+      "evidence": "The generated results file also includes email addresses found in records, e.g. 'admin@example.com'. This is direct disclosure of account identifiers in a committed artifact.",
+      "evidence_quote": "  account_id x2: admin@example.com",
+      "recommendation": "Redact or suppress account-id samples in committed artifacts, or keep these outputs untracked. If the scan must be committed, report counts only and avoid embedding the matched identifiers.",
+      "confidence": 0.96,
+      "sources": [
+        "openai"
+      ],
+      "consensus": false,
+      "grounding": "grounded",
+      "dispute": {
+        "by": "nvidia",
+        "family": "nvidia",
+        "raiser_family": "openai",
+        "evidence_quote": "  account_id x2: admin@example.com",
+        "reason": "The finding claims that account identifiers are disclosed in committed artifacts. However, the code region explicitly shows that the 'account_id' entries are part of the scan's summary totals (Totals by category: account_id: 9) and per-file detail lines that list local_path, hostname, connector_name",
+        "adequacy": "weak",
+        "evidence_quote_ref": {
+          "sha256": "02c1b971238e0bbb87caf019e4cd6ff8755d9304bb624364fdfa5eafd4716591",
+          "length": 34,
+          "truncated": false
+        },
+        "reason_ref": {
+          "sha256": "6c354d3a8bcbb4cfc169e95884cb90d82f9d937b916cae3d05897172102214ff",
+          "length": 646,
+          "truncated": true
+        }
+      },
+      "tech_lead": {
+        "status": "unavailable",
+        "reason": "no seat from a family independent of both the raiser and the refuter served on this panel"
+      },
+      "cross_family": "refuted_weak",
+      "status": "refutation_weak",
+      "evidence_ref": {
+        "sha256": "7b5d47c7554e22c969514bfd031cb926e917dc2d073e8732d43d8ff7b9fbe18e",
+        "length": 174,
+        "truncated": false
+      },
+      "evidence_quote_ref": {
+        "sha256": "02c1b971238e0bbb87caf019e4cd6ff8755d9304bb624364fdfa5eafd4716591",
+        "length": 34,
+        "truncated": false
+      },
+      "evidence_complete": true
+    },
+    {
+      "id": "ec925437d0e3",
+      "rule": "",
+      "severity": "major",
+      "category": "security",
+      "file": "probes/results/records-scan-a3a2d492b51a.txt",
+      "line": 24,
+      "title": "Committed probe output republishes sensitive local paths from review records",
+      "evidence": "The added results file includes concrete workstation paths from prior records, for example '/home/hatch/workspace/codereview/tests/test_v093_fixes.py:373:'. Committing these paths leaks operator username and machine layout to anyone with repository access.",
+      "evidence_quote": "  local_path x22: /home/hatch/workspace/codereview/tests/test_v093_fixes.py:373:; /home/hatch/workspace/codereview/tests/../src/codereview/providers.py; /home/hatch/workspace/codereview/tests/test_v093_fixes.py:352:",
+      "recommendation": "Do not commit generated scan outputs containing raw matches. Either omit probes/results from version control, or redact path samples before writing the artifact so usernames and absolute paths are not stored in the repo.",
+      "confidence": 0.98,
+      "sources": [
+        "openai"
+      ],
+      "consensus": false,
+      "grounding": "grounded",
+      "dispute": {
+        "by": "nvidia",
+        "family": "nvidia",
+        "raiser_family": "openai",
+        "evidence_quote": "  local_path x22: /home/hatch/workspace/codereview/tests/test_v093_fixes.py:373:; /home/hatch/workspace/codereview/tests/../src/codereview/providers.py; /home/hatch/workspace/codereview/tests/test_v093_fixes.py:352:",
+        "reason": "The finding claims the output republishes sensitive local paths from review records. However, the evidence_quote shows all paths are prefixed with '/home/hatch/workspace/', which is a placeholder path used in the test data, not a real operator username or machine layout. The paths are synthetic arti",
+        "adequacy": "weak",
+        "evidence_quote_ref": {
+          "sha256": "43f60634a93d6fcc46792183be2d9d37e8f003a17dd3103142622ef41b5f5038",
+          "length": 215,
+          "truncated": false
+        },
+        "reason_ref": {
+          "sha256": "62342e2a69fa79e58aae832da3ede31038a032c50c46e47a47e104d1c981fc5b",
+          "length": 362,
+          "truncated": true
+        }
+      },
+      "tech_lead": {
+        "status": "unavailable",
+        "reason": "no seat from a family independent of both the raiser and the refuter served on this panel"
+      },
+      "cross_family": "refuted_weak",
+      "status": "refutation_weak",
+      "evidence_ref": {
+        "sha256": "5ddb6ad369f62361a08dc783c27b77b1e39d96534d57f3aaa7e079d295d9e4f2",
+        "length": 256,
+        "truncated": false
+      },
+      "evidence_quote_ref": {
+        "sha256": "43f60634a93d6fcc46792183be2d9d37e8f003a17dd3103142622ef41b5f5038",
+        "length": 215,
+        "truncated": false
+      },
+      "evidence_complete": true
+    },
+    {
+      "id": "3f50bf6b3349",
+      "rule": "",
+      "severity": "major",
+      "category": "correctness",
+      "file": "src/codereview/core.py",
+      "line": 635,
+      "title": "Prompt truncation helper can return strings longer than the requested cap",
+      "evidence": "    return (f\"{cut} …[truncated, {len(text)} chars, \"",
+      "evidence_quote": "    return (f\"{cut} …[truncated, {len(text)} chars, \"",
+      "recommendation": "Reserve space for the truncation marker before slicing, so the final returned string length never exceeds `cap`. For example, compute the marker first, reduce the visible prefix budget by `len(marker)`, and then apply the boundary logic within that reduced budget.",
+      "confidence": 0.97,
+      "sources": [
+        "openai"
+      ],
+      "consensus": false,
+      "grounding": "grounded",
+      "dispute": {
+        "by": "nvidia",
+        "family": "nvidia",
+        "raiser_family": "openai",
+        "evidence_quote": "    return (f\"{cut} …[truncated, {len(text)} chars, \"",
+        "reason": "The function returns the constructed string directly; the f-string includes the full len(text) value and the opening bracket, so the output length is determined by the slice `cut` plus the fixed marker length, not by the original text length.",
+        "adequacy": "weak",
+        "evidence_quote_ref": {
+          "sha256": "bb0c09df821d36fb81e468566324708ef402e1ed5638a7901e706c1bb1758d40",
+          "length": 53,
+          "truncated": false
+        },
+        "reason_ref": {
+          "sha256": "ebcf3fd9ab7904c063de1b1af80517ff0ff2adfe0e2037936ec0b93845524879",
+          "length": 242,
+          "truncated": false
+        }
+      },
+      "tech_lead": {
+        "status": "unavailable",
+        "reason": "no seat from a family independent of both the raiser and the refuter served on this panel"
+      },
+      "cross_family": "refuted_weak",
+      "status": "refutation_weak",
+      "evidence_ref": {
+        "sha256": "bb0c09df821d36fb81e468566324708ef402e1ed5638a7901e706c1bb1758d40",
+        "length": 53,
+        "truncated": false
+      },
+      "evidence_quote_ref": {
+        "sha256": "bb0c09df821d36fb81e468566324708ef402e1ed5638a7901e706c1bb1758d40",
+        "length": 53,
+        "truncated": false
+      },
+      "evidence_complete": true
+    }
+  ],
+  "evidence_sidecars": {
+    "dir": "evidence",
+    "files": 11,
+    "refs": 30
+  }
+}

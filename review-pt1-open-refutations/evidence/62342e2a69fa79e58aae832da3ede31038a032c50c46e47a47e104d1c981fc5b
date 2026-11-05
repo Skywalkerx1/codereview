@@ -1,0 +1,1 @@
+The finding claims the output republishes sensitive local paths from review records. However, the evidence_quote shows all paths are prefixed with '/home/hatch/workspace/', which is a placeholder path used in the test data, not a real operator username or machine layout. The paths are synthetic artifacts of the scan tool's output format, not committed secrets.

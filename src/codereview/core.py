@@ -46,6 +46,8 @@ import subprocess
 import threading
 import time
 
+from . import policy as policy_mod
+
 VERSION = "0.11.1"
 SCHEMA = "codereview.report/1"
 
@@ -1797,7 +1799,8 @@ def run_review(patch, providers, context="", test_results=None,
                seat_meta=None, fallbacks=None, sleep=None,
                record_extra=None, fixture_scope=None, private=False,
                precedents=None, tech_lead=None, probe_fn=None,
-               tech_lead_timeout=None, lens_seats=None):
+               tech_lead_timeout=None, lens_seats=None,
+               policy=None, waivers=None):
     """One review round. `providers` maps name -> callable(prompt)->str.
 
     Returns the report dict. Never raises for provider failures; they
@@ -1860,7 +1863,17 @@ def run_review(patch, providers, context="", test_results=None,
     Role assignments (owner directive 2026-11-04): `lens_seats`
     pins a lens to a designated seat name ({lens: seat-name}) so
     the model the user assigned to a role is the model that
-    serves it; unassigned lenses keep the round-robin panel."""
+    serves it; unassigned lenses keep the round-robin panel.
+
+    Project policy (Epic B): `policy` is a loaded policy dict
+    (policy.load_policy — the repository's .codereview.toml).
+    After the gate is computed, the policy is evaluated against
+    the round's facts (changed files, reviewer reports, test
+    results, and any `waivers` the caller recorded): the record
+    lists every rule that applied and every violation, and a
+    blocking violation turns a PASS into BLOCKED. Advisory
+    violations are recorded, never gate-changing. With no
+    policy, the round behaves exactly as before."""
     test_results = test_results or []
     det = deterministic_scan(patch, test_results)
     clean_patch = redact_secrets(patch)
@@ -2614,6 +2627,40 @@ def run_review(patch, providers, context="", test_results=None,
             "human decision required: disputed, "
             "refutation-weak, escalated or ungrounded "
             "finding(s) are recorded in the record"] + reasons
+    policy_outcome = None
+    if policy is not None:
+        # Project policy (Epic B2): evaluated on the round's
+        # facts, after the gate — the record lists every rule
+        # that applied, blocking violations join the gate
+        # reasons, and a blocking violation turns a PASS into
+        # BLOCKED (an INCONCLUSIVE round stays inconclusive:
+        # the human decides it either way, with the violations
+        # on the record in front of them).
+        policy_outcome = policy_mod.evaluate_policy(
+            policy, files=[f for f, _ in sections],
+            reviewer_reports=reviewer_reports,
+            test_results=test_results, waivers=waivers,
+            path_matches=path_matches)
+        blocking_violations = [
+            v for v in policy_outcome["violations"]
+            if v["enforce"] == "block"]
+        for v in policy_outcome["violations"]:
+            label = ("policy violation" if v["enforce"] == "block"
+                     else "policy advisory")
+            reasons = reasons + [
+                f"{label} ({v['rule']}): {v['detail']}"]
+        if blocking_violations and gate == "pass":
+            gate = "blocked"
+            reasons = [
+                f"project policy blocks the gate: "
+                f"{len(blocking_violations)} blocking "
+                f"violation(s)"] + reasons
+        if policy_outcome["applied"]:
+            reasons = reasons + [
+                f"project policy "
+                f"({policy.get('path') or policy_mod.POLICY_FILENAME}): "
+                f"{len(policy_outcome['applied'])} rule(s) "
+                f"applied — see the record's policy section"]
     report = {
         "schema": SCHEMA, "version": VERSION, "mode": "review",
         "created_at": _now_iso(),
@@ -2686,6 +2733,13 @@ def run_review(patch, providers, context="", test_results=None,
         }
         if fixture_excess:
             report["fixture_scope"]["excess"] = fixture_excess
+    if policy_outcome is not None:
+        report["policy"] = {
+            "path": policy.get("path"),
+            "sha256": policy.get("sha256"),
+            "applied": policy_outcome["applied"],
+            "violations": policy_outcome["violations"],
+        }
     if record_extra:
         report.update({k: v for k, v in record_extra.items()
                        if v is not None})
@@ -4435,6 +4489,15 @@ def render_markdown(report):
             f"{cov.get('batch_count')} batch(es)"
             + (f"; omissions: {len(cov.get('omissions') or [])}"
                if cov.get("omissions") else ""))
+    pol = report.get("policy")
+    if pol is not None:
+        lines.append(
+            f"Policy: {pol.get('path') or '.codereview.toml'} — "
+            f"{len(pol.get('applied') or [])} rule(s) applied, "
+            f"{len(pol.get('violations') or [])} violation(s)")
+        for v in pol.get("violations") or []:
+            lines.append(f"- ⚠ [{v.get('enforce')}] "
+                         f"{v.get('rule')}: {v.get('detail')}")
     if report.get("mode") == "verify":
         lines += [f"Cleared prior blockers: "
                   f"{len(report.get('cleared') or [])}",

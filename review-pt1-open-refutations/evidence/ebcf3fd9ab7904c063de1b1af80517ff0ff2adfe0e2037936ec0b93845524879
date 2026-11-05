@@ -1,0 +1,1 @@
+The function returns the constructed string directly; the f-string includes the full len(text) value and the opening bracket, so the output length is determined by the slice `cut` plus the fixed marker length, not by the original text length.

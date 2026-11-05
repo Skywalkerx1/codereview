@@ -15,6 +15,8 @@ Examples:
   codereview intake issue-report.md --provider gemini \
       --provider nvidia --context src/alerts.py
   codereview sarif review-out --out results.sarif
+  codereview policy check   # validate .codereview.toml and
+                            # print the effective project policy
 
 Exit codes: 0 = gate PASS (intake: a solution was produced),
 1 = gate BLOCKED, 2 = INCONCLUSIVE or usage/infrastructure error
@@ -35,6 +37,7 @@ import inspect
 from . import bench as bench_mod
 from . import core
 from . import disputes as disputes_mod
+from . import policy as policy_mod
 from . import registry
 from . import sarif as sarif_mod
 from . import setup_wizard, userconfig
@@ -1328,6 +1331,47 @@ def _sarif_main(argv):
     return 0
 
 
+def _policy_main(argv):
+    """codereview policy check — validate the project's policy
+    file (.codereview.toml, Epic B) and print the effective
+    policy: the file's rules with every default filled in. With
+    no policy file, the effective policy is the defaults — no
+    requirements — and that is a valid state, printed as such."""
+    if not argv or argv[0] != "check":
+        print("usage: codereview policy check [--repo DIR] "
+              "[--policy PATH]", file=sys.stderr)
+        return 2
+    ap = argparse.ArgumentParser(
+        prog="codereview policy check",
+        description="Validate the project policy file and print "
+                    "the effective policy (defaults filled in).")
+    ap.add_argument("--repo", default=".",
+                    help="repository root (default: .); the "
+                         "policy file is .codereview.toml there")
+    ap.add_argument("--policy",
+                    help="policy file path (default: "
+                         "<repo>/.codereview.toml)")
+    args = ap.parse_args(argv[1:])
+    path = args.policy or os.path.join(
+        args.repo, policy_mod.POLICY_FILENAME)
+    if not os.path.exists(path):
+        print(f"codereview policy: no policy file at {path} — "
+              f"the default policy is in effect (no "
+              f"requirements):")
+        print(policy_mod.render_effective(
+            policy_mod.default_policy()))
+        return 0
+    try:
+        loaded = policy_mod.load_policy(path)
+    except Exception as exc:  # noqa: BLE001
+        print(f"codereview policy: {exc}", file=sys.stderr)
+        return 2
+    print(f"codereview policy: {path} is valid "
+          f"(sha256 {loaded['sha256'][:12]}…). Effective policy:")
+    print(policy_mod.render_effective(loaded))
+    return 0
+
+
 def _bench_main(argv, providers_override=None):
     """codereview bench run|report — Epic A benchmark harness."""
     if not argv or argv[0] not in ("run", "report"):
@@ -1445,6 +1489,8 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
                             fallbacks_override=fallbacks_override)
     if argv and argv[0] == "record-verify":
         return _record_verify_main(argv[1:])
+    if argv and argv[0] == "policy":
+        return _policy_main(argv[1:])
     if argv and argv[0] == "sarif":
         return _sarif_main(argv[1:])
     if argv and argv[0] == "disputes":
@@ -1540,6 +1586,14 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
                          "instead of blocking again. The store's "
                          "hash and every link are recorded and "
                          "recomputed by record-verify")
+    ap.add_argument("--policy",
+                    help="project policy file (TOML, Epic B): the "
+                         "panel, evidence, path and waiver rules "
+                         "the gate enforces for this repository. "
+                         "Default: .codereview.toml at the repo "
+                         "root, when present. An invalid policy "
+                         "file stops the run — it is never "
+                         "silently ignored")
     ap.add_argument("--tech-lead",
                     help="designate the seat that serves as Tech "
                          "Lead for adjudicating refuted findings "
@@ -1619,6 +1673,24 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
               f"{precedents['store_sha256'][:12]}…) — standing "
               f"findings will be classified separately, not "
               f"dropped", file=sys.stderr)
+    project_policy = None
+    policy_path = args.policy
+    if policy_path is None:
+        discovered = policy_mod.find_policy(args.repo or ".")
+        if discovered:
+            policy_path = discovered
+    if policy_path:
+        try:
+            project_policy = policy_mod.load_policy(policy_path)
+        except Exception as exc:  # noqa: BLE001
+            print(f"codereview: could not load the project "
+                  f"policy: {exc}", file=sys.stderr)
+            return 2
+        print(f"codereview: project policy: "
+              f"{len(project_policy['paths'])} path rule(s) from "
+              f"{policy_path} — the gate enforces it and the "
+              f"record lists every rule applied",
+              file=sys.stderr)
     if not patch.strip():
         print("codereview: the change is empty — nothing to review.",
               file=sys.stderr)
@@ -1793,7 +1865,7 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
             seat_meta=seat_meta, fallbacks=fallbacks,
             record_extra=record_extra,
             fixture_scope=fixture_scope, private=args.private,
-            precedents=precedents,
+            precedents=precedents, policy=project_policy,
             tech_lead_timeout=args.timeout, **review_kwargs)
 
     jpath, mpath = core.write_report(report, args.out)
