@@ -131,12 +131,17 @@ class UnparsedTests(unittest.TestCase):
 
     def test_unparsed_line_text_is_redacted(self):
         src = _tree({})
+        # The AWS documentation example key, built from
+        # fragments (the test_v090_fixes convention) so the
+        # literal never appears in this file; at runtime it is
+        # the full key string and redact_secrets must catch it.
+        key = "AKIA" + "IOSFODNN7EXAMPLE"
         section = claims.verify_report_claims(
-            "Ran `aws configure set key AKIAIOSFODNN7EXAMPLE` "
-            "afterwards.\n", src)
+            f"Ran `aws configure set key {key}` afterwards.\n",
+            src)
         (entry,) = section["claims"]
         self.assertEqual(entry["status"], "unparsed")
-        self.assertNotIn("AKIAIOSFODNN7EXAMPLE", entry["text"])
+        self.assertNotIn(key, entry["text"])
         self.assertIn("[REDACTED-AWS-KEY]", entry["text"])
 
     def test_entries_sorted_by_line_with_full_summary(self):
