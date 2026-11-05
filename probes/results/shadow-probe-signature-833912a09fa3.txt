@@ -1,0 +1,14 @@
+run 1 — shadow_adjudicate with the REAL harness probe_fn (make_probe_fn, the CLI default wiring):
+  probe_result: {'outcome': 'pass', 'exit_code': 0, 'duration_s': 0.033, 'output': 'PROBE_EXECUTED_MARKER\n', 'output_sha256': 'b37bd697756c59d2f23bf6ab4e607c1d2a3629f2c3e1290fe508f4276795c35c', 'sandbox': {'cwd': 'temp-copy', 'network': 'network-namespace', 'env': 'allowlist', 'timeout_s': 30}, 'spec': {'kind': 'python', 'claim': '', 'code': "print('PROBE_EXECUTED_MARKER')"}, 'can_rebut': True, 'can_support': False, 'detail': 'harness probe pass (exit 0, 0.0s); output sha256 b37bd697756c…; sandbox network=network-namespace', 'evidence_quote': 'PROBE_EXECUTED_MARKER'}
+  entry state: shadow_sustained_refutation; draws: 3
+  -> POST-FIX: shadow_adjudicate calls probe_fn(finding, json.dumps(spec)); the spec EXECUTED through the production wiring and its marker output is in the recorded probe_result (pre-fix this run recorded a swallowed TypeError as 'probe failed' and the spec never ran)
+
+contrast 1 — the same harness fn called with the documented probe_fn(finding, request) shape:
+  outcome: pass; output: 'PROBE_EXECUTED_MARKER'
+  -> the harness itself is fine; the binding Tech Lead path (same two-arg call) works
+
+contrast 2 — shadow path with the test suite's one-arg stub (tests/test_shadow_tl.py's test_probe_round_then_decision):
+  stub calls: 0; probe_result: {'status': 'wiring_error', 'outcome': 'error', 'detail': 'probe wiring error: stub_fn() takes 1 positional argument but 2 were given', 'can_rebut': False, 'can_support': False}
+  -> POST-FIX: the one-arg stub no longer satisfies the call — its TypeError is recorded as a distinct wiring_error (can_rebut False), never as probe evidence; the suite stub now implements the real two-arg contract (pre-fix this stub 'worked', which is why the suite stayed green over a dead channel)
+
+VERDICT FACTS (post-fix): the shadow probe round executes through the production wiring — run 1's spec ran and its marker is in the recorded probe_result; a miswired callable surfaces as status 'wiring_error' with can_rebut False instead of masquerading as a probe result. Pre-fix, every shadow needs_probe round fed draw 2 a swallowed TypeError as 'probe failed' evidence and the spec never ran (833912a09fa3, sustained; fixed in the shadow-fixes branch).
