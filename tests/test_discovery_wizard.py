@@ -139,12 +139,18 @@ class DiscoveryUnitTests(unittest.TestCase):
         self.assertEqual(discovery.seat_spec(entry), CLAUDE_SPEC)
 
     def test_unverified_cli_has_no_seat_spec(self):
+        # Epic K2's U6 matrix verified codex and gemini, so the
+        # real table no longer carries a command-less entry;
+        # seat_spec's refusal is pinned on a synthetic one.
+        entry = {"name": "futurecli", "command": None}
+        with self.assertRaises(ValueError):
+            discovery.seat_spec(entry)
         for name in ("codex", "gemini"):
-            entry = next(e for e in discovery.KNOWN_CLIS
-                         if e["name"] == name)
-            self.assertIsNone(entry["command"])
-            with self.assertRaises(ValueError):
-                discovery.seat_spec(entry)
+            verified = next(e for e in discovery.KNOWN_CLIS
+                            if e["name"] == name)
+            self.assertTrue(verified["command"])
+            self.assertTrue(discovery.seat_spec(
+                verified).startswith(f"agent:{name}:"))
 
     def test_family_for_seat_name(self):
         self.assertEqual(
@@ -271,7 +277,11 @@ class WizardDiscoveryTests(unittest.TestCase):
     def test_unofferable_cli_is_reported_without_a_prompt(self):
         with tempfile.TemporaryDirectory() as tmp:
             environ = self._env(tmp)
-            found = [_entry("codex", "/fake/bin/codex")]
+            # A command-less entry (the pre-K2 state of the
+            # table, fabricated here): reported as found, never
+            # offered as a pick.
+            found = [{**_entry("codex", "/fake/bin/codex"),
+                      "command": None}]
             # First answer must land on the PROVIDERS prompt:
             # if a pick prompt were asked, "deepseek" would be
             # consumed as an (invalid) pick token and the flow

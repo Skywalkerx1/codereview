@@ -1,5 +1,59 @@
 # Changelog
 
+## Unreleased — Epic K2 (seat-state supervision)
+
+Every seat in a run now carries a live state — pending →
+working → done / blocked:<class> / failed / timed-out, with
+blocked classes quota, auth, input, stalled — shown on the
+CLI's stderr as transitions happen and persisted per seat in
+the record (`seat_state`, plus `seat_state_primary` when a
+fallback attempt determined the outcome), alongside the
+existing error_detail machinery. A blocked seat degrades the
+panel exactly as a seat failure does today (fallback with the
+reason recorded, or degraded → INCONCLUSIVE); state itself
+never changes a verdict.
+
+- **Detection is ours, over subprocess signals** (new
+  `seatstate` module): exit codes, captured output, activity,
+  timeout. The per-CLI failure-pattern table is probe-grounded
+  (the K spec's U6 matrix): Codex auth patterns are taken from
+  a live logged-out capture of codex-cli 0.164.0-alpha.9, its
+  quota text from the vendor's own source; Claude's quota/auth
+  text from the official error reference; Gemini's quota text
+  from the official FAQ. Gemini auth text is UNVERIFIED in the
+  docs, so gemini ships no auth pattern; the `input` class is
+  wired but pattern-less for the same reason. Patterns scan
+  stderr while a seat runs and, after a non-zero exit, stderr
+  then stdout (Claude prints in-run failures as its result);
+  a successful run's stdout is never scanned.
+- **Supervised agent wait** (`providers.command_agent`): the
+  single communicate() wait is now a poll loop over the
+  capture files — a verified blocked pattern followed by a
+  grace period of total silence terminates a stuck seat early
+  as blocked; a seat killed by its timeout while silent past
+  the stall bound ends blocked:stalled, while still producing
+  output it ends timed-out. Stall episodes are live/recorded
+  liveness signals, never kills by themselves. All existing
+  ProviderError messages are unchanged; errors now also carry
+  `seat_facts` for the record.
+- **Discovery offers all three CLIs** (U6-verified forms):
+  Codex (`codex exec -s read-only --skip-git-repo-check -`;
+  form verified live + docs, end-to-end success not live-
+  verified — no login on the build VM) and Gemini CLI
+  (`gemini -p "…"`; docs-verified only), each entry carrying
+  its provenance in comments.
+- **Not done, deliberately:** herdr pane-state annotation —
+  seats are not herdr-hosted until K3a, so there is no pane
+  state to read; when hosting lands it will be recorded as an
+  advisory annotation only, never as the basis of a blocked
+  classification (this track's classifications are ours alone,
+  per the K2 spec).
+- Guard/test updates that ride along: the v14 subprocess
+  guard accepts the supervised seat wait as a Popen pairing
+  (it enforces the same timeout as a deadline + tree kill);
+  one scripted-wizard test pins PATH so host-installed CLIs
+  cannot add prompts to its script.
+
 ## Unreleased — 2026-11-05 (void solution: generation machinery, S1, S4)
 
 Implements the machinery of the adopted post-void solution

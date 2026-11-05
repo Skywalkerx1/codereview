@@ -49,6 +49,7 @@ import threading
 import time
 
 from . import policy as policy_mod
+from . import seatstate
 
 VERSION = "0.12.1"
 SCHEMA = "codereview.report/1"
@@ -3100,33 +3101,98 @@ def reviewer_report_entry(report):
         # or null-valued fields, must not be dropped for being
         # falsy.
         entry["error_detail"] = report["error_detail"]
+    if "seat_state" in report:
+        # Epic K2 seat-state supervision: the determining
+        # attempt's state summary (terminal state/class/evidence
+        # + the full transition trace), presence-copied like
+        # error_detail — the record shows HOW each seat ended
+        # (done / blocked:quota / timed-out / ...), not only
+        # that it errored.
+        entry["seat_state"] = report["seat_state"]
+    if "seat_state_primary" in report:
+        # The primary's summary, kept when a fallback attempt
+        # determined the outcome (seat_state above is then the
+        # fallback's).
+        entry["seat_state_primary"] = report["seat_state_primary"]
     return entry
 
 
-def _review_job(fn, prompt, sleep=None, max_attempts=None):
+def _terminal_from_error(exc):
+    """Terminal seat state for a failed job (Epic K2). A seat
+    that classified itself at the source — an agent seat's
+    ProviderError carries `seat_facts` from providers.
+    command_agent, which saw the subprocess signals — keeps its
+    own classification; otherwise the retry-policy error class
+    decides: quota and auth are blocked conditions (the seat
+    could not serve at all), everything else is a plain failure
+    with the error class named as the class."""
+    facts = getattr(exc, "seat_facts", None)
+    if facts:
+        return (facts.get("state") or "failed", facts.get("class"),
+                dict(facts.get("evidence") or {}))
+    kind, _tries = _classify_error(exc)
+    if kind in ("quota", "auth"):
+        return "blocked", kind, {"error_class": kind}
+    return "failed", kind, {"error_class": kind}
+
+
+def _review_job(fn, prompt, sleep=None, max_attempts=None,
+                seat=None, progress=None):
     """One reviewer call, never raising: returns a result dict the
     caller folds into a reviewer report. Carries the job's
     wall-clock duration and prompt size (chars) so a persisted
-    report can prove both (step-3 error persistence)."""
+    report can prove both (step-3 error persistence).
+
+    Seat-state supervision (Epic K2): the job owns a
+    SeatStateLog — pending -> working -> done / blocked:<class>
+    / failed / timed-out — installed as seatstate.CURRENT for
+    the call, so an agent seat's supervised wait can emit live
+    episodes (stalls) into the same trace; transitions are
+    forwarded to `progress` (when given) as {seat, state, class,
+    at_ms, ...} events, and the log's summary rides the result
+    as `seat_state` for the record. Live stream and record read
+    one object, so the record never claims less than what was
+    shown live."""
     tally = {}
     started = time.monotonic()
+    log = seatstate.SeatStateLog()
+    if progress is not None:
+        def _forward(tr, _seat=seat, _progress=progress):
+            event = dict(tr)
+            event["seat"] = _seat
+            try:
+                _progress(event)
+            except Exception:  # noqa: BLE001 — a broken progress
+                pass            # sink never breaks a review job
+        log.on_event = _forward
+    log.emit("pending")
+    token = seatstate.CURRENT.set(log)
     try:
-        parsed = _call_with_retry(fn, prompt, sleep=sleep,
-                                  tally=tally,
-                                  max_attempts=max_attempts)
+        log.emit("working")
+        try:
+            parsed = _call_with_retry(fn, prompt, sleep=sleep,
+                                      tally=tally,
+                                      max_attempts=max_attempts)
+        except Exception as exc:  # noqa: BLE001 — recorded below
+            state, cls, evidence = _terminal_from_error(exc)
+            log.emit(state, cls, evidence, terminal=True)
+            return {"ok": False, "parsed": None, "error": exc,
+                    "attempts": tally.get("attempts", 1),
+                    "error_classes": tally.get("error_classes", []),
+                    "duration_ms": int(
+                        (time.monotonic() - started) * 1000),
+                    "prompt_chars": len(prompt or ""),
+                    "seat_state": log.summary()}
+        log.emit("done", terminal=True)
         return {"ok": True, "parsed": parsed, "error": None,
                 "attempts": tally.get("attempts", 1),
                 "error_classes": tally.get("error_classes", []),
                 "duration_ms": int(
                     (time.monotonic() - started) * 1000),
-                "prompt_chars": len(prompt or "")}
-    except Exception as exc:  # noqa: BLE001 — recorded by caller
-        return {"ok": False, "parsed": None, "error": exc,
-                "attempts": tally.get("attempts", 1),
-                "error_classes": tally.get("error_classes", []),
-                "duration_ms": int(
-                    (time.monotonic() - started) * 1000),
-                "prompt_chars": len(prompt or "")}
+                "prompt_chars": len(prompt or ""),
+                "seat_state": log.summary()}
+    finally:
+        seatstate.CURRENT.reset(token)
 
 
 # Per-call ceiling for a Tech Lead adjudication call (seconds).
@@ -3372,7 +3438,7 @@ def run_review(patch, providers, context="", test_results=None,
                seat_lenses=None,
                policy=None, waivers=None, evidence=None,
                tech_lead_shadow=False, tech_lead_shadow_seat=None,
-               gate_profile=None, file_context=None):
+               gate_profile=None, file_context=None, progress=None):
     """One review round. `providers` maps name -> callable(prompt)->str.
 
     Returns the report dict. Never raises for provider failures; they
@@ -3498,7 +3564,19 @@ def run_review(patch, providers, context="", test_results=None,
     their sizes. Default None — the prompt is then
     byte-identical to the pre-D1 construction, which the
     bench and registered confirmation runs rely on: they
-    never pass it."""
+    never pass it.
+
+    Seat-state supervision (Epic K2): every reviewer job
+    carries a live state (pending -> working -> done /
+    blocked:<class> / failed / timed-out), persisted per
+    report as `seat_state` (plus `seat_state_primary` when a
+    fallback determined the outcome). `progress`, when given,
+    is called with each transition as it happens
+    ({seat, state, class, at_ms, ...}) — the CLI prints them;
+    the bench never passes it, so bench records carry the
+    persisted summaries with no live stream. A blocked seat
+    is an ordinary failed job here: it degrades the run and
+    can force INCONCLUSIVE exactly as any seat failure does."""
     test_results = test_results or []
     # Gate profile resolution (step 6): explicit argument >
     # policy file's [gate] profile > "strict" default. An
@@ -3634,7 +3712,8 @@ def run_review(patch, providers, context="", test_results=None,
     ungrounded = []
     with concurrent.futures.ThreadPoolExecutor(
             max_workers=max(2, min(6, len(jobs) or 1))) as ex:
-        futs = {ex.submit(_review_job, fn, prompt, sleep):
+        futs = {ex.submit(_review_job, fn, prompt, sleep,
+                          seat=name, progress=progress):
                 (name, lens, fn, prompt, bi, batch)
                 for name, lens, fn, prompt, bi, batch in jobs}
         for fut in concurrent.futures.as_completed(futs):
@@ -3654,6 +3733,8 @@ def run_review(patch, providers, context="", test_results=None,
             # below can carry the full string + HTTP status.
             primary_exc = res["error"]
             primary_classes = list(res["error_classes"])
+            primary_state = res.get("seat_state")
+            fb = None
             fb_exc = None
             if not res["ok"] and fallbacks and lens in fallbacks:
                 fb_name, fb_fn = fallbacks[lens]
@@ -3680,7 +3761,9 @@ def run_review(patch, providers, context="", test_results=None,
                             f"exhausted")[:300]
                     else:
                         fb = _review_job(fb_fn, prompt, sleep,
-                                         max_attempts=remaining)
+                                         max_attempts=remaining,
+                                         seat=fb_name,
+                                         progress=progress)
                         fb_exc = fb["error"]
                         rec["duration_ms"] = (
                             (res.get("duration_ms") or 0)
@@ -3783,6 +3866,20 @@ def run_review(patch, providers, context="", test_results=None,
                         f"{name!r}: bound seat "
                         f"{job_fallback_for[(name, lens, bi)]!r} "
                         f"is not in the panel")
+            # Epic K2: the record's seat_state is the summary of
+            # the attempt that determined the outcome — the
+            # fallback's when a fallback ran (served or not),
+            # the primary's otherwise. When a fallback ran, the
+            # primary's own ending (often the blocked state that
+            # caused the substitution) stays visible alongside
+            # as seat_state_primary.
+            if fb is not None:
+                if fb.get("seat_state") is not None:
+                    rec["seat_state"] = fb["seat_state"]
+                if primary_state is not None:
+                    rec["seat_state_primary"] = primary_state
+            elif primary_state is not None:
+                rec["seat_state"] = primary_state
             reviewer_reports.append(rec)
     if not jobs:
         degraded = True
@@ -4818,7 +4915,7 @@ def run_verification(patch, providers, previous_report, builder_response,
                      test_results=None, max_patch_chars=80000,
                      allow_major=False, strict=False, seat_meta=None,
                      fallbacks=None, sleep=None, record_extra=None,
-                     private=False):
+                     private=False, progress=None):
     """Verification round: a prior blocker clears only when every
     successful reviewer marks it fixed/invalid AND the seat that
     raised it is among them (deterministic findings clear when the
@@ -4907,7 +5004,9 @@ def run_verification(patch, providers, previous_report, builder_response,
     # per seat by _combine_resolution. The fallback contract is
     # per job, exactly as it was per round before batching.
     def _verify_job(name, fn, prompt):
-        res = _review_job(fn, prompt, sleep)
+        res = _review_job(fn, prompt, sleep, seat=name,
+                          progress=progress)
+        primary_state = res.get("seat_state")
         out = {"slot": name, "ok": False, "parsed": None,
                "serving_name": name, "serving_fn": fn,
                "attempts": res["attempts"],
@@ -4941,7 +5040,8 @@ def run_verification(patch, providers, previous_report, builder_response,
                         f"attempt budget exhausted")[:300]
                 else:
                     fb = _review_job(fb_fn, prompt, sleep,
-                                     max_attempts=remaining)
+                                     max_attempts=remaining,
+                                     seat=fb_name, progress=progress)
                     out["attempts"] = (res["attempts"]
                                        + fb["attempts"])
                 if fb is not None and fb["ok"]:
@@ -4964,6 +5064,20 @@ def run_verification(patch, providers, previous_report, builder_response,
                         f"| fallback "
                         f"{fb_name!r} also failed: "
                         f"{_stored_error(fb['error'], 110)}")[:300]
+                    if fb.get("seat_state") is not None:
+                        # The fallback's attempt determined the
+                        # outcome even in failure (as run_review).
+                        out["seat_state"] = fb["seat_state"]
+        # Epic K2: the determining attempt's seat-state summary
+        # rides the job outcome into the record's job marks;
+        # the primary's summary is kept alongside whenever a
+        # fallback attempt determined the outcome.
+        if "seat_state" not in out \
+                and res.get("seat_state") is not None:
+            out["seat_state"] = res["seat_state"]
+        if primary_state is not None \
+                and out.get("seat_state") is not primary_state:
+            out["seat_state_primary"] = primary_state
         if res["ok"]:
             out["ok"] = True
             out["parsed"] = res["parsed"]
@@ -5020,7 +5134,8 @@ def run_verification(patch, providers, previous_report, builder_response,
                 "batch": oc["diff_idx"] + 1,
                 "prior_part": oc["prior_idx"] + 1,
                 "provider": oc["serving_name"],
-                "status": "ok" if oc["ok"] else "error"})
+                "status": "ok" if oc["ok"] else "error",
+                "seat_state": oc.get("seat_state")})
             if not oc["ok"]:
                 degraded = True
                 if not rec["error"]:
