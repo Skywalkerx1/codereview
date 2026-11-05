@@ -1295,11 +1295,16 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
         if not specs and _stdin_is_tty():
             # First open in a terminal: run the setup wizard,
             # then use what the user just saved as their setup.
-            _run_setup_wizard()
+            # An aborted wizard (EOF / Ctrl-C) is a clean stop,
+            # never a traceback: fall through to not-set-up.
             try:
+                _run_setup_wizard()
                 specs = userconfig.default_provider_specs()
-            except ValueError as exc:
-                print(f"codereview: {exc}", file=sys.stderr)
+            except (ValueError, EOFError,
+                    KeyboardInterrupt) as exc:
+                print(f"codereview: setup did not complete "
+                      f"({exc}); nothing was run.",
+                      file=sys.stderr)
                 return 2
         if not specs:
             print(userconfig.NOT_SET_UP, file=sys.stderr)

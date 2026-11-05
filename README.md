@@ -160,7 +160,7 @@ Keys come from environment variables only — bring your own key for every provi
 
 ### Pick the model for each role
 
-Reviewing isn't one job, and one model doesn't have to do all of it. `--role <role>=<provider-spec>` assigns a provider/model per role; the role's seat joins the panel, and the assignment (seat, provider, model, vendor family) is written into the run record. Roles: `correctness` and `operations` (the two review lenses — the assigned seat serves that lens), `verifier` (the verification-round panel), `tech-lead` (the dispute adjudicator), and `solver` (intake mode's plan writer, via `codereview intake --role solver=...`). With no `--role`, behaviour is exactly as before.
+Reviewing isn't one job, and one model doesn't have to do all of it. `--role <role>=<provider-spec>` assigns a provider/model per role; the role's seat joins the panel, and the assignment (seat, provider, model, vendor family) is written into the run record. Roles: `correctness` and `operations` (the two review lenses — the assigned seat serves that lens), `verifier` (the verification-round panel), `tech-lead` (the dispute adjudicator), and `solver` (intake mode's plan writer, via `codereview intake --role solver=...`). Roles you assign in `codereview setup` are your standing defaults; `--role` on a run overrides them per role for that run.
 
 ```bash
 # Strong models on the lenses, a cheap high-volume model as Tech Lead:

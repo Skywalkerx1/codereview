@@ -94,7 +94,7 @@ class WizardTests(unittest.TestCase):
             cfg_path = os.path.join(tmp, "config.toml")
             environ = fresh_env(
                 tmp, CODEREVIEW_CONFIG=cfg_path,
-                DEEPSEEK_API_KEY="sk-sentinel-never-stored")
+                DEEPSEEK_API_KEY="sentinel-value-never-stored")
             result, _printed = self._run(
                 ["deepseek, moonshot",  # providers
                  "",                     # correctness <- deepseek
@@ -114,7 +114,7 @@ class WizardTests(unittest.TestCase):
             with open(cfg_path, encoding="utf-8") as fh:
                 text = fh.read()
             # The key VALUE is never written — only specs.
-            self.assertNotIn("sk-sentinel-never-stored", text)
+            self.assertNotIn("sentinel-value-never-stored", text)
             self.assertIn("deepseek", text)
             with mock.patch.dict(os.environ, environ, clear=True):
                 self.assertEqual(
@@ -203,6 +203,27 @@ class RunResolutionTests(unittest.TestCase):
                 "echo",
                 {r["provider"]
                  for r in record["reviewer_reports"]})
+
+    def test_aborted_first_run_wizard_exits_cleanly(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            patch = self._patch_file(tmp)
+            err = io.StringIO()
+
+            def aborting_wizard():
+                raise EOFError
+
+            with mock.patch.dict(os.environ, fresh_env(tmp),
+                                 clear=True), \
+                    mock.patch.object(cli, "_stdin_is_tty",
+                                      lambda: True), \
+                    mock.patch.object(cli, "_run_setup_wizard",
+                                      aborting_wizard), \
+                    redirect_stderr(err):
+                rc = cli.main(["--patch", patch, "--out",
+                               os.path.join(tmp, "out")])
+            self.assertEqual(rc, 2)
+            self.assertIn("setup did not complete",
+                          err.getvalue())
 
     def test_saved_setup_supplies_providers_and_roles(self):
         with tempfile.TemporaryDirectory() as tmp:
