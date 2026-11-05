@@ -76,6 +76,24 @@ Schema (every key optional; defaults in parentheses):
   max_age_days = 0         # >0: a waiver older than this (or with
                            # no usable date) is expired
 
+  [hooks]                  # Epic L3 lifecycle hooks: shell
+  pre_run = ""             # commands fired around the run —
+                           # pre_run before any seat call,
+  post_verdict = ""        # post_verdict after the record is
+                           # written, and
+  on_blocked = ""          # on_blocked (also after the record
+                           # is written) when the run's first
+                           # seat ended in a K2 blocked class.
+  timeout = 600            # per-hook wall-clock bound, seconds
+                           # Hooks run through the Epic C
+                           # evidence sandbox and are pure
+                           # notification: their results land in
+                           # the record's `hooks` section and
+                           # they can NEVER change a verdict, a
+                           # finding, or any gate input (see
+                           # hooks.py). An empty/absent command
+                           # means the event does not fire.
+
 With no policy file, the effective policy is the defaults
 above: no requirements at all. CodeReview ships no imposed
 project policy, exactly as it ships no default panel.
@@ -112,7 +130,10 @@ _PATH_KEYS = ("match", "require_full_panel", "require_tests",
               "require_tests_pass", "min_seats", "min_families",
               "enforce")
 _WAIVER_KEYS = ("allow", "require_reason", "max_age_days")
-_TABLES = ("panel", "evidence", "gate", "paths", "waivers")
+_HOOK_KEYS = ("pre_run", "post_verdict", "on_blocked", "timeout")
+_HOOK_COMMAND_KEYS = ("pre_run", "post_verdict", "on_blocked")
+_TABLES = ("panel", "evidence", "gate", "paths", "waivers",
+           "hooks")
 
 
 class PolicyError(ValueError):
@@ -135,6 +156,8 @@ def default_policy():
         "paths": [],
         "waivers": {"allow": True, "require_reason": False,
                     "max_age_days": 0},
+        "hooks": {"pre_run": None, "post_verdict": None,
+                  "on_blocked": None, "timeout": None},
     }
 
 
@@ -356,6 +379,28 @@ def load_policy(path):
         policy["waivers"]["max_age_days"] = _check_int(
             waivers["max_age_days"], path, lines, "waivers",
             "max_age_days")
+
+    hooks = data.get("hooks") or {}
+    _check_keys(hooks, _HOOK_KEYS, path, lines, "hooks")
+    for key in _HOOK_COMMAND_KEYS:
+        if key in hooks:
+            value = hooks[key]
+            if not isinstance(value, str) or not value.strip():
+                _fail(path, lines,
+                      f"[hooks] {key} must be a non-empty "
+                      f"command string, got {value!r}",
+                      "hooks", key)
+            policy["hooks"][key] = value
+    if "timeout" in hooks:
+        value = hooks["timeout"]
+        if isinstance(value, bool) \
+                or not isinstance(value, (int, float)) \
+                or value <= 0:
+            _fail(path, lines,
+                  f"[hooks] timeout must be a positive number "
+                  f"of seconds, got {value!r}", "hooks",
+                  "timeout")
+        policy["hooks"]["timeout"] = value
     return policy
 
 
@@ -405,6 +450,20 @@ def render_effective(policy):
         f"require_reason = {_b(waivers['require_reason'])}",
         f"max_age_days = {waivers['max_age_days']}",
     ]
+    hooks = policy.get("hooks") or {}
+    hook_lines = []
+    for key in _HOOK_COMMAND_KEYS:
+        if hooks.get(key):
+            escaped = str(hooks[key]).replace("\\", "\\\\") \
+                .replace('"', '\\"')
+            hook_lines.append(f'{key} = "{escaped}"')
+    if hooks.get("timeout") is not None:
+        hook_lines.append(f"timeout = {hooks['timeout']}")
+    if hook_lines:
+        # Rendered only when a hook is actually configured, so
+        # a hookless policy renders exactly as it did before
+        # Epic L3.
+        lines += ["", "[hooks]"] + hook_lines
     return "\n".join(lines)
 
 

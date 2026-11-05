@@ -1,5 +1,47 @@
 # Changelog
 
+## Unreleased — Epic L3 (lifecycle hooks)
+
+A project can now declare shell commands in the `[hooks]`
+table of its `.codereview.toml` that fire around a review
+run: `pre_run` before any seat call, `on_blocked` when the
+run's first seat ended in a K2 blocked class (quota / auth /
+input / stalled), and `post_verdict` on every run — the two
+post-record events after the record is written, so they are
+handed its path (as `$CODEREVIEW_HOOK_RECORD`, and as `$2`;
+the event name is `$CODEREVIEW_HOOK_EVENT` / `$1`).
+
+- **One-way enforcement:** hooks are notification, never a
+  gate input. Each hook's outcome — status, exit code,
+  duration, output sha256 + redacted tail — is captured into
+  the record's `hooks` section; a hook that fails, times
+  out, or names a missing command is recorded and the run
+  continues, its verdict exactly what it would have been
+  without the hook (test-compared).
+- **Sandboxed, C5 verbatim:** hooks execute through the
+  Epic C evidence runner (`codereview.hooks` builds a
+  single-command evidence config — no second executor):
+  throwaway copy of the tree as cwd, allow-listed
+  environment (no provider keys), no network by default,
+  per-hook timeout (the `[hooks] timeout` key, defaulting
+  to the evidence bound) with process-group kill.
+- **Schema:** `[hooks]` is validated by the policy loader
+  with line-referenced errors like every other table
+  (unknown keys, empty/non-string commands, non-positive
+  timeouts are loud errors). `codereview policy check`
+  renders the table when — and only when — a hook is
+  configured.
+- **Equivalence:** with no `[hooks]` commands, a run is
+  unchanged in every particular — no `hooks` key in the
+  record, identical prompts and verdicts; the registered
+  bench sets are untouched.
+- **Verification:** 25 new tests (`tests/test_hooks.py`),
+  none passing on pre-L3 master — schema errors, sandbox
+  delivery (event/record/env), the C5 environment marker,
+  exactly-once + ordering through the real CLI with stub
+  seats, the fallback-primary trigger, and verdict identity
+  across absent vs failing hooks.
+
 ## Unreleased — Epic L2 (MCP server for the gate)
 
 The gate is now callable from inside another agent's loop:

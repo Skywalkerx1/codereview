@@ -41,6 +41,7 @@ from . import bench as bench_mod
 from . import core
 from . import disputes as disputes_mod
 from . import herdrhost
+from . import hooks as hooks_mod
 from . import policy as policy_mod
 from . import evidence as evidence_mod
 from . import registry
@@ -2080,6 +2081,23 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
               f"{policy_path} — the gate enforces it and the "
               f"record lists every rule applied",
               file=sys.stderr)
+    # Epic L3: lifecycle hooks from the policy's [hooks] table.
+    # The runner is created here (no side effects) and fired at
+    # the lifecycle points below; with no [hooks] commands it
+    # stays None and the run is exactly as before. Hooks run
+    # sandboxed (Epic C) and can never change the verdict.
+    hook_runner = None
+    if project_policy is not None:
+        _hooks_config = hooks_mod.hooks_from_policy(
+            project_policy)
+        if _hooks_config is not None:
+            hook_runner = hooks_mod.HookRunner(
+                _hooks_config, args.repo or ".")
+            print(f"codereview: lifecycle hooks: "
+                  f"{', '.join(hook_runner.configured_events())} "
+                  f"configured in {policy_path} — sandboxed, "
+                  f"recorded in the record's hooks section, "
+                  f"never gate-changing", file=sys.stderr)
     if not patch.strip():
         print("codereview: the change is empty — nothing to review.",
               file=sys.stderr)
@@ -2370,6 +2388,12 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
                      if agents_context["truncated"] else ""),
                   file=sys.stderr)
 
+    if hook_runner is not None:
+        # Epic L3 pre-run: every setup step has succeeded and
+        # the run is committed — the next thing that happens is
+        # the round's first seat call.
+        hook_runner.fire("pre-run")
+
     if args.verify_previous:
         try:
             with open(args.verify_previous, encoding="utf-8") as fh:
@@ -2402,7 +2426,31 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
             agents_context=agents_context,
             tech_lead_timeout=args.timeout, **review_kwargs)
 
+    if hook_runner is not None:
+        # Epic L3: the blocked trigger is a fact of the finished
+        # round; the record is written WITH the hooks section
+        # (configured events, trigger, pre-run result) so the
+        # post-record hooks are handed a file that already
+        # carries all of it.
+        hook_runner.blocked_trigger = \
+            hooks_mod.first_blocked_trigger(
+                report.get("reviewer_reports"))
+        report["hooks"] = hook_runner.section()
     jpath, mpath = core.write_report(report, args.out)
+    if hook_runner is not None:
+        # The record now exists: on-blocked (only when a seat
+        # blocked) and post-verdict fire with its path. Their
+        # results are appended to the hooks section and the
+        # record is rewritten once at the same path, so the
+        # file the hooks received is the file carrying the
+        # complete hooks ledger.
+        if hook_runner.blocked_trigger is not None:
+            hook_runner.fire("on-blocked", record_path=jpath)
+        hook_runner.fire("post-verdict", record_path=jpath)
+        report["hooks"] = hook_runner.section()
+        jpath, mpath = core.write_report(
+            report, args.out,
+            stem=os.path.basename(jpath)[:-len(".json")])
     if args.attempts_log:
         try:
             entry = {
