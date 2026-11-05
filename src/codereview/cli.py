@@ -1793,6 +1793,20 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
     ap.add_argument("--strict", action="store_true",
                     help="degraded or truncated reviews are INCONCLUSIVE "
                          "instead of passing")
+    ap.add_argument("--gate-profile",
+                    choices=("strict", "balanced"), default=None,
+                    help="gate profile: 'strict' (the default — "
+                         "every blocking-severity finding blocks) "
+                         "or 'balanced' (policy B1: a blocking "
+                         "finding raised solely by the operations "
+                         "lens, with no correctness-lens or "
+                         "deterministic corroboration in the "
+                         "merged finding, is demoted to a visible "
+                         "minor). Overrides the policy file's "
+                         "[gate] profile; the policy file "
+                         "overrides the default. The default "
+                         "stays 'strict' until Baseline v2 "
+                         "confirms B1 on the holdout (step 7)")
     ap.add_argument("--max-patch-chars", type=int, default=80000,
                     help="per-batch diff budget (default 80000)")
     ap.add_argument("--verify-previous",
@@ -2176,6 +2190,7 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
             record_extra=record_extra,
             fixture_scope=fixture_scope, private=args.private,
             precedents=precedents, policy=project_policy,
+            gate_profile=args.gate_profile,
             tech_lead_timeout=args.timeout, **review_kwargs)
 
     jpath, mpath = core.write_report(report, args.out)
