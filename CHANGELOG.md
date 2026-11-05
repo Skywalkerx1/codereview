@@ -1,5 +1,54 @@
 # Changelog
 
+## Unreleased — Epic E2 + E4 (tiered panels + escalation)
+
+E1's risk band now sizes the panel that reviews a change,
+and the smaller tiers carry a safety valve: escalation to
+the full panel within the same run. Both are driven by the
+[risk] table of .codereview.toml (`tiering = true`, which
+requires `enabled = true` — policy load rejects the
+combination otherwise, in the B1 style) and recorded in
+the run record's new `tiering` section
+(`codereview.tiering/1`). Unconfigured, a run is
+byte-identical to before this epic.
+
+- **Tiering (E2).** Band "low" runs a designated
+  pre-screen seat (or seats) only (`prescreen_seats`;
+  default: the composed panel's first seat); "medium"
+  runs a reduced panel (`medium_seats`; default: the
+  first tasked seat per lens); "high" runs the full
+  panel and requires evidence — a supplied evidence
+  record is judged by the Epic C rule exactly as today,
+  and a missing one blocks the gate under C3's
+  missing-required-evidence consequence. Under an
+  explicit seat->lens binding the tier is a subset of the
+  bound tasks — a seat serves exactly its bound lens(es),
+  never a re-mapping (S1); under the legacy assignment
+  the tier's seats form a smaller panel tasked by the
+  ordinary derivation rule. A configured seat that is not
+  on the panel is recorded as missing, never silently
+  dropped; if a tier would be left with no serving seat,
+  the run falls back to the full panel with the reason
+  recorded.
+- **Escalation (E4).** The reduced tiers execute as
+  stage 1; if stage 1 returns a blocking finding (the
+  gate's own blocking severity set), a reviewer failure,
+  or leaves a lens the full panel tasks unserved, the
+  rest of the panel executes as stage 2 in the same run
+  and the verdict is computed on the full evidence by the
+  normal rules. Escalation never removes a stage-1
+  report or finding. Every trigger that fired is
+  recorded in the `tiering` section and summarised in
+  the gate reasons.
+- **Cost.** On the public bench split (27 cases, a
+  synthetic all-pass 4-seat panel, default thresholds:
+  26 cases band low, 1 medium, 0 high) tiering spends 54
+  seat calls against the untiered panel's 108 — a 50%
+  drop. High-band recall is unchanged by construction:
+  the high tier's stage is the identical full task list
+  and prompts as an untiered run (fixture-pinned), plus
+  the evidence requirement.
+
 ## Unreleased — Epic C5 (sandbox safety audit)
 
 Ticket C5's machinery largely shipped with the Epic C runner;
