@@ -1,0 +1,18 @@
+id = "superstartelecom.codereview"
+name = "CodeReview"
+version = "0.1.0"
+min_herdr_version = "0.9.0"
+description = "Run the CodeReview multi-model review gate on the current workspace and print the verdict + record path. Thin launcher: the engine is the installed `codereview` CLI (pip install codereview-ai)."
+platforms = ["linux", "macos", "windows"]
+
+[[actions]]
+id = "review-workspace"
+title = "CodeReview: review current workspace"
+contexts = ["workspace"]
+command = ["python3", "codereview_launch.py"]
+
+[[panes]]
+id = "review"
+title = "CodeReview review"
+placement = "overlay"
+command = ["python3", "codereview_launch.py", "--pane"]

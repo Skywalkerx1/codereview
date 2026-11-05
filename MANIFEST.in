@@ -1,0 +1,6 @@
+# Packaging artefacts (Epic K3b): the herdr plugin and the
+# agent skill ship in the sdist alongside the engine, so the
+# documented `herdr plugin link` route works from an unpacked
+# sdist as well as from a clone.
+graft herdr-plugin-codereview
+graft skills

@@ -1,5 +1,60 @@
 # Changelog
 
+## Unreleased — Epic K3b (herdr ecosystem artefact)
+
+Presence in herdr's ecosystem, with the engine staying in
+the pip package: a herdr plugin artefact and an agent skill,
+both shipped in this repo (and, via a new `MANIFEST.in`, in
+the sdist — verified: a test sdist build carries both).
+
+- **Herdr plugin** (`herdr-plugin-codereview/`):
+  `herdr-plugin.toml` (`superstartelecom.codereview`,
+  `min_herdr_version` 0.9.0 — the floor K3a verified)
+  declares one workspace action, "CodeReview: review current
+  workspace", and one overlay pane entrypoint. Both run the
+  launcher, `codereview_launch.py` (Python, stdlib only): it
+  locates `codereview` on PATH — if absent it prints the
+  `pip install codereview-ai` hint and exits non-zero
+  *before doing anything else*, so that failure has no side
+  effects — resolves the workspace from herdr's invocation
+  context (`workspace_cwd`), reads an optional
+  `policy`/`out` config from the plugin config dir, runs the
+  gate in the workspace streaming its output, and exits with
+  the gate's own exit code. The launcher stores no
+  credentials, makes no network calls, and writes nothing
+  itself (imports and read-only file opens are pinned by
+  AST tests); the only files a run creates are CodeReview's
+  own records in the reviewed workspace.
+- **Agent skill** (`skills/codereview/SKILL.md`, standard
+  Agent Skills format): teaches an agent to run the gate,
+  read the JSON record as the source of truth, and report
+  PASS / BLOCKED / INCONCLUSIVE honestly — a BLOCKED is
+  never softened, an INCONCLUSIVE is never upgraded, and no
+  verdict may be claimed that the record doesn't carry.
+- **Verified here:** the launcher against a stub
+  `codereview` honouring the real CLI's printed contract
+  (verdict/record lines, exit codes 0/1/2, config
+  pass-through, no-side-effect failure); the plugin's
+  action contract against a stub `herdr` invoking the
+  manifest argv the way herdr does (cwd = plugin dir,
+  `HERDR_PLUGIN_*` env); and an end-to-end smoke of the
+  launcher driving the real CLI (two scripted agent seats)
+  to a real PASS record on a scratch repo. 20 new tests,
+  all failing on pre-K3b master.
+- **UNVERIFIED — plugin link.** Real herdr is not installed
+  on the build machine (no Rust toolchain), so
+  `herdr plugin link` on a clean profile and the action's
+  appearance in `herdr plugin action list` on a real herdr
+  have NOT been run; the stub-herdr contract test above is
+  the closest honest exercise. The marketplace listing
+  remains GitHub-gated and out of scope.
+- **UNVERIFIED — skill dogfood.** The only agent CLI on
+  this machine (codex) is not logged in, and no other agent
+  CLI is installed, so no fresh agent session has yet been
+  driven through the SKILL.md; no transcript is claimed.
+  The skill's procedure is the exact command sequence the
+  end-to-end smoke above executed by hand.
+
 ## Unreleased — Epic K3a (herdr pane hosting)
 
 Agent seats named in the saved config's `[hosting]` table
