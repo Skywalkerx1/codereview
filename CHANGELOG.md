@@ -69,6 +69,33 @@ confirmation scorer.
   per-case budget (per-seat case deadlines in
   `bench/generation.py`).
 
+## Unreleased — 2026-11-05 (Epic K1: setup CLI discovery)
+
+First-run setup now looks at the machine before asking for
+provider specs (`src/codereview/discovery.py` + the wizard's
+discovery step). It scans PATH for the agent CLIs the product
+already knows how to seat — Claude Code, Codex, Gemini CLI —
+reports each found binary with its resolved path and a cheap
+`--version` probe outcome (failures are printed as failures,
+never smoothed over), and offers the ones carrying a verified
+non-interactive invocation as panel seats: "they review using
+your existing CLI logins, no API key needed." Today exactly one
+invocation is verified in-tree — Claude Code's, the shipped
+example wrapper's `claude -p --tools "" ...` — so Codex and
+Gemini CLI are reported as found but not pre-filled, until a
+probe-verified template enters the table (spec U6). A confirmed
+pick saves an ordinary `agent:<name>:<command>` spec through
+the existing save path; declining everything leaves the flow
+and the saved config byte-identical to before. When discovery
+contributes seats, a family-diversity check warns in plain
+words if the confirmed panel covers a single vendor family
+and offers one API spec as the second family (never blocks
+saving). Non-interactive runs are untouched: no setup still
+stops with setup instructions. Tests:
+`tests/test_discovery_wizard.py` (22; fake PATHs/stub
+executables throughout, plus a hermetic end-to-end where a
+discovered stub seat serves a real review).
+
 ## Unreleased — 2026-11-05 (step-3 error persistence)
 
 Implements step-3 recommendation 3 of the void forensics
