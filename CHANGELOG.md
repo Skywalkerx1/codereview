@@ -1,5 +1,27 @@
 # Changelog
 
+## Unreleased — 2026-11-05 (registration verifier: Addendum A append)
+
+Addendum A to the 2026-11-05 pre-registration was appended to the
+registration's §3 on 2026-11-05 (signed the same day by the owner
+and one independent reviewer; its item-2 disclosure completed and
+its item-4 wording aligned to the merged empty-content
+classification; addendum body hash
+`d83c93977d66769c614f6510159c0713f3b2addf8ba3c7854a7d6b5bdeea528d`,
+recorded in §3). The append changed the registration's body hash,
+so `bench/scripts/verify_registration.py` now treats the
+Baseline-v2-§6 post-fill body state the way it already treated the
+A5 set hash:
+
+- The post-fill body hash (`9e38217e...`) is reported SUPERSEDED,
+  and only when the body recomputes to the new state; the
+  post-append body hash (`5d9bea16...`) is the current
+  expectation, verified by strict equality. No check was removed
+  or weakened: exit 0 still requires the registration body to hash
+  to exactly the one authorised current value, and any other body
+  state — including the superseded one — fails. Attempts consumed
+  under the registration remain 0; no run was started.
+
 ## Unreleased — Epic C5 (sandbox safety audit)
 
 Ticket C5's machinery largely shipped with the Epic C runner;

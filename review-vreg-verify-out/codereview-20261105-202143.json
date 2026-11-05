@@ -1,0 +1,208 @@
+{
+  "schema": "codereview.report/1",
+  "version": "0.12.1",
+  "mode": "verify",
+  "created_at": "2026-11-05T20:21:42+00:00",
+  "patch_sha256": "9091def503d6bcfeae088a27c257d41a3510d1c61aeb48f5553750652f18e1c1",
+  "previous_gate": "blocked",
+  "private": false,
+  "test_results": [],
+  "cleared": [
+    {
+      "id": "c531bd57f5aa",
+      "rule": "",
+      "severity": "major",
+      "category": "correctness",
+      "file": "bench/scripts/verify_registration.py",
+      "line": 210,
+      "title": "Logic inversion in superseded/FAIL determination for body hash check 6",
+      "evidence": "rows.append((\"pre-registration body hash (post-fill state, \"\n                     \"Baseline v2 §6)\",\n                     REGISTRATION_BODY_SHA256_SUPERSEDED,\n                     \"superseded by the §3 Addendum A append \"\n                     \"(2026-11-05)\",\n                     \"SUPERSEDED\"\n                     if body_hash == REGISTRATION_BODY_SHA256_CURRENT\n                     else \"FAIL\"))",
+      "evidence_quote": "SUPERSEDED if body_hash == REGISTRATION_BODY_SHA256_CURRENT else \"FAIL\"",
+      "recommendation": "Invert the condition: report FAIL when body_hash equals the current post-append hash, and SUPERSEDED otherwise. The post-fill state should be SUPERSEDED only when the body has NOT recomputed to the current post-append state.",
+      "confidence": 0.95,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false,
+      "source_lenses": {
+        "nvidia": [
+          "operations"
+        ]
+      },
+      "grounding": "unresolved",
+      "reground_note": "no seat could re-ground this finding (tried: nvidia, gemini, openai): re-ground call failed: openai quota: HTTP 429",
+      "evidence_class": "E3",
+      "cross_family": "unavailable",
+      "evidence_ref": {
+        "sha256": "4ef0700042d039325b1733a881e729ca09ec7a07fe3d1e7dbc5b983328e26f5d",
+        "length": 397,
+        "truncated": false
+      },
+      "evidence_quote_ref": {
+        "sha256": "4dadd64bcd3bfd335a99002229a6c0d9d24480bd0dcba7e4b84ed676ecf88b4a",
+        "length": 71,
+        "truncated": false
+      },
+      "cleared_by": [
+        "invalid"
+      ]
+    }
+  ],
+  "remaining": [],
+  "unjudged": [],
+  "reviewer_reports": [
+    {
+      "provider": "gemini",
+      "status": "error",
+      "error": "ProviderError (HTTP 429): gemini quota: HTTP 429 | fallback 'openai' also failed: ProviderError (HTTP 429): openai quota: HTTP 429",
+      "resolutions": {},
+      "attempts": 2,
+      "error_classes": [
+        "quota"
+      ],
+      "jobs": [
+        {
+          "batch": 1,
+          "prior_part": 1,
+          "provider": "gemini",
+          "status": "error",
+          "seat_state": {
+            "state": "blocked",
+            "class": "quota",
+            "evidence": {
+              "error_class": "quota"
+            },
+            "transitions": [
+              {
+                "state": "pending",
+                "class": null,
+                "at_ms": 0
+              },
+              {
+                "state": "working",
+                "class": null,
+                "at_ms": 0
+              },
+              {
+                "state": "blocked",
+                "class": "quota",
+                "at_ms": 777,
+                "evidence": {
+                  "error_class": "quota"
+                },
+                "terminal": true
+              }
+            ]
+          }
+        }
+      ],
+      "family": "google",
+      "tier": "free"
+    },
+    {
+      "provider": "nvidia",
+      "status": "ok",
+      "error": "",
+      "resolutions": {
+        "c531bd57f5aa": {
+          "status": "invalid",
+          "evidence": "The builder's rebuttal demonstrates the condition is correct: SUPERSEDED is reported when body_hash == REGISTRATION_BODY_SHA256_CURRENT (the post-append current state), and FAIL otherwise. The truth table confirms exit 0 is reachable only for the authorised post-append state, and tampered bodies sti",
+          "evidence_ref": {
+            "sha256": "93cfc9f5b20c2df1db5fbd0b30e16c9c45465f424db1a30c046d669bac144972",
+            "length": 404,
+            "truncated": true
+          }
+        }
+      },
+      "attempts": 1,
+      "error_classes": [],
+      "jobs": [
+        {
+          "batch": 1,
+          "prior_part": 1,
+          "provider": "nvidia",
+          "status": "ok",
+          "seat_state": {
+            "state": "done",
+            "class": null,
+            "evidence": {},
+            "transitions": [
+              {
+                "state": "pending",
+                "class": null,
+                "at_ms": 0
+              },
+              {
+                "state": "working",
+                "class": null,
+                "at_ms": 0
+              },
+              {
+                "state": "done",
+                "class": null,
+                "at_ms": 6474,
+                "terminal": true
+              }
+            ]
+          }
+        }
+      ],
+      "judged_finding_ids": [
+        "c531bd57f5aa"
+      ],
+      "family": "nvidia",
+      "tier": "free"
+    }
+  ],
+  "findings": [],
+  "degraded": true,
+  "truncated": false,
+  "gate": "inconclusive",
+  "gate_reasons": [
+    "verification quorum not met: 1 of 2 reviewers succeeded (need at least 2)"
+  ],
+  "range": "6b7eb3a..HEAD",
+  "head": "7ed1cd45a19909f5645524a6085fe624cfface3a",
+  "claim_verification": {
+    "schema": "codereview.claims/1",
+    "boundary": "Claim verification is evidence recorded in the run record. It is not a gate input: no claim status changes the verdict, a finding, or any other gate input. A mismatch downgrades the claim, never the gate.",
+    "claims": [
+      {
+        "line": 9,
+        "status": "unparsed",
+        "text": "**Claim.** The post-fill row reports SUPERSEDED when `body_hash`",
+        "reason": "command presented without an unambiguous claimed outcome — not extracted, not run"
+      },
+      {
+        "line": 29,
+        "status": "unparsed",
+        "text": "`REGISTRATION_BODY_SHA256_CURRENT` by strict equality):",
+        "reason": "command presented without an unambiguous claimed outcome — not extracted, not run"
+      },
+      {
+        "line": 41,
+        "status": "unparsed",
+        "text": "tampered copies of the live registration via `--registration`:",
+        "reason": "command presented without an unambiguous claimed outcome — not extracted, not run"
+      },
+      {
+        "line": 53,
+        "status": "unparsed",
+        "text": "**Requested disposition:** major resolved `invalid`.",
+        "reason": "command presented without an unambiguous claimed outcome — not extracted, not run"
+      }
+    ],
+    "summary": {
+      "total": 4,
+      "verified": 0,
+      "mismatch": 0,
+      "unverifiable": 0,
+      "unparsed": 4
+    }
+  },
+  "evidence_sidecars": {
+    "dir": "evidence",
+    "files": 3,
+    "refs": 3
+  }
+}
