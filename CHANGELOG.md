@@ -87,6 +87,54 @@ stored record → verdict summary and findings).
   no agent CLI on the build machine is logged in. Full
   suite 1005/1005 on the branch; 1018/1018 on master after
   the parallel L5 merge.
+## Unreleased — Epic L4 (attention notifications)
+
+A gate run can now call the operator back: when a seat
+enters a blocked state (the Epic K2 classes) or the gate
+reaches a verdict, the run executes one local command the
+operator configured — a terminal bell, a desktop toast, a
+herdr-style attention hook. No hosted service, no
+CodeReview-managed endpoint.
+
+- **User setup only:** the command lives in a `[notify]`
+  table in the saved user config (`command = [...]`, an
+  argv list) — notifications are operator preference, not
+  project contract, so the project policy
+  (.codereview.toml) has no notify key and refuses the
+  table as unknown. The wizard's saved-file writer carries
+  the table only when set; an unchanged setup stays
+  byte-identical.
+- **Argv contract:** the command runs directly (no shell)
+  with two arguments appended — the event name and a
+  one-line summary (`seat cx blocked:quota`,
+  `gate blocked: 3 finding(s)`). Duplicate suppression is
+  per run: once per (seat, blocked class), once for the
+  verdict.
+- **Bounded and recorded:** each invocation is capped at
+  5 s; its outcome (ok / failed / timeout / error, exit
+  code, duration) lands in the record's `notifications`
+  section. A failing or hanging notifier never delays the
+  run beyond the bound and never changes a finding or the
+  verdict — test-compared against the unconfigured run.
+  Unconfigured means zero trace: no invocations, no record
+  section, prompts byte-identical.
+- **Distinct from Epic L3 hooks:** L3 is project-level
+  automation in the policy file, executed in the evidence
+  sandbox; L4 is the operator's personal command from the
+  user setup, executed as the operator. The two share no
+  machinery.
+- **Verification:** 28 new tests (`tests/test_notify.py`);
+  23 fail on pre-L4 master, the 5 passes being the
+  by-design pins (policy rejection, byte-identical saved
+  file, and the unset-means-silent equivalences). Coverage:
+  the Notifier unit contract, the real subprocess runner
+  (including a hanging command bounded by the timeout),
+  the user-config table (round-trip, byte-identical
+  default, loud ValueError when malformed), run_review and
+  run_verification integration (exactly-once events,
+  outcome-invariance, prompt identity), and the CLI seam
+  end to end (setup → run → record on disk).
+
 ## Unreleased — Epic L5 (first-class local-model seats)
 
 Local model servers are now first-class seats: named
