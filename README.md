@@ -312,6 +312,16 @@ codereview bench report            # full report; --public excludes the holdout 
 
 Corpus v0 ships in `bench/corpus/`: 36 cases (29 defect cases with 31 ground-truth defects, 7 clean controls; 27 public / 9 holdout), mixing authored defect injections (secrets, injection, auth regressions, payment bugs, races) with cases converted from this repo's own run records. The headline metric is the **escaped-defect rate**: defects no finding blocked on — unseen, or reported only as a minor/nit so the gate would have shipped them. Reports also carry recall, precision, clean-case false-positive rate, cost per verdict, and p50/p95 latency; `bench report --max-escaped-rate R` works as a CI regression gate. Scripted replay seats (`oracle` / `blind` / `noisy` configs) run the whole harness deterministically with zero provider calls — their scores validate the harness, not any model. Definitions, corpus provenance, and the growth path to 50–100 cases live in `bench/README.md`. Anything public quotes the public split only: holdout records are dropped before scoring in `--public` reports, so no holdout case can leak into a claim.
 
+## SARIF export — findings where your other tools live
+
+Any saved record exports as a SARIF 2.1.0 log (Epic D, ticket D1) — the format GitHub code scanning and most static-analysis surfaces ingest:
+
+```bash
+codereview sarif review-out --out results.sarif   # or omit --out for stdout
+```
+
+The export carries the record's **open** findings: the merged findings, a verification record's still-open `remaining`, and the human-decision lists (disputed, refutation-weak, escalated), each result tagged with its adjudication state. Resolved or classified-away findings (cleared, withdrawn, fixture, precedent-standing) stay in the record, not in the alert list. Deterministic-scan findings keep their scan rule ids (`eval-exec`, …) with the scan's own descriptions; model findings group under `model-<category>` rules. Severities map blocker → `error`, major → `warning`, minor/nit → `note`; results carry the record's finding id as their fingerprint, the cited line as the region snippet, and the recommendation in the result properties. The gate and patch hash ride in the run's property bag.
+
 ## Policy: supported platforms, severity rubric, disputes
 
 **Supported platforms.** The project supports POSIX operating systems with Python 3.11 or newer:

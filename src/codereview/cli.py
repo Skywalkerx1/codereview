@@ -14,6 +14,7 @@ Examples:
   codereview pr --pr https://github.com/OWNER/REPO/pull/123 --post
   codereview intake issue-report.md --provider gemini \
       --provider nvidia --context src/alerts.py
+  codereview sarif review-out --out results.sarif
 
 Exit codes: 0 = gate PASS (intake: a solution was produced),
 1 = gate BLOCKED, 2 = INCONCLUSIVE or usage/infrastructure error
@@ -35,6 +36,7 @@ from . import bench as bench_mod
 from . import core
 from . import disputes as disputes_mod
 from . import registry
+from . import sarif as sarif_mod
 from . import setup_wizard, userconfig
 from .providers import (ProviderError, build_providers,
                         describe_spec)
@@ -1284,6 +1286,48 @@ def _locate_main(argv):
     return 0
 
 
+def _sarif_main(argv):
+    """codereview sarif — export a saved record's open findings
+    as a SARIF 2.1.0 log (Epic D, ticket D1), for GitHub code
+    scanning and other SARIF consumers. An export, not a gate:
+    exit 0 means the log was written, whatever the record's
+    gate was; exit 2 means the record could not be read."""
+    ap = argparse.ArgumentParser(
+        prog="codereview sarif",
+        description="Export a saved review record as SARIF "
+                    "2.1.0 (open findings only; see "
+                    "codereview.sarif for the mapping).")
+    ap.add_argument("path",
+                    help="record directory or record JSON file")
+    ap.add_argument("--repo", default=".",
+                    help="repository the record belongs to")
+    ap.add_argument("--out",
+                    help="write the SARIF log here "
+                         "(default: stdout)")
+    args = ap.parse_args(argv)
+    try:
+        record, _record_dir, jpath = _load_record_arg(
+            args.path, args.repo)
+    except Exception as exc:  # noqa: BLE001
+        print(f"codereview: could not read the record: {exc}",
+              file=sys.stderr)
+        return 2
+    log = sarif_mod.record_to_sarif(record)
+    text = json.dumps(log, ensure_ascii=False, indent=2) + "\n"
+    run = log["runs"][0]
+    if args.out:
+        with open(args.out, "w", encoding="utf-8") as fh:
+            fh.write(text)
+        print(f"codereview sarif: {jpath} -> {args.out} "
+              f"({len(run['results'])} result(s), "
+              f"{len(run['tool']['driver']['rules'])} rule(s); "
+              f"record gate = "
+              f"{str(record.get('gate') or 'unknown').upper()})")
+    else:
+        sys.stdout.write(text)
+    return 0
+
+
 def _bench_main(argv, providers_override=None):
     """codereview bench run|report — Epic A benchmark harness."""
     if not argv or argv[0] not in ("run", "report"):
@@ -1401,6 +1445,8 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
                             fallbacks_override=fallbacks_override)
     if argv and argv[0] == "record-verify":
         return _record_verify_main(argv[1:])
+    if argv and argv[0] == "sarif":
+        return _sarif_main(argv[1:])
     if argv and argv[0] == "disputes":
         return _disputes_main(argv[1:])
     if argv and argv[0] == "locate":
