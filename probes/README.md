@@ -20,6 +20,23 @@ to the owner's session.
 | `finding_public_probe.py` | 4ce0212286e0 | Captures the actual adjudication prompts (re-ground, x-confirm, Tech Lead) and measures the evidence slice; post-hardening runs show the explicit truncation marker. |
 | `records_scan.py` | a3a2d492b51a | Scans gate-attempts.* + all committed records for paths/hostnames/connectors/accounts/key-shaped strings, plus the attempts-log telemetry inventory. Evidence for the owner's public-profile decision. |
 
+## Gap pass — the 19 computed-open disputes with no PT-1 packet (2026-11-04, branch gap-pass)
+
+Worksheet: `~/workspace/goals/reviewloop-multi-model-code-review-product/files/disputes-gap-worksheet-2026-11-04.md`; packets: `../goals files/ruling-packets-gap-2026-11-04/`. Group 1 (record-only backfill) was recorded by the owner directly into `dispositions.jsonl` (commit 0cb893e) and is not probed here. Group 3's two re-raise IDs (290d549f2809, ae9e58378eee) share the Group-2 originals' probes.
+
+| Script | Finding(s) | What it settles |
+|---|---|---|
+| `gap_bench_force_probe.py` | 474297e6ffdc | Ruling-pack P3 executed: a forced rerun with healthy seats is accepted despite a stored degraded record; a forced rerun whose NEW records degrade is refused and the previous file survives. |
+| `gap_percentile_probe.py` | 09c536d15270 | P4 property test: 20,000 (n, pct) pairs, zero disagreements with textbook nearest-rank, zero out-of-range indexes; the disputed N=2/p50 case executes to rank 1 (both sides' worked examples said 2). |
+| `gap_attempts_log_probe.py` | bca4074a632c | P5 provenance: --attempts-log is settable only via argv (one argparse definition; no env/config/policy source); functional CLI run writes the entry to an operator-supplied outside path. |
+| `gap_commonpath_probe.py` | eae8137a6db3, 3cecf66f6ce5 (+ re-raises 290d549f2809, ae9e58378eee) | Both loaders route through the shared `_is_within` helper (fail-closed under a simulated cross-drive ValueError); git shows the unguarded pattern at 4e5cbd8^ and its replacement by 4e5cbd8. |
+| `gap_doctor_timeout_probe.py` | 3fc4862824c9 | All three construction sites receive agent_timeout (instrumented); hanging seat bounded at ~1s under --timeout 1 at HEAD; parent-fail at 2dd114e^ — the same call waits the seat's full 12s (fix 2dd114e, v0.11.1). |
+| `gap_matcher_probe.py` | d93089253022 | P9 matrix: sibling prefixes never match ('foobar/x.py' vs 'foo' = False); true children, exact, glob, and dir/** forms behave. |
+| `gap_quorum_probe.py` | c5f02551d077 | The claim's scenario (2 configured, 1 succeeds, finder clears) is INCONCLUSIVE with the quorum reason in both relaxed and strict modes; solo panel passes with the v0.9.6 solo labels. |
+| `gap_providers_probe.py` | 0e57186e8be8, 1aec997aaec4, 0ad4ed7db98e, 2242edbba9c9 | P11 colon-command cases (command remainder preserved verbatim); P12 permutation + case-folding matrix (cross-kind collision raises in every order; control builds); P14 import guard (os/signal at module scope + functional process-group kill). |
+| `gap_prompt_slice_probe.py` | 3f50bf6b3349 | `_prompt_slice` output measured against cap: every over-cap input returns cap + up to ~98 chars (the appended truncation marker); the docstring promises at most cap. |
+| `gap_scan_exposure_probe.py` | 20e4194e5ed9, ec925437d0e3 | The scan result file at HEAD republishes real local paths (the refutation's 'placeholder' premise fails: /home/hatch is this host's real home and the cited files exist); 'admin@example.com' traces to example code inside reviewed diffs, and all 9 account_id samples are that one string. |
+
 Suite-pinned versions of the guard properties live in
 `tests/test_v111_dispute_probes.py`; the hardening changes
 (marker, callee key, config validation, non-dict walk) are

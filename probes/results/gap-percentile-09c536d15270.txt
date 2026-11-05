@@ -1,0 +1,9 @@
+PERCENTILE PROBE — 09c536d15270
+function under test: bench.percentile (HEAD)
+N=2, p50 over [10, 20]: formula rank = 1, ceil(N*pct/100) = 1, percentile() -> 10
+(claim said rank 2 / returns the second item; refutation also said rank 2 — the executed arithmetic says otherwise)
+exhaustive: 20000 (n, pct) pairs, n=1..200, pct=1..100
+  disagreements with textbook nearest-rank: 0
+  out-of-range indexes: 0
+  returns of the sample maximum: 673 (textbook nearest-rank returns the maximum in 673 of the same cases — identical set)
+empty sample -> None (documented None)

@@ -1,0 +1,27 @@
+PROVIDERS CLUSTER PROBE — 0e57186e8be8 / 1aec997aaec4 / 0ad4ed7db98e / 2242edbba9c9
+
+== 0e57186e8be8: agent spec colon handling (providers._parse_agent_spec) ==
+  "agent:x:sh -c 'echo a:b'"
+    -> name='x' options={} command="sh -c 'echo a:b'"
+  'agent:claude:run --flag http://x:8080/a:b'
+    -> name='claude' options={} command='run --flag http://x:8080/a:b'
+  'agent:bot:echo one:two:three:four'
+    -> name='bot' options={} command='echo one:two:three:four'
+  'agent:my[home=private]:cmd --opt v:1'
+    -> name='my' options={'home': 'private'} command='cmd --opt v:1'
+  remainder after the 2nd colon preserved verbatim: True (split(':', 2) yields at most 3 parts; parts[2] is the unsplit remainder)
+
+== 1aec997aaec4 + 0ad4ed7db98e: cross-kind collision, spec-order permutations (build_providers) ==
+  agent 'gemini' vs preset 'gemini': specs=['agent:gemini:true', 'gemini'] -> ProviderError: seat name 'gemini' is used by both an agent seat and an API seat; rename the agent seat (e
+  agent 'gemini' vs preset 'gemini': specs=['gemini', 'agent:gemini:true'] -> ProviderError: seat name 'gemini' is used by both an agent seat and an API seat; rename the agent seat (e
+  agent 'myapi' vs custom 'myapi': specs=['agent:myapi:true', 'myapi|openai|https://example.invalid/v1|m|GAP_PROBE_KEY'] -> ProviderError: seat name 'myapi' is used by both an agent seat and an API seat; rename the agent seat (e.
+  agent 'myapi' vs custom 'myapi': specs=['myapi|openai|https://example.invalid/v1|m|GAP_PROBE_KEY', 'agent:myapi:true'] -> ProviderError: seat name 'myapi' is used by both an agent seat and an API seat; rename the agent seat (e.
+  case-fold: agent 'Gemini' vs preset 'gemini': specs=['agent:Gemini:true', 'gemini'] -> ProviderError: seat name 'Gemini' is used by both an agent seat and an API seat; rename the agent seat (e
+  case-fold: agent 'gemini' vs preset 'Gemini': specs=['agent:gemini:true', 'Gemini'] -> ProviderError: seat name 'gemini' is used by both an agent seat and an API seat; rename the agent seat (e
+  no collision (control): specs=['agent:worker:true', 'gemini'] -> BUILT ['gemini', 'worker'] (no error)
+  (api_names is populated in a complete first pass over all non-agent specs — providers.py build_providers, the parse loop precedes the agent-finalization loop — so spec order cannot hide an API name from the check)
+
+== 2242edbba9c9: module-scope imports + _kill_tree ==
+  'os' in providers module namespace: True; 'signal' in namespace: True
+  providers.os is the stdlib os module: True; providers.signal is stdlib signal: True
+  functional kill: spawned sleeper pid=4781 pgid=4781; after _kill_tree, poll() -> -9 (SIGKILL = -9)

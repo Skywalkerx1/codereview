@@ -1,0 +1,24 @@
+SCAN EXPOSURE PROBE — ec925437d0e3 + 20e4194e5ed9
+scan file: probes/results/records-scan-a3a2d492b51a.txt (89 lines, committed)
+  cited lines are diff-relative in the record; located by content:
+  line 26: local_path x22: /home/hatch/workspace/codereview/tests/test_v093_fixes.py:373:; /home/hatch/workspace/coderevi
+  line 29: local_path x25: /home/hatch/workspace/codereview/tests/../src/codereview/providers.py; /home/hatch/workspace/c
+  line 41: account_id x2: admin@example.com
+  line 51: account_id x6: admin@example.com
+  line 54: account_id x1: admin@example.com
+  line 57: local_path x22: /home/hatch/workspace/codereview/tests/test_v093_fixes.py:373:; /home/hatch/workspace/coderevi
+
+== ec925437d0e3: is /home/hatch a placeholder? ==
+  os.path.expanduser('~') on this machine: /home/hatch
+  cited path tests/test_v093_fixes.py resolves to a real file here: True
+  the records the samples came from (review-v096, review-v100, review-v110, review-v111) were produced by real runs on this machine; their evidence quotes carry this host's real absolute paths, username 'hatch' included. The refutation's 'placeholder / test data' premise does not hold for these samples.
+
+== 20e4194e5ed9: provenance of 'admin@example.com' ==
+  ./review-v12/codereview-20261104-180317.json:651:          "evidence": "for v in violations: sendmail(\"admin@example.com\", f\"ABNORMALITY in {v.name
+  ./review-v12/codereview-20261104-180317.json:1339:      "evidence": "for v in violations: sendmail(\"admin@example.com\", f\"ABNORMALITY in {v.name}\"
+  ./review-v15/codereview-20261104-224759.json:3380:          "evidence": "sendmail(\"admin@example.com\", f\"ABNORMALITY in {v.name}\")",
+  ./review-v15/codereview-20261104-224759.json:3381:          "evidence_quote": "sendmail(\"admin@example.com\", f\"ABNORMALITY in {v.name}\")",
+  ./review-v15/codereview-20261104-224759.json:3390:          "withdrawn_reason": "The provided diff section contains only the function definition `def 
+  ./review-v15/codereview-20261104-224759.json:3858:      "evidence": "sendmail(\"admin@example.com\", f\"ABNORMALITY in {v.name}\")",
+  every occurrence sits inside a code snippet preserved in a review record — sendmail("admin@example.com", "ABNORMALITY in ...") in sample code that was under review — not an account belonging to the operator or any user of this system. The scan's account_id samples (9 hits: x2 + x6 + x1) are all this one string.
+  the republication MECHANISM is real for both findings: the scan prints matched strings verbatim (samples capped at 3 per category per file). What the strings ARE differs by category: real local paths (ec925437d0e3) vs example data inside reviewed code (20e4194e5ed9).

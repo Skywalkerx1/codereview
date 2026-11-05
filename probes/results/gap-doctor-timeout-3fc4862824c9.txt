@@ -1,0 +1,15 @@
+DOCTOR TIMEOUT PROBE — 3fc4862824c9
+
+== HEAD: construction-site propagation (instrumented) ==
+  build_providers(['seat-a']) received agent_timeout=7
+  build_providers(['seat-b']) received agent_timeout=7
+  _apply_role_assignments(['tech_lead=seat-c']) received agent_timeout=7
+  run_doctor call at HEAD passes timeout=args.timeout (cli.py, _doctor_main tail) — fourth site, exercised next.
+
+== HEAD: hanging seat under --timeout 1 ==
+  rc=2 elapsed=1.0s ok=False seat error='probe call timed out after 1s'
+
+== PARENT-FAIL at 2dd114e^ (pre-fix tree, subprocess) ==
+  parent commit: 0ba2c17c1b47ab7c7140ad043baf612f44346eff
+  parent: rc=0 elapsed=12.0s ok=True seat_error=''
+contrast: HEAD returns in ~1s with the seat marked timed out; the pre-fix tree applies no --timeout bound to the probe and waits out the seat's full 12s sleep. Fix commit: 2dd114e (v0.11.1, 'doctor probes are wait-bounded', run_doctor gains timeout= + _probe_call_bounded).

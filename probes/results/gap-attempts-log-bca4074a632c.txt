@@ -1,0 +1,13 @@
+ATTEMPTS-LOG PROBE — bca4074a632c
+
+== P5 provenance: every attempts_log reference in src/codereview ==
+  src/codereview/cli.py:1706:    ap.add_argument("--attempts-log",
+  src/codereview/cli.py:1985:    if args.attempts_log:
+  src/codereview/cli.py:2007:            with open(args.attempts_log, "a",
+  origins: ONE argparse definition (--attempts-log, cli.py) + reads of args.attempts_log in the review path. No environment variable, no user/project config file, no policy file, and nothing read from the repository under review sets it — the value can only be typed by the operator running the CLI.
+
+== functional: write outside any repository ==
+  CLI exit code: 0
+  attempts log created at the operator-supplied outside path: True
+  entry keys: ['degraded', 'gate', 'mode', 'patch_sha256', 'range', 'seats']... gate='pass' — one JSON line, append mode, content is the run's own telemetry (no diff text, no secrets)
+net facts: the mechanism in the claim is real (no containment check exists at HEAD); the only principal who can set the path is the operator themself, via argv — the same trust class as --out.

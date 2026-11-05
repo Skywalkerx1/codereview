@@ -1,0 +1,16 @@
+PROMPT SLICE PROBE — 3f50bf6b3349
+function under test: core._prompt_slice (HEAD)
+  under cap: len(text)=11 cap=300 -> len(out)=11 (over cap by -289)
+  exactly cap: len(text)=100 cap=100 -> len(out)=100 (over cap by 0)
+  one over cap: len(text)=101 cap=100 -> len(out)=197 (over cap by 97)
+    out tail: ...'2e604b0cd1229c036e3ce0c87422980a245e295bbc605a507a2299752db]'
+  long prose: len(text)=1759 cap=300 -> len(out)=396 (over cap by 96)
+    out tail: ...'8d302ab5f58afeb606306c1d9def4978b905c9945770f27dcf7058b6de4]'
+  long single word: len(text)=5000 cap=300 -> len(out)=398 (over cap by 98)
+    out tail: ...'c0480cc2d71d8f646e735e92da65450311eec46e81a5db8c7e6e8a92054]'
+  small cap, long text: len(text)=2500 cap=50 -> len(out)=147 (over cap by 97)
+    out tail: ...'b2a669a9bf159f8d21b3eb6903eb0b898ba46745ae76c55d29706d024a4]'
+  cap 1: len(text)=5 cap=1 -> len(out)=96 (over cap by 95)
+    out tail: ...'dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824]'
+maximum overshoot across cases: 98 chars — bounded by the fixed truncation marker (full-length + sha256), which the helper appends AFTER slicing to the cap; the docstring promises 'at most cap chars'.
+callers: _finding_public / prompt construction slice evidence for adjudication prompts; the stored record text is never cut by this helper.

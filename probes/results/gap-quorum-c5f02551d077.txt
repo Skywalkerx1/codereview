@@ -1,0 +1,7 @@
+QUORUM PROBE — c5f02551d077
+function under test: core.run_verification (HEAD)
+  2 configured / 1 succeeds / finder cleared / strict=False: gate='inconclusive' reasons=['verification quorum not met: 1 of 2 reviewers succeeded (need at least 2)']
+  2 configured / 1 succeeds / finder cleared / strict=True: gate='inconclusive' reasons=['verification quorum not met: 1 of 2 reviewers succeeded (need at least 2)']
+  control, both succeed: gate='pass' cleared=1
+  control, solo panel (1 configured): gate='pass' reasons=['all prior blockers cleared by the only configured reviewer — solo panel, no independent review', 'solo panel — no independent review']
+gate order at HEAD (core.py run_verification): no-success -> inconclusive; open items -> blocked; unjudged -> inconclusive; NOT quorum_ok -> inconclusive — all BEFORE the pass branch, in both modes. quorum_ok = len(ok_recs) >= 2 or len(providers) <= 1.
