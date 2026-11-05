@@ -27,6 +27,14 @@ Spec grammar (consumed by providers.build_provider):
   openai-compatible:<base>|<model>|<KEY_ENV> — generic escape
                           hatch for any other compatible endpoint
   agent:<name>:<command> — a local agent CLI seat (providers.py)
+  local:<name>:<base-url>|<model> — a named LOCAL model server
+                          (Epic L5): any OpenAI-compatible
+                          endpoint the user runs on their own
+                          machine; keyless (no API key, no
+                          key env), family tag 'local'. The
+                          named local presets below (ollama,
+                          lmstudio) are this form with the
+                          conventional endpoint pre-filled.
 
 Roles (owner directive 2026-11-04: the user picks the model for
 each role): correctness, operations (the two review lenses),
@@ -53,12 +61,18 @@ LENS_ROLES = {"correctness": "correctness",
 #   model         default model suggestion — a starting point, the
 #                 user overrides with preset:model or a custom spec
 #   key_env       env var holding the USER's key for this provider
+#                 (None for the keyless local presets, Epic L5:
+#                 a local server needs no credential and none is
+#                 ever read, sent, or prompted for)
 #   family        vendor family tag for independence checks
 #   extra         extra payload fields merged into every request
 #   no_temperature  model-name prefixes whose API rejects a
 #                 caller-set temperature (the gpt-5 lesson: HTTP
 #                 400 on temperature != default) — for those models
 #                 the field is OMITTED, never faked
+#   recipe        (local presets only) the short operator recipe
+#                 the setup wizard prints: start the server, then
+#                 pick the preset, then probe with `doctor`
 PRESETS = {
     "openai": {
         "kind": "openai-compatible",
@@ -154,9 +168,72 @@ PRESETS = {
         "extra": None,
         "no_temperature": (),
     },
+    # Local model servers (Epic L5): first-class presets for
+    # endpoints the user runs on their own machine. Keyless by
+    # construction (key_env None — providers.py sends no
+    # Authorization header and reads no credential), family
+    # 'local' for the independence checks (a local seat never
+    # counts as a second VENDOR family), and the endpoints are
+    # the servers' conventional loopback defaults — a preset
+    # names an endpoint, never a panel: which model serves is
+    # still the user's pick (preset:model), exactly like the
+    # hosted presets.
+    "ollama": {
+        "kind": "openai-compatible",
+        "base_url": "http://localhost:11434/v1",
+        "model": "llama3.1",
+        "key_env": None,
+        "family": "local",
+        "extra": None,
+        "no_temperature": (),
+        "recipe": "start Ollama (`ollama serve`, or open the "
+                  "Ollama app) and pull a model (`ollama pull "
+                  "<model>`), then pick this preset and run "
+                  "`codereview doctor` to probe the seat",
+    },
+    "lmstudio": {
+        "kind": "openai-compatible",
+        "base_url": "http://localhost:1234/v1",
+        "model": "local-model",
+        "key_env": None,
+        "family": "local",
+        "extra": None,
+        "no_temperature": (),
+        "recipe": "open LM Studio, load a model, and start its "
+                  "local server (Developer tab; default port "
+                  "1234), then pick this preset and run "
+                  "`codereview doctor` to probe the seat",
+    },
 }
 
 WIRE_KINDS = ("openai-compatible", "gemini", "anthropic")
+
+# The family tag every local seat carries (Epic L5): local
+# endpoints are the user's own machines, not a vendor, so the
+# independence checks see one honest tag — two local seats are
+# never two independent families, and a local seat never stands
+# in for a hosted vendor's family.
+LOCAL_FAMILY = "local"
+
+# Prefix of the named-local-endpoint spec form:
+# local:<name>:<base-url>|<model> (providers.describe_spec is
+# the parser; this is the shared spelling).
+LOCAL_SPEC_PREFIX = "local:"
+
+
+def is_local_preset(name):
+    """True for a registry preset that is a local model server
+    (Epic L5): keyless, loopback endpoint, family 'local'."""
+    preset = PRESETS.get(name or "")
+    return bool(preset) and preset.get("family") == LOCAL_FAMILY
+
+
+def local_presets():
+    """{name: preset} for the local presets, in registry
+    order — the setup wizard lists these as their own section,
+    apart from the hosted (keyed) providers."""
+    return {name: p for name, p in PRESETS.items()
+            if p.get("family") == LOCAL_FAMILY}
 
 
 def omit_temperature(preset_name, model):
