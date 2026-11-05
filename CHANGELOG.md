@@ -232,6 +232,39 @@ metric definitions, gate semantics, or the confirmation scorer.
   grounded quote (9 of 48 shipped cases, P06 among them),
   carried loudly on the shadow entry.
 
+## 0.12.1 — 2026-11-05 — acceptance fixes
+
+Patch release from the clean-room acceptance test of the built
+0.12.0 package (verdict: READY-WITH-DEFECTS). The planted defect
+was caught precisely and the first-run, policy, evidence and
+record-verify surfaces behaved as designed, but a clean, correct
+change could be BLOCKED by confident false findings. 0.12.0 was
+never published to PyPI (tag only); the corrected build ships
+as 0.12.1. Suite 870.
+
+- **D1 — file context on the standard diff path:** reviewers
+  previously received only the plain unified diff (3 lines of
+  context), so definitions outside the hunk were invisible and
+  correct code drew false "undefined symbol" majors from two
+  model families at 0.98 confidence. The diff path now attaches
+  the post-change contents of changed files, with per-file and
+  total caps, in-text truncation markers, and the context budget
+  allocated to the most-changed files first. `run_review` gains
+  `file_context=None` — bench and registered-run prompt shapes
+  stay byte-identical by default; the acceptance clean case now
+  reaches PASS while the planted defect still BLOCKs.
+- **D2 — stored error type/status:** seat error strings stored
+  in run records now preserve the HTTP status and exception
+  type instead of truncating mid-token, so a rate limit (429)
+  is distinguishable from a crash in the record.
+- **D3 — `--help` subcommand list:** top-level `codereview
+  --help` now lists the subcommands (setup, policy,
+  record-verify, doctor, …) instead of leaving them
+  discoverable only through the README.
+- **D4 — same-line finding merge:** identical findings raised
+  by two seats on the same line are merged into one finding
+  listing all raising seats, and the gate counts it once.
+
 ## 0.12.0 — 2026-11-04 — the finish release
 
 The clean-gate hold is LIFTED by the owner on an eligible Form B chain
