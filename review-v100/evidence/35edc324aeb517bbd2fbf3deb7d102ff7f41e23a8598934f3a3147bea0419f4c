@@ -1,0 +1,1 @@
+the adjudication call runs synchronously inside run_review — before this bound existed, a hanging adjudicator seat could block the whole review pipeline indefinitely (step4 amendment review, confirmed major 1321bec43a24).

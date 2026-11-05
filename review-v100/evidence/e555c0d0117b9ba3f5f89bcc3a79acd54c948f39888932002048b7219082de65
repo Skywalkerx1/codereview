@@ -1,0 +1,1 @@
+The provided diff text does not contain the function signature `run_review` or the parameters `tech_lead`, `probe_fn`, or `tech_lead_timeout`. The finding references line 1045 of `src/codereview/core.py`, but the diff section ends at line 678 and does not include that line or the surrounding context. Therefore, the claim cannot be supported from this text.

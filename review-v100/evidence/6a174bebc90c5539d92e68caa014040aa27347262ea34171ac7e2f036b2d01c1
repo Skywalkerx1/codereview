@@ -1,0 +1,1 @@
+tech_lead_timeout bounds each adjudication call's wait in seconds (default TECH_LEAD_CALL_TIMEOUT) — the panel timeout wired through adjudication (step4 amendment review, confirmed major 1321bec43a24).

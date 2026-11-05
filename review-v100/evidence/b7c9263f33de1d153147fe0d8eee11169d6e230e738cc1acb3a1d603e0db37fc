@@ -1,0 +1,1 @@
+The finding claims that indexing callees by bare name causes later definitions to overwrite earlier ones, but the quoted line shows the code uses `setdefault`, which preserves the first value and does not overwrite existing entries.

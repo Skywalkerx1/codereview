@@ -1,0 +1,1 @@
+if fk is not None: ... elif entry.get("blob") and blob_of(path) == entry.get("blob"): # Function unresolvable: file-level fallback.

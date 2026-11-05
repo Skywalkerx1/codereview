@@ -1,0 +1,920 @@
+{
+  "schema": "codereview.report/1",
+  "version": "0.10.0",
+  "mode": "review",
+  "created_at": "2026-11-05T00:04:09+00:00",
+  "patch_sha256": "8f67d37ccfeb7d70d2c38b104b874e45bf8f589ea1b49d1989e7254d8b726841",
+  "patch_chars": 154653,
+  "files": [
+    "CHANGELOG.md",
+    "README.md",
+    "pyproject.toml",
+    "src/codereview/cli.py",
+    "src/codereview/core.py",
+    "tests/test_step4_ladder.py",
+    "tests/test_v093_phase2.py",
+    "tests/test_v100_integration.py"
+  ],
+  "context": "v0.10.0 integration: step4-ladder merge (adequacy routing, rubric, platform manifest, function-level precedent, Tech Lead adjudication v1) + amendment fixes (Tech Lead call timeout bound, explicit MAX_PROBE_ROUNDS) + archived-record exclusion (review-*/, gate-attempts.* out of the span) + evidence sidecars (full-text, hash-verified, record-verify checks). Suite 361/361.",
+  "private": false,
+  "supported_platforms": {
+    "os": [
+      "posix"
+    ],
+    "python": ">=3.11"
+  },
+  "coverage": {
+    "batch_count": 3,
+    "truncated": false,
+    "complete": true,
+    "omissions": [],
+    "files": {
+      "CHANGELOG.md": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "README.md": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "pyproject.toml": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "src/codereview/cli.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "src/codereview/core.py": {
+        "batches": [
+          2,
+          3
+        ],
+        "lenses": {
+          "correctness": [
+            2,
+            3
+          ],
+          "operations": [
+            2,
+            3
+          ]
+        }
+      },
+      "tests/test_step4_ladder.py": {
+        "batches": [
+          3
+        ],
+        "lenses": {
+          "correctness": [
+            3
+          ],
+          "operations": [
+            3
+          ]
+        }
+      },
+      "tests/test_v093_phase2.py": {
+        "batches": [
+          3
+        ],
+        "lenses": {
+          "correctness": [
+            3
+          ],
+          "operations": [
+            3
+          ]
+        }
+      },
+      "tests/test_v100_integration.py": {
+        "batches": [
+          3
+        ],
+        "lenses": {
+          "correctness": [
+            3
+          ],
+          "operations": [
+            3
+          ]
+        }
+      }
+    }
+  },
+  "test_results": [
+    {
+      "command": "python3 -m unittest discover -s tests",
+      "ok": true,
+      "exit_code": 0,
+      "output_tail": " <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/providers.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n./home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/__init__.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/__main__.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/bench.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/cli.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/core.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/github.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/intake.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/home/hatch/workspace/codereview/tests/test_v093_fixes.py:352: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/providers.py' mode='r' encoding='utf-8'>\n  tree = ast.parse(open(path, encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n........................................../home/hatch/workspace/codereview/tests/test_v094_probes.py:127: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/cli.py' mode='r' encoding='utf-8'>\n  \"core.py\", \"cli.py\"), encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n...../home/hatch/workspace/codereview/tests/test_v094_probes.py:91: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/hatch/workspace/codereview/tests/../src/codereview/providers.py' mode='r' encoding='utf-8'>\n  encoding=\"utf-8\").read())\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n.................................codereview: tier policy: seat 'stubfree' runs on a free-tier credential, which must not review private repositories\n.............................\n----------------------------------------------------------------------\nRan 361 tests in 32.451s\n\nOK\n"
+    }
+  ],
+  "deterministic_findings": [
+    {
+      "id": "df160cd55adb",
+      "rule": "eval-exec",
+      "severity": "blocker",
+      "category": "security",
+      "file": "tests/test_v100_integration.py",
+      "line": 248,
+      "title": "eval/exec call in added code",
+      "evidence": "\"eval(preserved_input)\\\"}]}\\n\"",
+      "evidence_quote": "\"eval(preserved_input)\\\"}]}\\n\"",
+      "recommendation": "Replace dynamic evaluation with a safe, explicit code path.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false,
+      "grounding": "grounded",
+      "evidence_ref": {
+        "sha256": "d24aec68fc4d0cf5d7ea5884ecbeabf7209038b0fca750e8fcdfceeee2bec10b",
+        "length": 30,
+        "truncated": false
+      },
+      "evidence_quote_ref": {
+        "sha256": "d24aec68fc4d0cf5d7ea5884ecbeabf7209038b0fca750e8fcdfceeee2bec10b",
+        "length": 30,
+        "truncated": false
+      }
+    }
+  ],
+  "reviewer_reports": [
+    {
+      "provider": "openai",
+      "lens": "correctness",
+      "batch": 3,
+      "status": "ok",
+      "error": "",
+      "summary": "The evidence sidecar writer introduces a reachable crash path when a report contains non-dict entries in finding lists, while the verifier explicitly tolerates such malformed entries. This regression can break report writing for inputs that previously survived verification and iteration.",
+      "findings": [
+        {
+          "id": "bf4c451e8751",
+          "rule": "",
+          "severity": "major",
+          "category": "correctness",
+          "file": "src/codereview/core.py",
+          "line": 4404,
+          "title": "write_report now crashes on non-dict finding entries that verifier and iterator paths tolerate",
+          "evidence": "The new writer loops over every item in each finding list and unconditionally calls walk_finding, but walk_finding then executes membership tests against the raw object. For a non-dict entry, the added line 'if 'dispute' in f or 'adjudication' in f:' raises TypeError on supported Python when f is not iterable, making write_report fail instead of skipping malformed entries as _iter_evidence_refs do",
+          "evidence_quote": "        if \"dispute\" in f or \"adjudication\" in f:",
+          "recommendation": "Guard this branch with an isinstance(f, dict) check before any membership tests, or return early for non-dict values after the existing seen logic. Keep writer behavior aligned with _iter_evidence_refs, which already skips non-dict findings safely.",
+          "confidence": 0.95,
+          "sources": [
+            "openai"
+          ],
+          "consensus": false,
+          "grounding": "grounded",
+          "evidence_ref": {
+            "sha256": "57f9599da01b8e3c36a837a8a7c09b604f0fa23b0e0ca1717a44f199d8a30554",
+            "length": 403,
+            "truncated": true
+          },
+          "evidence_quote_ref": {
+            "sha256": "12a60cf49dd69f57bbd672c8c2b2403fbb87b944f6d0975e68f8465033609532",
+            "length": 49,
+            "truncated": false
+          }
+        }
+      ],
+      "attempts": 2,
+      "error_classes": [
+        "quota"
+      ],
+      "fallback_for": "gemini",
+      "primary_error": "gemini quota: HTTP 429",
+      "family": "openai",
+      "tier": "paid"
+    },
+    {
+      "provider": "openai",
+      "lens": "correctness",
+      "batch": 2,
+      "status": "ok",
+      "error": "",
+      "summary": "I found one correctness regression in the new precedent matching logic that can incorrectly suppress live findings after unrelated same-name functions change elsewhere in the file.",
+      "findings": [
+        {
+          "id": "6b29fe953939",
+          "rule": "",
+          "severity": "major",
+          "category": "correctness",
+          "file": "src/codereview/core.py",
+          "line": 1000,
+          "title": "Function-level precedent can match the wrong callee when multiple functions share a name",
+          "evidence": "The function-key builder indexes callees only by bare name, so later definitions overwrite earlier ones and call sites are matched to whichever same-named function was seen last. In a supported Python module with two different methods or nested functions sharing a name, a precedent for one enclosing function can be treated as still valid or invalid based on an unrelated same-named function elsewhe",
+          "evidence_quote": "        by_name.setdefault(n.name, n)",
+          "recommendation": "Key callees by qualified name or by lexical scope instead of bare `n.name`, and resolve `ast.Attribute` calls against the enclosing class/function scope so same-named functions in other scopes cannot alias each other in the precedent hash.",
+          "confidence": 0.95,
+          "sources": [
+            "openai"
+          ],
+          "consensus": false,
+          "grounding": "grounded",
+          "evidence_ref": {
+            "sha256": "8fab2d364994b18d1e1b63e27a9f10eea591afa3543cb1e9e73a06875c51c834",
+            "length": 415,
+            "truncated": true
+          },
+          "evidence_quote_ref": {
+            "sha256": "38dfbce471f10c9a91ee9529961c4ea7ba66366de49855eb6b6213413ca2d5ab",
+            "length": 37,
+            "truncated": false
+          }
+        }
+      ],
+      "attempts": 2,
+      "error_classes": [
+        "quota"
+      ],
+      "fallback_for": "gemini",
+      "primary_error": "gemini quota: HTTP 429",
+      "family": "openai",
+      "tier": "paid"
+    },
+    {
+      "provider": "nvidia",
+      "lens": "operations",
+      "batch": 1,
+      "status": "ok",
+      "error": "",
+      "summary": "The v0.10.0 integration diff introduces supported-platform manifest, severity rubric, dispute ladder with Tech Lead adjudication, amendment fixes for timeout and probe-loop bounds, archived-record exclusion, and evidence sidecars — all 361 tests pass with no new reliability defects.",
+      "findings": [],
+      "attempts": 1,
+      "error_classes": [],
+      "family": "nvidia",
+      "tier": "free"
+    },
+    {
+      "provider": "openai",
+      "lens": "correctness",
+      "batch": 1,
+      "status": "ok",
+      "error": "",
+      "summary": "I did not find a correctness or security issue that is demonstrably introduced by this diff chunk alone.",
+      "findings": [],
+      "attempts": 2,
+      "error_classes": [
+        "quota"
+      ],
+      "fallback_for": "gemini",
+      "primary_error": "gemini quota: HTTP 429",
+      "family": "openai",
+      "tier": "paid"
+    },
+    {
+      "provider": "nvidia",
+      "lens": "operations",
+      "batch": 3,
+      "status": "ok",
+      "error": "",
+      "summary": "The diff adds evidence sidecar infrastructure, adjudication timeout guards, probe round bounds, and archived-record exclusion — all changes are consistent with the test suite and supported-platform policy. No unreachable defects or reliability risks were found.",
+      "findings": [],
+      "attempts": 1,
+      "error_classes": [],
+      "family": "nvidia",
+      "tier": "free"
+    },
+    {
+      "provider": "nvidia",
+      "lens": "operations",
+      "batch": 2,
+      "status": "ok",
+      "error": "",
+      "summary": "The change introduces several reliability and correctness risks: unbounded retry loops without dedup/cooldown, missing timeouts on Tech Lead calls, evidence_quote truncation that destroys full-text integrity, and archived-text classification logic that may misclassify findings. These issues can cause alert floods, pipeline hangs, and data loss in production.",
+      "findings": [
+        {
+          "id": "825addab2740",
+          "rule": "",
+          "severity": "major",
+          "category": "reliability",
+          "file": "src/codereview/core.py",
+          "line": 1638,
+          "title": "Tech Lead adjudication call has no per-call timeout bound in run_review",
+          "evidence": "",
+          "evidence_quote": "tech_lead_timeout bounds each adjudication call's wait in seconds (default TECH_LEAD_CALL_TIMEOUT) — the panel timeout wired through adjudication (step4 amendment review, confirmed major 1321bec43a24).",
+          "recommendation": "Add a hard per-call timeout to the Tech Lead adjudication call inside run_review, and ensure _review_job_bounded is used or an equivalent guard is enforced so a hanging adjudicator cannot block the pipeline.",
+          "confidence": 0.9,
+          "sources": [
+            "nvidia"
+          ],
+          "consensus": false,
+          "grounding": "withdrawn",
+          "reground_seat": "nvidia",
+          "withdrawn_reason": "The finding references a Tech Lead adjudication call with no per-call timeout bound in run_review, but the diff text provided does not contain the adjudication loop code for run_review. The diff only shows additions to core.py including archived-record exclusion logic, platform rubric, and _tech_lea",
+          "withdrawn_by": "nvidia",
+          "evidence_quote_ref": {
+            "sha256": "6a174bebc90c5539d92e68caa014040aa27347262ea34171ac7e2f036b2d01c1",
+            "length": 201,
+            "truncated": false
+          },
+          "withdrawn_reason_ref": {
+            "sha256": "53de437d044522f282cc7acf687750feecf4d36132c0b3e5bd645178515cf7ea",
+            "length": 486,
+            "truncated": true
+          }
+        },
+        {
+          "id": "d72de74b5873",
+          "rule": "",
+          "severity": "major",
+          "category": "correctness",
+          "file": "src/codereview/core.py",
+          "line": 1683,
+          "title": "Tech Lead adjudication call may block pipeline indefinitely without timeout enforcement",
+          "evidence": "",
+          "evidence_quote": "the adjudication call runs synchronously inside run_review — before this bound existed, a hanging adjudicator seat could block the whole review pipeline indefinitely (step4 amendment review, confirmed major 1321bec43a24).",
+          "recommendation": "Wire a per-call timeout (TECH_LEAD_CALL_TIMEOUT = 900s) through the adjudication call in run_review; ensure the call returns within the bound or escalates, and never silently proceeds past a timeout.",
+          "confidence": 0.9,
+          "sources": [
+            "nvidia"
+          ],
+          "consensus": false,
+          "grounding": "withdrawn",
+          "reground_seat": "nvidia",
+          "withdrawn_reason": "The finding references a Tech Lead adjudication call that may block the pipeline indefinitely without timeout enforcement, but the provided diff section does not contain any code related to adjudication, timeouts, or the run_review function. The diff only shows changes to archived-record exclusion l",
+          "withdrawn_by": "nvidia",
+          "evidence_quote_ref": {
+            "sha256": "35edc324aeb517bbd2fbf3deb7d102ff7f41e23a8598934f3a3147bea0419f4c",
+            "length": 221,
+            "truncated": false
+          },
+          "withdrawn_reason_ref": {
+            "sha256": "5938c0c64a4ee40a3c1d77d5f90094dd3da68f95c9aa29b9c77b1627c5da7d7a",
+            "length": 470,
+            "truncated": true
+          }
+        },
+        {
+          "id": "4ce0212286e0",
+          "rule": "",
+          "severity": "major",
+          "category": "correctness",
+          "file": "src/codereview/core.py",
+          "line": 1650,
+          "title": "Evidence_quote stored full-text but _finding_public truncates to 2000/1000 chars for prompts, risking mid-word cuts and loss of critical context",
+          "evidence": "",
+          "evidence_quote": "    shown[\"evidence\"] = str(shown.get(\"evidence\") or \"\")[:2000]",
+          "recommendation": "Ensure evidence_quote is stored and transmitted whole-text; the truncation in _finding_public should only be for display and must not alter the stored record's evidence. Verify that full-text is always persisted to sidecars.",
+          "confidence": 0.85,
+          "sources": [
+            "nvidia"
+          ],
+          "consensus": false,
+          "grounding": "reground_confirmed",
+          "reground_seat": "openai",
+          "evidence_quote_ref": {
+            "sha256": "387e7995e0f985f9e2eaa1ec7dcb596d6105408b47f62b3046042ac6c4f57550",
+            "length": 63,
+            "truncated": false
+          }
+        },
+        {
+          "id": "12d37a1829b3",
+          "rule": "",
+          "severity": "major",
+          "category": "correctness",
+          "file": "src/codereview/core.py",
+          "line": 1123,
+          "title": "apply_precedents function_key resolution may return None for files without resolvable functions, causing fallback to blob-only matching that can silently miss f",
+          "evidence": "",
+          "evidence_quote": "if fk is not None: ... elif entry.get(\"blob\") and blob_of(path) == entry.get(\"blob\"): # Function unresolvable: file-level fallback.",
+          "recommendation": "Ensure function_key resolution is robust: when a function cannot be resolved, the fallback to file-level blob matching must still validate that the blob has not changed, and the finding should be re-evaluated rather than silently marked standing.",
+          "confidence": 0.85,
+          "sources": [
+            "nvidia"
+          ],
+          "consensus": false,
+          "grounding": "withdrawn",
+          "reground_seat": "nvidia",
+          "withdrawn_reason": "The provided diff section does not contain the quoted evidence line 'if fk is not None: ... elif entry.get(\"blob\") and blob_of(path) == entry.get(\"blob\"): # Function unresolvable: file-level fallback.' referenced in the finding. The diff shown is from src/codereview/core.py but contains no lines mat",
+          "withdrawn_by": "nvidia",
+          "evidence_quote_ref": {
+            "sha256": "7da31ca6f19eee4b844731ea3714794c7feda0758d301ef3d747fd052a22f5fa",
+            "length": 131,
+            "truncated": false
+          },
+          "withdrawn_reason_ref": {
+            "sha256": "9034498386fd38b20ea56316417a7a2a3fdc1fb927c928d32feea2ed2ff3bd30",
+            "length": 394,
+            "truncated": true
+          }
+        },
+        {
+          "id": "007940eaa585",
+          "rule": "",
+          "severity": "minor",
+          "category": "quality",
+          "file": "src/codereview/core.py",
+          "line": 135,
+          "title": "ARCHIVED_RULE_LEDGER and ARCHIVED_RULE_REVIEW_DIR regex patterns may match unintended paths",
+          "evidence": "",
+          "evidence_quote": "ARCHIVED_RULE_LEDGER = \"gate-attempts.*\"; ARCHIVED_RULE_REVIEW_DIR = \"review-*/\"",
+          "recommendation": "Review the glob-style patterns for edge cases (e.g., paths with multiple segments, hidden directories). Consider using more specific matching or adding unit tests for the _archived_rule function.",
+          "confidence": 0.6,
+          "sources": [
+            "nvidia"
+          ],
+          "consensus": false,
+          "grounding": "withdrawn",
+          "reground_seat": "nvidia",
+          "withdrawn_reason": "The diff text does not contain the quoted patterns ARCHIVED_RULE_LEDGER = \"gate-attempts.*\" or ARCHIVED_RULE_REVIEW_DIR = \"review-*/\". These lines appear only in the surrounding explanatory text and the _archived_rule function definition, not as standalone assignment statements within the diff conte",
+          "withdrawn_by": "nvidia",
+          "evidence_quote_ref": {
+            "sha256": "f1053ff22dd10306fad5d5b9460b78a53b41c8e0c1a8606614f046142ea842a9",
+            "length": 80,
+            "truncated": false
+          },
+          "withdrawn_reason_ref": {
+            "sha256": "cfe341ad4d2eaaa096cf94dc9270d72fd253560336659bf86db419aa18519ce6",
+            "length": 397,
+            "truncated": true
+          }
+        },
+        {
+          "id": "781f00d8ee5e",
+          "rule": "",
+          "severity": "minor",
+          "category": "quality",
+          "file": "src/codereview/core.py",
+          "line": 433,
+          "title": "deterministic_scan test-failure output_tail removed cap, may expose large outputs",
+          "evidence": "",
+          "evidence_quote": "tr.get(\"output_tail\") or \"\"",
+          "recommendation": "Verify that removing the 300-char cap does not cause downstream issues (e.g., oversized log entries, UI truncation). Consider adding a reasonable cap or ensuring consumers handle variable-length outputs.",
+          "confidence": 0.6,
+          "sources": [
+            "nvidia"
+          ],
+          "consensus": false,
+          "grounding": "grounded",
+          "evidence_quote_ref": {
+            "sha256": "324554cc87ab5763b5f941604d96a65e4cac41f65f5ce3e3d2d6a00281828cd5",
+            "length": 27,
+            "truncated": false
+          }
+        },
+        {
+          "id": "f325ce39be57",
+          "rule": "",
+          "severity": "minor",
+          "category": "correctness",
+          "file": "src/codereview/core.py",
+          "line": 1045,
+          "title": "run_review signature adds new parameters (tech_lead, probe_fn, tech_lead_timeout) without backward-compatible defaults for all callers",
+          "evidence": "",
+          "evidence_quote": "precedents=None, tech_lead=None, probe_fn=None, tech_lead_timeout=None):",
+          "recommendation": "Ensure all callers of run_review are updated with the new parameters, or provide strict default values that prevent silent failures (e.g., tech_lead=None should trigger the substitution logic, not be ignored).",
+          "confidence": 0.7,
+          "sources": [
+            "nvidia"
+          ],
+          "consensus": false,
+          "grounding": "withdrawn",
+          "reground_seat": "nvidia",
+          "withdrawn_reason": "The provided diff text does not contain the function signature `run_review` or the parameters `tech_lead`, `probe_fn`, or `tech_lead_timeout`. The finding references line 1045 of `src/codereview/core.py`, but the diff section ends at line 678 and does not include that line or the surrounding context",
+          "withdrawn_by": "nvidia",
+          "evidence_quote_ref": {
+            "sha256": "cbd1b48fda033a3635d5fde5f5b7ab34a905b868cd909f14e23f4a59aa358e5a",
+            "length": 72,
+            "truncated": false
+          },
+          "withdrawn_reason_ref": {
+            "sha256": "e555c0d0117b9ba3f5f89bcc3a79acd54c948f39888932002048b7219082de65",
+            "length": 358,
+            "truncated": true
+          }
+        }
+      ],
+      "attempts": 1,
+      "error_classes": [],
+      "family": "nvidia",
+      "tier": "free"
+    }
+  ],
+  "findings": [
+    {
+      "id": "df160cd55adb",
+      "rule": "eval-exec",
+      "severity": "blocker",
+      "category": "security",
+      "file": "tests/test_v100_integration.py",
+      "line": 248,
+      "title": "eval/exec call in added code",
+      "evidence": "\"eval(preserved_input)\\\"}]}\\n\"",
+      "evidence_quote": "\"eval(preserved_input)\\\"}]}\\n\"",
+      "recommendation": "Replace dynamic evaluation with a safe, explicit code path.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "consensus": false,
+      "grounding": "grounded",
+      "evidence_ref": {
+        "sha256": "d24aec68fc4d0cf5d7ea5884ecbeabf7209038b0fca750e8fcdfceeee2bec10b",
+        "length": 30,
+        "truncated": false
+      },
+      "evidence_quote_ref": {
+        "sha256": "d24aec68fc4d0cf5d7ea5884ecbeabf7209038b0fca750e8fcdfceeee2bec10b",
+        "length": 30,
+        "truncated": false
+      }
+    },
+    {
+      "id": "781f00d8ee5e",
+      "rule": "",
+      "severity": "minor",
+      "category": "quality",
+      "file": "src/codereview/core.py",
+      "line": 433,
+      "title": "deterministic_scan test-failure output_tail removed cap, may expose large outputs",
+      "evidence": "",
+      "evidence_quote": "tr.get(\"output_tail\") or \"\"",
+      "recommendation": "Verify that removing the 300-char cap does not cause downstream issues (e.g., oversized log entries, UI truncation). Consider adding a reasonable cap or ensuring consumers handle variable-length outputs.",
+      "confidence": 0.6,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false,
+      "grounding": "grounded",
+      "evidence_quote_ref": {
+        "sha256": "324554cc87ab5763b5f941604d96a65e4cac41f65f5ce3e3d2d6a00281828cd5",
+        "length": 27,
+        "truncated": false
+      }
+    }
+  ],
+  "degraded": false,
+  "truncated": false,
+  "gate": "blocked",
+  "gate_reasons": [
+    "1 blocking finding(s) (blocker)",
+    "correctness lens served by fallback seat 'openai' (primary 'gemini' failed: quota)",
+    "correctness lens served by fallback seat 'openai' (primary 'gemini' failed: quota)",
+    "correctness lens served by fallback seat 'openai' (primary 'gemini' failed: quota)",
+    "5 finding(s) withdrawn in the re-ground pass — preserved in withdrawn_findings",
+    "1 disputed finding(s): refuted by a second vendor family with quote evidence — routed to the human gate in disputed_findings; neither cleared nor blocking",
+    "2 refutation-weak finding(s): the refuting quote repeats the line the finding cites and carries no counter-evidence from another line — a routing state under the dispute ladder (§5a.1), preserved in refutation_weak_findings; no independent Tech Lead served to adjudicate, so the human gate decides"
+  ],
+  "withdrawn_findings": [
+    {
+      "id": "825addab2740",
+      "rule": "",
+      "severity": "major",
+      "category": "reliability",
+      "file": "src/codereview/core.py",
+      "line": 1638,
+      "title": "Tech Lead adjudication call has no per-call timeout bound in run_review",
+      "evidence": "",
+      "evidence_quote": "tech_lead_timeout bounds each adjudication call's wait in seconds (default TECH_LEAD_CALL_TIMEOUT) — the panel timeout wired through adjudication (step4 amendment review, confirmed major 1321bec43a24).",
+      "recommendation": "Add a hard per-call timeout to the Tech Lead adjudication call inside run_review, and ensure _review_job_bounded is used or an equivalent guard is enforced so a hanging adjudicator cannot block the pipeline.",
+      "confidence": 0.9,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false,
+      "grounding": "withdrawn",
+      "reground_seat": "nvidia",
+      "withdrawn_reason": "The finding references a Tech Lead adjudication call with no per-call timeout bound in run_review, but the diff text provided does not contain the adjudication loop code for run_review. The diff only shows additions to core.py including archived-record exclusion logic, platform rubric, and _tech_lea",
+      "withdrawn_by": "nvidia",
+      "evidence_quote_ref": {
+        "sha256": "6a174bebc90c5539d92e68caa014040aa27347262ea34171ac7e2f036b2d01c1",
+        "length": 201,
+        "truncated": false
+      },
+      "withdrawn_reason_ref": {
+        "sha256": "53de437d044522f282cc7acf687750feecf4d36132c0b3e5bd645178515cf7ea",
+        "length": 486,
+        "truncated": true
+      }
+    },
+    {
+      "id": "d72de74b5873",
+      "rule": "",
+      "severity": "major",
+      "category": "correctness",
+      "file": "src/codereview/core.py",
+      "line": 1683,
+      "title": "Tech Lead adjudication call may block pipeline indefinitely without timeout enforcement",
+      "evidence": "",
+      "evidence_quote": "the adjudication call runs synchronously inside run_review — before this bound existed, a hanging adjudicator seat could block the whole review pipeline indefinitely (step4 amendment review, confirmed major 1321bec43a24).",
+      "recommendation": "Wire a per-call timeout (TECH_LEAD_CALL_TIMEOUT = 900s) through the adjudication call in run_review; ensure the call returns within the bound or escalates, and never silently proceeds past a timeout.",
+      "confidence": 0.9,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false,
+      "grounding": "withdrawn",
+      "reground_seat": "nvidia",
+      "withdrawn_reason": "The finding references a Tech Lead adjudication call that may block the pipeline indefinitely without timeout enforcement, but the provided diff section does not contain any code related to adjudication, timeouts, or the run_review function. The diff only shows changes to archived-record exclusion l",
+      "withdrawn_by": "nvidia",
+      "evidence_quote_ref": {
+        "sha256": "35edc324aeb517bbd2fbf3deb7d102ff7f41e23a8598934f3a3147bea0419f4c",
+        "length": 221,
+        "truncated": false
+      },
+      "withdrawn_reason_ref": {
+        "sha256": "5938c0c64a4ee40a3c1d77d5f90094dd3da68f95c9aa29b9c77b1627c5da7d7a",
+        "length": 470,
+        "truncated": true
+      }
+    },
+    {
+      "id": "12d37a1829b3",
+      "rule": "",
+      "severity": "major",
+      "category": "correctness",
+      "file": "src/codereview/core.py",
+      "line": 1123,
+      "title": "apply_precedents function_key resolution may return None for files without resolvable functions, causing fallback to blob-only matching that can silently miss f",
+      "evidence": "",
+      "evidence_quote": "if fk is not None: ... elif entry.get(\"blob\") and blob_of(path) == entry.get(\"blob\"): # Function unresolvable: file-level fallback.",
+      "recommendation": "Ensure function_key resolution is robust: when a function cannot be resolved, the fallback to file-level blob matching must still validate that the blob has not changed, and the finding should be re-evaluated rather than silently marked standing.",
+      "confidence": 0.85,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false,
+      "grounding": "withdrawn",
+      "reground_seat": "nvidia",
+      "withdrawn_reason": "The provided diff section does not contain the quoted evidence line 'if fk is not None: ... elif entry.get(\"blob\") and blob_of(path) == entry.get(\"blob\"): # Function unresolvable: file-level fallback.' referenced in the finding. The diff shown is from src/codereview/core.py but contains no lines mat",
+      "withdrawn_by": "nvidia",
+      "evidence_quote_ref": {
+        "sha256": "7da31ca6f19eee4b844731ea3714794c7feda0758d301ef3d747fd052a22f5fa",
+        "length": 131,
+        "truncated": false
+      },
+      "withdrawn_reason_ref": {
+        "sha256": "9034498386fd38b20ea56316417a7a2a3fdc1fb927c928d32feea2ed2ff3bd30",
+        "length": 394,
+        "truncated": true
+      }
+    },
+    {
+      "id": "007940eaa585",
+      "rule": "",
+      "severity": "minor",
+      "category": "quality",
+      "file": "src/codereview/core.py",
+      "line": 135,
+      "title": "ARCHIVED_RULE_LEDGER and ARCHIVED_RULE_REVIEW_DIR regex patterns may match unintended paths",
+      "evidence": "",
+      "evidence_quote": "ARCHIVED_RULE_LEDGER = \"gate-attempts.*\"; ARCHIVED_RULE_REVIEW_DIR = \"review-*/\"",
+      "recommendation": "Review the glob-style patterns for edge cases (e.g., paths with multiple segments, hidden directories). Consider using more specific matching or adding unit tests for the _archived_rule function.",
+      "confidence": 0.6,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false,
+      "grounding": "withdrawn",
+      "reground_seat": "nvidia",
+      "withdrawn_reason": "The diff text does not contain the quoted patterns ARCHIVED_RULE_LEDGER = \"gate-attempts.*\" or ARCHIVED_RULE_REVIEW_DIR = \"review-*/\". These lines appear only in the surrounding explanatory text and the _archived_rule function definition, not as standalone assignment statements within the diff conte",
+      "withdrawn_by": "nvidia",
+      "evidence_quote_ref": {
+        "sha256": "f1053ff22dd10306fad5d5b9460b78a53b41c8e0c1a8606614f046142ea842a9",
+        "length": 80,
+        "truncated": false
+      },
+      "withdrawn_reason_ref": {
+        "sha256": "cfe341ad4d2eaaa096cf94dc9270d72fd253560336659bf86db419aa18519ce6",
+        "length": 397,
+        "truncated": true
+      }
+    },
+    {
+      "id": "f325ce39be57",
+      "rule": "",
+      "severity": "minor",
+      "category": "correctness",
+      "file": "src/codereview/core.py",
+      "line": 1045,
+      "title": "run_review signature adds new parameters (tech_lead, probe_fn, tech_lead_timeout) without backward-compatible defaults for all callers",
+      "evidence": "",
+      "evidence_quote": "precedents=None, tech_lead=None, probe_fn=None, tech_lead_timeout=None):",
+      "recommendation": "Ensure all callers of run_review are updated with the new parameters, or provide strict default values that prevent silent failures (e.g., tech_lead=None should trigger the substitution logic, not be ignored).",
+      "confidence": 0.7,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false,
+      "grounding": "withdrawn",
+      "reground_seat": "nvidia",
+      "withdrawn_reason": "The provided diff text does not contain the function signature `run_review` or the parameters `tech_lead`, `probe_fn`, or `tech_lead_timeout`. The finding references line 1045 of `src/codereview/core.py`, but the diff section ends at line 678 and does not include that line or the surrounding context",
+      "withdrawn_by": "nvidia",
+      "evidence_quote_ref": {
+        "sha256": "cbd1b48fda033a3635d5fde5f5b7ab34a905b868cd909f14e23f4a59aa358e5a",
+        "length": 72,
+        "truncated": false
+      },
+      "withdrawn_reason_ref": {
+        "sha256": "e555c0d0117b9ba3f5f89bcc3a79acd54c948f39888932002048b7219082de65",
+        "length": 358,
+        "truncated": true
+      }
+    }
+  ],
+  "disputed_findings": [
+    {
+      "id": "4ce0212286e0",
+      "rule": "",
+      "severity": "major",
+      "category": "correctness",
+      "file": "src/codereview/core.py",
+      "line": 1650,
+      "title": "Evidence_quote stored full-text but _finding_public truncates to 2000/1000 chars for prompts, risking mid-word cuts and loss of critical context",
+      "evidence": "",
+      "evidence_quote": "    shown[\"evidence\"] = str(shown.get(\"evidence\") or \"\")[:2000]",
+      "recommendation": "Ensure evidence_quote is stored and transmitted whole-text; the truncation in _finding_public should only be for display and must not alter the stored record's evidence. Verify that full-text is always persisted to sidecars.",
+      "confidence": 0.85,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false,
+      "grounding": "reground_confirmed",
+      "reground_seat": "openai",
+      "dispute": {
+        "by": "openai",
+        "family": "openai",
+        "raiser_family": "nvidia",
+        "evidence_quote": "    Evidence is stored full-text in the record (sidecars, §4 Q7);",
+        "reason": "The cited truncation is explicitly limited to prompt/display construction in _finding_public, while the code comments state storage remains full-text in the record sidecars. The claim that stored evidence is altered by this truncation is not supported by this region.",
+        "adequacy": "strong",
+        "evidence_quote_ref": {
+          "sha256": "9d7576ae8380dfff525777b927f02ddc69da8432cbe07e54faf2e10037bd0641",
+          "length": 65,
+          "truncated": false
+        },
+        "reason_ref": {
+          "sha256": "76b26b54fca6bb4a29055e0b82f15021d07f9d58bc71955cfa40cb4824361e5e",
+          "length": 267,
+          "truncated": false
+        }
+      },
+      "tech_lead": {
+        "status": "unavailable",
+        "reason": "no seat from a family independent of both the raiser and the refuter served on this panel"
+      },
+      "cross_family": "refuted",
+      "status": "disputed",
+      "evidence_quote_ref": {
+        "sha256": "387e7995e0f985f9e2eaa1ec7dcb596d6105408b47f62b3046042ac6c4f57550",
+        "length": 63,
+        "truncated": false
+      },
+      "evidence_complete": true
+    }
+  ],
+  "refutation_weak_findings": [
+    {
+      "id": "6b29fe953939",
+      "rule": "",
+      "severity": "major",
+      "category": "correctness",
+      "file": "src/codereview/core.py",
+      "line": 1000,
+      "title": "Function-level precedent can match the wrong callee when multiple functions share a name",
+      "evidence": "The function-key builder indexes callees only by bare name, so later definitions overwrite earlier ones and call sites are matched to whichever same-named function was seen last. In a supported Python module with two different methods or nested functions sharing a name, a precedent for one enclosing function can be treated as still valid or invalid based on an unrelated same-named function elsewhe",
+      "evidence_quote": "        by_name.setdefault(n.name, n)",
+      "recommendation": "Key callees by qualified name or by lexical scope instead of bare `n.name`, and resolve `ast.Attribute` calls against the enclosing class/function scope so same-named functions in other scopes cannot alias each other in the precedent hash.",
+      "confidence": 0.95,
+      "sources": [
+        "openai"
+      ],
+      "consensus": false,
+      "grounding": "grounded",
+      "dispute": {
+        "by": "nvidia",
+        "family": "nvidia",
+        "raiser_family": "openai",
+        "evidence_quote": "        by_name.setdefault(n.name, n)",
+        "reason": "The finding claims that indexing callees by bare name causes later definitions to overwrite earlier ones, but the quoted line shows the code uses `setdefault`, which preserves the first value and does not overwrite existing entries.",
+        "adequacy": "weak",
+        "evidence_quote_ref": {
+          "sha256": "38dfbce471f10c9a91ee9529961c4ea7ba66366de49855eb6b6213413ca2d5ab",
+          "length": 37,
+          "truncated": false
+        },
+        "reason_ref": {
+          "sha256": "b7c9263f33de1d153147fe0d8eee11169d6e230e738cc1acb3a1d603e0db37fc",
+          "length": 232,
+          "truncated": false
+        }
+      },
+      "tech_lead": {
+        "status": "unavailable",
+        "reason": "no seat from a family independent of both the raiser and the refuter served on this panel"
+      },
+      "cross_family": "refuted_weak",
+      "status": "refutation_weak",
+      "evidence_ref": {
+        "sha256": "8fab2d364994b18d1e1b63e27a9f10eea591afa3543cb1e9e73a06875c51c834",
+        "length": 415,
+        "truncated": true
+      },
+      "evidence_quote_ref": {
+        "sha256": "38dfbce471f10c9a91ee9529961c4ea7ba66366de49855eb6b6213413ca2d5ab",
+        "length": 37,
+        "truncated": false
+      },
+      "evidence_complete": true
+    },
+    {
+      "id": "bf4c451e8751",
+      "rule": "",
+      "severity": "major",
+      "category": "correctness",
+      "file": "src/codereview/core.py",
+      "line": 4404,
+      "title": "write_report now crashes on non-dict finding entries that verifier and iterator paths tolerate",
+      "evidence": "The new writer loops over every item in each finding list and unconditionally calls walk_finding, but walk_finding then executes membership tests against the raw object. For a non-dict entry, the added line 'if 'dispute' in f or 'adjudication' in f:' raises TypeError on supported Python when f is not iterable, making write_report fail instead of skipping malformed entries as _iter_evidence_refs do",
+      "evidence_quote": "        if \"dispute\" in f or \"adjudication\" in f:",
+      "recommendation": "Guard this branch with an isinstance(f, dict) check before any membership tests, or return early for non-dict values after the existing seen logic. Keep writer behavior aligned with _iter_evidence_refs, which already skips non-dict findings safely.",
+      "confidence": 0.95,
+      "sources": [
+        "openai"
+      ],
+      "consensus": false,
+      "grounding": "grounded",
+      "dispute": {
+        "by": "nvidia",
+        "family": "nvidia",
+        "raiser_family": "openai",
+        "evidence_quote": "        if \"dispute\" in f or \"adjudication\" in f:",
+        "reason": "The finding claims the line raises TypeError on non-dict entries, but the code uses `in` membership tests which work on any object with `__contains__`. The quote shows the exact guard line; the claim that it crashes on non-dict entries is incorrect as written.",
+        "adequacy": "weak",
+        "evidence_quote_ref": {
+          "sha256": "12a60cf49dd69f57bbd672c8c2b2403fbb87b944f6d0975e68f8465033609532",
+          "length": 49,
+          "truncated": false
+        },
+        "reason_ref": {
+          "sha256": "d3be75aaeee10e8eaaf8e59c84f25a8df5b60e77686868a13d586d51df4f2f99",
+          "length": 260,
+          "truncated": false
+        }
+      },
+      "tech_lead": {
+        "status": "unavailable",
+        "reason": "no seat from a family independent of both the raiser and the refuter served on this panel"
+      },
+      "cross_family": "refuted_weak",
+      "status": "refutation_weak",
+      "evidence_ref": {
+        "sha256": "57f9599da01b8e3c36a837a8a7c09b604f0fa23b0e0ca1717a44f199d8a30554",
+        "length": 403,
+        "truncated": true
+      },
+      "evidence_quote_ref": {
+        "sha256": "12a60cf49dd69f57bbd672c8c2b2403fbb87b944f6d0975e68f8465033609532",
+        "length": 49,
+        "truncated": false
+      },
+      "evidence_complete": true
+    }
+  ],
+  "range": "be0a12f..0c02ff6",
+  "head": "0c02ff6ca043c3695ff82e9a4689d57414329deb",
+  "evidence_sidecars": {
+    "dir": "evidence",
+    "files": 21,
+    "refs": 32
+  }
+}

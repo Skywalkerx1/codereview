@@ -1,0 +1,1 @@
+The finding claims the line raises TypeError on non-dict entries, but the code uses `in` membership tests which work on any object with `__contains__`. The quote shows the exact guard line; the claim that it crashes on non-dict entries is incorrect as written.

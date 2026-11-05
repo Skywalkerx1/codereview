@@ -1,0 +1,1 @@
+        by_name.setdefault(n.name, n)
