@@ -1226,8 +1226,8 @@ def _shadow_draw(fn, finding, region, dispute, rng, probe=None,
 def shadow_adjudicate(fn, finding, region, dispute, *,
                       seat_name=None, seat_family=None,
                       independence="independent", probe_fn=None,
-                      cache=None, timeout=None, rng=None,
-                      force_swap=False):
+                      probe_context=None, cache=None, timeout=None,
+                      rng=None, force_swap=False):
     """Run the shadow Tech Lead over one disputed finding and
     return the recorded entry for the record's
     shadow_adjudications section. NON-BINDING by construction:
@@ -1258,6 +1258,7 @@ def shadow_adjudicate(fn, finding, region, dispute, *,
         "state": "shadow_escalated", "decision": None,
         "draws": [], "draws_agree": None, "cache_hit": False,
         "probe_request": None, "probe_result": None,
+        "probe_context": probe_context,
         "error": None}
     if fn is None:
         entry["state"] = "shadow_unavailable"
@@ -1278,7 +1279,8 @@ def shadow_adjudicate(fn, finding, region, dispute, *,
         return hit
     probe_result = None
     draw = _shadow_draw(fn, finding, region, dispute, rng,
-                        timeout=timeout, force_swap=force_swap)
+                        probe=probe_context, timeout=timeout,
+                        force_swap=force_swap)
     entry["draws"].append(draw)
     decision = draw["decision"]
     if decision == "needs_probe":
@@ -1312,8 +1314,8 @@ def shadow_adjudicate(fn, finding, region, dispute, *,
     if major_plus and decision in ("sustain_finding",
                                    "sustain_refutation"):
         draw2 = _shadow_draw(fn, finding, region, dispute, rng,
-                             probe=probe_result, timeout=timeout,
-                             force_swap=force_swap)
+                             probe=probe_result or probe_context,
+                             timeout=timeout, force_swap=force_swap)
         entry["draws"].append(draw2)
         entry["draws_agree"] = draw2["decision"] == decision
         if not entry["draws_agree"]:
