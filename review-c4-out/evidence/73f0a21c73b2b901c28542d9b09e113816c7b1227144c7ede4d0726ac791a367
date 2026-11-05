@@ -1,0 +1,1 @@
+        self.assertEqual(report["gate"], "pass")

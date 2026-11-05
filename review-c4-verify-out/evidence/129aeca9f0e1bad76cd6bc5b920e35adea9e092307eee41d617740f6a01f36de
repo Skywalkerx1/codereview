@@ -1,0 +1,1 @@
+The builder response reorders CLI flow so claim verification runs after gate decision, which matches the design contract: claim verification is recorded evidence, never a gate input. The test test_a_mismatch_never_changes_the_gate asserts this invariance and passes. grep confirms no gate code reads claim_verification.

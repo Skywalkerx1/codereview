@@ -1,0 +1,7 @@
+        # Epic C4: verify the builder report's claimed commands
+        # against the tree and record the outcome in the run
+        # record. This runs after the gate has been decided and
+        # nothing reads the section back — claim verification
+        # is evidence, not a gate input: a mismatch downgrades
+        # the claim, never the verdict (claims.BOUNDARY).
+        claim_section = clai
