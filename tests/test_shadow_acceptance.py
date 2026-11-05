@@ -166,6 +166,23 @@ class AcceptanceRunnerTests(unittest.TestCase):
         self.assertFalse(result["cases"]["B1"]["score"]
                          ["correct"])
 
+    def test_metric_set_tolerates_absent_case_ids(self):
+        # 633acb885291: an explicit scorecard set naming a
+        # case the corpus does not have scores over the
+        # present cases — no bare KeyError.
+        cases = [_case("D1", "sustain_finding")]
+        seat = _Seat({"D1": [_payload("sustain_finding",
+                                      quote="alpha line")]})
+        with tempfile.TemporaryDirectory() as td:
+            _write_corpus(td, cases, m1_set=["D1", "ZZ9"])
+            result = acceptance.run_acceptance(
+                td, seat, seat_family="famC",
+                do_mutations=False)
+        m1 = result["metrics"][
+            "M1_false_dismissals_on_real_findings"]
+        self.assertEqual(m1["measured"], 0)
+        self.assertEqual(m1["set_size"], 1)
+
     def test_dismissal_evidence_rule_rejects_self_quote(self):
         entry = {"decision": "sustain_refutation",
                  "deciding_evidence": {"quote": "beta line"},
@@ -177,6 +194,68 @@ class AcceptanceRunnerTests(unittest.TestCase):
         entry["deciding_evidence"]["quote"] = "gamma line"
         score = acceptance.score_case(case, entry)
         self.assertTrue(score["correct"])
+
+
+def _write_empty_corpus(root, scorecard):
+    os.makedirs(os.path.join(root, "cases"))
+    with open(os.path.join(root, "index.json"), "w") as fh:
+        json.dump({"cases": []}, fh)
+    with open(os.path.join(root, "scorecard.json"), "w") as fh:
+        json.dump(scorecard, fh)
+    with open(os.path.join(root, "mutations.json"), "w") as fh:
+        json.dump({"mutations": []}, fh)
+
+
+def _seat_must_not_be_called(prompt):
+    raise AssertionError("seat called for an empty corpus")
+
+
+class EmptyCorpusTests(unittest.TestCase):
+    """633acb885291 regression: an empty corpus produces a
+    scored run record with unlock False — never a
+    ZeroDivisionError (set-less scorecard, M3) or a KeyError
+    (explicit sets naming absent cases, M1)."""
+
+    def test_empty_corpus_explicit_sets(self):
+        with tempfile.TemporaryDirectory() as td:
+            _write_corpus(td, [], m1_set=["L06", "L07"])
+            result = acceptance.run_acceptance(
+                td, _seat_must_not_be_called,
+                seat_family="famC", do_mutations=True)
+        self.assertEqual(result["cases"], {})
+        self.assertFalse(result["unlock_all_gates_pass"])
+        m = result["metrics"]
+        self.assertEqual(
+            m["M1_false_dismissals_on_real_findings"]
+            ["set_size"], 0)
+        self.assertEqual(
+            m["M3_overall_accuracy"]["measured"], 0.0)
+        self.assertFalse(m["M3_overall_accuracy"]["pass"])
+
+    def test_empty_corpus_setless_scorecard(self):
+        scorecard = {"metrics": [
+            {"id": "M1_false_dismissals_on_real_findings",
+             "threshold": {"op": "==", "value": 0}},
+            {"id": "M2_probe_settled_accuracy",
+             "threshold": {"op": ">=", "value": 1.0}},
+            {"id": "M3_overall_accuracy",
+             "threshold": {"op": ">=", "value": 0.9}},
+            {"id": "M4_mutation_flip_rate",
+             "threshold": {"op": "<=", "value": 0.05}},
+            {"id": "M5_protected_and_insufficient_escalated",
+             "threshold": {"op": ">=", "value": 1.0}},
+            {"id": "M6_double_draw_agreement_on_majors",
+             "threshold": {"op": ">=", "value": 0.9}}]}
+        with tempfile.TemporaryDirectory() as td:
+            _write_empty_corpus(td, scorecard)
+            result = acceptance.run_acceptance(
+                td, _seat_must_not_be_called,
+                seat_family="famC", do_mutations=True)
+        self.assertEqual(result["cases"], {})
+        self.assertFalse(result["unlock_all_gates_pass"])
+        self.assertEqual(
+            result["metrics"]["M3_overall_accuracy"]
+            ["measured"], 0.0)
 
 
 if __name__ == "__main__":
