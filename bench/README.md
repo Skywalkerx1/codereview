@@ -46,12 +46,17 @@ with the repo; no third-party code is included. Case format:
 (the loader refuses a corpus whose manifest and directories
 disagree).
 
-The deterministic scan alone catches 13 of the 31 defects
+The deterministic scan alone catches 13 of the 41 defects
 (pattern-shaped: secrets, injection strings, destructive SQL,
-eval, skips). The other 18 need judgement — removed auth checks,
+eval, skips). The other 28 need judgement — removed auth checks,
 unit-of-money bugs, races, swallowed errors. That split is the
 point of the benchmark: it prices what the model panel adds over
-the free deterministic layer.
+the free deterministic layer. (Corpus total was 31 until
+2026-11-04, when semantic adjudication of the first baseline's
+unmatched findings added 10 genuine defects the panel had found
+but the original labels had missed; the additions are marked
+`adjudication_added` in each `case.json`. Scores quoted from the
+2026-11-04 baseline were computed against the original 31.)
 
 **Growth path to 50–100 cases** (A2's full target): (1) convert
 more of our own stored run records — every public miss becomes a

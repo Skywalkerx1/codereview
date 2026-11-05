@@ -19,6 +19,20 @@
         "lock",
         "increment"
       ]
+    },
+    {
+      "severity": "nit",
+      "category": "quality",
+      "file": "app/metrics.py",
+      "line": 15,
+      "title": "record_click duplicates record_view's increment logic instead of sharing a helper",
+      "keywords": [
+        "duplicated",
+        "logic",
+        "helper",
+        "copy"
+      ],
+      "adjudication_added": "2026-11-04"
     }
   ]
 }

@@ -3,7 +3,7 @@
   "title": "Health checker deletes rows and alerts per violation, with a hardcoded SMTP password",
   "category": "real",
   "split": "public",
-  "source": "Adapted from this repo's examples/buggy_alert_flood.patch — the change that drove the 2026-11-04 live demo loop; its alert finding was confirmed by the demo panel (round-1 record). Password value is synthetic.",
+  "source": "Adapted from this repo's examples/buggy_alert_flood.patch \u2014 the change that drove the 2026-11-04 live demo loop; its alert finding was confirmed by the demo panel (round-1 record). Password value is synthetic.",
   "license": "MIT (original to this repository)",
   "expected": [
     {
@@ -46,6 +46,21 @@
         "smtp",
         "secret"
       ]
+    },
+    {
+      "severity": "major",
+      "category": "data-loss",
+      "file": "app/health_check.py",
+      "line": 14,
+      "title": "Health check permanently deletes jobs rows per violation with no transaction, archival, or processed-marking",
+      "keywords": [
+        "deletes",
+        "transaction",
+        "archival",
+        "marking",
+        "rows"
+      ],
+      "adjudication_added": "2026-11-04"
     }
   ]
 }

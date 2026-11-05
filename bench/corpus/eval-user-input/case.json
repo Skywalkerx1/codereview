@@ -18,6 +18,20 @@
         "input",
         "arbitrary"
       ]
+    },
+    {
+      "severity": "minor",
+      "category": "correctness",
+      "file": "app/calc.py",
+      "line": 7,
+      "title": "evaluate() error and return-type contract widened by eval",
+      "keywords": [
+        "error",
+        "return",
+        "type",
+        "contract"
+      ],
+      "adjudication_added": "2026-11-04"
     }
   ]
 }

@@ -18,6 +18,34 @@
         "shell",
         "input"
       ]
+    },
+    {
+      "severity": "major",
+      "category": "correctness",
+      "file": "app/nettools.py",
+      "line": 5,
+      "title": "ping() return contract changed from output text to exit-status int",
+      "keywords": [
+        "return",
+        "contract",
+        "output",
+        "exit",
+        "status"
+      ],
+      "adjudication_added": "2026-11-04"
+    },
+    {
+      "severity": "nit",
+      "category": "quality",
+      "file": "app/nettools.py",
+      "line": 2,
+      "title": "Unused subprocess import added",
+      "keywords": [
+        "unused",
+        "import",
+        "subprocess"
+      ],
+      "adjudication_added": "2026-11-04"
     }
   ]
 }

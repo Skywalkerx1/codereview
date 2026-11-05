@@ -18,6 +18,20 @@
         "hash",
         "stored"
       ]
+    },
+    {
+      "severity": "major",
+      "category": "correctness",
+      "file": "app/accounts.py",
+      "line": 14,
+      "title": "Signup writes credential to 'password' attribute instead of 'password_hash', breaking verification readers",
+      "keywords": [
+        "password_hash",
+        "attribute",
+        "verification",
+        "field"
+      ],
+      "adjudication_added": "2026-11-04"
     }
   ]
 }

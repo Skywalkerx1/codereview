@@ -18,6 +18,20 @@
         "rounding",
         "decimal"
       ]
+    },
+    {
+      "severity": "minor",
+      "category": "reliability",
+      "file": "shop/pricing.py",
+      "line": 8,
+      "title": "float() conversion of an out-of-range Decimal silently yields inf",
+      "keywords": [
+        "float",
+        "inf",
+        "conversion",
+        "range"
+      ],
+      "adjudication_added": "2026-11-04"
     }
   ]
 }

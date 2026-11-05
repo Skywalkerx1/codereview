@@ -19,6 +19,47 @@
         "allowlist",
         "internal"
       ]
+    },
+    {
+      "severity": "major",
+      "category": "reliability",
+      "file": "app/preview.py",
+      "line": 5,
+      "title": "URL fetch has no timeout and can hang the worker",
+      "keywords": [
+        "timeout",
+        "hang",
+        "fetch"
+      ],
+      "adjudication_added": "2026-11-04"
+    },
+    {
+      "severity": "major",
+      "category": "reliability",
+      "file": "app/preview.py",
+      "line": 5,
+      "title": "Response body read into memory with no size bound",
+      "keywords": [
+        "unbounded",
+        "response",
+        "body",
+        "memory"
+      ],
+      "adjudication_added": "2026-11-04"
+    },
+    {
+      "severity": "minor",
+      "category": "correctness",
+      "file": "app/preview.py",
+      "line": 5,
+      "title": "Fetch errors propagate as unhandled exceptions",
+      "keywords": [
+        "error",
+        "handling",
+        "unhandled",
+        "exceptions"
+      ],
+      "adjudication_added": "2026-11-04"
     }
   ]
 }

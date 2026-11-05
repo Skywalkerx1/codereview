@@ -24,13 +24,13 @@
       "id": "command-injection-shell",
       "category": "injection",
       "split": "public",
-      "expected_defects": 1
+      "expected_defects": 3
     },
     {
       "id": "eval-user-input",
       "category": "injection",
       "split": "public",
-      "expected_defects": 1
+      "expected_defects": 2
     },
     {
       "id": "auth-check-removed",
@@ -54,7 +54,7 @@
       "id": "race-counter-increment",
       "category": "concurrency",
       "split": "public",
-      "expected_defects": 1
+      "expected_defects": 2
     },
     {
       "id": "error-swallow-bare-except",
@@ -84,13 +84,13 @@
       "id": "ssrf-fetch",
       "category": "security",
       "split": "public",
-      "expected_defects": 1
+      "expected_defects": 4
     },
     {
       "id": "plaintext-password-store",
       "category": "security",
       "split": "public",
-      "expected_defects": 1
+      "expected_defects": 2
     },
     {
       "id": "sensitive-data-logging",
@@ -102,7 +102,7 @@
       "id": "float-money-total",
       "category": "correctness",
       "split": "public",
-      "expected_defects": 1
+      "expected_defects": 2
     },
     {
       "id": "off-by-one-pagination",
@@ -132,7 +132,7 @@
       "id": "real-buggy-alert-flood",
       "category": "real",
       "split": "public",
-      "expected_defects": 3
+      "expected_defects": 4
     },
     {
       "id": "clean-parameterized-query",
