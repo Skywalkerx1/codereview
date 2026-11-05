@@ -1,0 +1,12 @@
+if not waiver_rules["allow"]:
+            check("waivers.allow",
+                  "no waivers recorded",
+                  False,
+                  f"policy does not permit waivers, but finding "
+                  f"{fid} was waived")
+          if waiver_rules["require_reason"]:
+            check("waivers.require_reason",
+                  f"waiver for {fid} records a reason",
+                  bool(str(waiver.get("reason") or "").strip()),
+                  f"waiver for finding {fid} records no reason; "
+                  f"policy requires one")

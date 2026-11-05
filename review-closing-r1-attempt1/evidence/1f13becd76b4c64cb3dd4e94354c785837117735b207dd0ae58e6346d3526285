@@ -1,0 +1,1 @@
+The cited vulnerable line was removed. The current code constructs the child environment from an allow-list plus explicit opt-ins, rather than inheriting the full parent environment.

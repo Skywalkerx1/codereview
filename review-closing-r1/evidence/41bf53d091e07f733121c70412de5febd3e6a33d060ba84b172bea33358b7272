@@ -1,0 +1,1 @@
+The finding claims 'No new tests added to cover 4522 lines of new case data' but the diff shows the acceptance-run.json is a new file with 4522 lines of case data. The finding is unsupported by the provided text and is withdrawn.

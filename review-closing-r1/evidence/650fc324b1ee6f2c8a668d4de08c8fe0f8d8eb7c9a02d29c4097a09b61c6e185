@@ -1,0 +1,1 @@
+When a directory is passed, the loader scans every .json file and chooses the last one after sorting by modification time. Record directories created by other new commands in this diff can contain multiple JSON files, so record-verify, sarif, and locate may operate on an unrelated auxiliary JSON instead of the actual review record.

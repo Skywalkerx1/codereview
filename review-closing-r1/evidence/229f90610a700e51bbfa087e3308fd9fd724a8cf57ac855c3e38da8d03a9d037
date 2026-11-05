@@ -1,0 +1,1 @@
+The code explicitly constructs argv as [sys.executable, target] for test kind, which runs the target as a script via the Python interpreter rather than invoking a test runner. This matches the finding's description that the harness executes the target directly, confirming the defect.

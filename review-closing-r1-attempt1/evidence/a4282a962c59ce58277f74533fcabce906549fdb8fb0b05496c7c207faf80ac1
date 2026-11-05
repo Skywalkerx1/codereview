@@ -1,0 +1,1 @@
+This region only defines role names and parsing/validation for role assignments. It contains no Tech Lead eligibility assertion, retry path, cooldown behavior, or fallback logic to evaluate, so the specific claim is not supported by the cited code.

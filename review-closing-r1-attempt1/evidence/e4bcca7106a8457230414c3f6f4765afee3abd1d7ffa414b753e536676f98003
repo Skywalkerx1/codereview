@@ -1,0 +1,4 @@
+    worker = threading.Thread(target=_work, daemon=True, name="codereview-tech-lead-call")
+    worker.start()
+    try:
+        return box.get(timeout=timeout)

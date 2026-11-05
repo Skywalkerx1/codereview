@@ -1,0 +1,39 @@
+{
+  "seat_family": "deepseek",
+  "seat_name": "deepseek-acceptance",
+  "corpus": "/home/hatch/workspace/codereview-acceptance",
+  "protocol_version": 1,
+  "rubric_version": 1,
+  "cases": {
+    "I01": {
+     "entry": {
+      "finding_id": "I01",
+      "file": "src/codereview/core.py",
+      "line": 789,
+      "mode": "shadow",
+      "binding": false,
+      "seat": "deepseek-acceptance",
+      "family": "deepseek",
+      "independence": "independent",
+      "protocol_version": 1,
+      "rubric_version": 1,
+      "state": "shadow_escalated",
+      "decision": null,
+      "draws": [
+       {
+        "positions": {
+         "A": "refuter",
+         "B": "raiser"
+        },
+        "decision": "escalate",
+        "error": "shadow Tech Lead call failed: deepseek empty: empty content"
+       }]
+     },
+    "score": {
+     "correct": true,
+     "false_dismissal": false,
+     "scored_decision": "escalate",
+     "rule": "exact"
+    }
+   }
+}

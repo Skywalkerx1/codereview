@@ -1,0 +1,5 @@
++  codereview sarif review-out --out results.sarif
++  codereview policy check   # validate .codereview.toml and
++                            # print the effective project policy
++  codereview evidence --repo . --config evidence.json
++  codereview evidence --repo . --claims builder-report.md

@@ -1,0 +1,1 @@
+try: record_extra["head"] = core._git(args.repo or ".", "rev-parse", "HEAD") except Exception: pass

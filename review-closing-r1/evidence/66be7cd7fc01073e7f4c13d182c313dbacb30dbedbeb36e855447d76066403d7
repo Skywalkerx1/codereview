@@ -1,0 +1,1 @@
+The diff text does not contain the line 'm5 = (sum(1 for cid in m5_set if scored_decision(baseline[cid]) == "escalate") / len(m5_set)) if m5_set else 0.0'. The M5 calculation logic is not present in the provided file section, so the finding cannot be supported from this evidence.

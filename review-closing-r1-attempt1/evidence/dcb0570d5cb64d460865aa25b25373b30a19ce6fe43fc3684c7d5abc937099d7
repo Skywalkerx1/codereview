@@ -1,0 +1,1 @@
+The finding references line 2298 of src/codereview/core.py, but the provided diff section ends at line 395 and contains no code matching the finding's quoted lines about 'family' and 'tier' meta lookups. The cited evidence_quote does not appear in this diff section, so the claim cannot be confirmed from this text.

@@ -1,0 +1,1 @@
+The no-provider path now does 'or userconfig.default_provider_specs()' inside a try/except that returns 2 on ValueError, but the setup wizard is only attempted later under 'if not specs and _stdin_is_tty()'. On a first run with no env providers and no saved config, a ValueError from default_provider_specs exits immediately and the wizard branch is never reached.

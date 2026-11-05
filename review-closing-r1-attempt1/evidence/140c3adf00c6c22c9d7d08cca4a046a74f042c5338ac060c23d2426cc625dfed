@@ -1,0 +1,1 @@
+The subprocess that creates the worktree is checked and can raise before 'out' is assigned, but the code later iterates 'out.splitlines()' unconditionally.

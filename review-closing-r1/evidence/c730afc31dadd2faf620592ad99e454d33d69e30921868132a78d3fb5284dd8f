@@ -1,0 +1,6 @@
++def _verify_evidence_sidecars(record):
++    for ref in record.evidence_refs:
++        sidecar = load_sidecar(ref.sha256)
++        if not sidecar:
++            return False, f"missing sidecar for {ref.sha256[:8]}"
++        # ... truncated check

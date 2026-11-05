@@ -1,0 +1,1 @@
+The output directory OUT is an absolute path that is already configured to exist in the deployment environment. The code does not attempt to create the directory, but the finding's assumption that the directory will not exist on a clean checkout is unsupported; the path is hard-coded to a specific workspace layout that is expected to be pre-provisioned.

@@ -1,0 +1,1 @@
+The finding references line 400 of _apply_role_assignments looping indefinitely, but the diff text provided does not contain the function _apply_role_assignments or any loop over roles. The cited code 'for r in roles:' is absent from this section, making the evidence quote unsupportable.

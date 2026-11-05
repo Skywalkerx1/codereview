@@ -1,0 +1,1 @@
+The sort key coerces confidence with float(findings[i].get('confidence') or 0). If a reviewer returns a non-empty non-numeric confidence such as 'high', this raises ValueError before any scoring completes.

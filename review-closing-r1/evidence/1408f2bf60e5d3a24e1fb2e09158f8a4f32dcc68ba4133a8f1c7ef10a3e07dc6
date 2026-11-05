@@ -1,0 +1,1 @@
+with open(full, "rb") as fh:

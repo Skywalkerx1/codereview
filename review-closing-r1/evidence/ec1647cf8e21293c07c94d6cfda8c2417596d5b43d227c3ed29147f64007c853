@@ -1,0 +1,1 @@
+    path = os.path.join(UPLOAD_DIR, name)

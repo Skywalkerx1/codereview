@@ -1,0 +1,1 @@
+The code stores evidence full-text without truncation, but the finding claims this allows unbounded report growth. The evidence string is only appended to the report after redaction and has no mechanism to inflate output; the claim conflates storage with output size and is not supported by the region.

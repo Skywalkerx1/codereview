@@ -1,0 +1,1 @@
+m5 = (sum(1 for cid in m5_set if scored_decision(baseline[cid]) == "escalate") / len(m5_set)) if m5_set else 0.0

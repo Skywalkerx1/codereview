@@ -1,0 +1,1 @@
+The script inserts absolute paths from one home directory, which means it will fail on machines without that exact directory structure, confirming the finding that the script is not portable across supported POSIX setups.

@@ -1,0 +1,4 @@
++def _doctor_main(...):
++    seats = build_seats(provider_specs, ...)
++    for seat in seats:
++        probe(seat)  # no timeout or thread bound

@@ -1,0 +1,3 @@
+    out = subprocess.run(
+            ["git", "-C", repo_abs, "show", f"HEAD:{p}"],
+            capture_output=True, timeout=120, check=False)

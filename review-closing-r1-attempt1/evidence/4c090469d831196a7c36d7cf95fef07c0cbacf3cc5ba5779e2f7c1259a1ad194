@@ -1,0 +1,1 @@
+The code region explicitly shows the timeout argument being passed to build_solvers in the only solver-construction path present. The finding's claim that the override branch is untouched is contradicted by the diff, which adds the timeout forwarding to the active path without any separate override branch visible.

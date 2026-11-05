@@ -1,0 +1,1 @@
+The code at line 2148 uses `room` as the step argument in `range()`. In Python, `range(0, n, 0)` raises a ValueError, so the claim that this causes an infinite loop is incorrect — it would raise an exception instead. The loop does not execute indefinitely; it fails immediately with an error.

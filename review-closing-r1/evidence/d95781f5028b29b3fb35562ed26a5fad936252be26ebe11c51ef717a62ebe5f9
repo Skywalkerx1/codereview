@@ -1,0 +1,3 @@
+PRIVATE_KEY_PEM = """[REDACTED-PRIVATE-KEY]
++MIIBOgIBAAJBAKfake0material0for0the0bench0corpus0only0AA
++-----END RSA PRIVATE KEY-----"""

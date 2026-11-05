@@ -1,0 +1,1 @@
+The new config-driven evidence path calls collect directly with no exception handling, unlike the surrounding file's other CLI entrypoints that convert operational failures into exit code 2. Any runtime error from configured commands/adapters will now propagate and terminate the process.

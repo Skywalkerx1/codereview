@@ -1,0 +1,1 @@
+The code already guards the M4 threshold check when mutations are disabled, so m4 being None does not cause an unsafe pass/fail evaluation. The denominator is also explicitly set to 0 in that mode and handled by the conditional expression.

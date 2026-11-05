@@ -1,0 +1,1 @@
+The disputes and the open-dispute inventory section lists codereview disputes --record entry.json [--store PATH] and codereview disputes --check --span A..B [--inventory FILE] but does not show the implementation or configuration of the --store or --inventory flags in the diff.

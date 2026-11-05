@@ -1,0 +1,1 @@
+The finding claims a tuple unpack mismatch, but the code at line 5788 unpacks exactly three variables (container, key, cap) from _shadow_evidence_targets(). The evidence_quote from the finding matches the code exactly, confirming the unpack is correct and the claim is false.

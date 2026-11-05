@@ -1,0 +1,1 @@
+for entry in config.get("commands") or []:

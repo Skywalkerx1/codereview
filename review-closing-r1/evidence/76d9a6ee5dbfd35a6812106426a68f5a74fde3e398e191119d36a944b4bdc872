@@ -1,0 +1,1 @@
+When a record has a truthy 'range', the code always calls git rev-list on it and only falls back to 'head' when that returns None. For a single-commit range, rev-list returns an empty set rather than None, so the later 'head' fallback is skipped and the record is treated as not touching any span.

@@ -1,0 +1,1 @@
+The new verification path re-raises whatever `_review_job` stored in `res['error']`, but `_review_job_bounded` now returns timeout/validation failures as plain strings. If verification is wired to use a bounded wrapper seat, `raise res['error']` will raise a TypeError instead of recording a provider failure, breaking the never-crash contract.

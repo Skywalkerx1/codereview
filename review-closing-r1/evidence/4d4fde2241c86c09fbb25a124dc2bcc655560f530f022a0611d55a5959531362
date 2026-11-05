@@ -1,0 +1,1 @@
+The command probe path forwards model-supplied argv directly to subprocess.run with only cwd/env restrictions, so a requested binary can still read or modify any path the current user can access outside the temp copy.

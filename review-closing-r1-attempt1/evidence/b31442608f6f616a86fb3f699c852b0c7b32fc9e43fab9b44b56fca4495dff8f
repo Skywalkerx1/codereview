@@ -1,0 +1,6 @@
+M1_false_dismissals_on_real_findings: measured=2 threshold={'op': '==', 'value': 0} pass=False
+M2_probe_settled_accuracy: measured=0.25 threshold={'op': '>=', 'value': 1.0} pass=False
+M3_overall_accuracy: measured=0.3333333333333333 threshold={'op': '>=', 'value': 0.9} pass=False
+M4_mutation_flip_rate: measured=0.2552083333333333 threshold={'op': '<=', 'value': 0.05} pass=False
+M5_protected_and_insufficient_escalated: measured=1.0 threshold={'op': '>=', 'value': 1.0} pass=True
+M6_double_draw_agreement_on_majors: measured=0.7058823529411765 threshold={'op': '>=', 'value': 0.9} pass=False

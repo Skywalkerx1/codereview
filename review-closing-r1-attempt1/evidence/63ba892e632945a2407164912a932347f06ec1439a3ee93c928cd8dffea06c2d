@@ -1,0 +1,2 @@
++                  f"Not confirmed cleared: "
++                  f"{len(report.get('unjudged') or [])}"

@@ -1,0 +1,1 @@
+The code initializes 'out' via proc.stdout and proc.stderr before the finally block, and the finally block only removes the worktree; the subsequent loop iterates over 'out' which is always assigned when the loop executes because it is defined in the try block before the finally clause.

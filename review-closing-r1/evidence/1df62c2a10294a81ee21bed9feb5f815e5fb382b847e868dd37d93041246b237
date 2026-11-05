@@ -1,0 +1,66 @@
++{
++ "seat_family": "deepseek",
++ "seat_name": "deepseek-acceptance",
++ "corpus": "/home/hatch/workspace/codereview-acceptance",
++ "protocol_version": 1,
++ "rubric_version": 1,
++ "cases": {
++  "I01": {
++   "entry": {
++    "finding_id": "I01",
++    "file": "src/codereview/core.py",
++    "line": 789,
++    "mode": "shadow",
++    "binding": false,
++    "seat": "deepseek-acceptance",
++    "family": "deepseek",
++    "independence": "independent",
++    "protocol_version": 1,
++    "rubric_version": 1,
++    "state": "shadow_escalated",
++    "decision": null,
++    "draws": [
++     {
++      "positions": {
++       "A": "refuter",
++       "B": "raiser"
++      },
++      "decision": "escalate",
++      "error": "shadow Tech Lead call failed: deepseek empty: empty content"
++     },
++    ],
++    "draws_agree": null,
++    "cache_hit": false,
++    "probe_request": null,
++    "probe_result": null,
++    "probe_context": null,
++    "probe_context": null,
++    "error": "shadow Tech Lead call failed: deepseek empty: empty content",
++    "claim_restated": null,
++    "claim_falsifiable": null,
++    "raiser_evidence_addresses_claim": null,
++    "refuter_evidence_addresses_claim": null,
++    "reasoning_assessment": null,
++    "deciding_evidence": {
++     "file": "src/codereview/core.py",
++     "line": 789,
++     "quote": ""
++    },
++    "severity_after_rubric": {
++     "level": "major",
++     "rubric_clause": null
++    },
++    "confidence": null,
++    "positions": {
++     "A": "refuter",
++     "B": "raiser"
++    },
++    "cache_key": "b8aa2ed3c9d39785c19dc170fb5bfc3e7b3a798127a63390ff60db5f30bae6e8"
++   },
++   "score": {
++    "correct": true,
++    "false_dismissal": false,
++    "scored_decision": "escalate",
++    "rule": "exact"
++   }
++  }

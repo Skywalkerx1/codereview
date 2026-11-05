@@ -1,0 +1,1 @@
+The diff explicitly adds support for an evidence_quote field in normalized findings, so the claim that rendering references a field absent from the schema/diff is not supported by this region. The cited issue also mentions 'grounding', but no render_markdown code is shown here to establish a crash.

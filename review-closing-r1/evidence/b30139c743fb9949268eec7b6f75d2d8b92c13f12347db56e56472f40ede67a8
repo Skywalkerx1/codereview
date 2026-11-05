@@ -1,0 +1,1 @@
+except (ValueError, EOFError, KeyboardInterrupt) as exc:

@@ -1,0 +1,3 @@
+    for name, fn in seat_fns.items():
+        if name in ok_seats:
+            return name, fn, fam_of(name), substitution, None

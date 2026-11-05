@@ -1,0 +1,1 @@
+The diff text for src/codereview/policy.py contains only the policy schema, loading, validation, and evaluation logic. There is no code related to provider retry attempts, MAX_PROVIDER_ATTEMPTS, or a provider loop. The finding references lines (e.g., `MAX_PROVIDER_ATTEMPTS = 3`, `if not provider`) that do not appear in this file section, making the claim unsupported.

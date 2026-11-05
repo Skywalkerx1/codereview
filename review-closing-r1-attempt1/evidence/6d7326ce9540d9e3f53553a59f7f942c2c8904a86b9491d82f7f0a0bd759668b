@@ -1,0 +1,1 @@
+            if current and len(current) + len(piece) > max_chars:

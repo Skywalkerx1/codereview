@@ -1,0 +1,1 @@
++- **Freshness check:** `codereview disputes --check --span A..B` exits non-zero listing any dispute in records touching the span that is neither dispositioned nor listed in a caller-supplied `--inventory` file.

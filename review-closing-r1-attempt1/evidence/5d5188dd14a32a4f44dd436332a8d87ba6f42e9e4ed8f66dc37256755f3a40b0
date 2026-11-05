@@ -1,0 +1,1 @@
+try: built = build_providers([pspec.strip()], agent_timeout=args.timeout) except Exception as exc: print(f"codereview: fallback setup failed: {exc}", file=sys.stderr) return 2

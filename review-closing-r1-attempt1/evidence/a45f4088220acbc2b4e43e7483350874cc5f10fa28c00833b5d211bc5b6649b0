@@ -1,0 +1,1 @@
+The variable used after monkeypatching is only assigned inside the fake hook, but is read unconditionally after restoring the original function.

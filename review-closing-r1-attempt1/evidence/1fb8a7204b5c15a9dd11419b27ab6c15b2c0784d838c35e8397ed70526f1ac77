@@ -1,0 +1,1 @@
+The new batching path no longer guards non-positive budgets before appending pieces, so a caller that passes 0 or a negative max_chars gets 'pieces = [text]' from _split_section and then repeatedly flushes an empty current batch without consuming the piece.

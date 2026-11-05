@@ -1,0 +1,1 @@
+The quoted line explicitly copies the argv list for command probes, and the run_probe function executes argv directly via subprocess.run with cwd=work and a restricted sandbox env; the code does not provide shell access or filesystem escape within the temp copy, contradicting the claim that probes can write outside the temp copy.

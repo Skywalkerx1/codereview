@@ -1,0 +1,1 @@
+The quoted line sorts JSON files by modification time to select the newest, but the code region contains no directory-loading logic that iterates .json files in a folder. The finding's claim about directory scanning and mtime-based selection is unsupported by the provided code.

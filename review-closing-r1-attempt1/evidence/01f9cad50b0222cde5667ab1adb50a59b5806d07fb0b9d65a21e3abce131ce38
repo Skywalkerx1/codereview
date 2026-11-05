@@ -1,0 +1,1 @@
+    for page in range(1, total_pages):

@@ -1,0 +1,1 @@
+        n = counters.get(base.lower(), 0) + 1

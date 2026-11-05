@@ -1,0 +1,1 @@
+log(f"UNLOCK: {result['unlock_all_gates_pass']}")

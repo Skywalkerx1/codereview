@@ -1,0 +1,1 @@
+The diff text provided does not contain the quoted line '    rows = db.execute("SELECT * FROM audit_log").fetchall()'. The section shows only a comment '# Audit endpoint now performs an unbounded full-table read' and a blank line, with no actual code lines matching the evidence_quote. Therefore, the finding cannot be supported from this text.

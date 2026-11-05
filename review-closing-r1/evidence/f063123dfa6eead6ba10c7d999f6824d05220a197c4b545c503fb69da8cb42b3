@@ -1,0 +1,1 @@
+The script logs the unlock result but has no conditional exit, so a run with failed metrics still returns success to callers.

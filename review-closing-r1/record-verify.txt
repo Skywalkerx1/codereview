@@ -1,0 +1,16 @@
+codereview: disposition store: 40 entr(ies) from ./dispositions.jsonl
+  [FAIL] gate_pass: gate='blocked'
+  [ok ] not_degraded: degraded=False
+  [ok ] tests_passed: 1/1 test commands ok
+  [ok ] lens_coverage: lenses served: ['correctness', 'operations']
+  [ok ] two_families: distinct known families: ['nvidia', 'openai']
+  [ok ] coverage_complete: every recorded file covered by every lens across 30 batch(es)
+  [ok ] tier_policy: run attested non-private (private=false); free-tier seats permitted
+  [ok ] range_recorded: 3013656..2fbf94f
+  [ok ] patch_matches_range: recomputed patch hash matches
+  [FAIL] head_current: later commits touch: ['dispositions.jsonl']
+  [ok ] fixture_scope_valid: manifest hash, policy version, classified paths and fixture findings all recompute
+  [ok ] precedent_scope_valid: precedent store hash, entry links and cited-file blobs all recompute
+  [ok ] evidence_sidecars: 910 evidence ref(s) recompute against their sidecars; 0 dispute-bearing finding(s) lack complete refs (adjudication-ineligible inputs)
+  [FAIL] disputes_dispositioned: open dispute(s) with no disposition in the store: ['bbad4502fc6a', '60eb09183ee5', '127ddee9be1b', '7514429a36b2', 'ae8ecbc07ce1', '72d0d3e96ada', '99fe18f50ec3', 'e1570280c036', '55752b0dc5b7', '934f
+codereview: record (review-closing-r1/codereview-20261105-031927.json) NOT eligible

@@ -1,0 +1,1 @@
+shadow_seat = shadow_role_seat or args.tech_lead or tech_lead_seat if shadow_seat: review_kwargs["tech_lead_shadow_seat"] = shadow_seat

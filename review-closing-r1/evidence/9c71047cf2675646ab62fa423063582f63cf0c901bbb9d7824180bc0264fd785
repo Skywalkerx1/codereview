@@ -1,0 +1,1 @@
+m4 = (total_flips / denom) if denom else None

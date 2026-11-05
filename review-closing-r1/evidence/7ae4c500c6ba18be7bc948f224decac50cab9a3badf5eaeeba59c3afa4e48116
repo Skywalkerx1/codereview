@@ -1,0 +1,1 @@
+The code explicitly documents and implements a fail-closed behavior for ValueError cases, so returning False on Windows path edge cases is intentional rather than a silent correctness failure.

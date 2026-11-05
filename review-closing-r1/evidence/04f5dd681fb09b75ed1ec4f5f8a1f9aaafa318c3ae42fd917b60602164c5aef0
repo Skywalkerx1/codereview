@@ -1,0 +1,1 @@
+The code explicitly constructs argv from spec["argv"] as a plain list of strings passed to subprocess.run; there is no dynamic path resolution or execution of arbitrary host binaries beyond what the caller specified, and the sandbox enforces cwd, env allowlist, and network namespace restrictions as documented.

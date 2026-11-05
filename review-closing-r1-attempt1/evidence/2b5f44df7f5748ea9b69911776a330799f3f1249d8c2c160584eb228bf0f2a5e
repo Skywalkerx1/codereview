@@ -1,0 +1,1 @@
+if excluded and not hard: return {"authority_affecting": False, "dimensions": [], "reasons": [f"excluded: {pat!r} — report rendering / prompt display is not authority-affecting" for pat in excluded]}

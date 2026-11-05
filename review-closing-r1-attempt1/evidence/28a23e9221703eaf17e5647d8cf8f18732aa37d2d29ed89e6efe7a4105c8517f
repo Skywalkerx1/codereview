@@ -1,0 +1,4 @@
++        if len(providers) <= 1:
++            reasons[0] = ("all prior blockers cleared by the only "
++                          "configured reviewer — solo panel, no "
++                          "independent review")

@@ -1,0 +1,1 @@
+- evidence: `| 2 | 934db5187cf3 | major | src/codereview/cli.py:62 | Disabled test blocks correctness lens coverage in bench harness (the `@unittest.skipUnless(os.name == "posix", …)` platform guard) | Repeat — re`

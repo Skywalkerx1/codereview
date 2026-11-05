@@ -41,3 +41,15 @@ Suite-pinned versions of the guard properties live in
 `tests/test_v111_dispute_probes.py`; the hardening changes
 (marker, callee key, config validation, non-dict walk) are
 pinned in `tests/test_v111_hardening.py`.
+
+## Shadow-branch review — the 5 disputes from the shadow-tech-lead branch review (2026-11-04)
+
+Packets: `~/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-shadow-2026-11-04/`; source record: `review-branch-out/codereview-20261105-011527.json`. All probes ran against the MERGED tree (main HEAD 2fbf94f), not the branch the review saw.
+
+| Script | Finding(s) | What it settles |
+|---|---|---|
+| `shadow_probe_signature_probe.py` | 833912a09fa3 | Shadow needs_probe with the real make_probe_fn records a swallowed TypeError and the spec never executes; the same fn works with the documented two-arg call; the suite's one-arg stub is why the mismatch stayed green. |
+| `shadow_test_runner_probe.py` | 4cf81c69d7cf | Same failing test with/without the `__main__` guard: probe agrees with the runner with the guard, reports pass with zero tests executed without it. |
+| `shadow_acceptance_empty_probe.py` | 633acb885291 | Empty corpus crashes run_acceptance under both scorecard shapes: ZeroDivisionError at M3 (set-less) / KeyError at M1 (shipped scorecard). |
+| `shadow_trace_gate_probe.py` | 4cba208656d3 | The forward reference resolves at call time: _trace_gate_shadow executes through _scan_functions and returns verdicts in both directions. |
+| `shadow_attach_keys_probe.py` | 97feb799979e | None/raising/absent-path source lookups never crash attach_function_keys and never key a finding; the guard lives in function_key. |

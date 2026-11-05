@@ -1,0 +1,13 @@
+callee guard — function_key(source, line) first executable check at HEAD:
+  ['if not source or not line:']
+  function_key(None, 2) -> None
+  function_key('', 2)   -> None
+
+attach_function_keys under three lookups:
+  returns None for every path: keyed=0, keyed ids=[], no exception
+  raises for every path: keyed=0, keyed ids=[], no exception
+  real source for mod.py, None for gone.py: keyed=1, keyed ids=['k1'], no exception
+
+raising lookup invoked once per distinct path: 2 call(s) for 2 distinct paths (cache stores the None)
+
+VERDICT FACTS: a None or raising source_lookup never crashes attach_function_keys and never keys a finding — the None handling the claim asks for exists, one level down, as function_key's opening guard. The refutation's cited try/except is real but is not the mechanism that makes this safe; the claim's demanded call-site check would be redundant.

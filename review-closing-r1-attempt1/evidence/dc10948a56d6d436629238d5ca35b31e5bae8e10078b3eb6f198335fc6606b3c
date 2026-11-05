@@ -1,0 +1,1 @@
+The code explicitly documents and implements that None, not 0, means use the default timeout. Rejecting non-positive values is intentional behavior, not a correctness defect as described.

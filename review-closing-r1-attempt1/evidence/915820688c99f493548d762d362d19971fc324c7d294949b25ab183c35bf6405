@@ -1,0 +1,1 @@
+On a cache hit, the code updates only seat and family before returning the cached entry, leaving the cached independence classification unchanged even though the current call supplies a fresh independence argument.

@@ -1,0 +1,1 @@
+violations = [row for row in inv["open"] if row["record"] in set(touching) and row["id"] not in keep]

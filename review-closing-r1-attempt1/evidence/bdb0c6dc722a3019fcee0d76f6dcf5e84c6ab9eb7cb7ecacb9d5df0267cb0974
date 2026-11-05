@@ -1,0 +1,1 @@
+The code explicitly uses `or` to fall back to `default_timeout` only when `entry.get("timeout")` evaluates to falsy. An explicit `0` is a valid numeric timeout value that should disable or force immediate timeout, but the `or` operator treats `0` as falsy and substitutes the default, which is the exact bug described in the finding.

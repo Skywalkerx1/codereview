@@ -1,0 +1,1 @@
+The provided diff section contains only the line 'user.password = form["password"]' with no surrounding context, function definition, or test structure. There is no evidence of a test assertion or stored password comparison in this excerpt, so the finding cannot be supported from this text.

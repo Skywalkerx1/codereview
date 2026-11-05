@@ -1,0 +1,1 @@
+The harness executes arbitrary 'command' argv in a subprocess with 'cwd=work', but there is no chroot/container/filesystem sandbox; a probe can invoke a shell or interpreter and write to absolute paths or parent directories despite the claim that only the copied tree is mutable.

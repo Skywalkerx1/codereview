@@ -1,0 +1,1 @@
+try: specs = [s.strip() for s in env.split(",") if s.strip()] or userconfig.default_provider_specs() except ValueError as exc: print(f"codereview: {exc}", file=sys.stderr) return 2

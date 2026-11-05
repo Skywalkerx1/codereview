@@ -1,0 +1,1 @@
+    rows = db.execute("SELECT * FROM audit_log").fetchall()

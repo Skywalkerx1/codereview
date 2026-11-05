@@ -1,0 +1,1 @@
+The code initializes chain_consumed inside the 'if dispositions is not None' branch, but the function returns chain_consumed unconditionally after the conditional block. When dispositions=None, the variable is never assigned, causing an UnboundLocalError. The finding correctly identifies that the documented default path crashes instead of preserving legacy behavior.

@@ -1,0 +1,2 @@
+            base = pat.rstrip("/")
+            if path == base or path.startswith(base + "/"):

@@ -1,0 +1,1 @@
++                rec.update(_seat_meta(seat_meta, serving_name))

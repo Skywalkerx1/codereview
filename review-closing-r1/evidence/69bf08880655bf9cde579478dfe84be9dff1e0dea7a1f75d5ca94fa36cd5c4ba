@@ -1,0 +1,5 @@
+    if isinstance(exc, TimeoutError) or any(
+            k in msg for k in ("overloaded", "timed out", "timeout",
+                               "temporar", "unavailable",
+                               "connection")) or any(
+            has_code(c) for c in ("500", "502", "503", "504")):

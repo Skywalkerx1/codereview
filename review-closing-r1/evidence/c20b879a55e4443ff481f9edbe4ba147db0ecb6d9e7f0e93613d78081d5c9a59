@@ -1,0 +1,10 @@
+    pinned = {lens: seat for lens, seat in lens_seats.items()
+              if lens in LENSES and seat in by_name}
+    for lens, seat in pinned.items():
+        tasks.append((seat, by_name[seat], lens))
+    remaining = [lens for lens in LENSES if lens not in pinned]
+    rest = [(n, f) for n, f in provider_items
+            if n not in set(pinned.values())] or list(provider_items)
+    for i, lens in enumerate(remaining):
+        name, fn = rest[i % len(rest)]
+        tasks.append((name, fn, lens))

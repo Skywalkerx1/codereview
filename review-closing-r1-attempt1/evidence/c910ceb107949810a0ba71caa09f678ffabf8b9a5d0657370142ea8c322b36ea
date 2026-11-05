@@ -1,0 +1,1 @@
+The provided diff section contains no lines matching the evidence quote 'logger.info("login ok email=%s password=%s", email, password)'. The text shown does not include the logger call or any password-related logging, so the finding cannot be supported from this evidence.

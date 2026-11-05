@@ -1,0 +1,1 @@
+lines = _git_lines(repo, "rev-list", spec)

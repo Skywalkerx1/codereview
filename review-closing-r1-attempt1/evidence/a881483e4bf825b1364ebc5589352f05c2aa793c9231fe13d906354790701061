@@ -1,0 +1,1 @@
+    count = store.get(f"clicks:{page_id}") or 0

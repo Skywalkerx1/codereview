@@ -1,0 +1,1 @@
+    record = evidence_mod.collect(config, args.repo)

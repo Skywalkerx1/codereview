@@ -1,0 +1,1 @@
+            env = dict(os.environ, CODEREVIEW_PROMPT=path)

@@ -1,0 +1,1 @@
+When no --provider is given, an empty providers env now uses 'or userconfig.default_provider_specs()' inside the same try block, so an operator who intentionally set the env empty no longer gets the previous built-in defaults and may instead hit a ValueError from saved config.

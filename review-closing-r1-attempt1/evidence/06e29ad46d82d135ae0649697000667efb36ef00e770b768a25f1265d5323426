@@ -1,0 +1,6 @@
+if timeout is None:
+        timeout = TECH_LEAD_CALL_TIMEOUT
+    if timeout <= 0:
+        raise ValueError(
+            f"doctor probe timeout must be positive, got "
+            f"{timeout!r}")

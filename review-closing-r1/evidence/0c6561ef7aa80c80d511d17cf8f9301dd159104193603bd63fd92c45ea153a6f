@@ -1,0 +1,1 @@
+The code explicitly filters out blank lines before parsing, using the condition `if ln.strip()`, which prevents JSONDecodeError from malformed or empty rows from aborting the scan.

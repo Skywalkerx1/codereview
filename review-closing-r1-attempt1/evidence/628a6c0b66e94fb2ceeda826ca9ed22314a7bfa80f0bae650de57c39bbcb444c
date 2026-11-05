@@ -1,0 +1,4 @@
++    if "private" in report:
++        lines.append(
++            f"Data attestation: private={report.get('private')} "
++            f"(record-and-attest tier policy)")

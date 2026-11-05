@@ -1,0 +1,3 @@
++def test_duplicate_lens_role_rejected(self):
++    """Duplicate lens roles (correctness, operations) are rejected at parse."""
++    ...

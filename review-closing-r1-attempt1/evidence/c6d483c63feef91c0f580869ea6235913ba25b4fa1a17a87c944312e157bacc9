@@ -1,0 +1,1 @@
+The previous code truncated provider-supplied resolution evidence to 300 characters, but the new line stores the full string. A provider can now return arbitrarily large evidence text, inflating in-memory reports and serialized output during normal verification runs.

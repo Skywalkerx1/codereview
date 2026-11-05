@@ -1,0 +1,1 @@
+    m6 = (len(agreed) / len(measured)) if measured else None

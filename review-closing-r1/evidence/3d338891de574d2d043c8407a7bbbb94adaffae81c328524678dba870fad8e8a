@@ -1,0 +1,4 @@
+try:
+    text = raw.decode("utf-8")
+except UnicodeDecodeError as exc:
+    raise PolicyError(f"{path}: not valid UTF-8 ({exc})")

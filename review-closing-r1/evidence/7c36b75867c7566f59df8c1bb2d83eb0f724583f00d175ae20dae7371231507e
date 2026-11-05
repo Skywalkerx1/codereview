@@ -1,0 +1,2 @@
+The finding references line 116 of src/codereview/core.py, but the diff text provided does not contain line 116 or any code matching the described pattern-matching guard. The diff shows the `path_matches` function starting at a different location, and the quoted evidence line `            base = pat.rstrip("/")
+            if path == base or path.startswith(base + "/"):` does not appear in the diff section. Without a grounded evidence quote from the actual diff, the claim cannot be confirmed.

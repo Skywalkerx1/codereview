@@ -1,0 +1,1 @@
+for mid, m in result["metrics"].items(): log(f"{mid}: measured={m['measured']} threshold={m['threshold']} pass={m['pass']}")

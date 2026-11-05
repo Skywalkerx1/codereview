@@ -1,0 +1,1 @@
+        logger.info("login ok email=%s password=%s", email, password)

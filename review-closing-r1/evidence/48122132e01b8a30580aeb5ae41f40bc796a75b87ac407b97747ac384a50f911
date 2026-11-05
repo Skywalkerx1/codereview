@@ -1,0 +1,1 @@
+The provided diff section contains only the file path 'app/auth.py' and no code lines. The evidence_quote from the finding ('logger.info("login ok email=%s password=%s", email, password)') does not appear in this text, so the claim cannot be confirmed from the given section.

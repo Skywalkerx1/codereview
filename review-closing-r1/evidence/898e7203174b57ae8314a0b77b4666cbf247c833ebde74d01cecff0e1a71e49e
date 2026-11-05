@@ -1,0 +1,1 @@
+M4 does have explicit pass/fail logic: the metric is compared against its threshold via passes(...) and stored in the M4 "pass" field. The code also includes flip details in "flips": flips.

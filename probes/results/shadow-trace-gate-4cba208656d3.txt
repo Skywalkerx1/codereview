@@ -1,0 +1,13 @@
+definition order at HEAD (/home/hatch/workspace/codereview/src/codereview/core.py):
+  def _trace_gate_shadow at line 889
+  def _scan_functions    at line 1595
+  -> the reference inside _trace_gate_shadow's body (line 924, `defs = _scan_functions(region_text) or []`) precedes the definition textually: True
+module import: OK (every def executed at import; the referenced name is not touched at definition time)
+
+call 1 (callee body quoted in evidence): {'applies': True, 'about_callee': ['compute_total'], 'callee_body_quoted': True, 'failure_witness': False, 'would_downgrade': False}
+  -> _scan_functions executed at call time and returned the region's defs; no NameError
+
+call 2 (callee body NOT quoted): {'applies': True, 'about_callee': ['compute_total'], 'callee_body_quoted': False, 'failure_witness': False, 'would_downgrade': True}
+  -> the scan results drive the verdict both ways; the forward-referenced call is on the executed path
+
+VERDICT FACTS: definition order is as the claim says; the mechanism (a defect from referencing a later-defined function inside a function body) does not reproduce — the call resolves at call time and the gate evaluates correctly in both directions.

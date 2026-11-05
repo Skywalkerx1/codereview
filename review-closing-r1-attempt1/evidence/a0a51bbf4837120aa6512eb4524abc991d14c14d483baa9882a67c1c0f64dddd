@@ -1,0 +1,1 @@
+The provided diff section does not contain the code lines referenced in the finding's evidence_quote. The quoted lines (if timeout is None, timeout = TECH_LEAD_CALL_TIMEOUT, and the ValueError raise) are absent from the diff text shown, making the claim ungrounded in this context.

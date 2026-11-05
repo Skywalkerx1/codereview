@@ -1,0 +1,1 @@
+elif unjudged: gate, reasons = "inconclusive", ["{len(unjudged)} prior blocker(s) not confirmed cleared: the seat that raised each was not among the successful reviewers (run a fresh review with the finder present, or record a human waiver)"]

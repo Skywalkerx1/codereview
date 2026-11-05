@@ -1,0 +1,3 @@
+    if not blob and function_key(source,
+                                 finding.get("line")) is None:
+        return None

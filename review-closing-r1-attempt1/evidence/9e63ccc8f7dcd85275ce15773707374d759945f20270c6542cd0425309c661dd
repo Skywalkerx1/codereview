@@ -1,0 +1,1 @@
+The matching order sorts findings by the raw severity rank ascending, then takes the first match for each expected defect, even though the module docstring says matching is greedy by worst finding severity first.

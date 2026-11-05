@@ -1,0 +1,1 @@
+The finding claims that lenses referenced in LENSES but not in pinned are silently dropped from tasks. However, the provided diff section shows code that iterates over `remaining` lenses and assigns them via round-robin from `rest`, meaning every lens in LENSES appears in the final tasks list. The silent-drop scenario described in the finding does not occur in this code.

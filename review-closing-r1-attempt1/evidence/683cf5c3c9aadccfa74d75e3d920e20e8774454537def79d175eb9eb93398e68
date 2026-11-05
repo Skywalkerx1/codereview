@@ -1,0 +1,1 @@
+evidence_quote': str(raw.get('evidence_quote') or raw.get('evidence') or ''),

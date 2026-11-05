@@ -1,0 +1,1 @@
+The finding references line 750 of src/codereview/core.py, but the diff section provided ends at line 64e32d4 and does not contain a line 750 or the quoted line 'res = _review_job_bounded(fn, prompt, max_attempts=2, timeout=timeout)'. The evidence_quote from the finding does not appear in the diff text, so the claim cannot be confirmed from this section.

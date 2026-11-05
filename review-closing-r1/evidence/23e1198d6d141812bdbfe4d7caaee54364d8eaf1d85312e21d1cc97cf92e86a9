@@ -1,0 +1,1 @@
+The new rule treats any path under a top-level directory starting with review- or review_ as archived output, regardless of whether it is actually generated review data.

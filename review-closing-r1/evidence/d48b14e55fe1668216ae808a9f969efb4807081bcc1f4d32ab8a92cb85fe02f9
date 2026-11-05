@@ -1,0 +1,1 @@
+The provided diff section contains no lines matching the evidence_quote '        sendmail("admin@example.com",'. The file section shown does not include the sendmail function call or any email-sending logic, so the finding cannot be supported from this text.

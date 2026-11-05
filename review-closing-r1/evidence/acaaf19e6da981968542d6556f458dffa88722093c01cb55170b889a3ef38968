@@ -1,0 +1,2 @@
+The diff text does not contain the quoted evidence line `with open(path, "rb") as fh:
+    raw = fh.read()`. The file section shown starts with a module docstring and imports, and the `load_policy` function's `with open(path, "rb") as fh:` line is not visible in the provided diff excerpt. Without the exact line from the section, the finding cannot be confirmed.

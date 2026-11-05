@@ -1,0 +1,1 @@
+The code explicitly falls through to the `if not specs:` check after the try/except, which prints NOT_SET_UP and returns 2 only when specs remains empty. The ValueError handler returns 2 immediately, but this does not bypass the wizard path; the wizard is gated by `_stdin_is_tty()` and `args.setup` logic elsewhere in the file, not by the default_provider_specs call site shown.

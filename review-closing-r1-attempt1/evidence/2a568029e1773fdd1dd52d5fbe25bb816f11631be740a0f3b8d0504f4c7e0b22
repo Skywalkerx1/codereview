@@ -1,0 +1,2 @@
+return {"family": str(meta.get("family") or "unknown"),
+            "tier": str(meta.get("tier") or "unknown")}

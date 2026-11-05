@@ -1,0 +1,1 @@
+- evidence: `"evidence": "-    return os.popen(\"ping -c 1 \" + host).read()",`

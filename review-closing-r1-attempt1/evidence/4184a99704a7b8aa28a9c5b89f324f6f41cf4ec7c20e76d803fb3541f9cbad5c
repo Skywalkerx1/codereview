@@ -1,0 +1,1 @@
+In run_probe, the 'test' branch builds argv as a direct Python invocation of the target path, which means a request like {'kind': 'test', 'target': 'tests/test_x.py'} is no longer run under unittest/pytest semantics and will fail for common test modules that rely on discovery, fixtures, or package context.

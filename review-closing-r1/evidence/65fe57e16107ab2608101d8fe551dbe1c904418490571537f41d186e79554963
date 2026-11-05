@@ -1,0 +1,9 @@
+if wdate is None:
+                check("waivers.max_age_days",
+                      f"waiver for {fid} is at most "
+                      f"{waiver_rules['max_age_days']} day(s) old",
+                      False,
+                      f"waiver for finding {fid} carries no "
+                      f"usable date; policy expires waivers after "
+                      f"{waiver_rules['max_age_days']} day(s) and "
+                      f"an undated waiver cannot prove freshness")

@@ -1,0 +1,1 @@
+The diff text does not contain the line `m3 = sum(1 for c in scores.values() if c["correct"]) / len(scores)`. The M3 calculation in the diff uses `(sum(1 for c in scores.values() if c["correct"]) / len(scores))` spread across lines 213–214, but the exact string from the finding is not present as a single line. Without an exact match, the claim is unsupported.

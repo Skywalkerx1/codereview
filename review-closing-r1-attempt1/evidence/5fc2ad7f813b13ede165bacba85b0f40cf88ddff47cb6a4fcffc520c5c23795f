@@ -1,0 +1,1 @@
+    return requests.get(url).text

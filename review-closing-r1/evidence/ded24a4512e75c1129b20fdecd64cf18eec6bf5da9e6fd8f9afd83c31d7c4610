@@ -1,0 +1,1 @@
+The provided diff text does not contain the UnicodeDecodeError handling code at line 53. The diff shows the full file content starting from the shebang and docstring, but the specific `try: text = raw.decode("utf-8")` block is absent from the excerpt shown. Without the exact line from the section, the claim cannot be confirmed.

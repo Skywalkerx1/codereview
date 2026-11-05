@@ -1,0 +1,1 @@
+The diff text provided does not contain the quoted evidence lines. The section shows only `+def _doctor_main(...):` and `+    seats = build_seats(provider_specs, ...)` without the subsequent `probe(seat)` call or the comment about missing timeout/thread bound, so the finding cannot be supported from this excerpt.

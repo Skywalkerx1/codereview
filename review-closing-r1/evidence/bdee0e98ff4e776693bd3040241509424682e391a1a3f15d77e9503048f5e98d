@@ -1,0 +1,1 @@
+The tier attestation (v0.9.3) section states Records carry the run's own private declaration (from --private) alongside each seat's tier. record-verify's tier_policy check fails exactly one conjunction: a private=true record with a successful free-tier seat. Public runs attest private=false and are unaffected; records without a declaration report the check as not applicable.

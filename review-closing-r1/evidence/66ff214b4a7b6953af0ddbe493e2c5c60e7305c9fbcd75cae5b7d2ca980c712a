@@ -1,0 +1,6 @@
+    remaining = [lens for lens in LENSES if lens not in pinned]
+    rest = [(n, f) for n, f in provider_items
+            if n not in set(pinned.values())] or list(provider_items)
+    for i, lens in enumerate(remaining):
+        name, fn = rest[i % len(rest)]
+        tasks.append((name, fn, lens))

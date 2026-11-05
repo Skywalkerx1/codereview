@@ -1,0 +1,1 @@
+The provided diff section does not contain the quoted fallback provider build code at line 2010. The diff shows changes to provider specification parsing, role assignment logic, and new CLI subcommands, but the specific try/except block with `build_providers` and the fallback error message is absent from this excerpt.

@@ -1,0 +1,1 @@
+The provided diff section from CHANGELOG.md does not contain the cited evidence quote. The quote references `codereview disputes --check --span A..B` and a freshness check exit behavior, but the diff text contains no such mention. The finding cannot be supported from this text.

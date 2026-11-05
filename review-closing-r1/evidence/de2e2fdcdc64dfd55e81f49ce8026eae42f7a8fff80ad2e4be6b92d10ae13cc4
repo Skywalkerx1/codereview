@@ -1,0 +1,8 @@
+if assertion_failures:
+        report["tech_lead_assertion_failures"] = assertion_failures
+++    if shadow_reason_checks:
+        report["shadow_reason_checks"] = shadow_reason_checks
+++    if shadow_trace_evals:
+        report["shadow_trace_gate"] = shadow_trace_evals
+++    if shadow_entries:
+        report["shadow_adjudications"] = shadow_entries

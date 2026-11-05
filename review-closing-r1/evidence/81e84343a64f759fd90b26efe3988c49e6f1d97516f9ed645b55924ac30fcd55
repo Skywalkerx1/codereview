@@ -1,0 +1,1 @@
+    """True when `path` resolves inside `root` — failing closed.

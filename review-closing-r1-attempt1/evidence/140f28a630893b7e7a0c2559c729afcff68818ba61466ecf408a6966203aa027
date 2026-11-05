@@ -1,0 +1,1 @@
+The evidence_quote in the finding ('    if not blob or function_key(source,\n                                finding.get("line")) is None:\n        return None') does not appear in the provided diff section. The diff contains no code near line 761 of src/codereview/core.py, and the quoted guard logic is absent from the shown context.

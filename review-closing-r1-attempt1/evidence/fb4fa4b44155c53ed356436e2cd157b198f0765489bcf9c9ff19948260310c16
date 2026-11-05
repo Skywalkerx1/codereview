@@ -1,0 +1,1 @@
+The helper says archived review output should be excluded, but the implementation only returns the review-dir rule when 'len(parts) > 1 and (parts[0].startswith('review-') or parts[0].startswith('review_'))'. Any committed artifact under a subdirectory such as 'docs/review-v15/out.json' will not match and will still be reviewed.

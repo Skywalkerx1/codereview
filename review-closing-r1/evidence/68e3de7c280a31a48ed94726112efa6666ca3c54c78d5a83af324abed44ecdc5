@@ -1,0 +1,7 @@
++MAX_PROVIDER_ATTEMPTS = 3
++if not provider or not provider.strip():
++    attempts += 1
++    if attempts > MAX_PROVIDER_ATTEMPTS:
++        print(f"\nNo valid provider entry after {MAX_PROVIDER_ATTEMPTS} attempts. Aborting.")
++        sys.exit(1)
++    continue

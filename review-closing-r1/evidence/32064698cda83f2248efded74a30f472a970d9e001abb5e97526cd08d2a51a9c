@@ -1,0 +1,1 @@
+The code explicitly guards the division with `if measured else None`. An empty `measured` list is falsy, so the division is skipped rather than dividing by zero.

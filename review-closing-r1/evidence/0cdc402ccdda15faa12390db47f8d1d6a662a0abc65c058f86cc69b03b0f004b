@@ -1,0 +1,1 @@
+The diff text does not contain the line `providers = build_providers(specs, agent_timeout=args.timeout)`. The closest match is `solvers = build_solvers(specs, agent_timeout=args.timeout)` at line 650, but the finding references `build_providers` with `agent_timeout`, which is not present in the provided section. Therefore, the claim is unsupported from this text.

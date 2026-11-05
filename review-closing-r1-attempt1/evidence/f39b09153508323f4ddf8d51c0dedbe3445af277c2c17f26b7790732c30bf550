@@ -1,0 +1,1 @@
+The code explicitly updates the 'family' field on a cache hit, contradicting the claim that independence metadata is left unchanged. The quoted line from the region shows the assignment occurs, and no other independence field is preserved unchanged without update.

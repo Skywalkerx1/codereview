@@ -1,0 +1,1 @@
+elif isinstance(item, dict): fid = item.get("id") or item.get("finding_id")

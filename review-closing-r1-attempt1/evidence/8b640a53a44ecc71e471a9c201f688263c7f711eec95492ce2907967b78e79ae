@@ -1,0 +1,2 @@
+The provided diff text does not contain the evidence_quote line. The diff shows changes to src/codereview/cli.py but the specific quoted line `    out = subprocess.run(["git", "-C", repo_abs, "show", f"HEAD:{p}"],
+            capture_output=True, timeout=120, check=False)` is not present in the diff section. Without the exact line from the section, the finding cannot be confirmed.

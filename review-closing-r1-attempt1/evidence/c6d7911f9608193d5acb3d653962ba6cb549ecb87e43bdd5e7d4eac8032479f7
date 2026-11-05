@@ -1,0 +1,1 @@
+                       -float(findings[i].get("confidence") or 0)))

@@ -1,0 +1,1 @@
+The function documents that omitting the disposition store preserves legacy behavior, but later unconditionally returns a variable that is only assigned inside the dispositions-present branch. Calling verify_chain with its default 'dispositions=None' will raise UnboundLocalError instead of returning a result.

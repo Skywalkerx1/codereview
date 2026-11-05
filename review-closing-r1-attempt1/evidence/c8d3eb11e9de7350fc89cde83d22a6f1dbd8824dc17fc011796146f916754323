@@ -1,0 +1,1 @@
+        key=lambda i: (core._SEV_RANK.get(findings[i].get("severity"),

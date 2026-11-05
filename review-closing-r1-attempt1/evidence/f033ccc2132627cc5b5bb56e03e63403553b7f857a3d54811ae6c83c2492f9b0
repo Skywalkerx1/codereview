@@ -1,0 +1,1 @@
+            timeout = entry.get("timeout") or default_timeout

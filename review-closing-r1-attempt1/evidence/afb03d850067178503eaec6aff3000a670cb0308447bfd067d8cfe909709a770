@@ -1,0 +1,1 @@
+evidence': str(raw.get('evidence') or ''),
