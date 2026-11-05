@@ -1,6 +1,6 @@
 {
   "schema": "codereview.precedents/1",
-  "purpose": "Content-addressed rebuttal precedent (owner-adopted 2026-11-04, v14-hold solution §2e). An entry links a finding fingerprint + cited path to the git blob the cited file had when the disposition was made. A later review classifies a matching finding as standing ONLY while the cited file's blob is unchanged; any edit to the file retires the precedent automatically and the finding is adjudicated fresh. Seeded with the five guard-minor dispositions sustained across review-v11..v14.",
+  "purpose": "Content-addressed rebuttal precedent (owner-adopted 2026-11-04, v14-hold solution §2e). An entry links a finding fingerprint + cited path to the git blob the cited file had when the disposition was made. A later review classifies a matching finding as standing ONLY while the cited file's blob is unchanged; any edit to the file retires the precedent automatically and the finding is adjudicated fresh. Seeded with the five guard-minor dispositions sustained across review-v11..v14. Extended at v0.11.0 (2026-11-04) with the owner's sustained-refutation rulings: 10 of the 12 from review-v15 (the 2 CHANGELOG-cited claims, 3c39c4bdc15a and 2fa2b04e08d5, cannot be expressed — their cited lines held disposition text that has since moved in a living changelog, and function keying does not apply to Markdown; the rulings stand in the v15 report) and the 4 step4 protected-class rulings, function-keyed at HEAD where the cited code resolves.",
   "entries": [
     {
       "finding_id": "0d81ded1de5e",
@@ -82,6 +82,318 @@
         "file": "review-v14-dispositions.md",
         "summary": "Standing repeat [16]: Deterministic 'test disabled' rule hits the POSIX platform-guard line (unittest.skipUnless(os.name == 'posix', ...)) — a platform guard with its reason in the line itself, not a disabled test. Rebutted with executable evidence in review-v11-dispositions.md and recorded as a standing repeat in every round since; the guard is not removed, renamed, or scoped out."
       }
+    },
+    {
+      "finding_id": "474297e6ffdc",
+      "path": "src/codereview/bench.py",
+      "blob": "0f18d81483146b65f454a725725671fe71d67d63",
+      "seen_in": [
+        "owner-ruling-2026-11-04"
+      ],
+      "disposition": {
+        "round": "owner-ruling-2026-11-04",
+        "file": "workspace/issue-reports/2026-11-04-codereview-v15-closing-run.md",
+        "summary": "Owner ruling 2026-11-04 (v15 §3 table, probe P3): refutation SUSTAINED — a forced rerun's in-memory records contain none of the stored degraded records (marker absent, file replaced, degraded_cases = 0), and a rerun dying mid-run leaves the old file byte-identical."
+      },
+      "function": "run_bench",
+      "function_hash": "40c1f258d48f3701a32f511fc77ed0d81ffd5dbc909bd5c64181116306263d7b",
+      "callees": {
+        "load_corpus": "9a97b9bfb5d624f078e34b034c8d77a992b3fd06287cb07903b3488981e5115f",
+        "load_config": "c460d417acc9709834e6cf1d326716e59134677dc3f13b02f74fe6b9fe33be16",
+        "_config_sha": "2125a6447757b20524197e76a2cd58e69d759da57d1a56f9617e3e43f04dee1a",
+        "resolve_config_path": "f2c859ee0c5d7f5132d6026891aba5c0c5cf78af455c15ae3be7668568544663",
+        "build_config_providers": "022e0826a5ed05bd65590e45744b4e62e6ee5ae35550c07f28d0b40f65cbe114",
+        "_read_results": "2b0df505bd6f99a7ce1e30e801f351bbeb109c676522bdf9f2831db997ab7540",
+        "_seat_cost": "45b02330ddc798ceb968f8d60469c9a01a5d800445e3c8ab38b6cc73a8044d64"
+      },
+      "scope": "function",
+      "blob_basis": "git blob id at HEAD 96bfe03 (post-merge descendant of the ruled code); function key resolved at HEAD"
+    },
+    {
+      "finding_id": "09c536d15270",
+      "path": "src/codereview/bench.py",
+      "blob": "0f18d81483146b65f454a725725671fe71d67d63",
+      "seen_in": [
+        "owner-ruling-2026-11-04"
+      ],
+      "disposition": {
+        "round": "owner-ruling-2026-11-04",
+        "file": "workspace/issue-reports/2026-11-04-codereview-v15-closing-run.md",
+        "summary": "Owner ruling 2026-11-04 (v15 §3 table, probe P4 property test): refutation SUSTAINED — the nearest-rank percentile never indexes past the end; it always returns a member, the maximum at pct=100 and the minimum at pct=0."
+      },
+      "function": "percentile",
+      "function_hash": "597b046548364198411898a300ee13d0198762bdf8da1456d05de09d5255d555",
+      "callees": {},
+      "scope": "function",
+      "blob_basis": "git blob id at HEAD 96bfe03 (post-merge descendant of the ruled code); function key resolved at HEAD"
+    },
+    {
+      "finding_id": "bca4074a632c",
+      "path": "src/codereview/cli.py",
+      "blob": "74272d35c8c53042c41d4da18f5f7edb743de2c4",
+      "seen_in": [
+        "owner-ruling-2026-11-04"
+      ],
+      "disposition": {
+        "round": "owner-ruling-2026-11-04",
+        "file": "workspace/issue-reports/2026-11-04-codereview-v15-closing-run.md",
+        "summary": "Owner ruling 2026-11-04 (v15 §3 table, probe P5): refutation SUSTAINED as by-design — the attempts-log path comes only from argv (AST-proven: every read is args.attempts_log, no env or repo-controlled source); the operator-supplied trust level is documented in the --attempts-log help (v0.9.6)."
+      },
+      "function": "main",
+      "function_hash": "40fc82737110b42fdd2a0b3e267b04d0239ecd2a17a554b187a9b0d9211c5b5d",
+      "callees": {
+        "_run_tests": "000e22b823f0230485d088455ed6beec961ae9276d6b2f9f9c089aa99128ca0c",
+        "_setup_main": "08c4c3096dd502ccde16a6dc115039dc9860875b4eca5026d91b410b0db0fba4",
+        "_doctor_main": "6bf615a6a076875cccbfaffa6f9916afce62cf370b197c69b1a49ed50cf8493c",
+        "_record_verify_main": "9f97fd53c140f05db0ec33db3ed06e1a5f40c323854870b7bbb2e6bd3f6a9975",
+        "_bench_main": "4cd6a94375e86440fd4213952a5f9da87196f5a52a39e537cb874b7489c87ebb",
+        "_pr_main": "412f5edd122b3d9c4522e82bcff71ce10ff97213db1abb2d8abb4583dbd085ca",
+        "_workflow_main": "252522090fa91411a1cd5e4bc2b84955ff557984a9fb04082b4eef580dd185ec",
+        "_loop_main": "3ccd742479cafcc88bae885747ce156a937c763ad32b80696ab434db540c4ba8",
+        "_intake_main": "da9c88c4f0c9cd3817b08eed13cfe630d419d4a81cdd4fa5d04b50a28e3e04d9",
+        "_load_patch": "658ccc40dbef337453095c6922f103d0352d187dd7359058aa5099ee0371156d",
+        "_parse_seat_meta": "3ca943efa3114c24ab2ad80937b35a8beb2033760145a461dcf77bd12b2b0d0d",
+        "_load_fixture_scope": "7c8efe598af61645304bc844c9b7c64ab7e50fd6223ca5a905dd11bbdabc7cee",
+        "_load_precedents": "53881a7dcbef0e1d29d73a933847933c1aece72ab649d4f375a458fabb0f7fb2",
+        "_stdin_is_tty": "f5c3d02a3b11027db766f42cc89144b7f5fff0e732a5d9abc5eb0dc92bc6f62f",
+        "_apply_role_assignments": "5bff0d7bdd44c004f849eebb8be18daaf4d51fcd3b78f2ede5a5e31b6c48a844",
+        "_default_seat_meta": "d11470a0286a1c65325a0e8bc62ca190815911e0c853f3a45f6912a0192e2a7b",
+        "_maybe_file": "4408881d42de44ead158e9553c48caa33f5624145ce4950263ebc0cbb11767e8",
+        "_run_setup_wizard": "c388d2ce8f44811105bac183d4f4e42f2861572a049e74cffbbe4baf89da524c"
+      },
+      "scope": "function",
+      "blob_basis": "git blob id at HEAD 96bfe03 (post-merge descendant of the ruled code); function key resolved at HEAD"
+    },
+    {
+      "finding_id": "3fc4862824c9",
+      "path": "src/codereview/cli.py",
+      "blob": "74272d35c8c53042c41d4da18f5f7edb743de2c4",
+      "seen_in": [
+        "owner-ruling-2026-11-04"
+      ],
+      "disposition": {
+        "round": "owner-ruling-2026-11-04",
+        "file": "workspace/issue-reports/2026-11-04-codereview-v15-closing-run.md",
+        "summary": "Owner ruling 2026-11-04 (v15 §3 table): refutation SUSTAINED outright — the refuter's validated quote contradicts the claim; _doctor_main timeout propagation verified against the code."
+      },
+      "function": "_doctor_main",
+      "function_hash": "6bf615a6a076875cccbfaffa6f9916afce62cf370b197c69b1a49ed50cf8493c",
+      "callees": {
+        "_apply_role_assignments": "5bff0d7bdd44c004f849eebb8be18daaf4d51fcd3b78f2ede5a5e31b6c48a844"
+      },
+      "scope": "function",
+      "blob_basis": "git blob id at HEAD 96bfe03 (post-merge descendant of the ruled code); function key resolved at HEAD"
+    },
+    {
+      "finding_id": "d93089253022",
+      "path": "src/codereview/core.py",
+      "blob": "a830f348da9ec60e5bc948420e9f8086d9c47c85",
+      "seen_in": [
+        "owner-ruling-2026-11-04"
+      ],
+      "disposition": {
+        "round": "owner-ruling-2026-11-04",
+        "file": "workspace/issue-reports/2026-11-04-codereview-v15-closing-run.md",
+        "summary": "Owner ruling 2026-11-04 (v15 §3 table, probe P9): refutation SUSTAINED on the overmatch claim — 'app/', 'app' and 'app/users' match children only, never siblings or prefix paths. (The separate './app' inert-spelling observation was returned to the owner and is not part of this ruling.)"
+      },
+      "function": "path_matches",
+      "function_hash": "4bc06e6d5f238a6e27205d4670942b28cfa8b5a3a01e4b2220dacd27f9a65cbb",
+      "callees": {},
+      "scope": "function",
+      "blob_basis": "git blob id at HEAD 96bfe03 (post-merge descendant of the ruled code); function key resolved at HEAD"
+    },
+    {
+      "finding_id": "c5f02551d077",
+      "path": "src/codereview/core.py",
+      "blob": "a830f348da9ec60e5bc948420e9f8086d9c47c85",
+      "seen_in": [
+        "owner-ruling-2026-11-04"
+      ],
+      "disposition": {
+        "round": "owner-ruling-2026-11-04",
+        "file": "workspace/issue-reports/2026-11-04-codereview-v15-closing-run.md",
+        "summary": "Owner ruling 2026-11-04 (v15 §3 table, probe P10): refutation SUSTAINED for eligibility — a chain containing a solo verification round still fails rounds_two_families; the directed solo-panel label fix shipped in v0.9.6 (label now appended in every verification outcome)."
+      },
+      "function": "run_verification",
+      "function_hash": "66bec2b4196cd62c7b487283fd26ef113bbf69daefab388b23ec63c9694fea2b",
+      "callees": {
+        "redact_secrets": "2f389c63002cd68514271776644cad4af0e18eefbf670ddfe08d84f945ce3686",
+        "_word_tokens": "2c31755765a1cc84246b832890c784c698a89f7c8bc4161d9cde5bd130cfcfc2",
+        "merge_findings": "9a9c9f5ab2642616c148baf8f2583c2fa6c6b68e075a6219a4bc111747fc39bc",
+        "split_patch_sections": "e7e53760856d09ebee71ae9cd3231630e97e7b5aa16a299c1a6626adb93cb54f",
+        "_split_archived_text": "38d8533f9425d70b4c429abc85400baf7f2360a37172b608990c2cd49d82f8b3",
+        "deterministic_scan": "0a3ae3e6ff5819b189820c9a866f13710c0d5022b35d841165a199297cd4a236",
+        "_now_iso": "73023b288cbcfb3a8cfe93a257c7daa9e5d2e775c8608814dff7831d83cee224",
+        "_test_summary": "a8b93dda48beb1e9920176abb9459f114cfa6796c3a6c9770237e819a7accf09",
+        "_archived_rule": "fd004aeae1d883e00e02302da790e963a7412ac192dee8948ed5986098e84fcb",
+        "_normalize_finding": "016b729129780e34f2a338d0dd56455b467d1975c855e4f35538e9e962683893",
+        "_provider_meta": "53ca5bd2d2dbd85f849654a2644e0faa99f25f69d89f3b8951aaa6adb6c388a9",
+        "_seat_meta": "ed4091de87e91cc60a3a800b68aede20d2a218145f0654082090e74e8e1c59d8",
+        "_review_job": "65889926bfeecb1e7e40facf0f667428fdd1d059cefba3281b5860f0df1b261c",
+        "_validate_resolution": "ed11f85a0e3ca9222e4dd18def39891752ba6690e1efa9a5729c3ec500a7fd70"
+      },
+      "scope": "function",
+      "blob_basis": "git blob id at HEAD 96bfe03 (post-merge descendant of the ruled code); function key resolved at HEAD"
+    },
+    {
+      "finding_id": "0e57186e8be8",
+      "path": "src/codereview/providers.py",
+      "blob": "6a45880bbb5eff762f523c91cbf6641e0d457e66",
+      "seen_in": [
+        "owner-ruling-2026-11-04"
+      ],
+      "disposition": {
+        "round": "owner-ruling-2026-11-04",
+        "file": "workspace/issue-reports/2026-11-04-codereview-v15-closing-run.md",
+        "summary": "Owner ruling 2026-11-04 (v15 §3 table, probe P11): refutation SUSTAINED — agent specs split with split(':', 2), so colon-bearing commands parse intact and the built seat executes them."
+      },
+      "function": "_parse_agent_spec",
+      "function_hash": "f6b6ca88134e335754d70dc1d623c1edf7f329e66296c6c3cfb4cfc8fbecb3ab",
+      "callees": {},
+      "scope": "function",
+      "blob_basis": "git blob id at HEAD 96bfe03 (post-merge descendant of the ruled code); function key resolved at HEAD"
+    },
+    {
+      "finding_id": "1aec997aaec4",
+      "path": "src/codereview/providers.py",
+      "blob": "6a45880bbb5eff762f523c91cbf6641e0d457e66",
+      "seen_in": [
+        "owner-ruling-2026-11-04"
+      ],
+      "disposition": {
+        "round": "owner-ruling-2026-11-04",
+        "file": "workspace/issue-reports/2026-11-04-codereview-v15-closing-run.md",
+        "summary": "Owner ruling 2026-11-04 (v15 §3 table, probe P12): refutation SUSTAINED — the property test over 13,692 permutations of the mixed spec space shows every combination either raises ProviderError loudly or builds exactly one seat per spec with case-insensitively unique names; no silent merge."
+      },
+      "function": "build_providers",
+      "function_hash": "72378976e9f5c11d248985555eecbe0fe87a0bfb12dcdf13abd82a7bbab251d1",
+      "callees": {
+        "build_provider": "d9a3213df696db9ad6c49732bdb9721aaaf97943e2e3d25d9c4a64a262a66d71",
+        "_parse_agent_spec": "f6b6ca88134e335754d70dc1d623c1edf7f329e66296c6c3cfb4cfc8fbecb3ab",
+        "_bump_name": "64cabb504d716ccd465305da659cf2b0eb8c89b029d199d8ddf973888a690e99",
+        "describe_spec": "f35970c3a170c3ffb0d8df7ffb856b55d9479bd6f3fbb835c3dac0c5dc4f656c"
+      },
+      "scope": "function",
+      "blob_basis": "git blob id at HEAD 96bfe03 (post-merge descendant of the ruled code); function key resolved at HEAD"
+    },
+    {
+      "finding_id": "0ad4ed7db98e",
+      "path": "src/codereview/providers.py",
+      "blob": "6a45880bbb5eff762f523c91cbf6641e0d457e66",
+      "seen_in": [
+        "owner-ruling-2026-11-04"
+      ],
+      "disposition": {
+        "round": "owner-ruling-2026-11-04",
+        "file": "workspace/issue-reports/2026-11-04-codereview-v15-closing-run.md",
+        "summary": "Owner ruling 2026-11-04 (v15 §3 table, probe P12): refutation SUSTAINED — same property-test evidence as 1aec997aaec4; the two-pass api_names construction misses no seat names in the tested space."
+      },
+      "function": "build_providers",
+      "function_hash": "72378976e9f5c11d248985555eecbe0fe87a0bfb12dcdf13abd82a7bbab251d1",
+      "callees": {
+        "build_provider": "d9a3213df696db9ad6c49732bdb9721aaaf97943e2e3d25d9c4a64a262a66d71",
+        "_parse_agent_spec": "f6b6ca88134e335754d70dc1d623c1edf7f329e66296c6c3cfb4cfc8fbecb3ab",
+        "_bump_name": "64cabb504d716ccd465305da659cf2b0eb8c89b029d199d8ddf973888a690e99",
+        "describe_spec": "f35970c3a170c3ffb0d8df7ffb856b55d9479bd6f3fbb835c3dac0c5dc4f656c"
+      },
+      "scope": "function",
+      "blob_basis": "git blob id at HEAD 96bfe03 (post-merge descendant of the ruled code); function key resolved at HEAD"
+    },
+    {
+      "finding_id": "2242edbba9c9",
+      "path": "src/codereview/providers.py",
+      "blob": "6a45880bbb5eff762f523c91cbf6641e0d457e66",
+      "seen_in": [
+        "owner-ruling-2026-11-04"
+      ],
+      "disposition": {
+        "round": "owner-ruling-2026-11-04",
+        "file": "workspace/issue-reports/2026-11-04-codereview-v15-closing-run.md",
+        "summary": "Owner ruling 2026-11-04 (v15 §3 table, probe P14): refutation SUSTAINED — providers.os / providers.signal are the stdlib modules _kill_tree uses, and the module imports cleanly under -W error. File-scope entry: the claim is about module scope (no enclosing function); the import block and _kill_tree were diff-verified byte-identical to the ruled state at minting."
+      },
+      "blob_basis": "git blob id at HEAD 96bfe03; module-scope claim, file-level address only"
+    },
+    {
+      "finding_id": "bb3deba73d59",
+      "path": "src/codereview/core.py",
+      "blob": "a830f348da9ec60e5bc948420e9f8086d9c47c85",
+      "seen_in": [
+        "owner-ruling-2026-11-04"
+      ],
+      "disposition": {
+        "round": "owner-ruling-2026-11-04",
+        "file": "workspace/issue-reports/2026-11-04-codereview-refutation-process.md",
+        "summary": "Owner ruling 2026-11-04 (protected class — precedent machinery; refutation-process report): refutation SUSTAINED — a precedent link forms only when the resolved function's name AND hash AND callees all equal the entry's, so a stale diff line can only miss (fail-safe) or fall back to the file blob, never produce a wrong-function hit."
+      },
+      "function": "apply_precedents",
+      "function_hash": "a76fa928bf7878a6016a1e6455ed85c590f9cbbcaf52d7de664753667c6bb2eb",
+      "callees": {
+        "function_key": "9e35b2fac47ec1d1db5e289b0677d1efca52bf444a1a90f7316ed678e8704c74",
+        "source_of": "2bf39be89af0843098347affb6ba935b77e0f40270857763b532987ef58f5d77",
+        "blob_of": "963df424c2341b84f74db7f72389af39bb34cae4e65c2281f8a717e1e1c1edec"
+      },
+      "scope": "function",
+      "blob_basis": "git blob id at HEAD 96bfe03 (post-merge descendant of the ruled code); function key resolved at HEAD"
+    },
+    {
+      "finding_id": "aecd8d6b5f57",
+      "path": "src/codereview/core.py",
+      "blob": "a830f348da9ec60e5bc948420e9f8086d9c47c85",
+      "seen_in": [
+        "owner-ruling-2026-11-04"
+      ],
+      "disposition": {
+        "round": "owner-ruling-2026-11-04",
+        "file": "workspace/issue-reports/2026-11-04-codereview-refutation-process.md",
+        "summary": "Owner ruling 2026-11-04 (protected class — precedent machinery): refutation SUSTAINED — with a blob present the precedent candidate is built regardless of source availability; a candidate drops only when there is no blob AND the function is unresolvable, i.e. no content address of either kind exists."
+      },
+      "function": "_precedent_candidate",
+      "function_hash": "d634623675cb2689f0e75766fbe09f77390fb138c432944eb66ff62e13216099",
+      "callees": {
+        "upsert_precedent": "71e7ac375b8fbed9931c77a869d4f3168fd21ea0c4be7382f53e218ffac31812",
+        "function_key": "9e35b2fac47ec1d1db5e289b0677d1efca52bf444a1a90f7316ed678e8704c74"
+      },
+      "scope": "function",
+      "blob_basis": "git blob id at HEAD 96bfe03 (post-merge descendant of the ruled code); function key resolved at HEAD"
+    },
+    {
+      "finding_id": "85ac395128cd",
+      "path": "src/codereview/core.py",
+      "blob": "a830f348da9ec60e5bc948420e9f8086d9c47c85",
+      "seen_in": [
+        "owner-ruling-2026-11-04"
+      ],
+      "disposition": {
+        "round": "owner-ruling-2026-11-04",
+        "file": "workspace/issue-reports/2026-11-04-codereview-refutation-process.md",
+        "summary": "Owner ruling 2026-11-04 (protected class — Tech Lead machinery): refutation SUSTAINED — ineligible seats produce a recorded substitution with reason, and total absence records tech_lead.status = 'unavailable' on the finding; nothing is silently dropped or silently accepted."
+      },
+      "function": "_select_tech_lead",
+      "function_hash": "c0789a3911cb2a216750b251f6c637cc1104c30dcd4786cd5f2461ef7c7c4041",
+      "callees": {
+        "eligible": "36d97bacdf9811a2d49877d30880a481a9d67f17e611b524aee62e7ee2df3bb4",
+        "fam_of": "0753edb194900351be6664a75a9875109eae11d6417985cad5cca769cf7e9315"
+      },
+      "scope": "function",
+      "blob_basis": "git blob id at HEAD 96bfe03 (post-merge descendant of the ruled code); function key resolved at HEAD"
+    },
+    {
+      "finding_id": "24929379e396",
+      "path": "src/codereview/core.py",
+      "blob": "a830f348da9ec60e5bc948420e9f8086d9c47c85",
+      "seen_in": [
+        "owner-ruling-2026-11-04"
+      ],
+      "disposition": {
+        "round": "owner-ruling-2026-11-04",
+        "file": "workspace/issue-reports/2026-11-04-codereview-refutation-process.md",
+        "summary": "Owner ruling 2026-11-04 (protected class — Tech Lead machinery): refutation SUSTAINED — _seat_meta reads (seat_meta or {}).get(name) or {} and constructs the 'tier' key itself, so it is always present for any seat name; the claimed KeyError cannot occur."
+      },
+      "function": "_seat_meta",
+      "function_hash": "ed4091de87e91cc60a3a800b68aede20d2a218145f0654082090e74e8e1c59d8",
+      "callees": {},
+      "scope": "function",
+      "blob_basis": "git blob id at HEAD 96bfe03 (post-merge descendant of the ruled code); function key resolved at HEAD"
     }
   ]
 }
