@@ -22,6 +22,52 @@ A5 set hash:
   state — including the superseded one — fails. Attempts consumed
   under the registration remain 0; no run was started.
 
+## Unreleased — Epic C5 (sandbox safety audit)
+
+Ticket C5's machinery largely shipped with the Epic C runner;
+this track audited it line by line against the ticket ("no
+network by default, resource limits, run in temp worktree;
+never run untrusted PR code with secrets" — acceptance:
+documented threat model + tests) and closed the one real gap.
+
+- **Gap closed — captured output is now capped.** The
+  executor buffered a child's full stdout+stderr in the gate
+  process's memory (`communicate()`), so a spewing command
+  could grow it without bound until the timeout fired. Each
+  stream is now drained by a reader thread under an 8 MiB
+  per-stream cap: past the cap the parent keeps draining and
+  discarding (the child never blocks on a full pipe and its
+  exit status is unaffected), the record's hash and tail
+  cover the capped bytes, and a truncation marker in the
+  output says when the cap bit; and if a detached process
+  holds a pipe open past the post-kill settle, the capture is
+  marked incomplete rather than silently partial (gate
+  round-1 majors, accepted in substance). The record's
+  `sandbox.limits` block states the cap. The wait lives in a named supervised
+  wait (`_supervise_sandbox_run`) — deadline-bounded waits,
+  bounded joins, process-group kill on expiry — and the v14
+  subprocess-timeout guard accepts it by name, following the
+  Epic K2 seat-wait precedent.
+- **Already met, now pinned** (`tests/test_sandbox_c5.py`):
+  the CPU and per-file rlimits actually reach the child;
+  provider-key-shaped variables, tokens, and the SSH agent
+  socket never cross the allow-list, and `allow_network`
+  re-admits proxy variables only; the throwaway copy is
+  deleted on every exit path (normal, timeout kill, copy
+  failure, claim verification); namespace mode is a real,
+  different network namespace in which a connect attempt
+  fails (where `unshare` works).
+- **Documented, not faked:** `THREAT-MODEL.md` at the
+  repository root is the written threat model — controls,
+  trust boundaries, and residual risks stated plainly. The
+  headline residuals: no filesystem isolation (absolute-path
+  reads/writes escape the copy — run the CLI in a VM or
+  container for genuinely hostile trees), and **no memory
+  cap**: an address-space rlimit would break legitimate
+  toolchains (Node/V8 and JVM address-space reservations;
+  `npm` is a built-in adapter), so memory growth is bounded
+  only by the wall-clock/CPU limits and the risk is
+  documented rather than theatre-capped.
 ## Unreleased — Epic E1 (risk scorer)
 
 A review run can now record a deterministic risk score for

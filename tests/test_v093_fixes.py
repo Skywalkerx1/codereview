@@ -334,6 +334,15 @@ class FixturePartitionTests(unittest.TestCase):
                             for r in rep["gate_reasons"]))
 
 
+# Popen pairings the guard accepts besides communicate(
+# timeout=...): named supervised waits that take the same
+# timeout and enforce it with bounded waits and a process
+# kill — providers' seat wait (Epic K2) and the evidence
+# sandbox's wait (Epic C5). See the guard class docstring.
+_SUPERVISED_WAITS = ("_run_seat_process",
+                     "_supervise_sandbox_run")
+
+
 class SubprocessTimeoutGuardTests(unittest.TestCase):
     """v14 [6] guard (added per the solution doc whether the
     finding is real or rebutted): every subprocess execution in
@@ -345,7 +354,14 @@ class SubprocessTimeoutGuardTests(unittest.TestCase):
     and enforces it as a poll-loop deadline with a process-tree
     kill — a stronger bound than communicate's, not a weaker
     one; the guard accepts the call by name so the pairing
-    stays explicit in the seat code."""
+    stays explicit in the seat code. Epic C5 adds the third
+    accepted pairing, by the same rule: evidence's
+    _supervise_sandbox_run, which waits on the sandbox child
+    with wait(timeout=...) plus bounded drainer-thread joins
+    and kills the process group on expiry — again a stronger
+    bound than communicate's, since communicate buffers the
+    child's output without bound (the C5 output-cap gap) and
+    the supervised wait drains it under a per-stream cap."""
 
     def _files(self):
         for fname in sorted(os.listdir(SRC)):
@@ -397,16 +413,16 @@ class SubprocessTimeoutGuardTests(unittest.TestCase):
                     for n in ast.walk(node)) or any(
                     isinstance(n, ast.Call)
                     and ((isinstance(n.func, ast.Name)
-                          and n.func.id == "_run_seat_process")
+                          and n.func.id in _SUPERVISED_WAITS)
                          or (isinstance(n.func, ast.Attribute)
                              and n.func.attr
-                             == "_run_seat_process"))
+                             in _SUPERVISED_WAITS))
                     for n in ast.walk(node))
                 if not guarded:
                     offenders.append(
                         f"{fname}:{node.name} Popen without a "
-                        "communicate(timeout=...) or the "
-                        "supervised seat wait in the function")
+                        "communicate(timeout=...) or a "
+                        "supervised wait in the function")
         self.assertGreaterEqual(total_popen, 1)
         self.assertEqual(offenders, [])
 

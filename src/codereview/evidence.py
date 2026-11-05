@@ -81,8 +81,18 @@ executing UNTRUSTED code and confines it accordingly:
   whose rule sets are fetched (semgrep --config auto) need that
   opt-in, and the opt-in is visible in the record.
 - Resource limits: each run has a wall-clock timeout enforced
-  by killing the whole process group, a CPU-time limit, and a
-  per-file size limit (POSIX rlimits), all recorded.
+  by killing the whole process group, a CPU-time limit, a
+  per-file size limit (POSIX rlimits), and a cap on captured
+  output per stream (the child is drained past the cap, never
+  blocked on a full pipe; the record's hash and tail cover the
+  capped bytes and a truncation marker says so; if a detached
+  process holds a pipe open past the post-kill settle, the
+  capture is marked incomplete rather than silently partial),
+  all recorded.
+  What the sandbox does NOT confine — filesystem reach outside
+  the copy, memory growth, and the other residual risks — is
+  stated plainly in the full threat model, `THREAT-MODEL.md`
+  at the repository root.
 - Output is evidence, not truth: the full output is hashed
   (sha256) and only a redacted tail is stored, through the same
   `redact_secrets` the review path uses — a scanner that prints
@@ -107,6 +117,7 @@ import signal
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 
 from .core import _now_iso, redact_secrets
@@ -116,7 +127,11 @@ SCHEMA = "codereview.evidence/1"
 DEFAULT_TIMEOUT = 600          # seconds, per evidence item
 _CPU_SLACK = 5                 # rlimit CPU seconds beyond timeout
 _FILE_SIZE_LIMIT = 256 * 1024 * 1024   # RLIMIT_FSIZE per file
+_OUTPUT_CAP_BYTES = 8 * 1024 * 1024    # captured output, per stream
 _OUTPUT_TAIL_CHARS = 4000      # stored tail, matching _run_tests
+_KILL_SETTLE_S = 30            # post-kill drain budget — the
+                               # pre-cap runner's second
+                               # communicate() used the same 30 s
 
 STATUSES = ("passed", "failed", "timeout", "unavailable",
             "missing", "error")
@@ -297,10 +312,72 @@ def _apply_limits(timeout):
     _set(resource.RLIMIT_FSIZE, _FILE_SIZE_LIMIT)
 
 
-def _execute(argv, cwd, timeout, env, allow_network):
+def _drain(stream, sink):
+    """Reader-thread body: pull `stream` to EOF, keeping at
+    most _OUTPUT_CAP_BYTES in sink["data"] and draining (and
+    discarding) the rest, so a spewing child never blocks on a
+    full pipe and never grows the parent's memory without
+    bound. sink["truncated"] records that output was dropped."""
+    try:
+        while True:
+            # read1, not read: read(n) waits until n bytes or
+            # EOF, which would strand a trickling child's
+            # available bytes inside the buffer when EOF never
+            # comes (a detached pipe holder); read1 returns
+            # whatever one raw read delivers.
+            chunk = stream.read1(65536)
+            if not chunk:
+                break
+            room = _OUTPUT_CAP_BYTES - len(sink["data"])
+            if room > 0:
+                sink["data"] += chunk[:room]
+            if len(chunk) > max(room, 0):
+                sink["truncated"] = True
+    except Exception:  # noqa: BLE001 — a dead stream is EOF
+        pass
+    finally:
+        try:
+            stream.close()
+        except Exception:  # noqa: BLE001
+            pass
+
+
+def _captured(out_sink, err_sink, incomplete=False):
+    """The combined output bytes the record hashes and tails:
+    stdout then stderr, exactly as the pre-cap runner combined
+    them, plus markers (visible in the tail, and covered by
+    the hash) for the two ways the bytes can be less than what
+    the child wrote: a truncation marker when either stream
+    hit the cap, and — when a drainer was still blocked after
+    the post-kill settle because a detached process holds the
+    pipe open — an incomplete-capture marker. Partial output
+    is never presented as whole."""
+    output = bytes(out_sink["data"]) + bytes(err_sink["data"])
+    if out_sink["truncated"] or err_sink["truncated"]:
+        output += (
+            f"\n[codereview: output truncated at the sandbox "
+            f"cap of {_OUTPUT_CAP_BYTES} bytes per stream]\n"
+        ).encode("utf-8")
+    if incomplete:
+        output += (
+            "\n[codereview: output capture incomplete — a "
+            "detached process still holds the pipe]\n"
+        ).encode("utf-8")
+    return output
+
+
+def _execute(argv, cwd, timeout, env, allow_network,
+             settle_s=_KILL_SETTLE_S):
     """Run one argv in the sandbox; return (status, exit_code,
     duration_s, output_bytes, network_mode). Never raises for
-    child failures — every outcome is data for the record."""
+    child failures — every outcome is data for the record.
+
+    Output is read by drainer threads under a per-stream cap
+    (see _drain); the wait semantics mirror the communicate()
+    contract this replaces: the run ends when the child has
+    exited AND both pipes reach EOF, bounded by the timeout —
+    a grandchild that inherits a pipe and holds it open past
+    the deadline is a timeout, exactly as before."""
     network_mode = "allowed" if allow_network else "env-only"
     run_argv = list(argv)
     if not allow_network and _unshare_ok():
@@ -316,19 +393,75 @@ def _execute(argv, cwd, timeout, env, allow_network):
         return "error", None, 0.0, \
             f"could not start: {exc}".encode("utf-8", "replace"), \
             network_mode
+    out_sink = {"data": bytearray(), "truncated": False}
+    err_sink = {"data": bytearray(), "truncated": False}
+    readers = [
+        threading.Thread(target=_drain, args=(proc.stdout,
+                                              out_sink),
+                         daemon=True),
+        threading.Thread(target=_drain, args=(proc.stderr,
+                                              err_sink),
+                         daemon=True),
+    ]
+    for reader in readers:
+        reader.start()
+    return _supervise_sandbox_run(
+        proc, readers, timeout, started, out_sink, err_sink,
+        network_mode, settle_s=settle_s)
+
+
+def _supervise_sandbox_run(proc, readers, timeout, started,
+                           out_sink, err_sink, network_mode,
+                           settle_s=_KILL_SETTLE_S):
+    """The evidence sandbox's supervised wait — the pairing
+    the v14 subprocess-timeout guard accepts by name for
+    _execute's Popen, as it does providers' seat wait: every
+    wait here is deadline-bounded (wait(timeout=...), bounded
+    joins) and expiry kills the whole process group. It is a
+    stronger bound than communicate(timeout=...), not a
+    weaker one: communicate buffers the child's output
+    without bound, this wait drains it under the C5 cap."""
+    def _settle(deadline):
+        """True when the child has exited and both pipes are
+        drained by `deadline` (an absolute monotonic time)."""
+        for reader in readers:
+            reader.join(max(deadline - time.monotonic(), 0.0))
+        return proc.poll() is not None and not any(
+            reader.is_alive() for reader in readers)
+
+    timed_out = False
     try:
-        out, err = proc.communicate(timeout=timeout)
-        status = "passed" if proc.returncode == 0 else "failed"
-        return status, proc.returncode, time.monotonic() - started, \
-            (out or b"") + (err or b""), network_mode
+        proc.wait(timeout=timeout)
     except subprocess.TimeoutExpired:
+        timed_out = True
+    if not timed_out and not _settle(started + timeout + 2.0):
+        # The child exited but a pipe is still not drained
+        # shortly after the deadline — a grandchild inherited
+        # it and is holding it open. communicate() reported
+        # this as a timeout; so does the sandbox. (The 2 s
+        # grace covers the final pipe bytes of a child that
+        # exited right at its deadline.)
+        timed_out = True
+    if timed_out:
         _kill_group(proc)
         try:
-            out, err = proc.communicate(timeout=30)
+            proc.wait(timeout=settle_s)
         except Exception:  # noqa: BLE001
-            out, err = b"", b""
+            pass
+        # Post-kill drain: after the group kill the pipes
+        # reach EOF and the drainers finish, so the sinks are
+        # final before _captured reads them. A drainer still
+        # blocked after the settle means a detached process
+        # (outside the killed group) holds the pipe — the
+        # capture is then partial, and _captured marks it
+        # incomplete rather than presenting it as whole.
+        final = _settle(time.monotonic() + settle_s)
         return "timeout", None, time.monotonic() - started, \
-            (out or b"") + (err or b""), network_mode
+            _captured(out_sink, err_sink, incomplete=not final), \
+            network_mode
+    status = "passed" if proc.returncode == 0 else "failed"
+    return status, proc.returncode, time.monotonic() - started, \
+        _captured(out_sink, err_sink), network_mode
 
 
 def _result(name, kind, required, status, exit_code, duration,
@@ -513,6 +646,7 @@ def _record(config, source_dir, items, network_mode):
                 "timeout_s_default": default_timeout,
                 "cpu_slack_s": _CPU_SLACK,
                 "file_size_limit_bytes": _FILE_SIZE_LIMIT,
+                "output_cap_bytes_per_stream": _OUTPUT_CAP_BYTES,
             },
         },
         "items": items,
