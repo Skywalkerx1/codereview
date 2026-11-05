@@ -121,6 +121,18 @@ A prior blocker clears **only when every successful reviewer agrees** it is fixe
 
 ## Providers
 
+### First run — you set up your models
+
+CodeReview ships **no default panel**: we don't choose the LLM for you. On first open, run:
+
+```bash
+codereview setup
+```
+
+The wizard walks you through it: pick one or more providers, see which environment variable must hold **your** key for each (keys are never typed into, echoed by, or stored in the config — it references env var names only), then assign a model per role (correctness, operations, verifier, tech-lead, solver), confirming each one. Your choices are saved to `~/.config/codereview/config.toml` (XDG; override with `$CODEREVIEW_CONFIG`) as *your* defaults, and every later run uses them — explicit `--provider`/`--role` flags and `$CODEREVIEW_PROVIDERS` still win per run. Re-run `codereview setup` any time to change them. With no setup and no flags, a run stops and tells you how to set up — it never quietly substitutes a vendor-chosen panel. (An interactive first review launches the wizard for you.)
+
+The model names in the table below are the registry's *suggestions* — what the wizard offers for you to confirm or replace — not decisions the product makes.
+
 Any two (or more) independent models, from any major vendor. Presets (each is also usable as `preset:model` to pick a specific model):
 
 | Preset | Default model | Your key in |
