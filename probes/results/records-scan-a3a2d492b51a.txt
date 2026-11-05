@@ -1,17 +1,17 @@
 PUBLIC-RECORD EXPOSURE SCAN — a3a2d492b51a
 Scope: gate-attempts.* + all committed review records.
 
-Files scanned: 109
-Files with at least one hit: 16
+Files scanned: 122
+Files with at least one hit: 24
 
 Totals by category:
-  local_path: 166
+  local_path: 207
   hostname: 0
   connector_name: 3
-  account_id: 9
+  account_id: 18
   key_shaped: 0
 
-Per-file detail (samples capped at 3 per category; key-shaped samples masked):
+Per-file detail (samples capped at 3 per category; key-shaped samples masked, paths relativised, account ids masked):
 
 review-v12-dispositions.md
   local_path x1: ~/workspace/issue-reports/2026-11-04-codereview-v12-gate-findings.md`).
@@ -22,39 +22,65 @@ review-v13-dispositions.md
 review-v14-dispositions.md
   local_path x2: ~/workspace/issue-reports/2026-11-04-codereview-v14-gate-findings.md`; ~/workspace/user/files/codereview-v14-hold-solution-2026-11-04.md`
 
+review-pt1-open-refutations/codereview-20261105-004939.json
+  local_path x32: ~/workspace/codereview/tests/test_v093_fixes.py:352:; ~/workspace/codereview/tests/../src/codereview/cli.py; ~/workspace/codereview/tests/../src/codereview/core.py
+  account_id x5: a***@example.com
+
+review-pt1-open-refutations/codereview-20261105-004939.md
+  local_path x4: ~/workspace/codereview/tests/test_v093_fixes.py:373:;; ~/workspace/codereview/tests/../src/codereview/providers.py;; ~
+  account_id x1: a***@example.com
+
+review-pt1-open-refutations/evidence/02c1b971238e0bbb87caf019e4cd6ff8755d9304bb624364fdfa5eafd4716591
+  account_id x1: a***@example.com
+
+review-pt1-open-refutations/evidence/43f60634a93d6fcc46792183be2d9d37e8f003a17dd3103142622ef41b5f5038
+  local_path x3: ~/workspace/codereview/tests/test_v093_fixes.py:373:;; ~/workspace/codereview/tests/../src/codereview/providers.py;; ~/workspace/codereview/tests/test_v093_fixes.py:352:
+
+review-pt1-open-refutations/evidence/5ddb6ad369f62361a08dc783c27b77b1e39d96534d57f3aaa7e079d295d9e4f2
+  local_path x1: ~/workspace/codereview/tests/test_v093_fixes.py:373:
+
+review-pt1-open-refutations/evidence/62342e2a69fa79e58aae832da3ede31038a032c50c46e47a47e104d1c981fc5b
+  local_path x1: ~/workspace/
+
+review-pt1-open-refutations/evidence/6c354d3a8bcbb4cfc169e95884cb90d82f9d937b916cae3d05897172102214ff
+  account_id x1: a***@example.com
+
+review-pt1-open-refutations/evidence/7b5d47c7554e22c969514bfd031cb926e917dc2d073e8732d43d8ff7b9fbe18e
+  account_id x1: a***@example.com
+
 review-v095-fix/codereview-20261104-230555.json
-  local_path x22: /home/hatch/workspace/codereview/tests/test_v093_fixes.py:373:; /home/hatch/workspace/codereview/tests/../src/codereview/providers.py; /home/hatch/workspace/codereview/tests/test_v093_fixes.py:352:
+  local_path x22: ~/workspace/codereview/tests/test_v093_fixes.py:373:; ~/workspace/codereview/tests/../src/codereview/providers.py; ~/workspace/codereview/tests/test_v093_fixes.py:352:
 
 review-v096/codereview-20261104-233259.json
-  local_path x25: /home/hatch/workspace/codereview/tests/../src/codereview/providers.py; /home/hatch/workspace/codereview/tests/test_v093_fixes.py:352:; /home/hatch/workspace/codereview/tests/../src/codereview/__init__.py
+  local_path x25: ~/workspace/codereview/tests/../src/codereview/providers.py; ~/workspace/codereview/tests/test_v093_fixes.py:352:; ~/workspace/codereview/tests/../src/codereview/__init__.py
 
 review-v100/codereview-20261105-000409.json
-  local_path x21: /home/hatch/workspace/codereview/tests/../src/codereview/providers.py; /home/hatch/workspace/codereview/tests/test_v093_fixes.py:352:; /home/hatch/workspace/codereview/tests/../src/codereview/__init__.py
+  local_path x21: ~/workspace/codereview/tests/../src/codereview/providers.py; ~/workspace/codereview/tests/test_v093_fixes.py:352:; ~/workspace/codereview/tests/../src/codereview/__init__.py
 
 review-v110/codereview-20261105-001944.json
-  local_path x21: /home/hatch/workspace/codereview/tests/../src/codereview/bench.py; /home/hatch/workspace/codereview/tests/test_v093_fixes.py:352:; /home/hatch/workspace/codereview/tests/../src/codereview/cli.py
+  local_path x21: ~/workspace/codereview/tests/../src/codereview/bench.py; ~/workspace/codereview/tests/test_v093_fixes.py:352:; ~/workspace/codereview/tests/../src/codereview/cli.py
 
 review-v111/codereview-20261105-003107.json
-  local_path x21: /home/hatch/workspace/codereview/tests/../src/codereview/bench.py; /home/hatch/workspace/codereview/tests/test_v093_fixes.py:352:; /home/hatch/workspace/codereview/tests/../src/codereview/cli.py
+  local_path x21: ~/workspace/codereview/tests/../src/codereview/bench.py; ~/workspace/codereview/tests/test_v093_fixes.py:352:; ~/workspace/codereview/tests/../src/codereview/cli.py
 
 review-v12/codereview-20261104-180317.json
-  account_id x2: admin@example.com
+  account_id x2: a***@example.com
 
 review-v13/codereview-20261104-184437.json
-  local_path x3: ~/workspace/issue-reports/2026-11-04-codereview-v12-gate-findings.md`).; /home/hatch/workspace/codereview/tests/test_v091_fixes.py:142:; /home/hatch/workspace/codereview/tests/../src/codereview/cli.py
+  local_path x3: ~/workspace/issue-reports/2026-11-04-codereview-v12-gate-findings.md`).; ~/workspace/codereview/tests/test_v091_fixes.py:142:; ~/workspace/codereview/tests/../src/codereview/cli.py
 
 review-v14/codereview-20261104-185814.json
-  local_path x3: ~/workspace/issue-reports/2026-11-04-codereview-v13-gate-findings.md`.; /home/hatch/workspace/codereview/tests/test_v091_fixes.py:142:; /home/hatch/workspace/codereview/tests/../src/codereview/cli.py
+  local_path x3: ~/workspace/issue-reports/2026-11-04-codereview-v13-gate-findings.md`.; ~/workspace/codereview/tests/test_v091_fixes.py:142:; ~/workspace/codereview/tests/../src/codereview/cli.py
 
 review-v15/codereview-20261104-224759.json
-  local_path x24: /home/hatch/workspace/codereview/tests/test_v093_fixes.py:373:; /home/hatch/workspace/codereview/tests/../src/codereview/github.py; /home/hatch/workspace/codereview/tests/../src/codereview/intake.py
-  account_id x6: admin@example.com
+  local_path x24: ~/workspace/codereview/tests/test_v093_fixes.py:373:; ~/workspace/codereview/tests/../src/codereview/github.py; ~/workspace/codereview/tests/../src/codereview/intake.py
+  account_id x6: a***@example.com
 
 review-v15/codereview-20261104-224759.md
-  account_id x1: admin@example.com
+  account_id x1: a***@example.com
 
 review-v15-verify1/codereview-20261104-225424.json
-  local_path x22: /home/hatch/workspace/codereview/tests/test_v093_fixes.py:373:; /home/hatch/workspace/codereview/tests/../src/codereview/providers.py; /home/hatch/workspace/codereview/tests/test_v093_fixes.py:352:
+  local_path x22: ~/workspace/codereview/tests/test_v093_fixes.py:373:; ~/workspace/codereview/tests/../src/codereview/providers.py; ~/workspace/codereview/tests/test_v093_fixes.py:352:
 
 review-v6/codereview-20261104-041822.json
   connector_name x2: threads
