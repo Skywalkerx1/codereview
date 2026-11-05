@@ -615,17 +615,43 @@ Code region (the cited file's section from the diff):
 """
 
 
+def _prompt_slice(text, cap):
+    """Slice `text` to at most `cap` chars for a prompt — never
+    silently, never mid-word when a boundary exists. Text over
+    the cap is cut at the last whitespace boundary in the
+    latter half of the budget and closed with an explicit
+    marker carrying the FULL length and sha256, so a reader
+    (human or adjudicating model) can tell the text was cut,
+    by how much, and verify the full text against the record.
+    A single word longer than the budget is still cut — the
+    marker is what makes that cut honest rather than silent
+    (open-refutations hardening, 4ce0212286e0)."""
+    text = str(text or "")
+    if len(text) <= cap:
+        return text
+    cut = text[:cap]
+    boundary = max(cut.rfind(" "), cut.rfind("\n"),
+                   cut.rfind("\t"))
+    if boundary > cap // 2:
+        cut = cut[:boundary]
+    digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
+    return (f"{cut} …[truncated, {len(text)} chars, "
+            f"sha256:{digest}]")
+
+
 def _finding_public(finding):
     """The finding fields a confirmation/re-ground prompt may see.
     Evidence is stored full-text in the record (sidecars, §4 Q7);
     what a PROMPT shows is display, so it is sliced here — the
-    stored text is never cut by prompt construction."""
+    stored text is never cut by prompt construction. The slice
+    is explicit, never silent or mid-word: _prompt_slice marks
+    every cut with the full length and sha256."""
     shown = {k: finding.get(k) for k in
              ("id", "severity", "category", "file", "line", "title",
               "evidence", "evidence_quote", "recommendation")}
-    shown["evidence"] = str(shown.get("evidence") or "")[:2000]
-    shown["evidence_quote"] = str(
-        shown.get("evidence_quote") or "")[:1000]
+    shown["evidence"] = _prompt_slice(shown.get("evidence"), 2000)
+    shown["evidence_quote"] = _prompt_slice(
+        shown.get("evidence_quote"), 1000)
     return json.dumps(shown, ensure_ascii=False, indent=1)
 
 
@@ -979,41 +1005,84 @@ def function_key(source, line):
         return None
     defs = []
 
-    def visit(node, prefix):
+    def visit(node, prefix, class_prefix=None):
         for child in ast.iter_child_nodes(node):
             if isinstance(child, (ast.FunctionDef,
                                   ast.AsyncFunctionDef)):
                 qual = f"{prefix}{child.name}"
-                defs.append((child, qual))
-                visit(child, qual + ".")
+                defs.append((child, qual, prefix, class_prefix))
+                visit(child, qual + ".", class_prefix)
             elif isinstance(child, ast.ClassDef):
-                visit(child, f"{prefix}{child.name}.")
+                cqual = f"{prefix}{child.name}."
+                visit(child, cqual, cqual)
 
     visit(tree, "")
     target = None
-    for node, qual in defs:
+    for node, qual, _scope, _cls in defs:
         end = node.end_lineno or node.lineno
         if node.lineno <= line <= end:
             if target is None or (
                     end - node.lineno
                     < (target[0].end_lineno or target[0].lineno)
                     - target[0].lineno):
-                target = (node, qual)
+                target = (node, qual, _scope, _cls)
     if target is None:
         return None
-    node, qual = target
+    node, qual, scope_prefix, class_prefix = target
+    # Callee resolution must FAIL SAFE (open-refutations
+    # hardening, 6b29fe953939): the pre-fix map kept the FIRST
+    # def of each bare name, so with two same-named functions a
+    # call could be keyed to the wrong body and a precedent
+    # would survive a change to the callee actually called.
+    # Resolve by qualified name where determinable (a self.x()
+    # call to the enclosing class's x; a scope-local sibling);
+    # a single candidate keeps the historical bare hash; an
+    # ambiguous bare name keys to ALL candidates' hashes, so
+    # a change to any of them re-opens the precedent.
     by_name = {}
-    for n, _q in defs:
-        by_name.setdefault(n.name, n)
+    for n, q, _s, _c in defs:
+        by_name.setdefault(n.name, []).append((n, q))
     callees = {}
     for sub in ast.walk(node):
         if isinstance(sub, ast.Call):
             fn = sub.func
             cname = fn.id if isinstance(fn, ast.Name) else (
                 fn.attr if isinstance(fn, ast.Attribute) else None)
-            callee = by_name.get(cname) if cname else None
-            if callee is not None and callee is not node:
-                callees[cname] = _ast_hash(callee)
+            if not cname:
+                continue
+            candidates = [(n, q) for n, q in by_name.get(cname, [])
+                          if n is not node]
+            if not candidates:
+                continue
+            chosen = None
+            if isinstance(fn, ast.Attribute) \
+                    and isinstance(fn.value, ast.Name) \
+                    and fn.value.id == "self" and class_prefix:
+                local = [n for n, q in candidates
+                         if q == class_prefix + cname]
+                if len(local) == 1:
+                    chosen = local[0]
+            if chosen is None and scope_prefix != class_prefix:
+                # Scope-local sibling (a nested def in the same
+                # function, or a module-level def for a
+                # module-level caller). Bare names do NOT
+                # resolve into a class scope in Python, so this
+                # rule is skipped when the immediate scope is
+                # the class itself. A qualified match counts
+                # only when it is UNIQUE — two defs can share
+                # one qualified name (a repeated def), and
+                # picking either would be a coin flip.
+                local = [n for n, q in candidates
+                         if q == scope_prefix + cname]
+                if len(local) == 1:
+                    chosen = local[0]
+            if chosen is not None:
+                callees[cname] = _ast_hash(chosen)
+            elif len(candidates) == 1:
+                callees[cname] = _ast_hash(candidates[0][0])
+            else:
+                callees[cname] = "|".join(sorted(
+                    _ast_hash(n) for n, _q in candidates))
     return {"function": qual, "function_hash": _ast_hash(node),
             "callees": callees}
 

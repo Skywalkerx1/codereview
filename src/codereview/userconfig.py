@@ -52,9 +52,31 @@ def load_user_config(environ=None):
         except tomllib.TOMLDecodeError as exc:
             raise ValueError(
                 f"user config {path} is not valid TOML: {exc}")
-    providers = [str(p) for p in data.get("providers") or []]
-    roles = {str(k): str(v)
-             for k, v in (data.get("roles") or {}).items()}
+    # Type-validate before iterating (open-refutations
+    # hardening, 9a4415ddafa6): a non-list `providers` was
+    # iterated element-wise (a string silently became one
+    # "provider" per character) and a non-table `roles` raised
+    # an uncaught AttributeError from .items() — both break
+    # this function's documented contract that a malformed
+    # config raises ValueError naming the path.
+    raw_providers = data.get("providers")
+    if raw_providers is None:
+        raw_providers = []
+    if not isinstance(raw_providers, list):
+        raise ValueError(
+            f"user config {path}: 'providers' must be a list "
+            f"of provider specs, got "
+            f"{type(raw_providers).__name__}")
+    raw_roles = data.get("roles")
+    if raw_roles is None:
+        raw_roles = {}
+    if not isinstance(raw_roles, dict):
+        raise ValueError(
+            f"user config {path}: 'roles' must be a table of "
+            f"role = \"spec\" entries, got "
+            f"{type(raw_roles).__name__}")
+    providers = [str(p) for p in raw_providers]
+    roles = {str(k): str(v) for k, v in raw_roles.items()}
     return {"providers": providers, "roles": roles,
             "path": path}
 
