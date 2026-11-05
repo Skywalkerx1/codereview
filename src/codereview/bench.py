@@ -333,6 +333,22 @@ def load_config(path):
     if not cfg.get("providers"):
         raise ValueError(f"bench config {path}: 'providers' must be "
                          f"a non-empty list")
+    # S1 (void solution §6): the panel's seat->lens binding is
+    # EXPLICIT. A config may declare `seat_lenses`; when it does
+    # not, the binding is derived ONCE here from the provider
+    # order (the historical assignment rule), recorded on the
+    # loaded config, and treated as explicit thereafter — so a
+    # seat dropped before a run leaves its lens unserved instead
+    # of silently remapping lenses onto the survivors. Provider
+    # entries may be spec strings or {name, script} objects; the
+    # binding keys the SEAT NAMES those entries produce.
+    if cfg.get("seat_lenses"):
+        seat_lenses = core.normalize_seat_lenses(cfg["seat_lenses"])
+        seat_lenses_source = "explicit"
+    else:
+        seat_lenses = core.derive_seat_lenses(
+            _provider_seat_names(cfg["providers"]))
+        seat_lenses_source = "derived"
     return {
         "name": name,
         "providers": cfg["providers"],
@@ -340,8 +356,26 @@ def load_config(path):
         "allow_major": bool(cfg.get("allow_major", False)),
         "strict": bool(cfg.get("strict", False)),
         "cost_per_call_usd": cfg.get("cost_per_call_usd") or 0,
+        "seat_lenses": seat_lenses,
+        "seat_lenses_source": seat_lenses_source,
         "path": path,
     }
+
+
+def _provider_seat_names(providers):
+    """Seat names a config's provider entries produce: a spec
+    string names its seat; a {name, script} object names its
+    scripted seat (default "scripted", as build_config_providers
+    has it)."""
+    names = []
+    for entry in providers or []:
+        if isinstance(entry, str):
+            names.append(entry)
+        elif isinstance(entry, dict):
+            names.append(str(entry.get("name") or "scripted"))
+        else:
+            names.append(str(entry))
+    return names
 
 
 def _config_sha(cfg):
@@ -352,6 +386,14 @@ def _config_sha(cfg):
     identity = {k: cfg.get(k) for k in (
         "name", "providers", "seat_meta", "allow_major", "strict",
         "cost_per_call_usd")}
+    # S1: an EXPLICIT seat_lenses binding is part of the config's
+    # identity (two panels with the same providers but different
+    # bindings are different panels). A DERIVED binding is a pure
+    # function of `providers`, which is already in the identity —
+    # including it would move the hash of every pre-S1 config and
+    # orphan its stored records, so it stays out.
+    if cfg.get("seat_lenses_source") == "explicit":
+        identity["seat_lenses"] = cfg.get("seat_lenses")
     return hashlib.sha256(json.dumps(
         identity, sort_keys=True).encode("utf-8")).hexdigest()
 
@@ -479,6 +521,26 @@ def run_bench(corpus_dir, config_specs, out_dir, split="all",
             seats = providers_by_config[cfg["name"]]
         else:
             seats = build_config_providers(cfg)
+        # S1: the config binding governs when the seats actually
+        # serving are the config's own seats (a subset is fine —
+        # a dropped seat is exactly the case the binding exists
+        # for). An embedding runner may inject seats under names
+        # the config never declared; a DERIVED binding then falls
+        # back to the seat-order rule over the actual seats (the
+        # pre-S1 behaviour for that mechanism), while an EXPLICIT
+        # binding the runner cannot honour is a loud error, never
+        # a silent remap.
+        seat_lenses = cfg["seat_lenses"]
+        if not set(seats) <= set(_provider_seat_names(
+                cfg["providers"])):
+            if cfg["seat_lenses_source"] == "explicit":
+                raise ValueError(
+                    f"bench config {cfg['name']}: explicit "
+                    f"seat_lenses binding names "
+                    f"{sorted(cfg['seat_lenses'])} but the runner "
+                    f"provided seats {sorted(seats)} — refusing "
+                    f"to remap lenses silently")
+            seat_lenses = core.derive_seat_lenses(list(seats))
         path = os.path.join(out_dir, f"{cfg['name']}.jsonl")
         cfg_sha = _config_sha(cfg)
         records = []
@@ -524,7 +586,8 @@ def run_bench(corpus_dir, config_specs, out_dir, split="all",
                     case["diff"], seats, context=context,
                     allow_major=cfg["allow_major"],
                     strict=cfg["strict"],
-                    seat_meta=cfg["seat_meta"] or None)
+                    seat_meta=cfg["seat_meta"] or None,
+                    seat_lenses=seat_lenses)
                 duration_ms = int((time.monotonic() - started) * 1000)
                 calls = 0
                 cost = 0.0
@@ -537,6 +600,7 @@ def run_bench(corpus_dir, config_specs, out_dir, split="all",
                     "schema": RESULT_SCHEMA,
                     "config": cfg["name"],
                     "config_sha256": cfg_sha,
+                    "seat_lenses": report.get("seat_lenses"),
                     "case_id": case["id"],
                     "split": case["split"],
                     "category": case["category"],

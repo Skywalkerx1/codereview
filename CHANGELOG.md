@@ -1,5 +1,60 @@
 # Changelog
 
+## Unreleased — 2026-11-05 (void solution: generation machinery, S1, S4)
+
+Implements the machinery of the adopted post-void solution
+(`codereview-baseline-v2-void-solution-2026-11-05.md` §3) plus
+findings S1 and S4 from its §6. Findings status: **S1 fixed**
+(this entry), **S4 fixed** (this entry); **S2 and S3 are handled
+by the registration-addendum track, not here.** Nothing here
+changes policy B1, any threshold, any metric definition, or the
+confirmation scorer.
+
+- **Generation/scoring separation for the bench**
+  (`bench/generation.py`, driver
+  `bench/scripts/run_generation_v2.py`): seat responses are
+  generated per case x seat through a record/replay cache keyed
+  by (seat, model, params hash, prompt hash). Transport errors
+  are never cached; the first valid response (valid = the
+  product's own parser accepts it) is cached and never
+  re-drawn. Failure classes per §3.2: transport/infrastructure
+  failures retry with backoff + jitter inside a per-job attempt
+  cap and wall-clock budget and are not degraded when a valid
+  response lands; content failures follow the product's own
+  repair behaviour and then the pre-declared per-lens fallback
+  seat (healthy when the fallback serves, `served_by` /
+  `fallback_for` recorded); a seat unserved beyond budget marks
+  the case `unscored-infra`. Generation is resumable — a run is
+  complete when every case x configured seat has a valid
+  response — and the frozen attempt file holds complete cases
+  only. The committed confirmation scorer consumes the output
+  unchanged (adapter: `generation.to_attempt_record`).
+  Generation records carry per-case failure counts, and
+  `bench/scripts/analyze_failure_features.py` implements the
+  §3.2 post-hoc guard (failures/retries vs diff size, language,
+  defect/clean).
+- **S4 — cost is metered, not declared:** the generation path
+  records tokens per job and shadow-prices them from a list
+  price table (labelled shadow/approximate in the code and the
+  run manifest); attempt records from this path carry the
+  metered `cost_usd` instead of the `cost_per_call_usd: 0`
+  convention.
+- **S1 — lenses bind to seats explicitly (product fix):**
+  `core.run_review(..., seat_lenses={seat: lens})` binds each
+  seat to its lens in panel config. Excluding a seat leaves its
+  lens unserved — served by the lens's configured fallback
+  (recorded with `fallback_for` naming the absent seat) or the
+  run is degraded with a "lens unserved" cause and cannot PASS
+  — never a silent remap onto the surviving seats, which is
+  what confirmation attempts 3–4 did. Bench configs accept
+  `seat_lenses`; configs without one get the binding derived
+  once at load from the provider order (the historical rule,
+  recorded on the loaded config and in each report's
+  `seat_lenses` section). Config identity: an explicit binding
+  joins the config hash; a derived one does not (it is a pure
+  function of the provider list already hashed, so pre-S1
+  config hashes — and their stored records — are unchanged).
+
 ## Unreleased — 2026-11-05 (acceptance wiring, protocol v2)
 
 - `acceptance.run_acceptance_v2`: the redesigned Tech Lead
