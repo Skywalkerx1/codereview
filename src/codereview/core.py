@@ -2898,7 +2898,12 @@ def reviewer_report_entry(report):
         entry["fallback_for"] = report["fallback_for"]
     if report.get("primary_error"):
         entry["primary_error"] = report["primary_error"]
-    if report.get("error_detail"):
+    if "error_detail" in report:
+        # Copied by PRESENCE, not truthiness (verification-round
+        # finding): a persistence layer keeps what the report
+        # carries — a detail block holding only a fallback_error,
+        # or null-valued fields, must not be dropped for being
+        # falsy.
         entry["error_detail"] = report["error_detail"]
     return entry
 

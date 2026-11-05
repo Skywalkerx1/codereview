@@ -111,6 +111,24 @@ class RunReviewErrorDetailTests(unittest.TestCase):
             self.assertEqual(detail["error"], ERR)
             self.assertEqual(detail["http_status"], 402)
 
+    def test_entry_copies_error_detail_by_presence(self):
+        # Verification-round regression: the persisted form must
+        # copy error_detail whenever the report CARRIES the key,
+        # even when the block is falsy or holds only a
+        # fallback_error — truthiness would silently drop it.
+        base = {"provider": "p", "lens": "correctness",
+                "status": "error", "attempts": 1}
+        only_fb = dict(base, error_detail={
+            "fallback_error": "HTTP 503 from api.example.com"})
+        self.assertEqual(
+            core.reviewer_report_entry(only_fb)["error_detail"],
+            only_fb["error_detail"])
+        empty = dict(base, error_detail={})
+        self.assertEqual(
+            core.reviewer_report_entry(empty)["error_detail"], {})
+        absent = core.reviewer_report_entry(base)
+        self.assertNotIn("error_detail", absent)
+
     def test_clean_report_has_no_error_detail(self):
         def good(prompt):
             return GOOD
