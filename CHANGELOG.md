@@ -2,6 +2,34 @@
 
 ## Unreleased — 2026-11-05
 
+- Tech Lead redesign, adjudication protocol v2 (branch
+  `tl-redesign`; honest-negatives solution §3.3 + §3.5,
+  owner decision 2026-11-05 to proceed despite the §3.7
+  tally): new module `src/codereview/techlead.py`, protocol
+  v1 (`core.shadow_adjudicate`) untouched and still the
+  wired shadow path. The v2 seat returns verdict +
+  calibrated confidence + deciding quote only — "escalate"
+  and "needs_probe" are invalid outputs; the harness
+  escalates on exactly six named rules (protected class,
+  independence, draw disagreement, evidence ineligibility,
+  major dismissal without probe support, low confidence),
+  each recorded on the entry. Settling probes decide on a
+  deterministic path where the seat only grades probe
+  adequacy; the two paths are reported separately, never
+  blended. Packets are canonicalised (vendor/family
+  scrubbed, content-keyed position order), so vendor-strip
+  and family-swap invariance holds BY CONSTRUCTION and is
+  labelled as such. Double draw is canonical + swapped;
+  majors always draw twice. Judging frame is AS RAISED —
+  a fix shipped in response to a finding supports it
+  (FIX_SHIPPED settles to sustain_finding; the L06
+  inversion is structural now). Dismissal-quote eligibility
+  consumes `core._dismissal_quote_check` from the harness
+  fixes (call-time resolution, grounding-only fallback
+  labelled on the record). Every entry carries its §3.5
+  authority stage (1/2/3/never); `ENABLED_STAGES` is empty
+  — hooks built, nothing flipped, no acceptance or
+  evaluation run made. 47 new tests (suite 759).
 - Issue 2 (benchmark precision) CLOSED by the measurement path
   (owner act): blind probe-first adjudication of all 91 unmatched
   findings — 64 duplicates, 10 real unlabelled defects (added to
