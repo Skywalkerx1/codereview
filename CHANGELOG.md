@@ -1,5 +1,46 @@
 # Changelog
 
+## Unreleased — Epic L5 (first-class local-model seats)
+
+Local model servers are now first-class seats: named
+presets in the provider registry for the endpoints a user
+runs on their own machine, offered by the setup wizard with
+a short recipe, replacing the unnamed `openai-compatible:`
+escape hatch for the local case (the hatch itself is
+unchanged).
+
+- **Registry** (`codereview.registry`): `ollama`
+  (http://localhost:11434/v1) and `lmstudio`
+  (http://localhost:1234/v1) presets with family tag
+  `local`, plus the generic form
+  `local:<name>:<base-url>|<model>` for any other
+  OpenAI-compatible local endpoint. A preset names an
+  endpoint, never a panel — the serving model is still the
+  user's pick (`ollama:<model>`), per the first-run rule.
+- **Keyless by construction:** local presets carry
+  `key_env` None — no credential is read, no Authorization
+  header is sent, and the wizard never prompts for a key
+  for a local seat (there is none). Account rotation does
+  not invent `KEY_ENV_2`-style names for them; the account
+  label in records is `local:<seat>`.
+- **Wizard:** local presets are listed as their own
+  section — endpoint, suggested model, and the recipe
+  (start the server → pick the preset → `codereview
+  doctor` probe) — and the per-seat summary states the
+  no-network nature ("runs on your machine; the review
+  never leaves it"). Hosted seats' key-env summary is
+  unchanged.
+- **Ordinary seats:** a local seat is built, pooled, probed
+  by `doctor`, and recorded like any other, with family
+  `local` travelling on the callable into the record's
+  seat metadata — so the independence checks see it
+  honestly (never a second vendor family). Non-local specs
+  and records are untouched. 13 new tests
+  (`tests/test_local_seats.py`), 11 failing on pre-L5
+  master (the escape-hatch regression and the
+  malformed-spec test pass on both by design); full suite
+  1003/1003.
+
 ## Unreleased — Epic L1 (AGENTS.md ingestion)
 
 Reviewer context now includes the repository's own guidance:
