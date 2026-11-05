@@ -50,7 +50,7 @@ import time
 
 from . import policy as policy_mod
 
-VERSION = "0.12.0"
+VERSION = "0.12.1"
 SCHEMA = "codereview.report/1"
 
 SEVERITIES = ("blocker", "major", "minor", "nit")
