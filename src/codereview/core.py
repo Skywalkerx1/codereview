@@ -818,6 +818,19 @@ def _tech_lead_call(fn, finding, region, dispute, probe=None,
     return out
 
 
+def _tech_lead_eligible(family, served, raiser_fam, refuter_fam):
+    """THE Tech Lead eligibility predicate (four-disputed
+    solution §3): a seat may adjudicate a finding only when it
+    served on the panel and its family is neither the
+    raiser's nor the refuter's (an unknown family can never
+    show independence). This single predicate is used by seat
+    selection AND by the boundary assertion at the point the
+    adjudication is recorded — one definition, so the two can
+    never drift apart."""
+    return bool(served) and family not in (
+        raiser_fam, refuter_fam, "unknown", None)
+
+
 def _select_tech_lead(seat_fns, ok_seats, fam_by_seat, designated,
                       raiser_fam, refuter_fam):
     """Choose the Tech Lead seat for one disputed finding
@@ -835,8 +848,8 @@ def _select_tech_lead(seat_fns, ok_seats, fam_by_seat, designated,
         return fam_by_seat.get(n)
 
     def eligible(n):
-        return n in ok_seats and fam_of(n) not in (
-            raiser_fam, refuter_fam, "unknown", None)
+        return _tech_lead_eligible(
+            fam_of(n), n in ok_seats, raiser_fam, refuter_fam)
 
     substitution = None
     if designated:
@@ -960,19 +973,21 @@ def _ast_hash(node):
     ).hexdigest()
 
 
-def function_key(source, line):
-    """Function-level content address (v15-closing-run solution
-    §5d, owner-adopted): for the function enclosing `line` in
-    Python `source`, return {"function": qualified name,
-    "function_hash": normalized AST hash, "callees": {name:
-    hash}} — or None when the function cannot be resolved
-    (unparseable source, no line, or the line is not inside any
-    function). Direct callees defined in the same module are
-    hashed in, so a change to a callee the ruling depended on
-    re-opens the precedent; edits elsewhere in the file do NOT
-    move the key, so a ruling survives unrelated changes."""
-    if not source or not line:
+_FUNC_SCAN_CACHE = {}
+_FUNC_SCAN_CACHE_MAX = 64
+
+
+def _scan_functions(source):
+    """Parse `source` once and return the module's function
+    definitions as [(node, qualified_name)] in document order,
+    or None when the source cannot be parsed. Cached by the
+    source's content hash (the four-disputed solution §2B:
+    AST parses are cached by blob hash)."""
+    if not source:
         return None
+    digest = hashlib.sha256(source.encode("utf-8")).hexdigest()
+    if digest in _FUNC_SCAN_CACHE:
+        return _FUNC_SCAN_CACHE[digest]
     try:
         tree = ast.parse(source)
     except (SyntaxError, ValueError):
@@ -990,18 +1005,17 @@ def function_key(source, line):
                 visit(child, f"{prefix}{child.name}.")
 
     visit(tree, "")
-    target = None
-    for node, qual in defs:
-        end = node.end_lineno or node.lineno
-        if node.lineno <= line <= end:
-            if target is None or (
-                    end - node.lineno
-                    < (target[0].end_lineno or target[0].lineno)
-                    - target[0].lineno):
-                target = (node, qual)
-    if target is None:
-        return None
-    node, qual = target
+    if len(_FUNC_SCAN_CACHE) >= _FUNC_SCAN_CACHE_MAX:
+        _FUNC_SCAN_CACHE.clear()
+    _FUNC_SCAN_CACHE[digest] = defs
+    return defs
+
+
+def _key_for_node(node, qual, defs):
+    """The function key for one definition: normalized AST
+    hash of the function plus the hashes of its direct
+    callees defined in the same module (bare-name resolution,
+    first definition wins — the §5d semantics)."""
     by_name = {}
     for n, _q in defs:
         by_name.setdefault(n.name, n)
@@ -1018,8 +1032,205 @@ def function_key(source, line):
             "callees": callees}
 
 
+def function_key(source, line):
+    """Function-level content address (v15-closing-run solution
+    §5d, owner-adopted): for the function enclosing `line` in
+    Python `source`, return {"function": qualified name,
+    "function_hash": normalized AST hash, "callees": {name:
+    hash}} — or None when the function cannot be resolved
+    (unparseable source, no line, or the line is not inside any
+    function). Direct callees defined in the same module are
+    hashed in, so a change to a callee the ruling depended on
+    re-opens the precedent; edits elsewhere in the file do NOT
+    move the key, so a ruling survives unrelated changes."""
+    if not source or not line:
+        return None
+    defs = _scan_functions(source)
+    if defs is None:
+        return None
+    target = None
+    for node, qual in defs:
+        end = node.end_lineno or node.lineno
+        if node.lineno <= line <= end:
+            if target is None or (
+                    end - node.lineno
+                    < (target[0].end_lineno or target[0].lineno)
+                    - target[0].lineno):
+                target = (node, qual)
+    if target is None:
+        return None
+    node, qual = target
+    return _key_for_node(node, qual, defs)
+
+
+def function_key_by_name(source, qual):
+    """Resolve a function key by QUALIFIED NAME (four-disputed
+    solution §2B): the lookup half of raise-time keying — no
+    line number is involved, so unrelated insertions elsewhere
+    in the file cannot drift the resolution. Returns
+    (key, status) with status "ok" | "absent" | "ambiguous" |
+    "unparseable". Duplicate qualified names (conditional
+    definitions, redefinitions) are ambiguous, which callers
+    treat as a miss — fail-safe, never a guess."""
+    defs = _scan_functions(source) if source else None
+    if defs is None:
+        return None, "unparseable"
+    matches = [(n, q) for n, q in defs if q == qual]
+    if not matches:
+        return None, "absent"
+    if len(matches) > 1:
+        return None, "ambiguous"
+    node, q = matches[0]
+    return _key_for_node(node, q, defs), "ok"
+
+
+def attach_function_keys(findings, source_lookup):
+    """Raise-time function keys (four-disputed solution §2B):
+    resolve each finding's enclosing function against the
+    snapshot its line refers to — the cited file's source as
+    this run sees it, via `source_lookup` — and persist the
+    key on the finding as `function_key`. Precedent lookup
+    then compares stored keys and resolves at HEAD by
+    qualified name; the stored line is never trusted again.
+    Findings whose function cannot be resolved carry no key
+    and stay on the legacy line-based path. Returns the
+    number of findings keyed."""
+    if not source_lookup:
+        return 0
+    cache = {}
+    keyed = 0
+    for f in findings:
+        if isinstance(f.get("function_key"), dict):
+            continue
+        path = f.get("file") or ""
+        if path not in cache:
+            try:
+                cache[path] = source_lookup(path)
+            except Exception:  # noqa: BLE001 — no source, no key
+                cache[path] = None
+        fk = function_key(cache[path], f.get("line"))
+        if fk is not None:
+            f["function_key"] = fk
+            keyed += 1
+    return keyed
+
+
+def _precedent_link(entry, fk):
+    return {
+        "scope": "function",
+        "blob": entry.get("blob"),
+        "function": fk["function"],
+        "function_hash": fk["function_hash"],
+        "callees": fk["callees"],
+        "disposition": entry.get("disposition") or {},
+        "repeats": len(entry.get("seen_in") or []),
+    }
+
+
+def _precedent_file_link(entry):
+    return {
+        "scope": "file",
+        "blob": entry.get("blob"),
+        "disposition": entry.get("disposition") or {},
+        "repeats": len(entry.get("seen_in") or []),
+    }
+
+
+def _function_precedent_outcome(finding, entry, source, blob_of):
+    """Classify one function-keyed precedent lookup
+    (four-disputed solution §2): returns (link, outcome) where
+    outcome is the miss-cause telemetry value — "hit",
+    "miss_hash_changed", "miss_name_absent", "miss_line_drift",
+    "miss_ambiguous", "fallback_blob", or "miss_unresolvable"
+    (the function cannot be resolved at all and the blob does
+    not carry the precedent either).
+
+    The safety gate is UNCHANGED from §5d/§2e: a link forms
+    only when the function resolved at HEAD has the entry's
+    qualified name AND hash AND callees. What changed is the
+    resolution: a finding carrying a raise-time `function_key`
+    is looked up by QUALIFIED NAME (no line number is trusted),
+    so insertions outside the function cannot drift it; a
+    legacy finding without a stored key keeps the line-based
+    resolution, with drift detected by the name scan."""
+    entry_key = {"function": entry.get("function"),
+                 "function_hash": entry.get("function_hash"),
+                 "callees": entry.get("callees") or {}}
+
+    def matches(key):
+        return key is not None \
+            and key["function"] == entry_key["function"] \
+            and key["function_hash"] == entry_key["function_hash"] \
+            and key["callees"] == entry_key["callees"]
+
+    def blob_fallback():
+        if entry.get("blob") and blob_of() == entry.get("blob"):
+            return _precedent_file_link(entry), "fallback_blob"
+        return None, "miss_unresolvable"
+
+    if source is None:
+        return blob_fallback()
+    head_key, status = function_key_by_name(
+        source, entry_key["function"])
+    stored = finding.get("function_key")
+    stored = stored if isinstance(stored, dict) else None
+    if stored is not None \
+            and stored.get("function") == entry_key["function"]:
+        # Raise-time key names the judged function: resolve at
+        # HEAD by name alone. The stored line plays no part.
+        if status == "ok":
+            if matches(head_key):
+                return _precedent_link(entry, head_key), "hit"
+            return None, "miss_hash_changed"
+        if status == "absent":
+            return None, "miss_name_absent"
+        if status == "ambiguous":
+            return None, "miss_ambiguous"
+        return blob_fallback()
+    if stored is not None:
+        # The finding's own function (resolved at raise time)
+        # is a DIFFERENT function than the entry's: the
+        # citation moved — rename or drift — while the entry's
+        # function may be intact under its name.
+        if status == "ok" and matches(head_key):
+            return None, "miss_line_drift"
+        if status == "absent":
+            return None, "miss_name_absent"
+        if status == "ambiguous":
+            return None, "miss_ambiguous"
+        if status == "unparseable":
+            return blob_fallback()
+        return None, "miss_hash_changed"
+    # Legacy finding (no raise-time key): line-based
+    # resolution, exactly the pre-P2 discipline, with the name
+    # scan classifying the misses it used to hide.
+    fk_line = function_key(source, finding.get("line"))
+    if fk_line is not None \
+            and fk_line["function"] == entry_key["function"]:
+        if matches(fk_line):
+            return _precedent_link(entry, fk_line), "hit"
+        return None, "miss_hash_changed"
+    if status == "ok" and matches(head_key):
+        # The judged function is intact under its name but the
+        # stored line no longer resolves to it: drift. If the
+        # file is byte-identical, the historical file-scope
+        # link still applies (the line was simply wrong).
+        if entry.get("blob") and blob_of() == entry.get("blob"):
+            return _precedent_file_link(entry), "fallback_blob"
+        return None, "miss_line_drift"
+    if status == "absent":
+        return None, "miss_name_absent"
+    if status == "ambiguous":
+        return None, "miss_ambiguous"
+    if status == "unparseable" or fk_line is None:
+        # Function unresolvable by line or by name: the
+        # historical file-level fallback.
+        return blob_fallback()
+    return None, "miss_hash_changed"
+
+
 def apply_precedents(findings, entries, blob_lookup,
-                     source_lookup=None):
+                     source_lookup=None, telemetry=None):
     """Content-addressed rebuttal precedent (owner-adopted,
     solution §2e): a finding whose fingerprint AND cited path
     match a store entry, and whose cited file's CURRENT blob —
@@ -1038,9 +1249,17 @@ def apply_precedents(findings, entries, blob_lookup,
     file moved the file blob. An edit inside the judged function
     (or one of its callees) re-opens the finding. When the
     function cannot be resolved at all, matching falls back to
-    the file-level blob the entry also carries. Returns
-    (remaining, standing); nothing is dropped, the standing list
-    is part of the record."""
+    the file-level blob the entry also carries.
+
+    P2 (four-disputed solution §2B): findings carrying a
+    raise-time `function_key` (see attach_function_keys) are
+    resolved at HEAD by QUALIFIED NAME — the stored line is
+    never trusted — which removes drift misses while the
+    name+hash+callees gate is unchanged. When `telemetry` (a
+    list) is supplied, every lookup against a store entry
+    appends its classified outcome to it. Returns (remaining,
+    standing); nothing is dropped, the standing list is part of
+    the record."""
     by_key = {}
     for e in entries or []:
         by_key[(str(e.get("finding_id") or ""),
@@ -1073,45 +1292,21 @@ def apply_precedents(findings, entries, blob_lookup,
             continue
         path = f.get("file") or ""
         link = None
+        outcome = None
         if entry.get("function") and entry.get("function_hash"):
-            fk = function_key(source_of(path), f.get("line"))
-            if fk is not None:
-                if fk["function"] == entry.get("function") \
-                        and fk["function_hash"] \
-                        == entry.get("function_hash") \
-                        and fk["callees"] \
-                        == (entry.get("callees") or {}):
-                    link = {
-                        "scope": "function",
-                        "blob": entry.get("blob"),
-                        "function": fk["function"],
-                        "function_hash": fk["function_hash"],
-                        "callees": fk["callees"],
-                        "disposition":
-                            entry.get("disposition") or {},
-                        "repeats": len(entry.get("seen_in") or []),
-                    }
-                # Resolved but changed: the judged code moved —
-                # no precedent, and no file fallback (an AST
-                # change implies a byte change, so the blob test
-                # could not pass either).
-            elif entry.get("blob") \
-                    and blob_of(path) == entry.get("blob"):
-                # Function unresolvable: file-level fallback.
-                link = {
-                    "scope": "file",
-                    "blob": entry.get("blob"),
-                    "disposition": entry.get("disposition") or {},
-                    "repeats": len(entry.get("seen_in") or []),
-                }
+            link, outcome = _function_precedent_outcome(
+                f, entry, source_of(path), lambda: blob_of(path))
         elif entry.get("blob") \
                 and blob_of(path) == entry.get("blob"):
-            link = {
-                "scope": "file",
-                "blob": entry.get("blob"),
-                "disposition": entry.get("disposition") or {},
-                "repeats": len(entry.get("seen_in") or []),
-            }
+            link = _precedent_file_link(entry)
+            outcome = "fallback_blob"
+        elif entry.get("blob"):
+            outcome = "miss_blob_changed"
+        if telemetry is not None and outcome is not None:
+            telemetry.append({
+                "finding_id": f.get("id"), "path": path,
+                "outcome": outcome,
+                "scope": (link or {}).get("scope")})
         if link is not None:
             sf = dict(f)
             sf["standing"] = True
@@ -2054,11 +2249,20 @@ def run_review(patch, providers, context="", test_results=None,
     # disposition link. Blob-verified at record time and again by
     # record-verify — a precedent cannot hide changed code.
     standing_findings = []
+    precedent_telemetry = []
     if precedents:
+        # Raise-time function keys (four-disputed solution
+        # §2B): persist each finding's enclosing-function key,
+        # resolved against the snapshot this run sees, BEFORE
+        # lookup — the precedent pass then resolves at HEAD by
+        # qualified name and never trusts the stored line.
+        attach_function_keys(
+            merged, precedents.get("source_lookup"))
         merged, standing_findings = apply_precedents(
             merged, precedents.get("entries") or [],
             precedents.get("blob_lookup") or (lambda _p: None),
-            precedents.get("source_lookup"))
+            precedents.get("source_lookup"),
+            telemetry=precedent_telemetry)
     # Platform-scope labelling (§5c): a finding whose own text
     # depends only on an unsupported platform leaves the blocking
     # set and is preserved in out_of_scope_findings with its
@@ -2107,6 +2311,7 @@ def run_review(patch, providers, context="", test_results=None,
     weak_findings = []
     adjudicated_refuted = []
     escalated_findings = []
+    assertion_failures = []
     substitutions = []
     precedent_candidates = []
     fam_by_seat = {}
@@ -2185,12 +2390,40 @@ def run_review(patch, providers, context="", test_results=None,
             substitutions.append({
                 **substitution, "finding_id": f.get("id"),
                 "substitute": tl_name})
+        assertion_failure = None
+        if tl_name is not None and not _tech_lead_eligible(
+                tl_fam, tl_name in ok_seats, fam, refuter_fam):
+            # Boundary assertion (four-disputed solution §3):
+            # at the point the adjudication would be recorded,
+            # the seat must satisfy the SHARED eligibility
+            # predicate against the finding's actual raiser and
+            # refuter. Selection is supposed to guarantee this;
+            # if a future refactor of the selection helper
+            # breaks the guarantee, fail CLOSED — record the
+            # unavailable state, route the case to the owner,
+            # never proceed with the seat.
+            assertion_failure = {
+                "finding_id": f.get("id"), "seat": tl_name,
+                "family": tl_fam, "raiser_family": fam,
+                "refuter_family": refuter_fam,
+                "detail": "the selected Tech Lead seat does "
+                          "not satisfy the eligibility "
+                          "predicate at the record point"}
+            assertion_failures.append(assertion_failure)
+            tl_unavailable = (
+                "boundary assertion failed: the selected Tech "
+                "Lead seat is not eligible for this finding "
+                "(see tech_lead_assertion_failures)")
+            tl_name = None
         if tl_name is None:
             # No independent adjudicator served: the case keeps
             # its pre-adjudication state for the owner, with the
             # reason (and any rejected designation) on the record.
             f["tech_lead"] = {"status": "unavailable",
                               "reason": tl_unavailable}
+            if assertion_failure is not None:
+                f["tech_lead"]["assertion_failure"] = \
+                    assertion_failure
             if substitution is not None:
                 f["tech_lead"]["substitution"] = substitution
             if f["dispute"]["adequacy"] == "weak":
@@ -2402,6 +2635,13 @@ def run_review(patch, providers, context="", test_results=None,
             f"{s.get('substitute') or 'no eligible seat'}; "
             f"recorded on the finding"
             for s in substitutions]
+    if assertion_failures:
+        reasons = reasons + [
+            f"{len(assertion_failures)} Tech Lead boundary "
+            f"assertion failure(s): a selected adjudicator "
+            f"failed the eligibility predicate at the record "
+            f"point and the case failed closed to the owner — "
+            f"preserved in tech_lead_assertion_failures"]
     if out_of_scope_findings:
         reasons = reasons + [
             f"{len(out_of_scope_findings)} finding(s) labelled "
@@ -2507,6 +2747,8 @@ def run_review(patch, providers, context="", test_results=None,
         report["escalated_findings"] = escalated_findings
     if substitutions:
         report["tech_lead_substitutions"] = substitutions
+    if assertion_failures:
+        report["tech_lead_assertion_failures"] = assertion_failures
     if precedent_candidates:
         report["precedent_candidates"] = precedent_candidates
     if out_of_scope_findings:
@@ -2517,6 +2759,8 @@ def run_review(patch, providers, context="", test_results=None,
         report["archived_text_findings"] = archived_text_findings
     if standing_findings:
         report["standing_findings"] = standing_findings
+    if precedent_telemetry:
+        report["precedent_telemetry"] = precedent_telemetry
     if precedents:
         report["precedent_scope"] = {
             "store_path": precedents.get("store_path"),
@@ -3215,8 +3459,17 @@ def _validate_precedent_scope(record, ps, sfinds, repo, head):
                 continue
             try:
                 raw = _git_show_bytes(repo, f"{head}:{key[1]}")
-                fk = function_key(
-                    raw.decode("utf-8", "replace"), f.get("line"))
+                src_at_head = raw.decode("utf-8", "replace")
+                # P2 resolution: by qualified NAME (the link's
+                # function), mirroring apply_precedents — the
+                # finding's stored line is not trusted. An
+                # ambiguous name falls back to the historical
+                # line-based recomputation so pre-P2 records
+                # verify exactly as they were made.
+                fk, _status = function_key_by_name(
+                    src_at_head, link.get("function") or "")
+                if _status == "ambiguous":
+                    fk = function_key(src_at_head, f.get("line"))
             except Exception as exc:  # noqa: BLE001
                 problems.append(
                     f"standing finding {key[0]}: cited file "
