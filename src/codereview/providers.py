@@ -35,8 +35,15 @@ import shutil
 import signal
 import subprocess
 import tempfile
+import threading
+import time
 import urllib.error
 import urllib.request
+
+try:
+    from . import seatstate
+except ImportError:  # standalone module load
+    import seatstate  # type: ignore
 
 DEFAULT_TIMEOUT = 240
 AGENT_TIMEOUT = 900
@@ -258,7 +265,106 @@ def _read_tail(path, limit):
         return ""
 
 
-def command_agent(command, timeout=AGENT_TIMEOUT, private_home=False):
+def _run_seat_process(proc, pgid, prompt, timeout, out_path,
+                      err_path, cli_key, log, stall_after,
+                      block_grace):
+    """Supervised wait for one agent-seat process (Epic K2).
+
+    Feeds the prompt on a writer thread (a seat may never read
+    stdin; a blocked pipe must not stall supervision), polls the
+    capture files for output activity, and returns an outcome
+    dict: {"kind": "exit"} when the process ended on its own
+    (returncode set); {"kind": "timeout", "facts": ...} when the
+    per-call ceiling killed it (facts classify blocked/stalled
+    when the seat had been silent past the stall bound, else
+    timed-out); {"kind": "blocked", "facts": ...} when a
+    verified failure pattern matched on stderr and output then
+    stayed silent for the whole grace bound — the seat is stuck
+    on a condition it cannot recover from by waiting, so it is
+    terminated early instead of burning the full timeout. Live
+    stall episodes are emitted to `log` (the job's SeatStateLog)
+    as they happen; the terminal classification itself is the
+    caller's, taken from the outcome's facts."""
+
+    def _feed():
+        try:
+            proc.stdin.write(prompt.encode("utf-8"))
+            proc.stdin.close()
+        except (BrokenPipeError, OSError, ValueError):
+            pass
+
+    threading.Thread(target=_feed, daemon=True).start()
+
+    def _size(path):
+        try:
+            return os.path.getsize(path)
+        except OSError:
+            return -1
+
+    started = time.monotonic()
+    deadline = started + timeout
+    last_size = _size(out_path) + _size(err_path)
+    last_activity = started
+    stalled = False
+    matched = None
+    while True:
+        if proc.poll() is not None:
+            # A seat's final write can land in the same poll as
+            # its exit: an open stall episode still closes, so
+            # the trace never ends on a stall the seat recovered
+            # from by answering.
+            if stalled and log is not None and (
+                    _size(out_path) + _size(err_path) != last_size):
+                log.emit("working")
+            return {"kind": "exit"}
+        now = time.monotonic()
+        size = _size(out_path) + _size(err_path)
+        if size != last_size:
+            last_size = size
+            last_activity = now
+            if stalled:
+                stalled = False
+                if log is not None:
+                    log.emit("working")
+        silent = now - last_activity
+        if log is not None and not stalled \
+                and silent >= stall_after:
+            stalled = True
+            log.emit("blocked", "stalled",
+                     {"silent_s": round(silent, 1),
+                      "stall_after_s": stall_after,
+                      "transient": True})
+        if matched is None and cli_key is not None:
+            matched = seatstate.match_failure(
+                cli_key, _read_tail(err_path, 8192))
+        if matched is not None and silent >= block_grace:
+            _kill_tree(proc, pgid)
+            proc.wait()
+            return {"kind": "blocked", "facts": {
+                "state": "blocked", "class": matched["class"],
+                "evidence": {"pattern": matched["pattern"],
+                             "matched": matched["matched"],
+                             "source": "stderr",
+                             "early_terminated": True,
+                             "silent_s": round(silent, 1)}}}
+        if now >= deadline:
+            _kill_tree(proc, pgid)
+            proc.wait()
+            if silent >= stall_after:
+                facts = {"state": "blocked", "class": "stalled",
+                         "evidence": {
+                             "silent_s": round(silent, 1),
+                             "timeout_s": timeout}}
+            else:
+                facts = {"state": "timed-out", "class": None,
+                         "evidence": {"timeout_s": timeout}}
+            return {"kind": "timeout", "facts": facts}
+        time.sleep(0.05)
+
+
+def command_agent(command, timeout=AGENT_TIMEOUT, private_home=False,
+                  stall_after=seatstate.STALL_AFTER_S,
+                  block_grace=seatstate.BLOCK_GRACE_S):
     """Callable backed by a local agent command.
 
     `timeout` is the per-call ceiling in seconds: None means the
@@ -284,13 +390,28 @@ def command_agent(command, timeout=AGENT_TIMEOUT, private_home=False):
     are literal; pipes/redirection belong in a wrapper script.
     Every failure is a ProviderError with retryable=False — the
     seat degrades honestly in the run report, like any provider
-    failure, and never triggers account rotation."""
+    failure, and never triggers account rotation.
+
+    Seat-state supervision (Epic K2): the wait is supervised —
+    output activity on the capture files is polled, live stall
+    episodes are emitted to the job's seat-state log when one is
+    installed (seatstate.CURRENT), a verified per-CLI failure
+    pattern matched on stderr followed by `block_grace` seconds
+    of total silence terminates the seat early as blocked, and
+    every ProviderError raised here carries `seat_facts` (the
+    terminal state/class/evidence the job owner records). The
+    error MESSAGES are unchanged from the unsupervised wait."""
     if timeout is None:
         timeout = AGENT_TIMEOUT
     if timeout <= 0:
         raise ProviderError(
             f"agent timeout must be a positive number of seconds, "
             f"got {timeout!r}", retryable=False)
+    if stall_after <= 0 or block_grace <= 0:
+        raise ProviderError(
+            f"seat supervision bounds must be positive seconds, "
+            f"got stall_after={stall_after!r} "
+            f"block_grace={block_grace!r}", retryable=False)
 
     def call(prompt):
         try:
@@ -300,6 +421,8 @@ def command_agent(command, timeout=AGENT_TIMEOUT, private_home=False):
                                 retryable=False)
         if not argv:
             raise ProviderError("empty agent command", retryable=False)
+        log = seatstate.current_log()
+        cli_key = seatstate.cli_key_for_argv(argv)
         workdir = tempfile.mkdtemp(prefix="codereview-agent-")
         cap_fds = []
         try:
@@ -330,40 +453,72 @@ def command_agent(command, timeout=AGENT_TIMEOUT, private_home=False):
                         if os.name == "posix" else None)
                     if os.name == "posix":
                         pgid = os.getpgid(proc.pid)
-                    try:
-                        proc.communicate(
-                            input=prompt.encode("utf-8"),
-                            timeout=timeout)
-                    except subprocess.TimeoutExpired:
-                        _kill_tree(proc, pgid)
-                        proc.communicate()
-                        raise ProviderError(
-                            f"agent command timed out after {timeout}s",
-                            retryable=False)
+                    outcome = _run_seat_process(
+                        proc, pgid, prompt, timeout, out_path,
+                        err_path, cli_key, log,
+                        stall_after=stall_after,
+                        block_grace=block_grace)
             except OSError as exc:
-                raise ProviderError(
+                err = ProviderError(
                     f"agent command failed to start: "
                     f"{exc.strerror or exc}", retryable=False)
+                err.seat_facts = {
+                    "state": "failed", "class": "error",
+                    "evidence": {"stage": "start"}}
+                raise err
             finally:
                 if proc is not None:
                     # Normal exit included: an agent's background
                     # children die with their seat (finding 3.2).
                     _kill_tree(proc, pgid)
+            if outcome["kind"] == "timeout":
+                err = ProviderError(
+                    f"agent command timed out after {timeout}s",
+                    retryable=False)
+                err.seat_facts = outcome["facts"]
+                raise err
+            if outcome["kind"] == "blocked":
+                facts = outcome["facts"]
+                err = ProviderError(
+                    f"agent command blocked ({facts['class']}): "
+                    f"matched {facts['evidence']['pattern']} on "
+                    f"stderr; no output for {block_grace:g}s — "
+                    f"terminated early", retryable=False)
+                err.seat_facts = facts
+                raise err
             if proc.returncode != 0:
                 if os.name == "posix" and proc.returncode \
                         == -signal.SIGXFSZ:
-                    raise ProviderError(
+                    err = ProviderError(
                         "agent output exceeded the per-file size "
                         f"limit ({MAX_AGENT_FILE} bytes)",
                         retryable=False)
+                    err.seat_facts = {
+                        "state": "failed", "class": "error",
+                        "evidence": {
+                            "exit_code": proc.returncode,
+                            "signal": "SIGXFSZ"}}
+                    raise err
+                state, cls, evidence = seatstate.classify_exit(
+                    cli_key, proc.returncode,
+                    _read_tail(out_path, 8192),
+                    _read_tail(err_path, 8192))
                 tail = _read_tail(err_path, 4096).strip()[-300:]
-                raise ProviderError(
+                err = ProviderError(
                     f"agent command exited {proc.returncode}"
                     + (f": {tail}" if tail else ""), retryable=False)
+                err.seat_facts = {"state": state, "class": cls,
+                                  "evidence": evidence}
+                raise err
             text = _read_tail(out_path, MAX_AGENT_OUTPUT).strip()
             if not text:
-                raise ProviderError("agent command produced no output",
+                err = ProviderError("agent command produced no output",
                                     retryable=False)
+                err.seat_facts = {
+                    "state": "failed", "class": "error",
+                    "evidence": {"exit_code": 0,
+                                 "reason": "no output"}}
+                raise err
             return text
         finally:
             shutil.rmtree(workdir, ignore_errors=True)

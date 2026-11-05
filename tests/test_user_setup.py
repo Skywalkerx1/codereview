@@ -93,7 +93,14 @@ class WizardTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             cfg_path = os.path.join(tmp, "config.toml")
             environ = fresh_env(
-                tmp, CODEREVIEW_CONFIG=cfg_path,
+                # PATH pinned to the empty temp dir: discovery
+                # must find no agent CLIs here. The scripted
+                # answers below are the provider/role flow only;
+                # with the host PATH, an installed CLI (codex on
+                # the build VM, offerable since Epic K2's U6
+                # matrix) adds a pick prompt ahead of them and
+                # the script misaligns.
+                tmp, PATH=tmp, CODEREVIEW_CONFIG=cfg_path,
                 # The value carries the deterministic scan's
                 # placeholder exemption token on purpose: a plain
                 # KEY="..." literal here tripped the hardcoded-

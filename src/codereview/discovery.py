@@ -22,15 +22,22 @@ Honesty rules (the reason this module is small):
     probe is reported as failed, in those words — never smoothed
     over, never silently treated as working.
   * A seat command is pre-filled ONLY where this repository
-    already carries a verified non-interactive invocation (the
-    spec's U6 rule: templates enter the table as build-phase
-    probes verify them). Today that is exactly one entry —
-    Claude Code, whose invocation is the shipped example wrapper
-    (examples/agent-seat-claude.sh). CLIs without a verified
-    invocation are reported as found, with the reason they are
-    not offerable; the user can still seat one by typing an
-    agent: spec with their own command in the wizard's provider
-    step, exactly as before this module existed.
+    carries a verified non-interactive invocation (the spec's
+    U6 rule: templates enter the table as build-phase probes
+    verify them). Since Epic K2's U6 probe matrix, that is all
+    three entries, each with its provenance class recorded at
+    the entry: Claude Code (the shipped example wrapper,
+    examples/agent-seat-claude.sh), Codex (invocation form
+    verified live against codex-cli 0.164.0-alpha.9's own
+    --help plus one logged-out exec probe, stdout contract
+    from the official non-interactive docs), and Gemini CLI
+    (official docs only — not installed on the build VM, so
+    no live verification; the entry says so). A CLI whose
+    invocation were still UNVERIFIED would be reported as
+    found, with the reason it is not offerable; the user can
+    still seat one by typing an agent: spec with their own
+    command in the wizard's provider step, exactly as before
+    this module existed.
   * Discovery reads the machine; it writes nothing. The wizard
     saves only what the user confirms, through the existing
     save path.
@@ -79,18 +86,44 @@ KNOWN_CLIS = (
                    + '"',
     },
     {
+        # U6 provenance: VERIFIED-LIVE for the invocation form
+        # (`codex exec --help` on codex-cli 0.164.0-alpha.9,
+        # plus one logged-out exec probe on the build VM that
+        # consumed the piped prompt and attempted the call,
+        # exiting 1 on 401s) and VERIFIED-DOCS for the contract
+        # (developers.openai.com/codex/noninteractive: `-` /
+        # piped stdin is the full prompt; only the final agent
+        # message goes to stdout, progress to stderr; sandbox
+        # defaults to read-only). `-s read-only` is stated
+        # explicitly because a reviewer seat must never write;
+        # `--skip-git-repo-check` because the seat's cwd is a
+        # scratch dir, not a repo. An end-to-end SUCCESSFUL run
+        # was not live-verified (no Codex login on the build
+        # VM) — the form and failure behaviour are what U6
+        # verified.
         "name": "codex",
         "display": "Codex",
         "binaries": ("codex",),
         "family": "openai",
-        "command": None,
+        "command": "codex exec -s read-only "
+                   "--skip-git-repo-check -",
     },
     {
+        # U6 provenance: VERIFIED-DOCS only (Gemini CLI is not
+        # installed on the build VM; nothing here is live-
+        # verified). Official CLI reference (geminicli.com/
+        # docs/cli/cli-reference): `-p/--prompt` "Appended to
+        # stdin input if provided. Forces non-interactive
+        # mode" — so the brief rides stdin exactly as with
+        # Claude, and the -p text is the same seat instruction.
+        # Headless reference documents exit codes 0 (success),
+        # 1 (general/API failure), 42 (input error), 53 (turn
+        # limit exceeded).
         "name": "gemini",
         "display": "Gemini CLI",
         "binaries": ("gemini",),
         "family": "google",
-        "command": None,
+        "command": 'gemini -p "' + _CLAUDE_INSTRUCTION + '"',
     },
 )
 

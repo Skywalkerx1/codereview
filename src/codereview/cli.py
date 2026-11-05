@@ -1709,6 +1709,26 @@ def _acceptance_main(argv, providers_override=None):
     return 0 if result["unlock_all_gates_pass"] else 1
 
 
+def _seat_progress(event):
+    """Live seat-state line (Epic K2): one stderr line per seat
+    transition while a review/verification round runs, so a
+    seat stuck on its plan's quota, a login, or a stall is
+    visible as it happens — the same transitions the record
+    persists per seat (seat_state). A seat that ends blocked
+    on quota gets the spec's operator guidance; the panel's
+    degraded handling itself is the gate's, unchanged."""
+    state = event.get("state") or ""
+    cls = event.get("class")
+    label = f"{state}:{cls}" if cls else state
+    print(f"codereview: seat {event.get('seat')}: {label}",
+          file=sys.stderr)
+    if event.get("terminal") and state == "blocked" \
+            and cls == "quota":
+        print(f"codereview: seat {event.get('seat')} hit its "
+              f"plan's allowance; the panel continues degraded "
+              f"— top up or wait for the reset.", file=sys.stderr)
+
+
 def main(argv=None, providers_override=None, seat_meta_override=None,
          fallbacks_override=None):
     if argv is None:
@@ -2251,7 +2271,7 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
             allow_major=args.allow_major, strict=args.strict,
             seat_meta=seat_meta, fallbacks=fallbacks,
             record_extra=record_extra,
-            private=args.private)
+            private=args.private, progress=_seat_progress)
     else:
         report = core.run_review(
             patch, providers, context=_maybe_file(args.context),
@@ -2263,7 +2283,7 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
             fixture_scope=fixture_scope, private=args.private,
             precedents=precedents, policy=project_policy,
             gate_profile=args.gate_profile,
-            file_context=file_context,
+            file_context=file_context, progress=_seat_progress,
             tech_lead_timeout=args.timeout, **review_kwargs)
 
     jpath, mpath = core.write_report(report, args.out)
