@@ -716,6 +716,107 @@ def _refutation_weak(finding, quote):
     return _norm_quote(quote) == cited
 
 
+_CITED_CONSTRUCT_RE = re.compile(
+    r"`([^`\n]{2,120})`|\"([^\"\n]{2,120})\"")
+
+
+def _reason_check(dispute, region_text):
+    """Shadow reason check (four-disputed solution §4,
+    P0/P1): grade the refutation's MECHANISM, deterministically,
+    against the cited file's text. Code constructs the reason
+    cites (backtick- or double-quoted spans) are existence-
+    checked in the region: every cited construct present ->
+    "verified"; constructs cited but NONE present ->
+    "contradicted" (the Case-4 pattern — a guard asserted
+    that exists nowhere in the source); nothing checkable, or
+    a mixed result -> "unverified" with the detail attached.
+    Computed and recorded only — this changes no routing."""
+    reason = str((dispute or {}).get("reason") or "")
+    cited = []
+    for m in _CITED_CONSTRUCT_RE.finditer(reason):
+        text = (m.group(1) or m.group(2) or "").strip()
+        if text and text not in cited:
+            cited.append(text)
+    result = {"status": "unverified", "cited": cited[:5],
+              "found": [], "missing": []}
+    if not cited or not region_text:
+        return result
+    for c in cited[:5]:
+        if len(c) < 4:
+            continue  # below the grounding floor: uncheckable
+        (result["found"] if _quote_grounded(c, region_text)
+         else result["missing"]).append(c)
+    if result["found"] and not result["missing"]:
+        result["status"] = "verified"
+    elif result["missing"] and not result["found"]:
+        result["status"] = "contradicted"
+    return result
+
+
+def _trace_gate_shadow(finding, region_text):
+    """Shadow trace-gate evaluation (four-disputed solution
+    §5): for a major-or-above claim ABOUT a callee, would the
+    claim clear the evidence bar — a quoted line from the
+    callee's body, or a structured failure_witness? Returns
+    the evaluation with `would_downgrade` set when it would
+    not. LOGGED ONLY: enforcement is P3, deliberately out of
+    scope here, so this changes nothing."""
+    result = {"applies": False, "about_callee": [],
+              "callee_body_quoted": False,
+              "failure_witness": False, "would_downgrade": False}
+    if str(finding.get("severity") or "") not in (
+            "major", "critical", "blocker"):
+        return result
+    if not region_text:
+        return result
+    lines = region_text.splitlines()
+    line_no = finding.get("line") or 0
+    cited_line = lines[line_no - 1] if 0 < line_no <= len(lines) \
+        else ""
+    callees = []
+    if cited_line.strip():
+        try:
+            expr = ast.parse(cited_line.strip())
+        except (SyntaxError, ValueError):
+            expr = None
+        if expr is not None:
+            for sub in ast.walk(expr):
+                if isinstance(sub, ast.Call):
+                    fn = sub.func
+                    name = fn.id if isinstance(fn, ast.Name) \
+                        else (fn.attr if isinstance(
+                            fn, ast.Attribute) else None)
+                    if name and name not in callees:
+                        callees.append(name)
+    defs = _scan_functions(region_text) or []
+    by_bare = {}
+    for node, qual in defs:
+        by_bare.setdefault(qual.rsplit(".", 1)[-1], node)
+    evidence = str(finding.get("evidence") or "") + "\n" + str(
+        finding.get("evidence_quote") or "")
+    about = []
+    body_quoted = False
+    for name in callees:
+        node = by_bare.get(name)
+        if node is None:
+            continue
+        about.append(name)
+        span = lines[(node.lineno - 1):(node.end_lineno
+                                        or node.lineno)]
+        for body_line in span[1:]:
+            if body_line.strip() and _quote_grounded(
+                    body_line.strip(), evidence):
+                body_quoted = True
+    result["applies"] = bool(about)
+    result["about_callee"] = about
+    result["callee_body_quoted"] = body_quoted
+    result["failure_witness"] = isinstance(
+        finding.get("failure_witness"), dict)
+    result["would_downgrade"] = bool(
+        about) and not (body_quoted or result["failure_witness"])
+    return result
+
+
 _TECH_LEAD_PROMPT = """You are the Tech Lead in a multi-model code review loop, in a TECH LEAD ADJUDICATION pass. Two reviewers from two other vendor families disagree about the blocking finding below: one raised it, the second refuted it. You are neither of them. Your decision is the FINAL gate disposition for this finding — there is no majority vote to hide behind; decide from the claim, the code, and the evidence.
 
 Rules:
@@ -920,9 +1021,22 @@ def _precedent_candidate(finding, precedents):
     if not blob and function_key(source,
                                  finding.get("line")) is None:
         return None
+    # P1: the adjudicator's deciding quote, validated against
+    # the cited source, is the basis evidence; the rationale
+    # is stored (origin "model-verified") only on that basis.
+    adj = finding.get("adjudication") or {}
+    basis = []
+    adj_quote = str(adj.get("evidence_quote") or "").strip()
+    if adj_quote and source and _quote_grounded(adj_quote,
+                                                source):
+        basis = [{"file": path, "line": finding.get("line"),
+                  "quote": adj_quote}]
     entry = upsert_precedent(
         [], finding, blob, "adjudication", "",
-        summary="Tech Lead adjudication", source=source)
+        summary="Tech Lead adjudication", source=source,
+        basis_evidence=basis,
+        reason=str(adj.get("rationale") or "") or None,
+        reason_origin="model-verified" if basis else None)
     return entry[0] if entry else None
 
 
@@ -1318,7 +1432,9 @@ def apply_precedents(findings, entries, blob_lookup,
 
 
 def upsert_precedent(entries, finding, blob, round_label,
-                     disposition_file, summary="", source=None):
+                     disposition_file, summary="", source=None,
+                     basis_evidence=None, reason=None,
+                     reason_origin=None):
     """Record (or refresh) a precedent entry for a dispositioned
     finding. Returns a NEW entries list; the caller persists it
     to the store. `blob` is the cited file's git blob id at the
@@ -1326,9 +1442,35 @@ def upsert_precedent(entries, finding, blob, round_label,
     `source` (the cited file's text at disposition time) is
     supplied and the finding's line resolves to an enclosing
     function, the entry ALSO carries that function's key (§5d),
-    so the precedent survives unrelated edits to the file."""
+    so the precedent survives unrelated edits to the file.
+
+    P1 (four-disputed solution §4): a disposition REASON is
+    stored only when it rides on verified basis evidence —
+    `basis_evidence` items whose quotes the caller validated
+    against the source — and is tagged with its `reason_origin`
+    ("model-verified" or "owner-corrected"). A reason offered
+    without verified basis is WITHHELD, never copied: a
+    precedent must not carry an unverified reason forward as
+    if it were established fact."""
     fk = function_key(source, finding.get("line")) \
         if source else None
+    verified_basis = [
+        b for b in (basis_evidence or [])
+        if isinstance(b, dict) and str(b.get("quote") or "")
+        .strip()]
+
+    def disposition():
+        d = {"round": round_label, "file": disposition_file,
+             "summary": summary}
+        if reason:
+            if verified_basis and reason_origin:
+                d["reason"] = reason
+                d["reason_origin"] = reason_origin
+            else:
+                d["reason_withheld"] = \
+                    "basis evidence not verified"
+        return d
+
     out = [dict(e) for e in entries or []]
     for e in out:
         if e.get("finding_id") == finding.get("id") \
@@ -1343,19 +1485,19 @@ def upsert_precedent(entries, finding, blob, round_label,
                 e["function_hash"] = fk["function_hash"]
                 e["callees"] = fk["callees"]
                 e["scope"] = "function"
-            e["disposition"] = {
-                "round": round_label, "file": disposition_file,
-                "summary": summary}
+            if verified_basis:
+                e["basis_evidence"] = verified_basis
+            e["disposition"] = disposition()
             return out
     entry = {
         "finding_id": finding.get("id"),
         "path": finding.get("file") or "",
         "blob": blob,
         "seen_in": [round_label],
-        "disposition": {"round": round_label,
-                        "file": disposition_file,
-                        "summary": summary},
+        "disposition": disposition(),
     }
+    if verified_basis:
+        entry["basis_evidence"] = verified_basis
     if fk is not None:
         entry["function"] = fk["function"]
         entry["function_hash"] = fk["function_hash"]
@@ -2312,6 +2454,8 @@ def run_review(patch, providers, context="", test_results=None,
     adjudicated_refuted = []
     escalated_findings = []
     assertion_failures = []
+    shadow_reason_checks = []
+    shadow_trace_evals = []
     substitutions = []
     precedent_candidates = []
     fam_by_seat = {}
@@ -2382,7 +2526,31 @@ def run_review(patch, providers, context="", test_results=None,
             "raiser_family": fam,
             "evidence_quote": quote, "reason": reason,
             "adequacy": ("weak" if _refutation_weak(f, quote)
-                         else "strong")}
+                         else "strong"),
+            # P1 schema (four-disputed solution §4): the
+            # refutation's mechanism graded as FIELDS, never a
+            # routing state. reason_check is the shadow
+            # existence check on cited constructs;
+            # reason_corrected stays None unless the owner
+            # corrects the reason on the record; basis_evidence
+            # is the refuter's validated quote — the evidence
+            # the reason stands on.
+            "reason_check": _reason_check(
+                {"reason": reason}, region),
+            "reason_corrected": None,
+            "basis_evidence": [{
+                "file": f.get("file"), "line": f.get("line"),
+                "quote": quote}],
+            # Shadow trace-gate evaluation (§5): logged,
+            # changes nothing (P3 enforcement is out of scope).
+            "trace_gate_shadow": _trace_gate_shadow(
+                f, region)}
+        shadow_reason_checks.append({
+            "finding_id": f.get("id"),
+            **f["dispute"]["reason_check"]})
+        shadow_trace_evals.append({
+            "finding_id": f.get("id"),
+            **f["dispute"]["trace_gate_shadow"]})
         tl_name, tl_fn, tl_fam, substitution, tl_unavailable = \
             _select_tech_lead(seat_fns, ok_seats, fam_by_seat,
                               tech_lead, fam, refuter_fam)
@@ -2749,6 +2917,10 @@ def run_review(patch, providers, context="", test_results=None,
         report["tech_lead_substitutions"] = substitutions
     if assertion_failures:
         report["tech_lead_assertion_failures"] = assertion_failures
+    if shadow_reason_checks:
+        report["shadow_reason_checks"] = shadow_reason_checks
+    if shadow_trace_evals:
+        report["shadow_trace_gate"] = shadow_trace_evals
     if precedent_candidates:
         report["precedent_candidates"] = precedent_candidates
     if out_of_scope_findings:
