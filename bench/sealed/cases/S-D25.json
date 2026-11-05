@@ -1,0 +1,52 @@
+{
+ "case_id": "S-D25",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "Committed probe output republishes sensitive local paths from review records",
+ "finding": {
+  "claim": "Committed probe output republishes sensitive local paths from review records",
+  "evidence": "The added results file includes concrete workstation paths from prior records, for example '/home/hatch/workspace/codereview/tests/test_v093_fixes.py:373:'. Committing these paths leaks operator username and machine layout to anyone with repository access.",
+  "file": "probes/results/records-scan-a3a2d492b51a.txt",
+  "line": 24,
+  "severity_as_raised": "major",
+  "evidence_quote": "  local_path x22: /home/hatch/workspace/codereview/tests/test_v093_fixes.py:373:; /home/hatch/workspace/codereview/tests/../src/codereview/providers.py; /home/hatch/workspace/codereview/tests/test_v093_fixes.py:352:",
+  "recommendation": "Do not commit generated scan outputs containing raw matches. Either omit probes/results from version control, or redact path samples before writing the artifact so usernames and absolute paths are not stored in the repo.",
+  "raised_by_family": "openai",
+  "record_finding_id": "ec925437d0e3"
+ },
+ "code_region": {
+  "commit": null,
+  "path": "probes/results/records-scan-a3a2d492b51a.txt",
+  "located": false,
+  "start_line": null,
+  "end_line": null,
+  "text": "  local_path x22: /home/hatch/workspace/codereview/tests/test_v093_fixes.py:373:; /home/hatch/workspace/codereview/tests/../src/codereview/providers.py; /home/hatch/workspace/codereview/tests/test_v093_fixes.py:352:",
+  "note": "region text is the finding's validated evidence quote; full region could not be re-located at the record head"
+ },
+ "refutation": {
+  "by_family": "nvidia",
+  "quote": "  local_path x22: /home/hatch/workspace/codereview/tests/test_v093_fixes.py:373:; /home/hatch/workspace/codereview/tests/../src/codereview/providers.py; /home/hatch/workspace/codereview/tests/test_v093_fixes.py:352:",
+  "reason": "The finding claims the output republishes sensitive local paths from review records. However, the evidence_quote shows all paths are prefixed with '/home/hatch/workspace/', which is a placeholder path used in the test data, not a real operator username or machine layout. The paths are synthetic arti",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "`probes/gap_scan_exposure_probe.py`, result `gap-scan-exposure-pair.txt`: - The committed file at HEAD contains the cited samples verbatim (local_path x22 and x25 blocks for review-v095-fix and review-v096, plus x21 blocks for review-v100/v110/v111 — the exposure is broader than the one cited block). - The refutation's premise is factually false on this machine: `os.path.expanduser('~')` here is `/home/hatch` — the operator account's real home. The cited paths resolve to real files (`tests/test_v093_fixes.py` exists at the cited location), and the records the samples came from were produced by real runs on this host; their evidence quotes carry this host's real absolute paths, including the username `hatch` and the workspace layout. These are not placeholders and not test data. - Interplay: the fix direction is the public-record-profile decision (main packet #3). If the profile adopts counts-only/redacted samples for committed artifacts, this finding's remedy is that rule applied to probe outputs; if the profile keeps verbatim samples for internal artifacts, the remedy is keeping such outputs untracked. Either way the defect is real today; the profile decides the remedy, not the verdict.",
+  "basis_evidence_sha256": [
+   "52b66a794735620d931e78edd0b438282abc31247e464008f4dc363232b4b4bc"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/gap-scan-exposure-pair.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_finding",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry ec925437d0e3 (decider=owner, marker=ratified, 2026-11-05T02:16:35+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-gap-2026-11-04/14-ec925437d0e3.md; source record: /home/hatch/workspace/codereview/review-pt1-open-refutations/codereview-20261105-004939.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": []
+}

@@ -1,0 +1,53 @@
+{
+ "case_id": "S-D13",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "Missing timeout propagation to provider calls in _doctor_main",
+ "finding": {
+  "claim": "Missing timeout propagation to provider calls in _doctor_main",
+  "evidence": "build_providers(specs, agent_timeout=args.timeout)",
+  "file": "src/codereview/cli.py",
+  "line": 514,
+  "severity_as_raised": "major",
+  "evidence_quote": "build_providers(specs, agent_timeout=args.timeout)",
+  "recommendation": "Ensure timeout forwarding covers both primary and fallback constructions in doctor main path.",
+  "raised_by_family": "nvidia",
+  "record_finding_id": "3fc4862824c9"
+ },
+ "code_region": {
+  "commit": "e3fc6a8c12bae345ce0102933b90f47bd874d862",
+  "path": "src/codereview/cli.py",
+  "located": true,
+  "start_line": 506,
+  "end_line": 526,
+  "text": "    comment + commit status) needs GITHUB_TOKEN with repo access.\"\"\"\n    from .github import GitHubClient, GitHubError, parse_pr_url, \\\n        review_pr\n\n    ap = argparse.ArgumentParser(prog=\"codereview pr\")\n    ap.add_argument(\"--repo\", help=\"OWNER/REPO\")\n    ap.add_argument(\"--number\", type=int, help=\"PR number\")\n    ap.add_argument(\"--pr\", help=\"full PR URL\")\n    ap.add_argument(\"--post\", action=\"store_true\",\n                    help=\"post the review comment + commit status \"\n                         \"(needs GITHUB_TOKEN)\")\n    ap.add_argument(\"--request-changes\", action=\"store_true\",\n                    help=\"use REQUEST_CHANGES when the gate blocks\")\n    ap.add_argument(\"--provider\", action=\"append\", default=[])\n    ap.add_argument(\"--verify-previous\",\n                    help=\"previous report JSON: verification round\")\n    ap.add_argument(\"--builder-response\", default=\"\",\n                    help=\"builder's work report (or @file)\")\n    ap.add_argument(\"--test-command\", action=\"append\", default=[])\n    ap.add_argument(\"--strict\", action=\"store_true\")\n    ap.add_argument(\"--allow-major\", action=\"store_true\")"
+ },
+ "refutation": {
+  "by_family": "openai",
+  "quote": "                    [pspec.strip()], agent_timeout=args.timeout)",
+  "reason": "The doctor fallback construction does propagate the timeout to provider building. The cited claim says fallback constructions are missing timeout forwarding, but the fallback path explicitly passes agent_timeout=args.timeout.",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "`probes/gap_doctor_timeout_probe.py`, result `gap-doctor-timeout-3fc4862824c9.txt`: - **Construction legs (instrumented at HEAD):** primary, fallback, and role-assignment builders each received `agent_timeout=7` under `--timeout 7` — propagation the refutation described is real. - **Probe leg at HEAD:** a hanging seat under `--timeout 1` returns in **1.0s**, rc=2, seat marked \"probe call timed out after 1s\". - **Parent-fail at 2dd114e^ (0ba2c17):** the identical call waits out the seat's full **12.0s** sleep — no bound exists in the pre-fix tree (`run_doctor` had no `timeout` parameter and `_doctor_main` passed none) — and then reports the seat **ok=True**, because the unbounded probe eventually answered. The wait-bound is exactly what 2dd114e added (`run_doctor(..., timeout=...)` + `_probe_call_bounded`). Net: the dispute's substance — a doctor-path provider call the operator's `--timeout` did not reach — was real until v0.11.1 and is fixed in substance at HEAD.",
+  "basis_evidence_sha256": [
+   "8ce7ee5649330b4260cec708d8d9de99198433bf6053ee421fcc65a374756a65"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/gap-doctor-timeout-3fc4862824c9.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_finding",
+  "severity_after": "major",
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry 3fc4862824c9 (decider=owner, marker=ratified, 2026-11-05T02:16:33+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-gap-2026-11-04/05-3fc4862824c9.md; source record: /home/hatch/workspace/codereview/review-v15/codereview-20261104-224759.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": [
+  "finding sustained and fixed in commit 2dd114e"
+ ]
+}

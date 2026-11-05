@@ -1,0 +1,51 @@
+{
+ "case_id": "S-D39",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "Verification no longer caps model-supplied resolution evidence length",
+ "finding": {
+  "claim": "Verification no longer caps model-supplied resolution evidence length",
+  "evidence": "                        evidence = str(r.get(\"evidence\") or \"\")",
+  "file": "src/codereview/core.py",
+  "line": 3833,
+  "severity_as_raised": "major",
+  "evidence_quote": "                        evidence = str(r.get(\"evidence\") or \"\")",
+  "recommendation": "Restore the previous length cap, or apply a bounded limit before storing evidence in 'entry' and the report. If longer evidence is needed, store a truncated preview plus a separate hashed/blobbed artifact rather than embedding arbitrary-length model output directly.",
+  "raised_by_family": "openai",
+  "record_finding_id": "2eb60efeeace"
+ },
+ "code_region": {
+  "commit": "2fbf94f2ca6feec0ad1180a71d3c9064bf1cef4d",
+  "path": "src/codereview/core.py",
+  "located": true,
+  "start_line": 3855,
+  "end_line": 3875,
+  "text": "                            f\"{fb['error']}\")[:300]\n            try:\n                if not res[\"ok\"]:\n                    raise res[\"error\"]\n                parsed = res[\"parsed\"]\n                for r in parsed.get(\"resolutions\") or []:\n                    if isinstance(r, dict) and r.get(\"finding_id\"):\n                        raw_status = str(r.get(\"status\") or \"unclear\")\n                        evidence = str(r.get(\"evidence\") or \"\")\n                        status, downgraded = _validate_resolution(\n                            raw_status, evidence, haystack_tokens)\n                        entry = {\"status\": status, \"evidence\": evidence}\n                        if downgraded:\n                            entry[\"raw_status\"] = raw_status\n                            entry[\"downgraded\"] = (\n                                \"resolution downgraded to unclear: \"\n                                \"status not allowed or evidence not \"\n                                \"supported by the diff/test material\")\n                        rec[\"resolutions\"][str(r[\"finding_id\"])] = entry\n                for raw_f in parsed.get(\"new_findings\") or []:\n                    nf = _normalize_finding(raw_f, serving_name)"
+ },
+ "refutation": {
+  "by_family": "nvidia",
+  "quote": "                        evidence = str(r.get(\"evidence\") or \"\")",
+  "reason": "The finding claims the line lacks a length cap, but the code at line 3833 explicitly assigns evidence without truncation. The previous 400-char cap was removed intentionally per the refutation-process solution §4 Q7, which states capping here would destroy full-text before adjudicators can see it. T",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "Verification probe (`probes/closingA_verification_error_evidence.py`, part B): a 5000-char model-supplied resolution evidence was driven through the verification write path. In-memory: stored full (5000). Written record JSON: display length 300 with a ref {sha256, length 5000, truncated: True}. Sidecar: the full 5000, retrievable by the adjudication surfaces. That is the owner-adopted design (refutation-process solution §4 Q7 — full text preserved for adjudicators, display capped, sidecars carry the rest), and it refutes the claim's growth mechanism: the report file does NOT grow with evidence length; the display is capped and the full text lives by reference.",
+  "basis_evidence_sha256": [
+   "20e2fb1baa44b09b136a998299c8908d8a47398c3383e675fb89ecf1a6244294"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/closingA-verification-error-evidence.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_refutation",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry 2eb60efeeace (decider=owner, marker=ratified, 2026-11-05T04:07:56+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-closing-r1-2026-11-04/14-2eb60efeeace.md; source record: review-closing-r1/codereview-20261105-031927.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": []
+}

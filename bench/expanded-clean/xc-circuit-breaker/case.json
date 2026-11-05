@@ -1,0 +1,11 @@
+{
+  "id": "xc-circuit-breaker",
+  "title": "Circuit breaker with half-open single-probe recovery",
+  "category": "clean",
+  "split": "expanded-clean",
+  "source": "Authored for the CodeReview benchmark corpus (expanded clean stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "expanded-clean",
+  "false_flag_note": "A reviewer may flag the state machine as needless complexity or the probe flag as a race. The lock guards every state transition, the wrapped call itself runs outside the lock (so a slow call does not block state reads), half-open admits exactly one probe because _probe_in_flight is claimed under the lock before the probe runs, a failed probe re-opens the breaker with a fresh timestamp, timing uses a monotonic clock so wall-clock jumps cannot extend or shorten the cooldown, and non-Exception signals release the probe slot without being counted as failures."
+}

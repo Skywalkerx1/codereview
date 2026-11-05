@@ -1,0 +1,54 @@
+{
+ "case_id": "S-D28",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "attach_function_keys calls source_lookup(path) without null check",
+ "finding": {
+  "claim": "attach_function_keys calls source_lookup(path) without null check",
+  "evidence": "    if path not in cache:\n        try:\n            cache[path] = source_lookup(path)\n        except Exception:  # noqa: BLE001 — no source, no key\n            cache[path] = None\n        fk = function_key(cache[path], f.get(\"line\"))",
+  "file": "src/codereview/core.py",
+  "line": 1767,
+  "severity_as_raised": "major",
+  "evidence_quote": "cache[path] = source_lookup(path)",
+  "recommendation": "Add a null check after source_lookup returns: if cache[path] is None: continue or set fk = None before calling function_key.",
+  "raised_by_family": "nvidia",
+  "record_finding_id": "97feb799979e"
+ },
+ "code_region": {
+  "commit": null,
+  "path": "src/codereview/core.py",
+  "located": false,
+  "start_line": null,
+  "end_line": null,
+  "text": "cache[path] = source_lookup(path)",
+  "note": "region text is the finding's validated evidence quote; full region could not be re-located at the record head"
+ },
+ "refutation": {
+  "by_family": "openai",
+  "quote": "            cache[path] = source_lookup(path)",
+  "reason": "The cited code wraps the call in a try/except and stores None on exception, so the specific claim that it calls source_lookup(path) without a null check is incorrect as stated; the issue described concerns the return value after the call, not a null check before calling it.",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "Null-lookup probe (`probes/shadow_attach_keys_probe.py`, result `shadow-attach-keys-97feb799979e.txt`): - `function_key(None, 2)` → `None`; `function_key(\"\", 2)` → `None`. The callee's first executable check is `if not source or not line: return None` (core.py:1710) — the None handling exists, one level down from where the claim demands it. - `attach_function_keys` under three lookups, over findings in a present file and an absent file: **returns-None** → keyed=0, no exception; **raises** → keyed=0, no exception; **real source for the present path, None for the absent path** (the production shape — `run_review` passes the precedent store's `source_lookup`, whose None is its normal \"path not in the snapshot\" miss) → keyed=1, exactly the finding whose function resolves, the absent path's finding simply carries no key and stays on the legacy line-based path, as the function's docstring designs. - A raising lookup is invoked once per distinct path (2 calls for 2 paths): the None is cached, not retried per finding. No input the probe could construct — None return, raised exception, absent path — makes the missing call-site check observable. The claim's demanded fix (`if cache[path] is None: continue`) would be a no-op duplicate of the callee's guard.",
+  "basis_evidence_sha256": [
+   "7779428541cccdb042bdc3b457b341e5420afff2ab3b6e2a1cae69a2baf2e6ec"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/shadow-attach-keys-97feb799979e.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_refutation",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry 97feb799979e (decider=owner, marker=ratified, 2026-11-05T03:15:16+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-shadow-2026-11-04/05-97feb799979e.md; source record: /home/hatch/workspace/codereview/review-branch-out/codereview-20261105-011527.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": [
+  "reason_corrected: the None case is safe because function_key returns None for a falsy source before touching the AST machinery (core.py:1710); an unresolvable function simply leaves the finding unkeyed, by design. The claim's premise (None can reach function_key) is true; its implied consequence (an unchecked-None defect) is not."
+ ]
+}

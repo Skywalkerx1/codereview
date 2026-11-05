@@ -1,0 +1,51 @@
+{
+ "case_id": "S-D23",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "build_providers does not apply model override from preset:model spec",
+ "finding": {
+  "claim": "build_providers does not apply model override from preset:model spec",
+  "evidence": "",
+  "file": "src/codereview/providers.py",
+  "line": 512,
+  "severity_as_raised": "major",
+  "evidence_quote": "nm = spec.strip().partition(\":\")[0].strip().lower()",
+  "recommendation": "Extract the model override after the colon when a preset:model suffix is present, similar to how describe_spec handles it. After computing nm, check if the original spec contains ':' and a non-empty model_override, and use that model instead of the registry default.",
+  "raised_by_family": "nvidia",
+  "record_finding_id": "e1e22d48db4d"
+ },
+ "code_region": {
+  "commit": "2fbf94f2ca6feec0ad1180a71d3c9064bf1cef4d",
+  "path": "src/codereview/providers.py",
+  "located": true,
+  "start_line": 636,
+  "end_line": 656,
+  "text": "            api_names.add(\"openai-compatible\")\n        elif \"|\" in spec:\n            nm = spec.split(\"|\")[0].strip().lower()\n            parsed.append((\"api\", nm, spec))\n            api_names.add(nm)\n        else:\n            # A preset spec may carry a model override\n            # (preset:model); the seat's base name is the preset.\n            nm = spec.strip().partition(\":\")[0].strip().lower()\n            parsed.append((\"api\", nm, spec))\n            api_names.add(nm)\n    agent_final = {}\n    used = set()\n    counters = {}\n    for idx, (kind, base, _spec) in enumerate(parsed):\n        if kind != \"agent\":\n            continue\n        n = counters.get(base.lower(), 0) + 1\n        counters[base.lower()] = n\n        candidate = base if n == 1 else f\"{base}-{n}\"\n        while True:"
+ },
+ "refutation": {
+  "by_family": "openai",
+  "quote": "    model = desc[\"model\"]",
+  "reason": "build_provider now derives the parsed description from describe_spec(spec) and explicitly replaces the preset default with desc[\"model\"], which includes any preset:model override.",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "Stub-payload re-run at HEAD (`probes/stub_payload_rerun.py`, result `stub-payload-e1e22d48db4d.txt`): the three suite tests that assert the payload model field pass (test_openai_compatible_presets, test_model_override_and_temperature_quirk, test_openai_compatible_escape_hatch), and direct stub captures show payload['model'] for a preset, for a preset:model override ('deepseek-reasoner'), and for the custom escape-hatch spec ('my-model').",
+  "basis_evidence_sha256": [
+   "0d637366a8797ee05b3a9ad460e95214d44acd7eccda62c7b2a9a97a6ecdcbb5"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/stub-payload-e1e22d48db4d.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_refutation",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry e1e22d48db4d (decider=owner, marker=ratified, 2026-11-05T02:16:35+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-17-2026-11-04/12-e1e22d48db4d.md; source record: /home/hatch/workspace/codereview-providers/review-providers-out2/codereview-20261105-001047.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": []
+}

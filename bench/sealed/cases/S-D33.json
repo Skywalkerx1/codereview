@@ -1,0 +1,51 @@
+{
+ "case_id": "S-D33",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "M6 double-draw agreement division by zero when measured=0",
+ "finding": {
+  "claim": "M6 double-draw agreement division by zero when measured=0",
+  "evidence": "",
+  "file": "src/codereview/acceptance.py",
+  "line": 223,
+  "severity_as_raised": "major",
+  "evidence_quote": "m6 = (len(agreed) / len(measured)) if measured else None",
+  "recommendation": "Guard against measured=0: set m6=0.0 or None with a pass condition that requires measured > 0, or add an explicit check before division.",
+  "raised_by_family": "nvidia",
+  "record_finding_id": "e1570280c036"
+ },
+ "code_region": {
+  "commit": "2fbf94f2ca6feec0ad1180a71d3c9064bf1cef4d",
+  "path": "src/codereview/acceptance.py",
+  "located": true,
+  "start_line": 305,
+  "end_line": 325,
+  "text": "    # M6: double-draw agreement on majors.\n    major_ids = [cid for cid, c in cases.items()\n                 if (c[\"finding\"].get(\"severity_as_raised\")\n                     in (\"blocker\", \"major\"))]\n    agreed = [cid for cid in major_ids\n              if baseline[cid].get(\"draws_agree\") is True]\n    measured = [cid for cid in major_ids\n                if baseline[cid].get(\"draws_agree\") is not None]\n    m6 = (len(agreed) / len(measured)) if measured else None\n\n    metrics = {\n        \"M1_false_dismissals_on_real_findings\": {\n            \"measured\": m1, \"threshold\": threshold(\n                \"M1_false_dismissals_on_real_findings\"),\n            \"pass\": passes(\n                m1, \"M1_false_dismissals_on_real_findings\"),\n            \"set_size\": len(m1_set)},\n        \"M2_probe_settled_accuracy\": {\n            \"measured\": m2, \"threshold\": threshold(\n                \"M2_probe_settled_accuracy\"),\n            \"pass\": passes(m2, \"M2_probe_settled_accuracy\"),"
+ },
+ "refutation": {
+  "by_family": "openai",
+  "quote": "    m6 = (len(agreed) / len(measured)) if measured else None",
+  "reason": "The code explicitly guards the division with `if measured else None`. An empty `measured` list is falsy, so the division is skipped rather than dividing by zero.",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "Acceptance probe (`probes/closingB_acceptance_m4m6.py`, case D): M6 was forced to the measured=0 shape via a stub adjudicator whose draws never agree-measure. Result: M6 measured=None, measured_cases=0, pass=False, and run_acceptance returned a record — no ZeroDivisionError. The guard at acceptance.py:327-335 (`if measured else None`) fires exactly as the refutation describes (acceptance.py M6 region; the shadow fix 6fa83f6 hardened the neighbouring tail).",
+  "basis_evidence_sha256": [
+   "098b2837e3310e83237f820e7ad37c89ba407726321621b2ddc3f25c2ce11a25"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/closingB-acceptance-m4m6.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_refutation",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry e1570280c036 (decider=owner, marker=ratified, 2026-11-05T04:07:55+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-closing-r1-2026-11-04/08-e1570280c036.md; source record: review-closing-r1/codereview-20261105-031927.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": []
+}

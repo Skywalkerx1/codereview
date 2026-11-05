@@ -1,0 +1,37 @@
+diff --git a/src/app.js b/src/app.js
+--- a/src/app.js
++++ b/src/app.js
+@@ -1,9 +1,33 @@
+ import express from "express";
++import { timingSafeEqual } from "node:crypto";
+ import { updateProfile, transferFunds } from "./handlers.js";
+ 
+ export const app = express();
+ 
++const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
++
++function tokensMatch(provided, expected) {
++  if (typeof provided !== "string" || typeof expected !== "string") {
++    return false;
++  }
++  const a = Buffer.from(provided, "utf8");
++  const b = Buffer.from(expected, "utf8");
++  return a.length === b.length && timingSafeEqual(a, b);
++}
++
++// Assumes session middleware runs earlier and sets req.session.
++export function csrfProtection(req, res, next) {
++  if (SAFE_METHODS.has(req.method)) {
++    return next();
++  }
++  if (!tokensMatch(req.get("x-csrf-token"), req.session?.csrfToken)) {
++    return res.status(403).json({ error: "invalid CSRF token" });
++  }
++  return next();
++}
++
+ app.use(express.json());
++app.use(csrfProtection);
+ 
+ app.post("/profile", updateProfile);
+ app.post("/transfer", transferFunds);

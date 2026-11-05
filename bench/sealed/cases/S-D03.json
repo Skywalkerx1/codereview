@@ -1,0 +1,51 @@
+{
+ "case_id": "S-D03",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "Agent spec parsing breaks commands that contain colons",
+ "finding": {
+  "claim": "Agent spec parsing breaks commands that contain colons",
+  "evidence": "The parser splits the whole spec with a maximum of two colons, so any command text after a second colon is truncated into the command field and the rest is lost or causes a format error.",
+  "file": "src/codereview/providers.py",
+  "line": 357,
+  "severity_as_raised": "major",
+  "evidence_quote": "    parts = spec.split(\":\", 2)",
+  "recommendation": "Parse only the 'agent:' prefix and seat name/options delimiter, leaving the remainder of the string untouched as the command. For example, strip 'agent:' first, split once on the next ':', and treat everything after that as the command verbatim.",
+  "raised_by_family": "openai",
+  "record_finding_id": "0e57186e8be8"
+ },
+ "code_region": {
+  "commit": "e3fc6a8c12bae345ce0102933b90f47bd874d862",
+  "path": "src/codereview/providers.py",
+  "located": true,
+  "start_line": 352,
+  "end_line": 372,
+  "text": "\n\ndef _parse_agent_spec(spec):\n    \"\"\"agent:<name>[<options>]:<command> -> (name, options, command).\n\n    The only option today is home=private (the seat's HOME is its\n    scratch directory instead of the operator's). Unknown options\n    are rejected loudly rather than ignored.\"\"\"\n    parts = spec.split(\":\", 2)\n    if len(parts) != 3 or not parts[2].strip():\n        raise ProviderError(\n            f\"bad agent spec {spec!r}: want agent:<name>:<command>\")\n    raw_name, command = parts[1].strip(), parts[2].strip()\n    options = {}\n    if raw_name.endswith(\"]\") and \"[\" in raw_name:\n        raw_name, _, opt_str = raw_name.partition(\"[\")\n        for opt in opt_str.rstrip(\"]\").split(\",\"):\n            opt = opt.strip()\n            if not opt:\n                continue\n            if opt == \"home=private\":"
+ },
+ "refutation": {
+  "by_family": "nvidia",
+  "quote": "    parts = spec.split(\":\", 2)",
+  "reason": "The code explicitly splits on the first colon only (maxsplit=2), then extracts the name from parts[1] and the command from parts[2]. Commands containing colons are preserved intact in parts[2], so the claim that text after a second colon is truncated is false.",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "`probes/gap_providers_probe.py`, result `gap-providers-cluster.txt`, colon section: - `agent:x:sh -c 'echo a:b'` → name `x`, command `sh -c 'echo a:b'` (the ruling pack's P11 closure case, intact) - `agent:claude:run --flag http://x:8080/a:b` → command `run --flag http://x:8080/a:b` (verbatim, colons and all) - `agent:bot:echo one:two:three:four` → command preserved in full - Options form `agent:my[home=private]:cmd --opt v:1` → name/options parsed, command `cmd --opt v:1` intact",
+  "basis_evidence_sha256": [
+   "861703dc74b83fb4683d0121d2faf013f40e3b33756acdf2b4be875087d2684b"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/gap-providers-cluster.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_refutation",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry 0e57186e8be8 (decider=owner, marker=ratified, 2026-11-05T02:16:31+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-gap-2026-11-04/09-0e57186e8be8.md; source record: /home/hatch/workspace/codereview/review-v15/codereview-20261104-224759.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": []
+}

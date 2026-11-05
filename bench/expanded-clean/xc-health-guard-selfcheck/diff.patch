@@ -1,0 +1,86 @@
+diff --git a/app/health.py b/app/health.py
+--- /dev/null
++++ b/app/health.py
+@@ -0,0 +1,82 @@
++import socket
++import time
++
++import requests
++
++CORE_PROBES = frozenset({"database", "cache"})
++DEFAULT_TIMEOUT_SECONDS = 2.0
++
++
++def _run_probe(name, probe, timeout_seconds):
++    """Run one probe, converting any failure into a 'down' result.
++
++    A health check must report a broken dependency, never raise because
++    of one, so the broad catch here is intentional: the exception type
++    is preserved in the payload instead of being hidden.
++    """
++    started = time.monotonic()
++    try:
++        probe(timeout=timeout_seconds)
++    except Exception as exc:  # deliberate: report, do not propagate
++        return {
++            "name": name,
++            "status": "down",
++            "error": type(exc).__name__,
++            "latency_ms": round((time.monotonic() - started) * 1000, 1),
++        }
++    return {
++        "name": name,
++        "status": "ok",
++        "error": None,
++        "latency_ms": round((time.monotonic() - started) * 1000, 1),
++    }
++
++
++def tcp_probe(host, port):
++    """Probe factory: succeeds when a TCP connect completes in time."""
++
++    def probe(timeout):
++        with socket.create_connection((host, port), timeout=timeout):
++            pass
++
++    return probe
++
++
++def http_probe(url, http_get=None):
++    """Probe factory: succeeds on a 2xx response within the timeout."""
++    if http_get is None:
++        http_get = requests.get
++
++    def probe(timeout):
++        response = http_get(url, timeout=timeout)
++        response.raise_for_status()
++
++    return probe
++
++
++def healthcheck(probes, timeout_seconds=DEFAULT_TIMEOUT_SECONDS):
++    """Return (http_status, payload) for the /healthz endpoint.
++
++    Core dependencies (database, cache) failing make the endpoint
++    return 503 so load balancers drain the instance. A non-core
++    dependency failing degrades the payload to 'degraded' but keeps
++    200: the instance can still serve traffic without it.
++    """
++    if timeout_seconds <= 0:
++        raise ValueError("timeout_seconds must be positive")
++    checks = [
++        _run_probe(name, probes[name], timeout_seconds)
++        for name in sorted(probes)
++    ]
++    core_down = any(
++        check["status"] == "down" and check["name"] in CORE_PROBES
++        for check in checks
++    )
++    any_down = any(check["status"] == "down" for check in checks)
++    if core_down:
++        status = "down"
++    elif any_down:
++        status = "degraded"
++    else:
++        status = "ok"
++    return (503 if core_down else 200), {"status": status, "checks": checks}

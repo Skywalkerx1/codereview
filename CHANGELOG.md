@@ -18,6 +18,47 @@
 
 ## Unreleased — 2026-11-05
 
+- Gate profiles (step 6 of the adopted honest-negatives
+  solution; candidate frozen by the step-4 replay sweep):
+  policy B1 (per-lens corroboration) ships as the `balanced`
+  gate profile. A blocking-severity finding whose merged
+  sources are solely the operations lens — no
+  correctness-lens or deterministic corroboration within the
+  gate's merge identity — is demoted to a visible minor
+  before archived/fixture/precedent/platform classification
+  and before cross-family confirmation; the demotion and its
+  reason are recorded on the finding (`profile_demotion`)
+  and in the record's `gate_profile` section (effective
+  profile, its source, every demotion). Selection:
+  `--gate-profile` flag, else the policy file's new `[gate]
+  profile` key, else the default. **The default remains
+  `strict`** — today's behaviour exactly — under the freeze
+  terms: B1 is confirmed once on the holdout in step 7
+  (Baseline v2) before any default change. Findings now
+  record per-source lens attribution (`source_lenses`,
+  unioned by the merge; an unattributed source fails safe
+  and is never demoted on a guess) and evidence-class
+  metadata (E0 deterministic / E1 corroborated / E3
+  single-seat unverified; E2 probe-confirmed is not assigned
+  at gate time, since probes run in adjudication) — the
+  classes change no verdict under `strict` and act only
+  through B1 under `balanced`. **`quiet` is not implemented,
+  by decision**: its blanket-corroboration form was rejected
+  on the sweep evidence (it demoted three real single-seat
+  majors, D6–D8), and naming it — CLI, policy file, or API —
+  is a loud error, so the absence is a recorded decision,
+  not an omission. Expected effect, quoted AS REPLAY
+  (step-4 sweep, public split, adjudicated semantic
+  grouping; live merge-identity grouping sits between strict
+  and this row): blocking recall 29/34 enlarged (24/24
+  labelled), merged blocking precision 1.000 excl. unknowns
+  (0.967 incl.), clean-case BLOCKED 0.20 vs strict's 0.40.
+  A claim-lint test (tests/test_claim_lint.py) now fails if
+  the README, this CHANGELOG, or the baseline
+  (bench/BASELINE-2026-11-04.md) quote the headline figures
+  without the baseline's `required_caveat` adjacent, or
+  present the superseded naive figure as a current claim.
+  31 new tests (suite 802).
 - Tech Lead redesign, adjudication protocol v2 (branch
   `tl-redesign`; honest-negatives solution §3.3 + §3.5,
   owner decision 2026-11-05 to proceed despite the §3.7

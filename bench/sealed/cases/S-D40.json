@@ -1,0 +1,51 @@
+{
+ "case_id": "S-D40",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "Writing a report now crashes when shadow adjudications are present due to tuple unpack mismatch",
+ "finding": {
+  "claim": "Writing a report now crashes when shadow adjudications are present due to tuple unpack mismatch",
+  "evidence": "for container, key, cap in _shadow_evidence_targets(",
+  "file": "src/codereview/core.py",
+  "line": 5788,
+  "severity_as_raised": "major",
+  "evidence_quote": "        for container, key, cap in _shadow_evidence_targets(",
+  "recommendation": "Make the producer and consumer agree on the tuple shape from _shadow_evidence_targets, or unpack with the correct arity in both _iter_evidence_refs and _attach_evidence_sidecars. Add a test that writes a report containing shadow_adjudications.",
+  "raised_by_family": "openai",
+  "record_finding_id": "ba2479886886"
+ },
+ "code_region": {
+  "commit": "2fbf94f2ca6feec0ad1180a71d3c9064bf1cef4d",
+  "path": "src/codereview/core.py",
+  "located": true,
+  "start_line": 5785,
+  "end_line": 5805,
+  "text": "        for f in rep.get(\"findings\") or []:\n            walk_finding(f)\n        for entry in (rep.get(\"resolutions\") or {}).values():\n            if isinstance(entry, dict):\n                # Resolution evidence displays at the historical\n                # 300-char cap; the sidecar carries it in full.\n                attach(entry, \"evidence\", 300)\n    for entry in rec.get(\"shadow_adjudications\") or []:\n        for container, key, cap in _shadow_evidence_targets(\n                entry):\n            attach(container, key, cap)\n    if pending:\n        ev_dir = os.path.join(out_dir, \"evidence\")\n        os.makedirs(ev_dir, exist_ok=True)\n        for digest, text in pending.items():\n            path = os.path.join(ev_dir, digest)\n            if not os.path.exists(path):\n                with open(path, \"w\", encoding=\"utf-8\") as fh:\n                    fh.write(text)\n        rec[\"evidence_sidecars\"] = {\n            \"dir\": \"evidence\", \"files\": len(pending),"
+ },
+ "refutation": {
+  "by_family": "nvidia",
+  "quote": "        for container, key, cap in _shadow_evidence_targets(",
+  "reason": "The finding claims a tuple unpack mismatch, but the code at line 5788 unpacks exactly three variables (container, key, cap) from _shadow_evidence_targets(). The evidence_quote from the finding matches the code exactly, confirming the unpack is correct and the claim is false.",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "Shadow-tuple probe (`probes/closingA_shadow_tuple.py`): `_shadow_evidence_targets` over a fully populated shadow entry yields 8 tuples, ALL of arity 3 (container, key, cap) — the unpack the claim says mismatches. The real write path was then executed: write_report on a report carrying the entry SUCCEEDED (JSON + markdown written), the entry's sidecars attached (8 files, 8 refs), `_validate_evidence_sidecars` returned no problems, and `_iter_evidence_refs` walked 8 refs. The claimed crash does not occur at HEAD (the merge that reshuffled this region kept the 3-tuple contract; a suite pin for this path was added in this workup under 5683aa292958).",
+  "basis_evidence_sha256": [
+   "b1c021ce73bac96f457d8d791548658f83b54455b49a71f0758f30022a192812"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/closingA-shadow-tuple.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_refutation",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry ba2479886886 (decider=owner, marker=ratified, 2026-11-05T04:07:56+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-closing-r1-2026-11-04/15-ba2479886886.md; source record: review-closing-r1/codereview-20261105-031927.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": []
+}

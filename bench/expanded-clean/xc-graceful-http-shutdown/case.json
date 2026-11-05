@@ -1,0 +1,11 @@
+{
+  "id": "xc-graceful-http-shutdown",
+  "title": "HTTP server flips health first, then shuts down within a deadline",
+  "category": "clean",
+  "split": "expanded-clean",
+  "source": "Authored for the CodeReview benchmark corpus (expanded clean stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "expanded-clean",
+  "false_flag_note": "A reviewer may flag the atomic flag or the final Close call as belt-and-braces excess. The order is the point: the health endpoint starts returning 503 the moment shutdown begins, so the load balancer drains this instance before connections are closed; Shutdown then waits for in-flight requests up to the 15s deadline and only on deadline expiry is the forceful Close used; ErrServerClosed from the serving goroutine is the expected termination signal and is filtered explicitly rather than treated as a crash."
+}

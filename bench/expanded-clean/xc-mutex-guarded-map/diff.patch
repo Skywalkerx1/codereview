@@ -1,0 +1,88 @@
+diff --git a/internal/cache/cache.go b/internal/cache/cache.go
+--- /dev/null
++++ b/internal/cache/cache.go
+@@ -0,0 +1,84 @@
++package cache
++
++import (
++	"sync"
++	"time"
++)
++
++type entry struct {
++	value     string
++	expiresAt time.Time
++}
++
++// Cache is a goroutine-safe string cache with a per-entry TTL.
++type Cache struct {
++	mu    sync.RWMutex
++	items map[string]entry
++	ttl   time.Duration
++	now   func() time.Time
++}
++
++func New(ttl time.Duration) *Cache {
++	return &Cache{
++		items: make(map[string]entry),
++		ttl:   ttl,
++		now:   time.Now,
++	}
++}
++
++// Get returns the value for key, or false if absent or expired.
++func (c *Cache) Get(key string) (string, bool) {
++	c.mu.RLock()
++	e, ok := c.items[key]
++	c.mu.RUnlock()
++	if !ok {
++		return "", false
++	}
++	if c.now().Before(e.expiresAt) {
++		return e.value, true
++	}
++	// Expired: evict under the write lock, rechecking first because
++	// another goroutine may have refreshed the entry meanwhile.
++	c.mu.Lock()
++	if cur, still := c.items[key]; still && !c.now().Before(cur.expiresAt) {
++		delete(c.items, key)
++	}
++	c.mu.Unlock()
++	return "", false
++}
++
++// Set stores value under key with a fresh TTL.
++func (c *Cache) Set(key, value string) {
++	c.mu.Lock()
++	defer c.mu.Unlock()
++	c.items[key] = entry{value: value, expiresAt: c.now().Add(c.ttl)}
++}
++
++// Delete removes key unconditionally.
++func (c *Cache) Delete(key string) {
++	c.mu.Lock()
++	defer c.mu.Unlock()
++	delete(c.items, key)
++}
++
++// PurgeExpired removes every expired entry and reports how many.
++func (c *Cache) PurgeExpired() int {
++	c.mu.Lock()
++	defer c.mu.Unlock()
++	now := c.now()
++	removed := 0
++	for key, e := range c.items {
++		if !now.Before(e.expiresAt) {
++			delete(c.items, key)
++			removed++
++		}
++	}
++	return removed
++}
++
++// Len reports the number of stored (possibly not yet purged) entries.
++func (c *Cache) Len() int {
++	c.mu.RLock()
++	defer c.mu.RUnlock()
++	return len(c.items)
++}

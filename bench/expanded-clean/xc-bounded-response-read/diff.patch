@@ -1,0 +1,46 @@
+diff --git a/app/fetch_body.py b/app/fetch_body.py
+--- /dev/null
++++ b/app/fetch_body.py
+@@ -0,0 +1,42 @@
++import requests
++
++MAX_BODY_BYTES = 1_000_000
++CHUNK_SIZE = 8192
++
++
++class ResponseTooLarge(Exception):
++    """Raised when a response body exceeds the configured cap."""
++
++
++def fetch_text(url, max_bytes=MAX_BODY_BYTES, timeout=10):
++    """GET *url* and return the body as text, enforcing a size cap.
++
++    The declared Content-Length is checked up front when present, and
++    the streamed total is checked again chunk by chunk, because a
++    server can lie about or omit the header.
++    """
++    if max_bytes < 1:
++        raise ValueError("max_bytes must be positive")
++    with requests.get(url, timeout=timeout, stream=True) as response:
++        response.raise_for_status()
++        declared = response.headers.get("Content-Length")
++        if declared is not None:
++            try:
++                if int(declared) > max_bytes:
++                    raise ResponseTooLarge(
++                        f"declared length {declared} exceeds cap {max_bytes}"
++                    )
++            except ValueError:
++                pass  # unparsable header: fall through to streaming check
++        chunks = []
++        total = 0
++        for chunk in response.iter_content(chunk_size=CHUNK_SIZE):
++            if not chunk:
++                continue
++            total += len(chunk)
++            if total > max_bytes:
++                raise ResponseTooLarge(
++                    f"body exceeded cap of {max_bytes} bytes"
++                )
++            chunks.append(chunk)
++    return b"".join(chunks).decode("utf-8")

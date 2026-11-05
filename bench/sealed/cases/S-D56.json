@@ -1,0 +1,53 @@
+{
+ "case_id": "S-D56",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "verify_chain crashes on the documented default path with no dispositions argument",
+ "finding": {
+  "claim": "verify_chain crashes on the documented default path with no dispositions argument",
+  "evidence": "The function documents that omitting the disposition store preserves legacy behavior, but later unconditionally returns a variable that is only assigned inside the dispositions-present branch. Calling verify_chain with its default 'dispositions=None' will raise UnboundLocalError instead of returning a result.",
+  "file": "src/codereview/core.py",
+  "line": 4848,
+  "severity_as_raised": "major",
+  "evidence_quote": "        result[\"dispositions_consumed\"] = chain_consumed",
+  "recommendation": "Initialize 'chain_consumed' before the conditional, or only reference it inside the same 'if dispositions is not None' branch where it is created. Add a test that calls verify_chain without a dispositions argument and asserts it returns normally.",
+  "raised_by_family": "openai",
+  "record_finding_id": "f43f2968433d"
+ },
+ "code_region": {
+  "commit": "2fbf94f2ca6feec0ad1180a71d3c9064bf1cef4d",
+  "path": "src/codereview/core.py",
+  "located": true,
+  "start_line": 4743,
+  "end_line": 4763,
+  "text": "                 f\"{new_blockers[i]} new blocking finding(s), \"\n                 f\"more than round {i}'s {new_blockers[i - 1]} — \"\n                 f\"the convergence budget's non-increase rule is \"\n                 f\"breached\")\n            break\n    result = {\"eligible\": all(c[\"ok\"] for c in checks),\n              \"checks\": checks, \"warnings\": warnings}\n    if dispositions is not None:\n        result[\"dispositions_consumed\"] = chain_consumed\n    return result\n\n\ndef _git_show_bytes(repo, ref_path):\n    \"\"\"Exact bytes of a file as committed at a ref (for hashing —\n    the text-mode _git helper strips, which would corrupt a\n    content hash).\"\"\"\n    out = subprocess.run([\"git\", \"-C\", repo, \"show\", ref_path],\n                         capture_output=True, timeout=120,\n                         check=False)\n    if out.returncode != 0:\n        raise RuntimeError("
+ },
+ "refutation": {
+  "by_family": "nvidia",
+  "quote": "        result[\"dispositions_consumed\"] = chain_consumed",
+  "reason": "The code initializes chain_consumed inside the 'if dispositions is not None' branch, but the function returns chain_consumed unconditionally after the conditional block. When dispositions=None, the variable is never assigned, causing an UnboundLocalError. The finding correctly identifies that the do",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "Chain probe (`probes/closing_disputes_probe.py`, section d): verify_chain was called with dispositions=None at HEAD — it returns the full verdict dict (hold_active=True; the chain's deterministically-derivable fields computed) WITHOUT raising. The None handling the claim says is missing is present: core.py:4674 initialises `chain_consumed = [e for e in dispositions or [] if ...]`, and None is defaulted before any use. The recorded refutation's own concession ('chain_consumed can be None on some path') is not borne out at HEAD — every path defaults it.",
+  "basis_evidence_sha256": [
+   "7e3f036035bc08aaa22e723679f68a4692faf113e235fa30ba4f5a9660f6f4af"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/closing-disputes.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_refutation",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry f43f2968433d (decider=owner, marker=ratified, 2026-11-05T04:07:59+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-closing-r1-2026-11-04/33-f43f2968433d.md; source record: review-closing-r1-attempt1/codereview-20261105-031306.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": [
+  "reason_corrected: the refutation's hedged concession is corrected — the None default is unconditional at the initialisation site."
+ ]
+}

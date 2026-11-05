@@ -1,0 +1,25 @@
+diff --git a/app/token_bucket.py b/app/token_bucket.py
+--- /dev/null
++++ b/app/token_bucket.py
+@@ -0,0 +1,21 @@
++import threading
++import time
++class TokenBucket:
++    """Thread-safe token bucket; allow() is the only entry point."""
++    def __init__(self, capacity, refill_per_second):
++        if capacity <= 0 or refill_per_second <= 0:
++            raise ValueError("capacity and refill_per_second must be > 0")
++        self._capacity = float(capacity)
++        self._rate = float(refill_per_second)
++        self._tokens = float(capacity)
++        self._last = time.monotonic()
++        self._lock = threading.Lock()
++    def allow(self, cost=1.0):
++        if cost <= 0: raise ValueError("cost must be positive")
++        with self._lock:
++            now = time.monotonic()
++            self._tokens = min(self._capacity, self._tokens + (now - self._last) * self._rate); self._last = now
++            if self._tokens >= cost:
++                self._tokens -= cost
++                return True
++            return False

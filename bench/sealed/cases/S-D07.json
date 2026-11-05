@@ -1,0 +1,51 @@
+{
+ "case_id": "S-D07",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "os and signal not imported at module scope for _kill_tree",
+ "finding": {
+  "claim": "os and signal not imported at module scope for _kill_tree",
+  "evidence": "def _kill_tree(proc, pgid=None):",
+  "file": "src/codereview/providers.py",
+  "line": 43,
+  "severity_as_raised": "major",
+  "evidence_quote": "def _kill_tree(proc, pgid=None):",
+  "recommendation": "Move 'import signal' and 'import os' to module-level imports; the function already uses them unconditionally on POSIX.",
+  "raised_by_family": "nvidia",
+  "record_finding_id": "2242edbba9c9"
+ },
+ "code_region": {
+  "commit": "e3fc6a8c12bae345ce0102933b90f47bd874d862",
+  "path": "src/codereview/providers.py",
+  "located": true,
+  "start_line": 172,
+  "end_line": 192,
+  "text": "    extra = [n.strip() for n in\n             os.environ.get(\"CODEREVIEW_AGENT_ENV\", \"\").split(\",\")\n             if n.strip()]\n    env = {n: os.environ[n] for n in names + extra if n in os.environ}\n    env[\"CODEREVIEW_PROMPT\"] = prompt_path\n    return env\n\n\ndef _kill_tree(proc, pgid=None):\n    \"\"\"Kill the agent's whole process group (it was started in its\n    own session), so no orphaned grandchildren survive — called on\n    timeout AND after a normal exit (an agent may leave daemons\n    behind; v0.7.1 external review, finding 3.2). A group that is\n    already gone is not an error.\"\"\"\n    try:\n        if os.name == \"posix\":\n            os.killpg(pgid if pgid is not None\n                      else os.getpgid(proc.pid), signal.SIGKILL)\n        else:\n            proc.kill()\n    except (ProcessLookupError, PermissionError, OSError):"
+ },
+ "refutation": {
+  "by_family": "openai",
+  "quote": "import signal",
+  "reason": "The claim says os and signal are not imported at module scope for _kill_tree, but this diff section shows signal is imported at module level, and os is also present in the module imports.",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "`probes/gap_providers_probe.py`, result `gap-providers-cluster.txt`, imports section: - `'os' in vars(providers)` → True; `'signal' in vars(providers)` → True; both are the stdlib modules themselves (`providers.os is os`, `providers.signal is signal`). - Functional proof, not just namespace inspection: the probe spawned a real sleeper process in its own session and called `providers._kill_tree(proc, pgid)` — the process died by SIGKILL (`poll() -> -9`). The function executes its POSIX path end-to-end at HEAD, which it could not do with either import missing.",
+  "basis_evidence_sha256": [
+   "861703dc74b83fb4683d0121d2faf013f40e3b33756acdf2b4be875087d2684b"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/gap-providers-cluster.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_refutation",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry 2242edbba9c9 (decider=owner, marker=ratified, 2026-11-05T02:16:32+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-gap-2026-11-04/12-2242edbba9c9.md; source record: /home/hatch/workspace/codereview/review-v15/codereview-20261104-224759.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": []
+}

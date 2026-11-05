@@ -1,0 +1,53 @@
+{
+ "case_id": "S-D36",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "record directory loading picks the newest JSON by mtime, which can verify or export the wrong file",
+ "finding": {
+  "claim": "record directory loading picks the newest JSON by mtime, which can verify or export the wrong file",
+  "evidence": "When a directory is passed, the loader scans every .json file and chooses the last one after sorting by modification time. Record directories created by other new commands in this diff can contain multiple JSON files, so record-verify, sarif, and locate may operate on an unrelated auxiliary JSON instead of the actual review record.",
+  "file": "src/codereview/cli.py",
+  "line": 1008,
+  "severity_as_raised": "major",
+  "evidence_quote": "            key=lambda p: os.path.getmtime(p))",
+  "recommendation": "Use a deterministic record filename or validate candidate JSON contents and select only files matching the expected review-record schema, rather than choosing by mtime across all .json files in the directory.",
+  "raised_by_family": "openai",
+  "record_finding_id": "179ece0e030e"
+ },
+ "code_region": {
+  "commit": "2fbf94f2ca6feec0ad1180a71d3c9064bf1cef4d",
+  "path": "src/codereview/cli.py",
+  "located": true,
+  "start_line": 1066,
+  "end_line": 1086,
+  "text": "    \"\"\"Resolve a record argument (directory or JSON file) to\n    (record, record_dir, jpath). record_dir is repo-relative —\n    the head-currency checks allow later commits that touch only\n    the record directories.\"\"\"\n    if os.path.isdir(path):\n        candidates = sorted(\n            (os.path.join(path, f) for f in os.listdir(path)\n             if f.endswith(\".json\")),\n            key=lambda p: os.path.getmtime(p))\n        if not candidates:\n            raise ValueError(f\"no record JSON in {path}\")\n        jpath = candidates[-1]\n        record_dir = os.path.relpath(\n            os.path.abspath(path),\n            os.path.abspath(repo)).replace(os.sep, \"/\")\n    else:\n        jpath = path\n        record_dir = os.path.relpath(\n            os.path.abspath(os.path.dirname(path) or \".\"),\n            os.path.abspath(repo)).replace(os.sep, \"/\")\n    with open(jpath, encoding=\"utf-8\") as fh:"
+ },
+ "refutation": {
+  "by_family": "nvidia",
+  "quote": "            key=lambda p: os.path.getmtime(p))",
+  "reason": "The quoted line sorts JSON files by modification time to select the newest, but the code region contains no directory-loading logic that iterates .json files in a folder. The finding's claim about directory scanning and mtime-based selection is unsupported by the provided code.",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "CLI probe (`probes/closingB_cli_core.py`, record-arg section): a directory holding two record JSONs (names aaa/zzz; the zzz file given the OLDER name but the NEWER mtime) was loaded through `_load_record_arg` (cli.py:1066-1092): the loader picked the file with the newest MTIME — name order and content recency are not consulted. The directory-loading logic the refutation says does not exist is present and behaves exactly as the claim describes.",
+  "basis_evidence_sha256": [
+   "d253dd716ab083e82b518b250831fd4e3d49e5bf4424a0536943b9690f9c2ba5"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/closingB-cli-core.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_finding",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry 179ece0e030e (decider=owner, marker=ratified, 2026-11-05T04:07:56+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-closing-r1-2026-11-04/11-179ece0e030e.md; source record: review-closing-r1/codereview-20261105-031927.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": [
+  "reason_corrected: the claim's mechanism stands as executed; the harm framing is narrowed to mtime-scrambled copies (in-place records are unaffected, since mtime order and name order agree there)."
+ ]
+}

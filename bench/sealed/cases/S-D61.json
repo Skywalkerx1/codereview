@@ -1,0 +1,54 @@
+{
+ "case_id": "S-D61",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "New CLI commands added without test coverage",
+ "finding": {
+  "claim": "New CLI commands added without test coverage",
+  "evidence": "",
+  "file": "src/codereview/cli.py",
+  "line": 14,
+  "severity_as_raised": "major",
+  "evidence_quote": "codereview sarif review-out --out results.sarif",
+  "recommendation": "Add unit tests for the new CLI subcommands (_sarif_main, _policy_main, _evidence_main, _setup_main, _doctor_main, _record_verify_main, _disputes_main, _locate_main, _bench_main, _acceptance_main) and ensure they exercise the new argument parsing and core logic paths.",
+  "raised_by_family": "nvidia",
+  "record_finding_id": "887c490bd9eb"
+ },
+ "code_region": {
+  "commit": "2fbf94f2ca6feec0ad1180a71d3c9064bf1cef4d",
+  "path": "src/codereview/cli.py",
+  "located": true,
+  "start_line": 9,
+  "end_line": 29,
+  "text": "      --builder-response response.md --provider gemini --provider nvidia\n  codereview loop --repo . --builder-cmd \"your-coding-agent\" \\\n      --provider gemini --provider gemini --provider nvidia\n  codereview workflow --file workflow.json --repo . --out wf-out\n  codereview pr --repo OWNER/REPO --number 123 --provider gemini\n  codereview pr --pr https://github.com/OWNER/REPO/pull/123 --post\n  codereview intake issue-report.md --provider gemini \\\n      --provider nvidia --context src/alerts.py\n  codereview sarif review-out --out results.sarif\n  codereview policy check   # validate .codereview.toml and\n                            # print the effective project policy\n  codereview evidence --repo . --config evidence.json\n  codereview evidence --repo . --claims builder-report.md\n\nExit codes: 0 = gate PASS (intake: a solution was produced),\n1 = gate BLOCKED, 2 = INCONCLUSIVE or usage/infrastructure error\n(intake: every solver failed).\n\"\"\"\n\nfrom __future__ import annotations\n"
+ },
+ "refutation": {
+  "by_family": null,
+  "quote": "codereview sarif review-out --out results.sarif",
+  "reason": "No panel refutation was recorded for this finding — it reached the workup undisputed. The opposing/confirmatory position is the executed probe in SS3 of the packet: Coverage map (closing workup): the suite's CLI-level tests were mapped by subcommand. Subcommands WITH functional main-level tests: review, verify, records (scan), precedents, disputes (incl. main), shadow (main flows), doctor partially. Subcommands whose only coverage is help/argparse-level: evidence, acceptance, pr, workflow, loop. The probes in this workup exercised four of those five directly — and two of the workup's six fixes live behind main-level paths (evidence exit-2, doctor guard), which is the practical cost of the gap: bugs at the main seam are found by reviewers, not by the suite.",
+  "provenance": "none-recorded: no dispute exists in the source record; the workup probe is the only counter-position"
+ },
+ "probe": {
+  "summary": "Coverage map (closing workup): the suite's CLI-level tests were mapped by subcommand. Subcommands WITH functional main-level tests: review, verify, records (scan), precedents, disputes (incl. main), shadow (main flows), doctor partially. Subcommands whose only coverage is help/argparse-level: evidence, acceptance, pr, workflow, loop. The probes in this workup exercised four of those five directly — and two of the workup's six fixes live behind main-level paths (evidence exit-2, doctor guard), which is the practical cost of the gap: bugs at the main seam are found by reviewers, not by the suite.",
+  "basis_evidence_sha256": [
+   "312980fff2e78253ac2ebd03e7dedc55bc14fc0347592ac2f176c5a2fae480ed"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/closingB-cli-coverage.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_finding",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry 887c490bd9eb (decider=owner, marker=ratified, 2026-11-05T04:08:01+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-closing-r1-2026-11-04/47-887c490bd9eb.md; source record: review-closing-r1/codereview-20261105-031927.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": [
+  "finding sustained at reduced severity (owner downgrade)",
+  "reason_corrected: scope narrowed from 'subcommands lack functional tests' (broad) to the five seams named above; the other subcommands' main-level coverage exists and is listed in the check."
+ ]
+}

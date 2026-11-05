@@ -1,0 +1,61 @@
+diff --git a/app/state_store.py b/app/state_store.py
+--- /dev/null
++++ b/app/state_store.py
+@@ -0,0 +1,57 @@
++import json
++import os
++import tempfile
++
++
++def save_state(path, state):
++    """Persist *state* (a JSON-serialisable dict) to *path* atomically.
++
++    Readers either see the whole old file or the whole new file, never
++    a torn write: the payload goes to a temp file in the same directory,
++    is fsynced, and is then renamed over the destination with
++    os.replace, which is atomic on POSIX and Windows.
++
++    The temp file must live in the destination directory, not the
++    system temp directory: a rename across filesystems is a copy, not
++    an atomic rename, and would silently lose the guarantee above.
++    """
++    directory = os.path.dirname(os.path.abspath(path))
++    fd, tmp_path = tempfile.mkstemp(
++        dir=directory, prefix=".state-", suffix=".tmp"
++    )
++    try:
++        with os.fdopen(fd, "w", encoding="utf-8") as handle:
++            json.dump(state, handle, sort_keys=True)
++            handle.flush()
++            os.fsync(handle.fileno())
++        os.replace(tmp_path, path)
++    except BaseException:
++        # Never leave a partial temp file behind, and never hide the
++        # original failure: clean up best-effort, then re-raise.
++        try:
++            os.unlink(tmp_path)
++        except OSError:
++            pass
++        raise
++    _fsync_directory(directory)
++
++
++def _fsync_directory(directory):
++    """Fsync a directory so a rename inside it survives a power loss."""
++    dir_fd = os.open(directory, os.O_RDONLY)
++    try:
++        os.fsync(dir_fd)
++    finally:
++        os.close(dir_fd)
++
++
++def load_state(path):
++    """Load previously saved state; a missing file means empty state."""
++    try:
++        with open(path, encoding="utf-8") as handle:
++            data = json.load(handle)
++    except FileNotFoundError:
++        return {}
++    if not isinstance(data, dict):
++        raise ValueError("state file is corrupt: root is not an object")
++    return data

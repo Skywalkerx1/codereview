@@ -1,0 +1,63 @@
+diff --git a/app/dlq_worker.py b/app/dlq_worker.py
+--- /dev/null
++++ b/app/dlq_worker.py
+@@ -0,0 +1,59 @@
++import logging
++
++logger = logging.getLogger(__name__)
++MAX_ATTEMPTS = 3
++
++
++def _delivery_attempts(message):
++    """Best-effort delivery count carried in the message attributes."""
++    try:
++        return max(0, int(message.attributes.get("delivery_count", "0")))
++    except (TypeError, ValueError):
++        return 0
++
++
++def process_messages(queue, dlq, handler):
++    """Consume until the queue is empty; return outcome counts.
++
++    Ack discipline: ack only on success or after the message is safely
++    in the dead-letter queue. Everything else is nacked or left
++    un-acked so the broker redelivers it: messages are never silently
++    discarded.
++    """
++    processed = 0
++    dead_lettered = 0
++    while True:
++        message = queue.receive()
++        if message is None:
++            break
++        attempts = _delivery_attempts(message) + 1
++        try:
++            handler(message.body)
++        except Exception as exc:
++            if attempts < MAX_ATTEMPTS:
++                logger.warning(
++                    "attempt %d/%d failed; will retry: %s",
++                    attempts, MAX_ATTEMPTS, exc,
++                )
++                queue.nack(message)
++                continue
++            try:
++                dlq.send(
++                    body=message.body,
++                    attributes={
++                        **message.attributes,
++                        "delivery_count": str(attempts),
++                        "last_error": f"{type(exc).__name__}: {exc}"[:500],
++                    },
++                )
++            except Exception:
++                logger.exception(
++                    "dead-letter send failed; leaving message un-acked"
++                )
++                continue
++            queue.ack(message)
++            dead_lettered += 1
++        else:
++            queue.ack(message)
++            processed += 1
++    return {"processed": processed, "dead_lettered": dead_lettered}

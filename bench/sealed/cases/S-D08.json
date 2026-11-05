@@ -1,0 +1,54 @@
+{
+ "case_id": "S-D08",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "Fixture manifest loader can crash with uncaught ValueError on Windows drive mismatches",
+ "finding": {
+  "claim": "Fixture manifest loader can crash with uncaught ValueError on Windows drive mismatches",
+  "evidence": "",
+  "file": "src/codereview/cli.py",
+  "line": 79,
+  "severity_as_raised": "major",
+  "evidence_quote": "    if os.path.commonpath([full, repo_abs]) != repo_abs:",
+  "recommendation": "Wrap the commonpath call in a try/except ValueError and convert it into the same explicit outside-repository error path used for other invalid manifest locations.",
+  "raised_by_family": "openai",
+  "record_finding_id": "290d549f2809"
+ },
+ "code_region": {
+  "commit": "4e5cbd894817834148a7580e939f3df39a6cce12",
+  "path": "src/codereview/cli.py",
+  "located": true,
+  "start_line": 71,
+  "end_line": 91,
+  "text": "def _is_within(path, root):\n    \"\"\"True when `path` resolves inside `root` — failing closed.\n\n    os.path.commonpath raises ValueError for paths on different\n    drives (Windows) or when mixing absolute and relative paths;\n    a containment question that cannot be evaluated is a\n    containment failure, never a pass (v0.9.6, disputed findings\n    eae8137a6db3 / 3cecf66f6ce5: the mechanism was real, the\n    severity was not — one shared helper, used at both loader\n    call sites, so the two cannot drift apart again).\"\"\"\n    try:\n        p = os.path.realpath(path)\n        r = os.path.realpath(root)\n        return os.path.commonpath([p, r]) == r\n    except ValueError:\n        return False\n\n\ndef _load_fixture_scope(path, repo=\".\"):\n    \"\"\"Load a versioned fixture manifest (clean-gate solution §3):\n    returns the fixture_scope dict run_review records and"
+ },
+ "refutation": {
+  "by_family": "nvidia",
+  "quote": "    except ValueError:",
+  "reason": "The cited commonpath call has been moved into _is_within and explicitly wrapped in a try/except that catches ValueError and returns False, so it will not crash on Windows drive mismatches.",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "`probes/gap_commonpath_probe.py`, result `gap-commonpath-pair.txt`: - At HEAD, `_is_within` returns False (fails closed, no propagation) for inside/outside/mixed inputs, and under a monkeypatched `commonpath` that raises ValueError — the Windows cross-drive failure mode, simulated because real Windows drives cannot exist on this Linux host; the POSIX mixed absolute/relative case raises the same exception from the same call and is shown directly. - `_load_fixture_scope` against an outside-repo path produces the intended validation error (\"resolves outside the repository\"), not a raw commonpath traceback. - Git: at `4e5cbd8^` the loaders contain 2 direct unguarded commonpath containment checks and no helper; at `4e5cbd8` (v0.9.6) there are 0 and the helper exists. The v15 record's head (e3fc6a8) is an ancestor of the fix — the claim was true of the code it reviewed.",
+  "basis_evidence_sha256": [
+   "92497d24300670edccf61d0fd11130fbbd2a995cf8f157ac753563a15de3e4d2"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/gap-commonpath-pair.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_finding",
+  "severity_after": "major",
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry 290d549f2809 (decider=owner, marker=ratified, 2026-11-05T02:16:32+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-gap-2026-11-04/04-eae8137a6db3.md; source record: /home/hatch/workspace/codereview/review-v096/codereview-20261104-233259.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": [
+  "finding sustained and fixed in commit 4e5cbd8",
+  "re-raise twin: packet documents the shared defect under the sibling finding id; disposition recorded against both IDs"
+ ]
+}

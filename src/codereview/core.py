@@ -402,6 +402,7 @@ def deterministic_scan(patch, test_results=None):
             "evidence_quote": redact_secrets(evidence),
             "recommendation": recommendation,
             "confidence": confidence, "sources": ["deterministic"],
+            "source_lenses": {"deterministic": ["deterministic"]},
             "consensus": False,
         })
 
@@ -589,7 +590,7 @@ def parse_json_object(text):
     return json.loads(t[start:end + 1])
 
 
-def _normalize_finding(raw, source):
+def _normalize_finding(raw, source, lens=None):
     if not isinstance(raw, dict):
         return None
     sev = str(raw.get("severity") or "minor").lower()
@@ -624,6 +625,14 @@ def _normalize_finding(raw, source):
         "recommendation": str(raw.get("recommendation") or "")[:500],
         "confidence": max(0.0, min(1.0, conf)),
         "sources": [source], "consensus": False,
+        # Lens attribution (step 6): the lens this source was
+        # serving when it raised the finding — merged findings
+        # union it per source, and the gate profile (B1) reads
+        # it. Callers that do not know the lens (verification
+        # new findings) leave it empty; the profile pass treats
+        # an unattributed source as unknown, never as
+        # operations.
+        "source_lenses": ({source: [lens]} if lens else {}),
     }
 
 
@@ -2361,6 +2370,133 @@ def upsert_precedent(entries, finding, blob, round_label,
     return out
 
 
+# ------------------------------------------------- gate profiles (step 6)
+
+# Gate profiles (honest-negatives solution §2.4; candidate
+# frozen by the step-4 replay sweep): "strict" is the
+# historical gate — every blocking-severity finding blocks.
+# "balanced" is policy B1 (per-lens corroboration).
+# policy.KNOWN_GATE_PROFILES mirrors this tuple (the policy
+# module stays import-free of the engine; a test pins the two
+# together). "quiet" (blanket corroboration) is deliberately
+# absent: the sweep rejected it — it demoted three real
+# single-seat majors (D6–D8) — so naming it is an error, not
+# a fallback.
+GATE_PROFILES = ("strict", "balanced")
+
+
+def _source_lenses_of(finding):
+    """{source: [lens, ...]} — which lens each contributing
+    source served. Findings stamped at creation carry
+    `source_lenses`; the deterministic layer is derived from
+    `sources` for unstamped records. A model source with no
+    recorded lens stays absent: its lens is UNKNOWN, and the
+    profile pass treats unknown as not-operations (it fails
+    safe, towards strict)."""
+    out = {}
+    raw = finding.get("source_lenses")
+    if isinstance(raw, dict):
+        for src, lenses in raw.items():
+            out[str(src)] = sorted({str(l) for l in lenses or []})
+    if "deterministic" in (finding.get("sources") or []) \
+            and "deterministic" not in out:
+        out["deterministic"] = ["deterministic"]
+    return out
+
+
+def _evidence_class(finding):
+    """Evidence class metadata (solution §2.4 lever A),
+    recorded on every merged finding. It changes no verdict:
+    under `strict` nothing acts on it; under `balanced` only
+    the B1 rule acts, and only as specified there. E0: the
+    deterministic layer is a source. E1: corroborated — more
+    than one distinct source in the merged finding. E3:
+    single-seat, unverified. E2 (probe-confirmed) is never
+    assigned here: probes run later, in adjudication, so no
+    merged finding is probe-confirmed at profile time."""
+    sources = finding.get("sources") or []
+    if "deterministic" in sources:
+        return "E0"
+    if len(set(sources)) >= 2:
+        return "E1"
+    return "E3"
+
+
+def _apply_gate_profile(findings, profile):
+    """Apply a gate profile to merged findings ->
+    (findings, demotions). Every finding gains `evidence_class`
+    metadata and a normalised `source_lenses` map. Demote,
+    never delete: a demoted finding stays in the list at minor
+    severity with the demotion on its record.
+
+    `strict`: no severity changes — today's gate exactly.
+
+    `balanced` (policy B1, frozen by the step-4 replay sweep):
+    a finding in the blocking tier (BLOCKING_DEFAULT) whose
+    sources are ALL lens-attributed, and whose attributed
+    lenses are solely "operations", is demoted to minor with
+    the reason recorded (`profile_demotion` on the finding,
+    an entry in the returned demotions list). A
+    correctness-lens contribution or a deterministic source
+    in the merged finding is the corroboration that keeps it
+    blocking; correctness-lens and deterministic findings
+    are never gated by B1. A finding with any unattributed
+    source is never demoted (fail-safe towards strict).
+
+    REPLAY-TO-LIVE GAP (stated with the frozen candidate):
+    the replay grouped findings into defects SEMANTICALLY, by
+    step-3 adjudication, and counted corroboration across the
+    seats in each group. Live, "same defect" is approximated
+    by this gate's merge identity (same file + category +
+    title overlap) and corroboration by the lenses attributed
+    to the merged finding's sources — including one seat
+    serving both lenses, whose correctness task corroborates
+    its own operations task here, where the replay's
+    different-seat grouping would not have counted it. Live
+    behaviour therefore sits between strict and the replay's
+    B row; step 7 confirms B1 once, as-is, on the private
+    holdout + expanded clean set before the default may
+    change."""
+    demotions = []
+    for f in findings:
+        f["source_lenses"] = _source_lenses_of(f)
+        f["evidence_class"] = _evidence_class(f)
+        if profile != "balanced":
+            continue
+        if f.get("severity") not in BLOCKING_DEFAULT:
+            continue
+        sources = f.get("sources") or []
+        if not sources:
+            continue
+        lenses = set()
+        unattributed = False
+        for src in sources:
+            src_lenses = f["source_lenses"].get(src)
+            if not src_lenses:
+                unattributed = True
+                break
+            lenses.update(src_lenses)
+        if unattributed or lenses != {"operations"}:
+            continue
+        original = f["severity"]
+        f["severity"] = "minor"
+        f["profile_demotion"] = {
+            "rule": "B1", "profile": "balanced",
+            "from": original, "to": "minor",
+            "reason": (
+                "blocking-severity finding whose merged "
+                "sources are solely the operations lens — no "
+                "correctness-lens or deterministic "
+                "corroboration within the gate's merge "
+                "identity (policy B1)"),
+        }
+        demotions.append({
+            "finding_id": f.get("id"), "file": f.get("file"),
+            "title": f.get("title"),
+            "from": original, "to": "minor", "rule": "B1"})
+    return findings, demotions
+
+
 def merge_findings(findings):
     """Merge near-duplicate findings across reviewers.
 
@@ -2388,6 +2524,17 @@ def merge_findings(findings):
                     if s not in m["sources"]:
                         m["sources"].append(s)
                 m["consensus"] = len(m["sources"]) > 1
+                # Lens attribution (step 6): union per-source
+                # lenses so the gate profile can tell which
+                # lens each merged source served.
+                m_lenses = _source_lenses_of(m)
+                for src, lenses in _source_lenses_of(f).items():
+                    cur = m_lenses.setdefault(src, [])
+                    for ln in lenses:
+                        if ln not in cur:
+                            cur.append(ln)
+                    cur.sort()
+                m["source_lenses"] = m_lenses
                 if f.get("line") and not m.get("line"):
                     m["line"] = f["line"]
                 # Grounding (§2b): a merged finding keeps the
@@ -2401,7 +2548,9 @@ def merge_findings(findings):
                 placed = True
                 break
         if not placed:
-            merged.append(dict(f))
+            nf = dict(f)
+            nf["source_lenses"] = _source_lenses_of(f)
+            merged.append(nf)
     merged.sort(key=lambda x: (_SEV_RANK[x["severity"]], x["file"],
                                x["title"]))
     return merged
@@ -2872,7 +3021,8 @@ def run_review(patch, providers, context="", test_results=None,
                precedents=None, tech_lead=None, probe_fn=None,
                tech_lead_timeout=None, lens_seats=None,
                policy=None, waivers=None, evidence=None,
-               tech_lead_shadow=False, tech_lead_shadow_seat=None):
+               tech_lead_shadow=False, tech_lead_shadow_seat=None,
+               gate_profile=None):
     """One review round. `providers` maps name -> callable(prompt)->str.
 
     Returns the report dict. Never raises for provider failures; they
@@ -2955,8 +3105,44 @@ def run_review(patch, providers, context="", test_results=None,
     applied after every other gate adjustment: required evidence
     that failed / timed out / errored / is missing BLOCKS the
     gate; required evidence that is merely unavailable (tool not
-    installed) makes a passing gate INCONCLUSIVE."""
+    installed) makes a passing gate INCONCLUSIVE.
+
+    Gate profile (step 6; honest-negatives solution §2.4,
+    candidate frozen by the step-4 replay sweep):
+    `gate_profile` selects the gate's admission rule for
+    blocking findings — "strict" (the default: today's
+    behaviour, every blocking-severity finding blocks) or
+    "balanced" (policy B1: a blocking finding whose merged
+    sources are solely the operations lens, with no
+    correctness-lens or deterministic corroboration within
+    the gate's merge identity, is demoted to a visible minor
+    before any further classification — see
+    _apply_gate_profile for the rule and the replay-to-live
+    gap). Resolution order: the explicit argument, then the
+    policy file's [gate] profile, then "strict". The
+    effective profile, its source, and every demotion are
+    recorded in the report's gate_profile section. The
+    default stays "strict" until Baseline v2 confirms B1
+    once on the holdout (step 7)."""
     test_results = test_results or []
+    # Gate profile resolution (step 6): explicit argument >
+    # policy file's [gate] profile > "strict" default. An
+    # unknown profile is a caller error and fails loudly —
+    # "quiet" included: it was rejected on the sweep evidence,
+    # not left as a silent alias for anything.
+    if gate_profile is not None:
+        effective_profile = gate_profile
+        profile_source = "argument"
+    elif policy is not None \
+            and (policy.get("gate") or {}).get("profile"):
+        effective_profile = policy["gate"]["profile"]
+        profile_source = "policy"
+    else:
+        effective_profile, profile_source = "strict", "default"
+    if effective_profile not in GATE_PROFILES:
+        raise ValueError(
+            f"unknown gate profile {effective_profile!r} "
+            f"(known: {', '.join(GATE_PROFILES)})")
     det = deterministic_scan(patch, test_results)
     clean_patch = redact_secrets(patch)
     for f in det:
@@ -3085,7 +3271,8 @@ def run_review(patch, providers, context="", test_results=None,
                 rec["error"] = ""
                 rec["summary"] = str(parsed.get("summary") or "")[:500]
                 for raw_f in parsed.get("findings") or []:
-                    nf = _normalize_finding(raw_f, serving_name)
+                    nf = _normalize_finding(raw_f, serving_name,
+                                            lens=lens)
                     if nf:
                         # Grounding (§2b): the quote must appear
                         # in the batch text THIS reviewer received.
@@ -3206,6 +3393,15 @@ def run_review(patch, providers, context="", test_results=None,
     # Line basis (§5.6): label each citation with the numbering
     # it demonstrably uses, where the patch proves it.
     _apply_line_basis(merged, patch)
+    # Gate profile (step 6): applied to the merged findings
+    # before archived/fixture/precedent/platform classification
+    # and before cross-family confirmation, so a finding the
+    # profile demotes consumes none of that machinery — the
+    # frozen policy's semantics: it does not ENTER the blocking
+    # set. Under "strict" this stamps evidence-class metadata
+    # only and changes nothing.
+    merged, profile_demotions = _apply_gate_profile(
+        merged, effective_profile)
     # Archived-text classification (§5.4): deterministic
     # findings fired on archived paths (the scan runs on the
     # full patch), and any finding whose quote exists only
@@ -3858,6 +4054,14 @@ def run_review(patch, providers, context="", test_results=None,
             "human decision required: disputed, "
             "refutation-weak, escalated or ungrounded "
             "finding(s) are recorded in the record"] + reasons
+    if profile_demotions:
+        reasons = reasons + [
+            f"gate profile 'balanced' (policy B1 — per-lens "
+            f"corroboration): {len(profile_demotions)} blocking "
+            f"finding(s) raised solely by the operations lens "
+            f"without corroboration demoted to minor — visible, "
+            f"non-blocking; see the record's gate_profile "
+            f"section"]
     policy_outcome = None
     if policy is not None:
         # Project policy (Epic B2): evaluated on the round's
@@ -3929,6 +4133,9 @@ def run_review(patch, providers, context="", test_results=None,
         "degraded": degraded, "truncated": truncated,
         "degraded_causes": list(degraded_causes),
         "gate": gate, "gate_reasons": reasons,
+        "gate_profile": {"profile": effective_profile,
+                         "source": profile_source,
+                         "demotions": profile_demotions},
     }
     if withdrawn_findings:
         report["withdrawn_findings"] = withdrawn_findings

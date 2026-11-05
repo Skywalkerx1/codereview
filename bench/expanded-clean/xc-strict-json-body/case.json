@@ -1,0 +1,11 @@
+{
+  "id": "xc-strict-json-body",
+  "title": "JSON body parser with content-type check and byte cap",
+  "category": "clean",
+  "split": "expanded-clean",
+  "source": "Authored for the CodeReview benchmark corpus (expanded clean stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "expanded-clean",
+  "false_flag_note": "A reviewer may flag the settled flag and req.destroy() as clumsy, or the empty-body shortcut as lax. The parser fails closed at each step: a non-JSON content type is rejected before any bytes are read, chunk lengths are Buffer byte counts (not string lengths, so multi-byte characters cannot sneak past the cap), exceeding the cap answers 413 and destroys the socket so the client cannot keep streaming, the settled flag makes the data/end/error handlers mutually exclusive after any terminal outcome, malformed JSON is a 400 rather than a thrown 500, and an empty body maps to {} only because the routes behind this parser treat it as 'no fields'."
+}

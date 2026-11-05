@@ -1,0 +1,53 @@
+{
+ "case_id": "S-D32",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "Telemetry inventory crashes on malformed gate-attempts rows instead of completing the scan",
+ "finding": {
+  "claim": "Telemetry inventory crashes on malformed gate-attempts rows instead of completing the scan",
+  "evidence": "        rows = [_json.loads(ln) for ln in open(",
+  "file": "probes/records_scan.py",
+  "line": 171,
+  "severity_as_raised": "major",
+  "evidence_quote": "        rows = [_json.loads(ln) for ln in open(",
+  "recommendation": "Parse gate-attempts.jsonl defensively: use a with-open block, skip blank lines, and catch JSONDecodeError per line so one malformed row does not abort the entire scan. If malformed rows should fail the probe, emit a controlled finding in the output instead of raising.",
+  "raised_by_family": "openai",
+  "record_finding_id": "99fe18f50ec3"
+ },
+ "code_region": {
+  "commit": "2fbf94f2ca6feec0ad1180a71d3c9064bf1cef4d",
+  "path": "probes/records_scan.py",
+  "located": true,
+  "start_line": 166,
+  "end_line": 186,
+  "text": "    # Telemetry inventory: the claim's actual subject is the\n    # attempts log's per-seat operational telemetry, which the\n    # regex categories do not capture. Inventory its fields\n    # and distinct values so the profile decision has them.\n    ga = os.path.join(REPO, \"gate-attempts.jsonl\")\n    if os.path.exists(ga):\n        import collections\n        import json as _json\n        rows = [_json.loads(ln) for ln in open(\n            ga, encoding=\"utf-8\") if ln.strip()]\n        seat_fields = collections.Counter()\n        distinct = collections.defaultdict(collections.Counter)\n        for r in rows:\n            for seat in r.get(\"seats\") or []:\n                seat_fields.update(seat.keys())\n                for k, v in seat.items():\n                    distinct[k][str(v)] += 1\n        lines += [\"\",\n                  \"TELEMETRY INVENTORY — gate-attempts.jsonl \"\n                  f\"({len(rows)} rows):\",\n                  \"  row fields: \" + \", \".join(sorted("
+ },
+ "refutation": {
+  "by_family": "nvidia",
+  "quote": "rows = [_json.loads(ln) for ln in open(",
+  "reason": "The code explicitly filters out blank lines before parsing, using the condition `if ln.strip()`, which prevents JSONDecodeError from malformed or empty rows from aborting the scan.",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "Records-scan probe (`probes/closing_records_scan_probe.py`, section b): the scan was run in a synthetic tree whose gate-attempts.jsonl carries [valid, blank, MALFORMED non-blank, valid] rows. Exit code 1 — `json.decoder.JSONDecodeError` out of the telemetry block (records_scan.py: `rows = [_json.loads(ln) for ln in open(...) if ln.strip()]`), and no result file was written: the scan aborts instead of completing. The blank-line filter the refutation cites works — for blank lines; a non-blank malformed row is the unhandled shape.",
+  "basis_evidence_sha256": [
+   "6306129ab7d3d6c279f858e9359529269a90a7be1b15ce99540c7c1ce5154e38"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/closing-records-scan.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_finding",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry 99fe18f50ec3 (decider=owner, marker=ratified, 2026-11-05T04:07:55+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-closing-r1-2026-11-04/07-99fe18f50ec3.md; source record: review-closing-r1/codereview-20261105-031927.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": [
+  "reason_corrected: the refutation's scope is corrected to blank lines only."
+ ]
+}

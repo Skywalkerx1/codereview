@@ -1,0 +1,51 @@
+{
+ "case_id": "S-D21",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "Verification quorum can still pass with one reviewer after provider failures",
+ "finding": {
+  "claim": "Verification quorum can still pass with one reviewer after provider failures",
+  "evidence": "The new quorum check is based on the configured provider count via 'quorum_ok = len(ok_recs) >= 2 or len(providers) <= 1'. If multiple providers are configured but only one succeeds and the others fail, later logic can still return pass when there are no open findings and degraded is false in non-strict mode.",
+  "file": "src/codereview/core.py",
+  "line": 1631,
+  "severity_as_raised": "major",
+  "evidence_quote": "    quorum_ok = len(ok_recs) >= 2 or len(providers) <= 1",
+  "recommendation": "Base pass eligibility on successful reviewer count whenever more than one provider was intended for the run, and make degraded verification inconclusive regardless of strict mode if quorum is not met.",
+  "raised_by_family": "openai",
+  "record_finding_id": "c5f02551d077"
+ },
+ "code_region": {
+  "commit": "e3fc6a8c12bae345ce0102933b90f47bd874d862",
+  "path": "src/codereview/core.py",
+  "located": true,
+  "start_line": 1617,
+  "end_line": 1637,
+  "text": "        else:\n            # Every responding reviewer said fixed/invalid, but the\n            # seat that raised the finding never spoke — unjudged,\n            # not cleared.\n            unjudged.append({**f, \"last_statuses\": statuses})\n    merged_new = merge_findings(new_findings)\n    all_open = remaining + [f for f in merged_new\n                            if f[\"severity\"] in blocking_sevs]\n    quorum_ok = len(ok_recs) >= 2 or len(providers) <= 1\n    if not any_success:\n        gate, reasons = \"inconclusive\", [\"no reviewer succeeded\"]\n    elif all_open:\n        gate = \"blocked\"\n        reasons = [f\"{len(all_open)} blocking item(s) still open\"]\n        if truncated:\n            reasons.append(\"new diff was truncated\")\n    elif unjudged:\n        gate, reasons = \"inconclusive\", [\n            f\"{len(unjudged)} prior blocker(s) not confirmed \"\n            \"cleared: the seat that raised each was not among the \"\n            \"successful reviewers (run a fresh review with the \""
+ },
+ "refutation": {
+  "by_family": "nvidia",
+  "quote": "    quorum_ok = len(ok_recs) >= 2 or len(providers) <= 1",
+  "reason": "The code region shows the quorum logic explicitly allows a pass when only one provider succeeds and others fail, provided the total provider count is one or fewer. The finding's claim that this causes a pass with one reviewer after provider failures is not supported by the quoted line, which is a gu",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "`probes/gap_quorum_probe.py`, result `gap-quorum-c5f02551d077.txt` — the claim's exact scenario, executed at HEAD (2 configured seats, one raises, the survivor clears the prior blocker with the finder among the successful): - strict=False: gate = **inconclusive** — \"verification quorum not met: 1 of 2 reviewers succeeded (need at least 2)\" - strict=True: gate = **inconclusive** — same reason - Control, both succeed: gate = pass, blocker cleared. - Control, solo panel (1 configured): gate = pass, reasons carry \"solo panel, no independent review\" twice over (the pass sentence and the standalone v0.9.6 label). The pass branch is unreachable without quorum whenever 2+ providers are configured, in both modes — the `elif not quorum_ok` interception sits before it unconditionally.",
+  "basis_evidence_sha256": [
+   "db6eebaaa2b2507484b6b1cec6c86305eb21d801493957de7afe1e2c471ae29d"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/gap-quorum-c5f02551d077.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_refutation",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry c5f02551d077 (decider=owner, marker=ratified, 2026-11-05T02:16:34+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-gap-2026-11-04/08-c5f02551d077.md; source record: /home/hatch/workspace/codereview/review-v15/codereview-20261104-224759.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": []
+}

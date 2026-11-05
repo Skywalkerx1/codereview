@@ -1,0 +1,40 @@
+diff --git a/app/http_client.py b/app/http_client.py
+--- a/app/http_client.py
++++ b/app/http_client.py
+@@ -1,9 +1,32 @@
++import random
++import time
++
+ import requests
+ 
+ TIMEOUT_SECONDS = 10
++SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
++RETRYABLE_ERRORS = (requests.ConnectionError, requests.Timeout)
+ 
+ 
+-def fetch(url):
+-    response = requests.get(url, timeout=TIMEOUT_SECONDS)
+-    response.raise_for_status()
+-    return response
++def fetch(url, method="GET", max_attempts=3, base_delay=0.5, **kwargs):
++    """Perform an HTTP request, retrying transient failures safely.
++
++    Only idempotent methods are retried, and only on connection or
++    timeout errors where the request may never have reached the server.
++    The final attempt re-raises so callers always see the real error.
++    """
++    if max_attempts < 1:
++        raise ValueError("max_attempts must be at least 1")
++    kwargs.setdefault("timeout", TIMEOUT_SECONDS)
++    for attempt in range(max_attempts):
++        try:
++            response = requests.request(method, url, **kwargs)
++            response.raise_for_status()
++            return response
++        except RETRYABLE_ERRORS:
++            if method.upper() not in SAFE_METHODS:
++                raise
++            if attempt == max_attempts - 1:
++                raise
++            ceiling = base_delay * (2 ** attempt)
++            time.sleep(random.uniform(0, ceiling))

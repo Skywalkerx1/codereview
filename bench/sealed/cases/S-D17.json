@@ -1,0 +1,54 @@
+{
+ "case_id": "S-D17",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "Aborting the interactive first-run wizard crashes the main review command instead of exiting cleanly",
+ "finding": {
+  "claim": "Aborting the interactive first-run wizard crashes the main review command instead of exiting cleanly",
+  "evidence": "On an interactive terminal with no --provider, no CODEREVIEW_PROVIDERS, and no saved config, main now unconditionally calls the setup wizard. The wizard's own docstring says EOF aborts without saving, but this call is not wrapped in any error handling, so an EOFError from input propagates out of main and terminates the process with a traceback rather than the intended setup guidance or exit code 2",
+  "file": "src/codereview/cli.py",
+  "line": 1295,
+  "severity_as_raised": "major",
+  "evidence_quote": "            _run_setup_wizard()",
+  "recommendation": "Wrap the first-run '_run_setup_wizard()' call in try/except, treat abort or failure as a normal not-set-up outcome, and return 2 after printing 'userconfig.NOT_SET_UP' or a concise abort message. Also consider checking the wizard's falsey return and handling it explicitly before calling 'default_provider_specs()'.",
+  "raised_by_family": "openai",
+  "record_finding_id": "931ea3882b76"
+ },
+ "code_region": {
+  "commit": null,
+  "path": "src/codereview/cli.py",
+  "located": false,
+  "start_line": null,
+  "end_line": null,
+  "text": "            _run_setup_wizard()",
+  "note": "region text is the finding's validated evidence quote; full region could not be re-located at the record head"
+ },
+ "refutation": {
+  "by_family": "nvidia",
+  "quote": "            _run_setup_wizard()",
+  "reason": "The code at line 1088 calls _run_setup_wizard() inside a conditional block guarded by `if not specs and _stdin_is_tty():`. The function _run_setup_wizard() itself (defined at line 216) contains no try/except around its internal input() calls, but the caller in main() does not unconditionally propaga",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "Parent-fail fix-verification (`probes/fix_verification.py`, result `fix-verification.txt`): test_aborted_first_run_wizard_exits_cleanly passes at 98ad1d9 and FAILS at parent 6f5e73c with the EOFError escaping uncaught at the `_run_setup_wizard()` call in main() — the traceback path the claim described, verbatim.",
+  "basis_evidence_sha256": [
+   "f3d811a8959972b7df07c9ea7369106377d769655a9508393dc48cde432dcd16"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/fix-verification.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_finding",
+  "severity_after": "major",
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry 931ea3882b76 (decider=owner, marker=ratified, 2026-11-05T02:16:34+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-17-2026-11-04/13-931ea3882b76.md; source record: /home/hatch/workspace/codereview-providers/review-providers-out2/codereview-20261105-001047.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": [
+  "finding sustained and fixed in commit 98ad1d9"
+ ]
+}

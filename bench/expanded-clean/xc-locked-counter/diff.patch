@@ -1,0 +1,24 @@
+diff --git a/app/counter.py b/app/counter.py
+--- /dev/null
++++ b/app/counter.py
+@@ -0,0 +1,20 @@
++import threading
++
++class Counter:
++    """Thread-safe named counters."""
++
++    def __init__(self):
++        self._lock = threading.Lock()
++        self._counts = {}
++    def increment(self, key, amount=1):
++        if amount < 0:
++            raise ValueError("amount must be non-negative")
++        with self._lock:
++            self._counts[key] = self._counts.get(key, 0) + amount
++            return self._counts[key]
++    def get(self, key):
++        with self._lock:
++            return self._counts.get(key, 0)
++    def snapshot(self):
++        with self._lock:
++            return dict(self._counts)

@@ -1,0 +1,67 @@
+diff --git a/app/payments.py b/app/payments.py
+--- /dev/null
++++ b/app/payments.py
+@@ -0,0 +1,63 @@
++import threading
++
++
++class DuplicateRequestInFlight(Exception):
++    """The same idempotency key is already being processed."""
++
++
++class PaymentStore:
++    """In-memory idempotency store: completed receipts + in-flight keys."""
++
++    def __init__(self):
++        self._lock = threading.Lock()
++        self._completed = {}
++        self._in_flight = set()
++
++    def begin(self, key):
++        """Claim *key*; return the stored receipt if already completed."""
++        with self._lock:
++            if key in self._completed:
++                return self._completed[key]
++            if key in self._in_flight:
++                raise DuplicateRequestInFlight(key)
++            self._in_flight.add(key)
++            return None
++
++    def complete(self, key, receipt):
++        with self._lock:
++            self._completed[key] = receipt
++            self._in_flight.discard(key)
++
++    def abandon(self, key):
++        with self._lock:
++            self._in_flight.discard(key)
++
++
++def charge_once(store, gateway, amount_cents, currency, idempotency_key):
++    """Charge exactly once per idempotency key.
++
++    A repeat call with a completed key returns the original receipt
++    without touching the gateway. The key is forwarded to the gateway
++    too, so a retry after a crash between charge and complete is also
++    deduplicated by the payment provider.
++    """
++    if isinstance(amount_cents, bool) or not isinstance(amount_cents, int):
++        raise TypeError("amount_cents must be an int number of cents")
++    if amount_cents <= 0:
++        raise ValueError("amount_cents must be positive")
++    if not idempotency_key:
++        raise ValueError("idempotency_key is required")
++    prior = store.begin(idempotency_key)
++    if prior is not None:
++        return prior
++    try:
++        receipt = gateway.charge(
++            amount_cents=amount_cents,
++            currency=currency,
++            idempotency_key=idempotency_key,
++        )
++    except BaseException:
++        store.abandon(idempotency_key)
++        raise
++    store.complete(idempotency_key, receipt)
++    return receipt

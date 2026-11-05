@@ -1,0 +1,53 @@
+{
+ "case_id": "S-D49",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "Tech Lead eligibility boundary assertion has no retry/cooldown or fallback path",
+ "finding": {
+  "claim": "Tech Lead eligibility boundary assertion has no retry/cooldown or fallback path",
+  "evidence": "         \"tech-lead-shadow\", \"solver\")",
+  "file": "src/codereview/registry.py",
+  "line": 45,
+  "severity_as_raised": "major",
+  "evidence_quote": "\"tech-lead-shadow\", \"solver\")",
+  "recommendation": "Add a cooldown period, retry logic, or explicit fallback when the Tech Lead eligibility assertion fails, to prevent alert floods and ensure progress can be made. Consider whether tech-lead-shadow should be opt-in via config rather than always included in ROLES.",
+  "raised_by_family": "nvidia",
+  "record_finding_id": "44ace5079160"
+ },
+ "code_region": {
+  "commit": "2fbf94f2ca6feec0ad1180a71d3c9064bf1cef4d",
+  "path": "src/codereview/registry.py",
+  "located": true,
+  "start_line": 37,
+  "end_line": 57,
+  "text": "`--role <role>=<provider-spec>`, repeatable; nothing assigned =\ntoday's behaviour exactly.\n\"\"\"\n\nfrom __future__ import annotations\n\n# role -> the lens it pins, where the role IS a review lens.\nROLES = (\"correctness\", \"operations\", \"verifier\", \"tech-lead\",\n         \"tech-lead-shadow\", \"solver\")\nLENS_ROLES = {\"correctness\": \"correctness\",\n              \"operations\": \"operations\"}\n\n# Each preset:\n#   kind          wire kind (see module docstring)\n#   base_url      API base (None for the gemini native shape, whose\n#                 URL embeds the model)\n#   model         default model suggestion — a starting point, the\n#                 user overrides with preset:model or a custom spec\n#   key_env       env var holding the USER's key for this provider\n#   family        vendor family tag for independence checks\n#   extra         extra payload fields merged into every request"
+ },
+ "refutation": {
+  "by_family": "openai",
+  "quote": "    Raises ValueError with an operator-readable message.\"\"\"",
+  "reason": "This region only defines role names and parsing/validation for role assignments. It contains no Tech Lead eligibility assertion, retry path, cooldown behavior, or fallback logic to evaluate, so the specific claim is not supported by the cited code.",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "Attribution probe (`probes/closingB_disputes_registry.py`, 44ace5079160 section): the claim's cited lines (registry.py:44-45) are the ROLES tuple — registry.py contains no assertion. The assertion in this region is real but lives at core.py:3250-3271, and it is the Tech Lead BOUNDARY assertion (four-disputed solution §3): at the point an adjudication would be recorded, the selected seat must satisfy the shared eligibility predicate against the finding's actual raiser and refuter; on failure the code records an assertion_failure entry, marks the Tech Lead unavailable, and routes the case to the owner — 'fail CLOSED... never proceed with the seat'. That is the opposite of a lenient fallback: it is the fail-closed routing the design mandates, quoted from the code's own comment.",
+  "basis_evidence_sha256": [
+   "98ee17da46b2b3eef9de0550cca9b1162a085569abd7e3d80a386ef5b372efa9"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/closingB-disputes-registry.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_refutation",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry 44ace5079160 (decider=owner, marker=ratified, 2026-11-05T04:07:58+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-closing-r1-2026-11-04/24-44ace5079160.md; source record: review-closing-r1-attempt1/codereview-20261105-031306.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": [
+  "reason_corrected: the citation is corrected: registry.py:44-45 is the ROLES tuple; the boundary assertion is core.py:3250."
+ ]
+}

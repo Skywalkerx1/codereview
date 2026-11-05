@@ -1,0 +1,11 @@
+{
+  "id": "xc-bigdecimal-invoice",
+  "title": "Invoice totals computed with BigDecimal and one rounding mode",
+  "category": "clean",
+  "split": "expanded-clean",
+  "source": "Authored for the CodeReview benchmark corpus (expanded clean stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "expanded-clean",
+  "false_flag_note": "A reviewer may flag the repeated setScale calls as redundant, or the record validation as misplaced. Every monetary value is scaled to cents with the same HALF_UP mode at each step \u2014 each line is rounded before summing, and tax is rounded once on the subtotal \u2014 so the total always equals the sum of the amounts a customer sees; prices are BigDecimals built from strings by callers (never doubles, which cannot represent cents exactly); quantities are multiplied via BigDecimal.valueOf; and the LineItem compact constructor rejects null prices and non-positive quantities at construction, so the calculator can rely on them."
+}

@@ -1,0 +1,11 @@
+{
+  "id": "xc-timeout-http-fetch",
+  "title": "Net::HTTP GET with timeouts and bounded retries on transient errors",
+  "category": "clean",
+  "split": "expanded-clean",
+  "source": "Authored for the CodeReview benchmark corpus (expanded clean stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "expanded-clean",
+  "false_flag_note": "A reviewer may flag the retry/retry statement as risking an infinite loop or duplicate effects. Attempts are counted before each try and the rescue re-raises once MAX_ATTEMPTS is reached, so the loop is bounded at three tries; only transient transport errors (open/read timeouts, connection reset) are rescued \u2014 an HTTP error status or a programming error fails immediately; the helper performs GET only, which is idempotent; and the connection is opened with use_ssl and explicit open/read timeouts inside a block form that always closes it, with the successful body returned from inside that block."
+}

@@ -1,0 +1,51 @@
+{
+ "case_id": "S-D31",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "render_markdown references 'grounding' field not in diff",
+ "finding": {
+  "claim": "render_markdown references 'grounding' field not in diff",
+  "evidence": "if f.get(\"grounding\") == \"unresolved\":",
+  "file": "src/codereview/core.py",
+  "line": 5490,
+  "severity_as_raised": "major",
+  "evidence_quote": "if f.get(\"grounding\") == \"unresolved\":",
+  "recommendation": "Add 'grounding' to the finding schema or guard the render call with a default; otherwise production renders will crash on findings lacking this field.",
+  "raised_by_family": "nvidia",
+  "record_finding_id": "7514429a36b2"
+ },
+ "code_region": {
+  "commit": "2fbf94f2ca6feec0ad1180a71d3c9064bf1cef4d",
+  "path": "src/codereview/core.py",
+  "located": true,
+  "start_line": 5501,
+  "end_line": 5521,
+  "text": "            mark = {\"blocker\": \"⛔\", \"major\": \"🔶\",\n                    \"minor\": \"▫️\", \"nit\": \"▫️\"}.get(f[\"severity\"], \"▫️\")\n            srcs = \", \".join(f.get(\"sources\") or [])\n            cons = \" · consensus\" if f.get(\"consensus\") else \"\"\n            loc = f.get(\"file\") or \"\"\n            if f.get(\"line\"):\n                loc += f\":{f['line']}\"\n            state = \"\"\n            if f.get(\"grounding\") == \"unresolved\":\n                state = \" · ⚠ UNGROUNDED (re-ground unresolved)\"\n            elif f.get(\"grounding\") == \"reground_confirmed\":\n                state = \" · re-grounded\"\n            if f.get(\"cross_family\") == \"confirmed\":\n                state += \" · cross-family confirmed\"\n            elif f.get(\"cross_family\") == \"tech_lead_sustained\":\n                state += \" · Tech Lead sustained (adjudicated)\"\n            elif f.get(\"cross_family\") == \"unresolved\":\n                state += \" · cross-family check unresolved\"\n            lines.append(f\"- {mark} **[{f['severity']}] {f['title']}** \"\n                         f\"({loc}) — via {srcs}{cons}\"\n                         f\"{state}\")"
+ },
+ "refutation": {
+  "by_family": "openai",
+  "quote": "            \"evidence_quote\": str(",
+  "reason": "The diff explicitly adds support for an evidence_quote field in normalized findings, so the claim that rendering references a field absent from the schema/diff is not supported by this region. The cited issue also mentions 'grounding', but no render_markdown code is shown here to establish a crash.",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "Render probe (`probes/closingA_render_fields.py`): records and findings were rendered in every field combination — no `grounding` key, no family/tier keys, family without tier, tier without family, grounding present. Every combination RENDERED ok; the grounding-aware line appears only when the field is present (an `UNGROUNDED` marker), and seat lines fall back cleanly. render_markdown reads these fields with .get-style tolerance; absence is a normal case, not a crash.",
+  "basis_evidence_sha256": [
+   "97b9e98c8d39d811da2595bd5f0a15a25f496cf4716422eadbdb0c442f446f2b"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/closingA-render-fields.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_refutation",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry 7514429a36b2 (decider=owner, marker=ratified, 2026-11-05T04:07:55+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-closing-r1-2026-11-04/04-7514429a36b2.md; source record: review-closing-r1/codereview-20261105-031927.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": []
+}

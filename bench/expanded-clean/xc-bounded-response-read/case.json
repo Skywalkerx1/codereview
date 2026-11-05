@@ -1,0 +1,11 @@
+{
+  "id": "xc-bounded-response-read",
+  "title": "Response body read with a hard size cap",
+  "category": "clean",
+  "split": "expanded-clean",
+  "source": "Authored for the CodeReview benchmark corpus (expanded clean stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "expanded-clean",
+  "false_flag_note": "A reviewer may flag raising mid-stream as wasteful, or the manual chunk loop as reinventing response.content. The loop is the point: the body is streamed and the running total is checked per chunk, so an oversized or endless body is aborted after at most one chunk past the cap instead of being buffered whole in memory. The response is closed by the context manager on every path, including the abort path."
+}

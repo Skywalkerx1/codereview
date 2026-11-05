@@ -1,0 +1,51 @@
+{
+ "case_id": "S-D11",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "Family tag not set for seats built from custom/openai-compatible specs without registry entry",
+ "finding": {
+  "claim": "Family tag not set for seats built from custom/openai-compatible specs without registry entry",
+  "evidence": "",
+  "file": "src/codereview/providers.py",
+  "line": 695,
+  "severity_as_raised": "major",
+  "evidence_quote": "fam = None",
+  "recommendation": "After the loop that searches parsed entries for family, set providers[name]._codereview_family = fam or 'unknown' unconditionally (currently inside a try/except that may skip the assignment if an exception occurs before the tag line). Ensure the tag is always written, even when fam is None, so the CLI's seat metadata reflects the correct family.",
+  "raised_by_family": "nvidia",
+  "record_finding_id": "3d9645200bc5"
+ },
+ "code_region": {
+  "commit": "2fbf94f2ca6feec0ad1180a71d3c9064bf1cef4d",
+  "path": "src/codereview/providers.py",
+  "located": true,
+  "start_line": 715,
+  "end_line": 735,
+  "text": "        # --seat-meta remains the operator's override.\n        fam = \"agent\" if name_kind.get(name) == \"agent\" else None\n        if fam is None:\n            for (_k, base, spec) in parsed:\n                if base.lower() == name.lower() and _k == \"api\":\n                    try:\n                        fam = describe_spec(spec)[\"family\"]\n                    except ProviderError:\n                        fam = None\n                    break\n        try:\n            providers[name]._codereview_family = fam or \"unknown\"\n        except Exception:  # noqa: BLE001 — tagging is advisory\n            pass\n        # The distinct model(s) this seat's accounts serve\n        # (78ddf4d5ea27): read by the CLI's role assignments so a\n        # role record credits the model that serves, never a\n        # discarded same-name override.\n        try:\n            providers[name]._codereview_models = tuple(sorted(\n                {m for m in seat_models.get(name, []) if m}))"
+ },
+ "refutation": {
+  "by_family": "openai",
+  "quote": "            providers[name]._codereview_family = fam or \"unknown\"",
+  "reason": "The code does set the family tag unconditionally after the lookup loop, defaulting to \"unknown\" when no family is found. That covers custom/openai-compatible specs without a registry entry.",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "Unknown-family fail-closed probe (`probes/unknown_family_probe.py`, result `unknown-family-3d9645200bc5.txt`): two custom seats on the SAME vendor base both tag family 'unknown' at construction; (a) Tech Lead selection rejects a designated unknown seat with the substitution recorded ('family is unknown — independence cannot be shown'), and an all-unknown panel yields NO Tech Lead; (b) a blocking finding raised by an unknown-family seat is marked cross_family='unknown_family' — never multi-family, never confirmed away; (c) verify_record's two_families FAILS on an all-unknown record ('distinct known families: []').",
+  "basis_evidence_sha256": [
+   "8cc5e88d2e36c5ef4cf66d6fdbff4d4d5d739b42b37cde59d8d3876f57cb88f5"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/unknown-family-3d9645200bc5.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_refutation",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry 3d9645200bc5 (decider=owner, marker=ratified, 2026-11-05T02:16:33+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-17-2026-11-04/11-3d9645200bc5.md; source record: /home/hatch/workspace/codereview-providers/review-providers-out2/codereview-20261105-001047.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": []
+}

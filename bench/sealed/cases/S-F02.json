@@ -1,0 +1,49 @@
+{
+ "case_id": "S-F02",
+ "case_class": "sealed_fp_corpus",
+ "sealed": true,
+ "title": "New test lacks edge-case coverage",
+ "finding": {
+  "claim": "New test lacks edge-case coverage",
+  "evidence": "def test_total_multiplies_price_by_quantity():",
+  "file": "tests/test_cart.py",
+  "line": 9,
+  "severity_as_raised": "minor",
+  "evidence_quote": "def test_total_multiplies_price_by_quantity():",
+  "recommendation": "Add tests for zero quantity, overflow, and single item to validate Cart behaviour under boundary conditions.",
+  "raised_by_family": null,
+  "record_finding_id": "f6869eb188d5"
+ },
+ "code_region": {
+  "commit": null,
+  "path": "tests/test_cart.py",
+  "located": true,
+  "start_line": null,
+  "end_line": null,
+  "text": "diff --git a/tests/test_cart.py b/tests/test_cart.py\n--- a/tests/test_cart.py\n+++ b/tests/test_cart.py\n@@ -1,5 +1,11 @@\n from shop.cart import Cart, Item\n \n def test_empty_cart_totals_zero():\n     cart = Cart()\n     assert cart.total() == 0\n+\n+def test_total_multiplies_price_by_quantity():\n+    cart = Cart()\n+    cart.add(Item(price=250, qty=3))\n+    assert cart.total() == 750\n",
+  "note": "region is the benchmark case diff under review (bench/corpus/clean-add-tests/diff.patch)"
+ },
+ "refutation": {
+  "by_family": "adjudication",
+  "quote": "def test_total_multiplies_price_by_quantity():",
+  "reason": "The added test is correct (250 x 3 = 750, matching Cart semantics); 'more edge cases could be tested' asserts no defect in the change.",
+  "provenance": "constructed-from-adjudication: the refutation position is the step-3 blind probe-first adjudication basis (SS2.3), not a recorded panel refutation"
+ },
+ "probe": {
+  "summary": "The added test is correct (250 x 3 = 750, matching Cart semantics); 'more edge cases could be tested' asserts no defect in the change.",
+  "ref": null
+ },
+ "probe_settled": false,
+ "expected": {
+  "decision": "sustain_refutation",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "step-3 adjudication of the 91 unmatched benchmark findings (fp-corpus.jsonl, finding f6869eb188d5, class speculative-false-positive)",
+  "label_independence": "label produced by blind probe-first adjudication before the redesigned Tech Lead existed; adjudicators were blind to the raising seat"
+ },
+ "notes": [
+  "benchmark case: clean-add-tests"
+ ]
+}

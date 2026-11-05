@@ -1,0 +1,11 @@
+{
+  "id": "xc-ssrf-allowlist-fetch",
+  "title": "Outbound fetch restricted to an allowlist with redirect revalidation",
+  "category": "clean",
+  "split": "expanded-clean",
+  "source": "Authored for the CodeReview benchmark corpus (expanded clean stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "expanded-clean",
+  "false_flag_note": "A reviewer may flag the DNS resolution, the manual redirect loop, or the is_global check as paranoia. Each is load-bearing: only https on port 443 to an exact-match allowlisted host is permitted, URL credentials are rejected, every resolved address must be globally routable (which rejects loopback, RFC-1918, link-local and reserved ranges in one check), redirects are followed manually with the full validation re-run on every hop so a redirect cannot bounce the fetch to an internal target, and the hop count is capped."
+}

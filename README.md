@@ -377,6 +377,16 @@ A sustain decision counts only with a quote that validates against the cited reg
 
 Provider failure degrades the review (noted in the report); it never silently passes a change, and in `--strict` mode it blocks the pass.
 
+## Gate profiles
+
+The gate's admission rule for blocking findings is a **profile**: set it per project in `.codereview.toml` (`[gate] profile`) or per run with `--gate-profile` (the flag wins over the file; the file wins over the default). Every record names the effective profile and where it came from in its `gate_profile` section.
+
+- **`strict`** — the default, and the historical behaviour: every blocking-severity finding blocks, whoever raised it.
+- **`balanced`** — policy **B1** (per-lens corroboration): a blocking finding whose merged sources are *solely the operations lens* is demoted to a visible minor unless a correctness-lens seat or the deterministic layer also reported the same defect — the gate's merge is the live grouping for "same defect". Demote, never delete: the finding stays in the record with its demotion and reason (`profile_demotion`), and correctness-lens and deterministic findings are never gated by the rule. Every merged finding also carries evidence-class metadata — E0 (deterministic source), E1 (corroborated), E3 (single-seat, unverified); E2 (probe-confirmed) is not assigned at gate time, because probes run later, in adjudication. The classes are metadata only: they change no verdict except through B1.
+- **`quiet`** — *not shipped, by decision.* The original design's third profile (blanket corroboration for every lens) was tested by replay and rejected: it demoted three real single-seat majors (a destructive health-check delete, an SSRF fetch with no timeout, an unbounded response body). Naming it — on the command line, in a policy file, or in the API — is an error.
+
+Where B1 comes from, stated as replay rather than as a live result: in the step-4 replay over the stored baseline run (public split; exploration happened on that split only), B1 held blocking recall at 29/34 on the adjudication-enlarged ground truth (24/24 on the originally labelled defects), reached merged blocking precision 1.000 excluding unknowns (0.967 including them), and cut clean-case BLOCKED from 2/5 to 1/5. Live grouping is the merge identity, not the replay's adjudicated semantic grouping, so live behaviour sits between `strict` and that row. Under the freeze terms the default stays `strict` until Baseline v2 confirms B1 once, as-is, on the private holdout and the expanded clean set. The baseline and its required caveat: bench/BASELINE-2026-11-04.md.
+
 ## Project policy — `.codereview.toml`
 
 A repository can carry its own review contract in `.codereview.toml` at its root (the review command discovers it there; `--policy PATH` overrides). The policy is the *project's* rules — distinct from your per-user setup, which only chooses your models. The gate enforces it on every review, and the record lists every rule that applied and every violation found. A blocking violation turns a PASS into BLOCKED; an `advisory` path-rule violation is recorded only.
@@ -390,6 +400,11 @@ require_lenses = ["correctness", "operations"]
 
 [evidence]
 require_tests_pass = true        # tests must run and pass
+
+[gate]
+profile = "strict"               # gate profile: "strict" or
+                                 # "balanced" (policy B1 — see
+                                 # Gate profiles above)
 
 [[paths]]                        # extra rules for sensitive paths
 match = "auth/**"

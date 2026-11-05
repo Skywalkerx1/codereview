@@ -1,0 +1,51 @@
+{
+ "case_id": "S-D52",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "Severity ordering is reversed, so lower-severity findings can steal matches from blockers/majors",
+ "finding": {
+  "claim": "Severity ordering is reversed, so lower-severity findings can steal matches from blockers/majors",
+  "evidence": "The matching order sorts findings by the raw severity rank ascending, then takes the first match for each expected defect, even though the module docstring says matching is greedy by worst finding severity first.",
+  "file": "src/codereview/bench.py",
+  "line": 239,
+  "severity_as_raised": "major",
+  "evidence_quote": "        key=lambda i: (core._SEV_RANK.get(findings[i].get(\"severity\"),",
+  "recommendation": "Reverse the severity sort so worse severities are considered first, for example by sorting on the negative rank or by using reverse ordering for severity before confidence. Add a test where both a minor and a major match the same expected defect and verify the major is selected.",
+  "raised_by_family": "openai",
+  "record_finding_id": "5e89ea2d985b"
+ },
+ "code_region": {
+  "commit": "2fbf94f2ca6feec0ad1180a71d3c9064bf1cef4d",
+  "path": "src/codereview/bench.py",
+  "located": true,
+  "start_line": 221,
+  "end_line": 241,
+  "text": "    \"\"\"Score one case's reported findings against its ground truth.\n\n    Returns counts and per-defect detail; findings are the merged\n    report findings exactly as the gate saw them (deterministic scan\n    findings included — the bench measures the whole pipeline).\"\"\"\n    findings = list(findings or [])\n    order = sorted(\n        range(len(findings)),\n        key=lambda i: (core._SEV_RANK.get(findings[i].get(\"severity\"),\n                                          len(core.SEVERITIES)),\n                       -float(findings[i].get(\"confidence\") or 0)))\n    used = set()\n    defect_rows = []\n    matched_findings = 0\n    for exp in sorted(case[\"expected\"],\n                      key=lambda e: core._SEV_RANK[e[\"severity\"]]):\n        hit = None\n        for i in order:\n            if i in used:\n                continue\n            ok, cat_ok = _finding_matches(exp, findings[i])"
+ },
+ "refutation": {
+  "by_family": "nvidia",
+  "quote": "key=lambda i: (core._SEV_RANK.get(findings[i].get(\"severity\"),",
+  "reason": "The sort key uses ascending severity rank, so lower ranks (worse severities) are considered first, which matches the docstring's 'greedy by worst finding severity first' requirement. The claim that ordering is reversed is incorrect.",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "Bench-matching probe (`probes/closingB_bench.py`, 5e89ea2d985b section; bench.py:226-257, severity rank from core._SEV_RANK over SEVERITIES blocker>major>minor>nit): a case was matched against findings presented in input order [minor, blocker]. The matcher paired the case with the BLOCKER (matched severity='blocker', escaped=False) and counted the unmatched minor as a false positive — matching prefers the highest-severity candidate (worst-first), not input order.",
+  "basis_evidence_sha256": [
+   "4f13fbf8559d84322492c98d2c68dcf4dc3524db6048db655e2dd0fbfad0922e"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/closingB-bench.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_refutation",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry 5e89ea2d985b (decider=owner, marker=ratified, 2026-11-05T04:07:58+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-closing-r1-2026-11-04/29-5e89ea2d985b.md; source record: review-closing-r1-attempt1/codereview-20261105-031306.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": []
+}

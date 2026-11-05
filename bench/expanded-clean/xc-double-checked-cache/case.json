@@ -1,0 +1,11 @@
+{
+  "id": "xc-double-checked-cache",
+  "title": "Lazy singleton value with volatile double-checked locking",
+  "category": "clean",
+  "split": "expanded-clean",
+  "source": "Authored for the CodeReview benchmark corpus (expanded clean stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "expanded-clean",
+  "false_flag_note": "A reviewer may flag double-checked locking itself as the classic broken pattern. This is the corrected form: the field is volatile, which is exactly what makes the idiom safe under the Java memory model (the volatile write on publication happens-before any later volatile read, so no partially constructed object can be seen); the first check is unsynchronised for the fast path; the local variable avoids a second volatile read on return; and a null supplier result is rejected so 'not yet initialised' stays unambiguous instead of being cached as a permanent null."
+}

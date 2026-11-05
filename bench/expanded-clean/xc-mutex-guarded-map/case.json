@@ -1,0 +1,11 @@
+{
+  "id": "xc-mutex-guarded-map",
+  "title": "TTL cache guarded by an RWMutex with rechecked eviction",
+  "category": "clean",
+  "split": "expanded-clean",
+  "source": "Authored for the CodeReview benchmark corpus (expanded clean stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "expanded-clean",
+  "false_flag_note": "A reviewer may flag Get taking a write lock on the expiry path, or the double expiry check, as confused locking. The fast path is a plain RLock read; only an expired hit escalates to the write lock, and the entry is re-read and re-checked there because another goroutine may have refreshed it in between \u2014 deleting on the first check alone could evict a fresh value. An entry is valid strictly before its expiry instant on both paths, Set and PurgeExpired take the write lock for the whole mutation, and the clock is injectable only to make expiry testable."
+}

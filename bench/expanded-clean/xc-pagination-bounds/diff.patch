@@ -1,0 +1,48 @@
+diff --git a/app/pagination.py b/app/pagination.py
+--- /dev/null
++++ b/app/pagination.py
+@@ -0,0 +1,44 @@
++DEFAULT_LIMIT = 20
++MAX_LIMIT = 100
++
++
++def _clamp_limit(limit):
++    if limit is None:
++        return DEFAULT_LIMIT
++    return max(1, min(int(limit), MAX_LIMIT))
++
++
++def _parse_cursor(cursor):
++    if cursor is None:
++        return 0
++    try:
++        value = int(cursor)
++    except (TypeError, ValueError):
++        raise ValueError(f"invalid cursor: {cursor!r}") from None
++    if value < 0:
++        raise ValueError("cursor must be non-negative")
++    return value
++
++
++def list_items(db, cursor=None, limit=DEFAULT_LIMIT):
++    """Return one keyset page of items ordered by id.
++
++    Keyset (cursor) pagination is used instead of OFFSET so pages stay
++    stable and O(limit) while rows are inserted or deleted. One extra
++    row beyond the page size is fetched purely to learn whether a
++    next page exists; it is never returned to the caller.
++    """
++    limit = _clamp_limit(limit)
++    after_id = _parse_cursor(cursor)
++    rows = db.execute(
++        "SELECT id, name FROM items WHERE id > ? ORDER BY id ASC LIMIT ?",
++        (after_id, limit + 1),
++    ).fetchall()
++    has_more = len(rows) > limit
++    page = rows[:limit]
++    next_cursor = str(page[-1][0]) if has_more and page else None
++    return {
++        "items": [{"id": row[0], "name": row[1]} for row in page],
++        "next_cursor": next_cursor,
++        "has_more": has_more,
++    }

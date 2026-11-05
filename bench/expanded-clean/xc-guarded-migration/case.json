@@ -1,0 +1,11 @@
+{
+  "id": "xc-guarded-migration",
+  "title": "Idempotent migration with existence guards and a batched backfill",
+  "category": "clean",
+  "split": "expanded-clean",
+  "source": "Authored for the CodeReview benchmark corpus (expanded clean stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "expanded-clean",
+  "false_flag_note": "A reviewer may flag the DO loop or the IF NOT EXISTS guards as masking schema drift. The guards are what make the migration safely re-runnable after a partial failure: every DDL statement is existence-guarded, the whole script runs in one transaction so it applies atomically where the platform supports transactional DDL (PostgreSQL, named in the header), and the backfill loops in bounded batches of existing-but-unfilled rows only \u2014 rows whose legacy value is NULL are excluded from the loop condition, so the loop provably terminates and a re-run is a no-op."
+}

@@ -1,0 +1,25 @@
+diff --git a/src/main/java/com/example/db/UserRepository.java b/src/main/java/com/example/db/UserRepository.java
+--- /dev/null
++++ b/src/main/java/com/example/db/UserRepository.java
+@@ -0,0 +1,21 @@
++package com.example.db;
++import java.sql.Connection;
++import java.sql.PreparedStatement;
++import java.sql.ResultSet;
++import java.sql.SQLException;
++import java.util.Optional;
++public final class UserRepository {
++    private final Connection connection; // owned by the caller / pool
++    public UserRepository(Connection connection) {
++        this.connection = connection;
++    }
++    public Optional<String> findEmail(long id) throws SQLException {
++        String sql = "SELECT email FROM users WHERE id = ?";
++        try (PreparedStatement ps = connection.prepareStatement(sql)) {
++            ps.setLong(1, id);
++            try (ResultSet rs = ps.executeQuery()) {
++                return rs.next() ? Optional.of(rs.getString("email")) : Optional.empty();
++            }
++        }
++    }
++}

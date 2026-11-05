@@ -1,0 +1,58 @@
+{
+ "case_id": "S-H66",
+ "case_class": "sealed_machinery_holdout",
+ "sealed": true,
+ "title": "Evidence_quote stored full-text but _finding_public truncates to 2000/1000 chars for prompts, risking mid-word cuts and loss of critical context",
+ "finding": {
+  "claim": "Evidence_quote stored full-text but _finding_public truncates to 2000/1000 chars for prompts, risking mid-word cuts and loss of critical context",
+  "evidence": "",
+  "file": "src/codereview/core.py",
+  "line": 1650,
+  "severity_as_raised": "major",
+  "evidence_quote": "    shown[\"evidence\"] = str(shown.get(\"evidence\") or \"\")[:2000]",
+  "recommendation": "Ensure evidence_quote is stored and transmitted whole-text; the truncation in _finding_public should only be for display and must not alter the stored record's evidence. Verify that full-text is always persisted to sidecars.",
+  "raised_by_family": "nvidia",
+  "record_finding_id": "4ce0212286e0"
+ },
+ "code_region": {
+  "commit": "0c02ff6ca043c3695ff82e9a4689d57414329deb",
+  "path": "src/codereview/core.py",
+  "located": true,
+  "start_line": 618,
+  "end_line": 638,
+  "text": "def _finding_public(finding):\n    \"\"\"The finding fields a confirmation/re-ground prompt may see.\n    Evidence is stored full-text in the record (sidecars, §4 Q7);\n    what a PROMPT shows is display, so it is sliced here — the\n    stored text is never cut by prompt construction.\"\"\"\n    shown = {k: finding.get(k) for k in\n             (\"id\", \"severity\", \"category\", \"file\", \"line\", \"title\",\n              \"evidence\", \"evidence_quote\", \"recommendation\")}\n    shown[\"evidence\"] = str(shown.get(\"evidence\") or \"\")[:2000]\n    shown[\"evidence_quote\"] = str(\n        shown.get(\"evidence_quote\") or \"\")[:1000]\n    return json.dumps(shown, ensure_ascii=False, indent=1)\n\n\ndef _reground_call(fn, finding, region):\n    \"\"\"One re-ground attempt. Returns (outcome, quote, reason) with\n    outcome in confirmed|withdrawn|unresolved. A confirmed outcome\n    counts only when the returned quote validates against the\n    region text — the same deterministic bar as the first pass.\"\"\"\n    prompt = _REGROUND_PROMPT.format(\n        finding=_finding_public(finding), region=region[:20000])"
+ },
+ "refutation": {
+  "by_family": "openai",
+  "quote": "    Evidence is stored full-text in the record (sidecars, §4 Q7);",
+  "reason": "The cited truncation is explicitly limited to prompt/display construction in _finding_public, while the code comments state storage remains full-text in the record sidecars. The claim that stored evidence is altered by this truncation is not supported by this region.",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "Finding-public probe (`probes/finding_public_probe.py`, result `finding-public-4ce0212286e0.txt`): the solution's expected probe outcome — adjudication prompts never call `_finding_public` — is FALSE at HEAD. All three adjudication prompt types (re-ground, cross-family confirmation, Tech Lead) route the finding through it; pre-hardening, a 3004-char evidence text reached the adjudicator sliced at exactly 2000 chars, mid-word, with no marker. Storage half verified separately: sidecars hold full text and the store path never passes through `_finding_public`. HARDENING LANDED (commit c1bf1df): `_prompt_slice` cuts at a word boundary and appends '…[truncated, N chars, sha256:…]'; post-hardening probe run shows the marker in all three prompt types; parent-fail verified (`hardening-parent-fail.txt`). Context beyond this item's scope: the Tech Lead prompt also caps dispute positions inline (400/300/400 chars).",
+  "basis_evidence_sha256": [
+   "9a9100d23e77535d511c9f9208b12c42065bafb5115ee00a07e0713721763d6f"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/finding-public-4ce0212286e0.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "split",
+  "severity_after": null,
+  "scoring": "sealed_split",
+  "reasoning_validity": {
+   "claim": "partially_valid",
+   "refutation": "partially_valid"
+  }
+ },
+ "provenance": {
+  "source": "disposition store entry 4ce0212286e0 (decider=owner, marker=ratified, 2026-11-05T02:16:33+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-17-2026-11-04/07-4ce0212286e0.md; source record: /home/hatch/workspace/codereview/review-v100/codereview-20261105-000409.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": [
+  "split ruling: neither side wholly correct; scored under the sealed_split rule in SEALED.md",
+  "reason_corrected: corrected from 'truncation is display-only' to 'truncation is storage-safe but adjudication-visible; the marker now makes every cut explicit'"
+ ]
+}

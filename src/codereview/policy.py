@@ -35,6 +35,30 @@ Schema (every key optional; defaults in parentheses):
   require_tests = false        # a test command must have run
   require_tests_pass = false   # ... and every test must have passed
 
+  [gate]
+  profile = "strict"       # the gate profile: "strict" (the
+                           # default — every blocking-severity
+                           # finding blocks) or "balanced"
+                           # (policy B1, step 6: a blocking
+                           # finding whose merged sources are
+                           # solely the operations lens, with
+                           # no correctness-lens or
+                           # deterministic corroboration within
+                           # the gate's merge identity, is
+                           # demoted to a visible minor). The
+                           # CLI's --gate-profile overrides
+                           # this; the default stays "strict"
+                           # until Baseline v2 confirms B1 on
+                           # the holdout. A third profile from
+                           # the original design, "quiet"
+                           # (blanket corroboration for every
+                           # lens), was REJECTED on the step-4
+                           # replay evidence — it demoted three
+                           # real single-seat majors — and is
+                           # not implemented: its absence is a
+                           # decision, not an omission, and
+                           # naming it here is an error.
+
   [[paths]]                # repeatable; applies when the change
   match = "auth/**"        # touches a path matching this pattern
   require_full_panel = false   # every configured seat must serve
@@ -73,16 +97,22 @@ POLICY_SCHEMA = "codereview.policy/1"
 # together so they cannot drift.
 KNOWN_LENSES = ("correctness", "operations")
 
+# Mirrors core.GATE_PROFILES (the gate profiles, step 6), kept
+# here under the same import-free discipline; a test pins the
+# two together.
+KNOWN_GATE_PROFILES = ("strict", "balanced")
+
 _ENFORCE_LEVELS = ("block", "advisory")
 
 _PANEL_KEYS = ("min_seats", "min_families", "required_families",
                "require_lenses")
 _EVIDENCE_KEYS = ("require_tests", "require_tests_pass")
+_GATE_KEYS = ("profile",)
 _PATH_KEYS = ("match", "require_full_panel", "require_tests",
               "require_tests_pass", "min_seats", "min_families",
               "enforce")
 _WAIVER_KEYS = ("allow", "require_reason", "max_age_days")
-_TABLES = ("panel", "evidence", "paths", "waivers")
+_TABLES = ("panel", "evidence", "gate", "paths", "waivers")
 
 
 class PolicyError(ValueError):
@@ -101,6 +131,7 @@ def default_policy():
                   "required_families": [], "require_lenses": []},
         "evidence": {"require_tests": False,
                      "require_tests_pass": False},
+        "gate": {"profile": "strict"},
         "paths": [],
         "waivers": {"allow": True, "require_reason": False,
                     "max_age_days": 0},
@@ -264,6 +295,19 @@ def load_policy(path):
             policy["evidence"][key] = _check_bool(
                 evidence[key], path, lines, "evidence", key)
 
+    gate = data.get("gate") or {}
+    _check_keys(gate, _GATE_KEYS, path, lines, "gate")
+    if "profile" in gate:
+        if gate["profile"] not in KNOWN_GATE_PROFILES:
+            _fail(path, lines,
+                  f"[gate] profile must be one of "
+                  f"{', '.join(KNOWN_GATE_PROFILES)}, got "
+                  f"{gate['profile']!r} ('quiet' was considered "
+                  f"and rejected on the step-4 replay evidence "
+                  f"— it is not an implemented profile)",
+                  "gate", "profile")
+        policy["gate"]["profile"] = gate["profile"]
+
     raw_paths = data.get("paths") or []
     if not isinstance(raw_paths, list):
         _fail(path, lines,
@@ -327,6 +371,7 @@ def render_effective(policy):
     panel, evidence, waivers = (policy["panel"],
                                 policy["evidence"],
                                 policy["waivers"])
+    gate = policy["gate"]
     lines = [
         "[panel]",
         f"min_seats = {panel['min_seats']}",
@@ -337,6 +382,9 @@ def render_effective(policy):
         "[evidence]",
         f"require_tests = {_b(evidence['require_tests'])}",
         f"require_tests_pass = {_b(evidence['require_tests_pass'])}",
+        "",
+        "[gate]",
+        f"profile = \"{gate['profile']}\"",
         "",
     ]
     for rule in policy["paths"]:

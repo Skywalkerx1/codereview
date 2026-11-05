@@ -1,0 +1,58 @@
+{
+ "case_id": "S-D45",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "Missing or non-numeric confidence values can crash scoring during sort",
+ "finding": {
+  "claim": "Missing or non-numeric confidence values can crash scoring during sort",
+  "evidence": "The sort key coerces confidence with float(findings[i].get('confidence') or 0). If a reviewer returns a non-empty non-numeric confidence such as 'high', this raises ValueError before any scoring completes.",
+  "file": "src/codereview/bench.py",
+  "line": 240,
+  "severity_as_raised": "major",
+  "evidence_quote": "                       -float(findings[i].get(\"confidence\") or 0)))",
+  "recommendation": "Parse confidence defensively, treating invalid values as 0 instead of raising. A small helper with try/except around float conversion would keep benchmark scoring robust against imperfect reviewer output.",
+  "raised_by_family": "openai",
+  "record_finding_id": "e8c5d3fd8a25"
+ },
+ "code_region": {
+  "commit": "2fbf94f2ca6feec0ad1180a71d3c9064bf1cef4d",
+  "path": "src/codereview/bench.py",
+  "located": true,
+  "start_line": 223,
+  "end_line": 243,
+  "text": "    Returns counts and per-defect detail; findings are the merged\n    report findings exactly as the gate saw them (deterministic scan\n    findings included — the bench measures the whole pipeline).\"\"\"\n    findings = list(findings or [])\n    order = sorted(\n        range(len(findings)),\n        key=lambda i: (core._SEV_RANK.get(findings[i].get(\"severity\"),\n                                          len(core.SEVERITIES)),\n                       -float(findings[i].get(\"confidence\") or 0)))\n    used = set()\n    defect_rows = []\n    matched_findings = 0\n    for exp in sorted(case[\"expected\"],\n                      key=lambda e: core._SEV_RANK[e[\"severity\"]]):\n        hit = None\n        for i in order:\n            if i in used:\n                continue\n            ok, cat_ok = _finding_matches(exp, findings[i])\n            if ok:\n                hit = (i, cat_ok)"
+ },
+ "refutation": {
+  "by_family": "nvidia",
+  "quote": "                       -float(findings[i].get(\"confidence\") or 0))",
+  "reason": "The code uses `or 0` which provides a default of 0 when the value is falsy (including None, empty string, etc.), and `float()` is only called on the result. If confidence is None or empty, the expression evaluates to 0.0 without raising ValueError. A non-numeric string like 'high' would cause a Valu",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "Score-case probe (`probes/closingB_bench.py`, e8c5d3fd8a25 section): score_case (bench.py:226-231) converts a finding's recorded confidence with float(...). Confidence None → OK (matched counted). Confidence MISSING → OK. Confidence 'high' (a non-numeric string) → ValueError ('could not convert string to float') propagating out of score_case — a benchmark run over a record carrying a string confidence dies instead of scoring the case. Confidence 0.9 (control) → OK.",
+  "basis_evidence_sha256": [
+   "4f13fbf8559d84322492c98d2c68dcf4dc3524db6048db655e2dd0fbfad0922e"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/closingB-bench.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "split",
+  "severity_after": null,
+  "scoring": "sealed_split",
+  "reasoning_validity": {
+   "claim": "partially_valid",
+   "refutation": "partially_valid"
+  }
+ },
+ "provenance": {
+  "source": "disposition store entry e8c5d3fd8a25 (decider=owner, marker=ratified, 2026-11-05T04:07:57+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-closing-r1-2026-11-04/20-e8c5d3fd8a25.md; source record: review-closing-r1-attempt1/codereview-20261105-031306.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": [
+  "split ruling: neither side wholly correct; scored under the sealed_split rule in SEALED.md",
+  "reason_corrected: the crash shape is a non-numeric confidence STRING, not an absent one; absent confidence is tolerated by design."
+ ]
+}
