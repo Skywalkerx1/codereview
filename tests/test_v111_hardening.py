@@ -60,7 +60,14 @@ class PromptSliceTests(unittest.TestCase):
         text = "x" * 3000
         out = core._prompt_slice(text, 2000)
         self.assertIn("…[truncated, 3000 chars", out)
-        self.assertTrue(out.startswith("x" * 2000))
+        # Ratified fix (3f50bf6b3349): the marker lives INSIDE
+        # the cap, so the visible prefix is cap minus the marker
+        # and the result never exceeds the cap.
+        digest = hashlib.sha256(text.encode()).hexdigest()
+        marker = (f" …[truncated, {len(text)} chars, "
+                  f"sha256:{digest}]")
+        self.assertEqual(out, "x" * (2000 - len(marker)) + marker)
+        self.assertEqual(len(out), 2000)
 
     def test_finding_public_marks_long_evidence(self):
         finding = {"id": "x", "severity": "major",

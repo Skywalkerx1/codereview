@@ -115,5 +115,57 @@ class GateLineCauseTests(unittest.TestCase):
         self.assertNotIn("at least one reviewer failed", gate_line)
 
 
+class PromptSliceCapTests(unittest.TestCase):
+    """Fix 4 — gap packet G15 (3f50bf6b3349). The packet's own
+    measurement table, as assertions: every over-cap input used
+    to return cap + up to ~98 chars."""
+
+    CASES = [  # (text, cap) — the packet's measured rows + edges
+        ("x" * 101, 100),
+        ("lorem ipsum dolor sit amet " * 65, 300),
+        ("x" * 5000, 300),
+        ("y" * 2500, 50),
+        ("z" * 5, 1),
+        ("w" * 2000, 1000),
+        ("v" * 1001, 1000),
+    ]
+
+    def test_returned_string_never_exceeds_cap(self):
+        for text, cap in self.CASES:
+            out = core._prompt_slice(text, cap)
+            self.assertLessEqual(len(out), cap, (len(text), cap))
+
+    def test_marker_complete_and_honest_when_it_fits(self):
+        for text, cap in self.CASES:
+            if cap < 100:
+                continue  # marker itself cannot fit; see below
+            out = core._prompt_slice(text, cap)
+            digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
+            self.assertTrue(out.endswith(
+                f"…[truncated, {len(text)} chars, "
+                f"sha256:{digest}]"), (len(text), cap))
+            visible = out.split(" …[truncated")[0]
+            self.assertTrue(text.startswith(visible))
+
+    def test_boundary_cut_stays_at_a_word_boundary(self):
+        text = " ".join(["w%08d" % i for i in range(400)])
+        out = core._prompt_slice(text, 2000)
+        visible = out.split(" …[truncated")[0]
+        self.assertLessEqual(len(out), 2000)
+        self.assertEqual(text[len(visible)], " ")
+
+    def test_exactly_at_cap_is_unchanged(self):
+        text = "q" * 300
+        self.assertEqual(core._prompt_slice(text, 300), text)
+        over = core._prompt_slice(text + "q", 300)
+        self.assertLessEqual(len(over), 300)
+        self.assertIn("…[truncated, 301 chars", over)
+
+    def test_cap_smaller_than_marker_still_signals(self):
+        out = core._prompt_slice("z" * 5, 1)
+        self.assertEqual(len(out), 1)
+        self.assertEqual(core._prompt_slice("z" * 5, 0), "")
+
+
 if __name__ == "__main__":
     unittest.main()
