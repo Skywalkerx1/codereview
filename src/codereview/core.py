@@ -391,6 +391,9 @@ def deterministic_scan(patch, test_results=None):
         findings.append({
             "id": fp, "rule": rule_id, "severity": severity,
             "category": category, "file": file, "line": line,
+            # The scan's line numbers come from added_lines():
+            # new-side (blob) numbering by construction (§5.6).
+            "line_basis": "blob",
             "title": title, "evidence": redact_secrets(evidence),
             "evidence_quote": redact_secrets(evidence),
             "recommendation": recommendation,
@@ -429,6 +432,69 @@ def deterministic_scan(patch, test_results=None):
                 "Fix the failing tests; a red suite is a blocking finding.",
                 confidence=1.0)
     return findings
+
+
+def _line_maps(patch):
+    """Position maps for line-basis determination (§5.6): for
+    every content line of the patch, its new-side (blob) line
+    number where it has one (context and added lines) and its
+    1-based index within the patch text itself (the diff-
+    relative position). Keyed by (file, normalized text)."""
+    new_map, diff_map = {}, {}
+    file, new_no, in_hunk = "", 0, False
+    for idx, raw in enumerate(patch.splitlines(), 1):
+        if raw.startswith("diff --git "):
+            m = re.search(r" b/(.+)$", raw)
+            file = m.group(1) if m else ""
+            in_hunk = False
+            continue
+        m = re.match(r"@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@", raw)
+        if m:
+            new_no = int(m.group(1))
+            in_hunk = True
+            continue
+        if not in_hunk or not raw:
+            continue
+        head, text = raw[0], raw[1:]
+        if head not in "+- ":
+            continue
+        key = (file, _norm_quote(text))
+        diff_map.setdefault(key, set()).add(idx)
+        if head in "+ ":
+            new_map.setdefault(key, set()).add(new_no)
+            new_no += 1
+    return new_map, diff_map
+
+
+def _apply_line_basis(findings, patch):
+    """Record `line_basis` on findings where it is mechanically
+    determinable (open-refutations solution §5.6): the cited
+    line, checked against BOTH numberings of the quoted line's
+    position in the patch — the new-side (blob) line number and
+    the diff-relative index. A citation matching exactly one
+    basis is labelled with it; a citation matching both (the
+    numberings coincide) or neither (the model's number follows
+    some other counting) is left unlabelled rather than
+    guessed. The validated quote stays the primary anchor
+    either way; `codereview locate` resolves it at verify
+    time. Findings that already carry a basis (the
+    deterministic scan's, by construction) are untouched."""
+    if not patch:
+        return
+    new_map, diff_map = _line_maps(patch)
+    for f in findings or []:
+        if not isinstance(f, dict) or f.get("line_basis"):
+            continue
+        line, quote = f.get("line"), f.get("evidence_quote")
+        if not line or not quote:
+            continue
+        key = (str(f.get("file") or ""), _norm_quote(quote))
+        in_new = line in new_map.get(key, set())
+        in_diff = line in diff_map.get(key, set())
+        if in_new and not in_diff:
+            f["line_basis"] = "blob"
+        elif in_diff and not in_new:
+            f["line_basis"] = "diff"
 
 
 # ------------------------------------------------------------------ prompts
@@ -1962,6 +2028,9 @@ def run_review(patch, providers, context="", test_results=None,
         degraded = True
 
     merged = merge_findings(all_findings)
+    # Line basis (§5.6): label each citation with the numbering
+    # it demonstrably uses, where the patch proves it.
+    _apply_line_basis(merged, patch)
     # Archived-text classification (§5.4): deterministic
     # findings fired on archived paths (the scan runs on the
     # full patch), and any finding whose quote exists only
@@ -2500,6 +2569,15 @@ def run_review(patch, providers, context="", test_results=None,
         report["disputed_findings"] = disputed_findings
     if weak_findings:
         report["refutation_weak_findings"] = weak_findings
+    # Open-dispute summary (§5.1): the count a release flow can
+    # check without reconstructing it — every finding this run
+    # leaves in a human-decision state, by fingerprint.
+    open_ids = []
+    for f in disputed_findings + weak_findings:
+        if f.get("id") and f["id"] not in open_ids:
+            open_ids.append(f["id"])
+    report["open_disputes"] = {"count": len(open_ids),
+                               "ids": open_ids}
     if adjudicated_refuted:
         report["adjudicated_refuted_findings"] = \
             adjudicated_refuted
@@ -2962,7 +3040,25 @@ def check_tier_policy(seat_meta, private=False):
         if str((meta or {}).get("tier") or "").lower() == "free"]
 
 
-def verify_record(record, repo=None, record_dir=None):
+def _open_dispute_ids(record):
+    """Fingerprints of a record's findings sitting in a
+    human-decision state (status disputed or refutation_weak),
+    deduped across the record's finding lists. Mirrors the
+    scanner in disputes.py — the definition lives in both
+    places so the verify path never imports the CLI layer."""
+    ids = []
+    for list_key in _FINDING_LIST_KEYS:
+        for f in record.get(list_key) or []:
+            if isinstance(f, dict) and f.get("id") \
+                    and f.get("status") in (
+                        "disputed", "refutation_weak") \
+                    and f["id"] not in ids:
+                ids.append(f["id"])
+    return ids
+
+
+def verify_record(record, repo=None, record_dir=None,
+                  dispositions=None):
     """Machine-checked release-record eligibility (§4.4): the
     announcement hold is a checkable condition, not a judgment
     call. Returns {"eligible": bool, "checks": [{name, ok,
@@ -2970,7 +3066,16 @@ def verify_record(record, repo=None, record_dir=None):
     repo root, used by the head-currency check: commits after the
     recorded head are allowed only if they touch nothing outside
     the record directory itself (i.e. the commit that files the
-    record)."""
+    record).
+
+    `dispositions` (open-refutations solution §5.2): the
+    disposition store's entries, when the caller supplies them.
+    A record's disputed / refutation-weak findings then count
+    as dispositioned exactly when the store carries an entry
+    for their fingerprint; the entries relied on are reported
+    in the result's "dispositions_consumed". When no store is
+    supplied the check does not exist — legacy behaviour is
+    byte-for-byte today's."""
     checks = []
 
     def add(name, ok, detail=""):
@@ -3147,8 +3252,28 @@ def verify_record(record, repo=None, record_dir=None):
             f"their sidecars; {incomplete} dispute-bearing "
             f"finding(s) lack complete refs "
             f"(adjudication-ineligible inputs)")
-    return {"eligible": all(c["ok"] for c in checks),
-            "checks": checks}
+    # Disposition store (§5.2): only when the caller supplies
+    # the store — a record with no store behind it verifies
+    # exactly as it did before the store existed.
+    consumed = None
+    if dispositions is not None:
+        open_ids = _open_dispute_ids(record)
+        consumed = [e for e in dispositions
+                    if e.get("finding_id") in set(open_ids)]
+        undisposed = [i for i in open_ids
+                      if i not in {e.get("finding_id")
+                                   for e in consumed}]
+        add("disputes_dispositioned", not undisposed,
+            f"open dispute(s) with no disposition in the "
+            f"store: {undisposed}" if undisposed else
+            (f"all {len(open_ids)} open dispute(s) carry a "
+             f"store disposition" if open_ids else
+             "no open disputes in this record"))
+    result = {"eligible": all(c["ok"] for c in checks),
+              "checks": checks}
+    if consumed is not None:
+        result["dispositions_consumed"] = consumed
+    return result
 
 
 def _validate_precedent_scope(record, ps, sfinds, repo, head):
@@ -3277,7 +3402,8 @@ def _resolve_commit(repo, ref):
         return None
 
 
-def verify_chain(records, repo=None, record_dirs=None):
+def verify_chain(records, repo=None, record_dirs=None,
+                 dispositions=None):
     """Form B chain verification (owner-adopted, v14-hold
     solution §2): an ordered set of records — round 1 (a full
     review) followed by verification rounds — is eligible when
@@ -3288,6 +3414,12 @@ def verify_chain(records, repo=None, record_dirs=None):
     the finder rule, where an all-'invalid' clearance IS the
     ruled rebuttal), the final gate is PASS with tests passing,
     and the final head is current.
+
+    `dispositions`: the disposition store's entries, when the
+    caller supplies them (§5.2) — a round-1 finding the store
+    dispositions counts as dispositioned, and the consumed
+    entries are reported in the result. Without a store the
+    chain is judged exactly as before.
 
     Returns {"eligible", "checks", "warnings"}. Warnings are
     process flags that do NOT decide eligibility: the adopted
@@ -3415,7 +3547,11 @@ def verify_chain(records, repo=None, record_dirs=None):
     # standing findings never enter round 1's `findings`, so
     # they need no clearance; disputed findings are NOT cleared
     # by being disputed — the human gate's decision would be a
-    # further round or a recorded waiver, not this chain.)
+    # further round or a recorded waiver, not this chain. The
+    # disposition store (§5.2) is where that recorded decision
+    # lives: when the caller supplies the store, a round-1
+    # finding with an entry counts as dispositioned by it, and
+    # the entries relied on are reported, never silent.)
     cleared_ids = set()
     for r in rounds:
         for f in r.get("cleared") or []:
@@ -3423,13 +3559,24 @@ def verify_chain(records, repo=None, record_dirs=None):
                 cleared_ids.add(f["id"])
     open1 = [f for f in r1.get("findings") or []
              if f.get("severity") in BLOCKING_DEFAULT]
+    store_ids = {e.get("finding_id") for e in dispositions} \
+        if dispositions is not None else set()
+    chain_consumed = [e for e in dispositions or []
+                      if e.get("finding_id") in
+                      {f.get("id") for f in open1}
+                      and e.get("finding_id") not in cleared_ids]
     missing = [f.get("id") for f in open1
-               if f.get("id") not in cleared_ids]
+               if f.get("id") not in cleared_ids
+               and f.get("id") not in store_ids]
     add("round1_findings_dispositioned", not missing,
         f"round-1 blocking finding(s) never cleared on the "
         f"record: {missing}" if missing else
         f"all {len(open1)} round-1 blocker/major finding(s) "
-        f"cleared by verification rounds")
+        f"cleared by verification rounds"
+        + (f"; {len(chain_consumed)} dispositioned via the "
+           f"disposition store: "
+           f"{[e.get('finding_id') for e in chain_consumed]}"
+           if chain_consumed else ""))
     # Evidence sidecars (§4 Q7), chain-wide: refs in ANY record
     # of the chain must recompute against the sidecars filed
     # beside that record. Records without refs predate sidecars
@@ -3507,8 +3654,11 @@ def verify_chain(records, repo=None, record_dirs=None):
                  f"the convergence budget's non-increase rule is "
                  f"breached")
             break
-    return {"eligible": all(c["ok"] for c in checks),
-            "checks": checks, "warnings": warnings}
+    result = {"eligible": all(c["ok"] for c in checks),
+              "checks": checks, "warnings": warnings}
+    if dispositions is not None:
+        result["dispositions_consumed"] = chain_consumed
+    return result
 
 
 def _git_show_bytes(repo, ref_path):

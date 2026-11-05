@@ -33,6 +33,7 @@ import inspect
 
 from . import bench as bench_mod
 from . import core
+from . import disputes as disputes_mod
 from . import registry
 from . import setup_wizard, userconfig
 from .providers import (ProviderError, build_providers,
@@ -968,6 +969,10 @@ def _print_verify_result(result, label):
         print(f"  [{mark}] {check['name']}: {check['detail']}")
     for warning in result.get("warnings") or []:
         print(f"  [WARN] {warning['name']}: {warning['detail']}")
+    for entry in result.get("dispositions_consumed") or []:
+        print(f"  [store] disposition consumed: "
+              f"{entry.get('finding_id')}: {entry.get('type')} "
+              f"by {entry.get('decider')} ({entry.get('date')})")
     print(f"codereview: {label} "
           f"{'ELIGIBLE' if result['eligible'] else 'NOT eligible'}")
 
@@ -992,7 +997,31 @@ def _record_verify_main(argv):
                          "and do not by themselves change the "
                          "exit code; eligibility is decided by "
                          "the checks alone.")
+    ap.add_argument("--dispositions",
+                    help="disposition store (JSONL) to consult "
+                         "(§5.2): disputed findings with a store "
+                         "entry count as dispositioned, and the "
+                         "consumed entries are reported. Default: "
+                         "the store at <repo>/dispositions.jsonl "
+                         "when one exists; without any store, "
+                         "verification behaves exactly as before.")
     args = ap.parse_args(argv)
+    dispositions = None
+    store_path = args.dispositions or disputes_mod.store_path_for(
+        args.repo)
+    if args.dispositions or os.path.isfile(store_path):
+        loaded = disputes_mod.load_store(store_path)
+        if loaded["problems"]:
+            print("codereview: the disposition store has "
+                  "problems; refusing to verify against it:",
+                  file=sys.stderr)
+            for problem in loaded["problems"]:
+                print(f"  {problem}", file=sys.stderr)
+            return 2
+        dispositions = loaded["entries"]
+        print(f"codereview: disposition store: "
+              f"{len(dispositions)} entr(ies) from {store_path}",
+              file=sys.stderr)
     try:
         if args.chain:
             records, dirs = [], []
@@ -1001,8 +1030,9 @@ def _record_verify_main(argv):
                     p, args.repo)
                 records.append(record)
                 dirs.append(record_dir)
-            result = core.verify_chain(records, repo=args.repo,
-                                       record_dirs=dirs)
+            result = core.verify_chain(
+                records, repo=args.repo, record_dirs=dirs,
+                dispositions=dispositions)
             _print_verify_result(
                 result,
                 f"chain of {len(records)} record(s)")
@@ -1016,9 +1046,242 @@ def _record_verify_main(argv):
               file=sys.stderr)
         return 2
     result = core.verify_record(record, repo=args.repo,
-                                record_dir=record_dir)
+                                record_dir=record_dir,
+                                dispositions=dispositions)
     _print_verify_result(result, f"record ({jpath})")
     return 0 if result["eligible"] else 1
+
+
+def _disputes_main(argv):
+    """codereview disputes — the computed open-dispute
+    inventory (§5.1), the disposition-store append (§5.2), and
+    the release-flow freshness check (§5.3)."""
+    ap = argparse.ArgumentParser(
+        prog="codereview disputes",
+        description="Compute the open-dispute inventory from "
+                    "the review records under a repo: findings "
+                    "in a human-decision state (disputed or "
+                    "refutation-weak) with no disposition in "
+                    "the store. With --record, append one "
+                    "disposition entry instead. With --check, "
+                    "act as the release-flow freshness gate.")
+    ap.add_argument("--repo", default=".",
+                    help="repository whose review-*/ records "
+                         "and disposition store are read "
+                         "(default: .)")
+    ap.add_argument("--store",
+                    help="disposition store path (default: "
+                         "<repo>/dispositions.jsonl)")
+    ap.add_argument("--json", action="store_true",
+                    help="print the inventory as JSON")
+    ap.add_argument("--record", metavar="FILE",
+                    help="append the disposition entry in FILE "
+                         "(JSON object; '-' reads stdin) to the "
+                         "store, with validation — a fingerprint "
+                         "may be dispositioned once; a second "
+                         "entry must be an override naming the "
+                         "entry it supersedes")
+    ap.add_argument("--check", action="store_true",
+                    help="freshness gate: exit 1 listing every "
+                         "open dispute in the checked records "
+                         "that is neither dispositioned nor "
+                         "named in the --inventory file")
+    ap.add_argument("--span", metavar="A..B",
+                    help="with --check: only records touching "
+                         "this commit span count (default: all "
+                         "records under --repo)")
+    ap.add_argument("--inventory", metavar="FILE",
+                    help="with --check: a caller-supplied "
+                         "inventory (JSON) whose finding ids "
+                         "are excused from the gate")
+    ap.add_argument("--overrides", metavar="FILE",
+                    help="tagger manual overrides (JSON): "
+                         "{\"authority\": [ids], "
+                         "\"not_authority\": [ids]}")
+    args = ap.parse_args(argv)
+    store_path = args.store or disputes_mod.store_path_for(
+        args.repo)
+    loaded = disputes_mod.load_store(store_path)
+    if loaded["problems"]:
+        print("codereview: the disposition store has problems:",
+              file=sys.stderr)
+        for problem in loaded["problems"]:
+            print(f"  {problem}", file=sys.stderr)
+        return 2
+    entries = loaded["entries"]
+
+    if args.record:
+        try:
+            raw = sys.stdin.read() if args.record == "-" else \
+                open(args.record, encoding="utf-8").read()
+            entry = json.loads(raw)
+        except Exception as exc:  # noqa: BLE001
+            print(f"codereview: could not read the entry: {exc}",
+                  file=sys.stderr)
+            return 2
+        try:
+            stored = disputes_mod.append_entry(store_path, entry)
+        except ValueError as exc:
+            print(f"codereview: entry rejected: {exc}",
+                  file=sys.stderr)
+            return 2
+        print(f"codereview: disposition recorded: "
+              f"{stored['finding_id']}: {stored['type']} by "
+              f"{stored['decider']} ({stored['date']}), "
+              f"entry sha256 "
+              f"{disputes_mod.entry_hash(stored)[:12]}…")
+        return 0
+
+    overrides = None
+    if args.overrides:
+        try:
+            with open(args.overrides, encoding="utf-8") as fh:
+                overrides = json.load(fh)
+        except Exception as exc:  # noqa: BLE001
+            print(f"codereview: could not read the overrides: "
+                  f"{exc}", file=sys.stderr)
+            return 2
+
+    if args.check:
+        inventory_ids = set()
+        if args.inventory:
+            try:
+                inventory_ids = \
+                    disputes_mod.inventory_ids_from_file(
+                        args.inventory)
+            except Exception as exc:  # noqa: BLE001
+                print(f"codereview: could not read the "
+                      f"inventory file: {exc}", file=sys.stderr)
+                return 2
+        if args.span:
+            try:
+                result = disputes_mod.check_freshness(
+                    args.repo, args.repo, args.span, entries,
+                    inventory_ids)
+            except ValueError as exc:
+                print(f"codereview: {exc}", file=sys.stderr)
+                return 2
+            scope = f"span {args.span}"
+        else:
+            inv = disputes_mod.build_inventory(
+                args.repo, entries, overrides)
+            result = {"violations": [
+                row for row in inv["open"]
+                if row["id"] not in inventory_ids],
+                "touching": sorted({row["record"] for row in
+                                    inv["open"]}),
+                "unscoped": []}
+            scope = "all records"
+        for row in result["violations"]:
+            print(f"  UNINVENTORIED {row['id']} "
+                  f"({row['severity']}/{row['status']}) "
+                  f"{row['record']}: {row['title']}")
+        for rel in result["unscoped"]:
+            print(f"  note: record {rel} carries no range/head; "
+                  f"it cannot be scoped to the span and was not "
+                  f"checked", file=sys.stderr)
+        if result["violations"]:
+            print(f"codereview: freshness check FAILED "
+                  f"({scope}): {len(result['violations'])} "
+                  f"open dispute(s) neither dispositioned nor "
+                  f"inventoried")
+            return 1
+        print(f"codereview: freshness check ok ({scope}): no "
+              f"un-inventoried open disputes")
+        return 0
+
+    inv = disputes_mod.build_inventory(args.repo, entries,
+                                       overrides)
+    if args.json:
+        print(json.dumps(inv, ensure_ascii=False, indent=2))
+        return 0
+    by_record = {}
+    for row in inv["open"]:
+        by_record.setdefault(row["record"], []).append(row)
+    for rel in sorted(by_record):
+        print(f"{rel}:")
+        for row in by_record[rel]:
+            tag = row["authority"]
+            raiser = (row["raiser_family"] or row["raiser"]
+                      or "?")
+            refuter = (row["refuter_family"] or row["refuter"]
+                       or "?")
+            loc = (f"{row['file']}:{row['line']}"
+                   if row["line"] else row["file"])
+            if tag["authority_affecting"]:
+                auth = "YES — " + ", ".join(
+                    tag["dimensions"] or ["(override)"])
+            else:
+                auth = "no"
+            print(f"  {row['id']}  {row['severity']} "
+                  f"{row['status']}  {loc}  "
+                  f"[{raiser} -> refuted by {refuter}]")
+            print(f"      {row['title']}")
+            print(f"      authority-affecting: {auth}")
+    n_auth = sum(1 for r in inv["open"]
+                 if r["authority"]["authority_affecting"])
+    print(f"codereview: {len(inv['open'])} open dispute(s) "
+          f"across {inv['records_scanned']} record(s) "
+          f"({n_auth} authority-affecting); "
+          f"{len(inv['dispositioned'])} dispute(s) already "
+          f"dispositioned in the store ({inv['store_entries']} "
+          f"entr(ies) at {store_path})")
+    return 0
+
+
+def _locate_main(argv):
+    """codereview locate <finding-id> --record <path> — resolve
+    a finding's validated quote to its blob position(s) at the
+    reviewed commit (§5.6)."""
+    ap = argparse.ArgumentParser(
+        prog="codereview locate",
+        description="Resolve a finding's validated evidence "
+                    "quote to its position(s) in the cited file "
+                    "as committed at the record's reviewed "
+                    "commit. The quote is the anchor; the cited "
+                    "line number is only checked against it.")
+    ap.add_argument("finding_id",
+                    help="the finding's fingerprint (id)")
+    ap.add_argument("--record", required=True,
+                    help="record directory or record JSON file")
+    ap.add_argument("--repo", default=".",
+                    help="repository the record belongs to")
+    args = ap.parse_args(argv)
+    try:
+        record, record_dir, jpath = _load_record_arg(
+            args.record, args.repo)
+    except Exception as exc:  # noqa: BLE001
+        print(f"codereview: could not read the record: {exc}",
+              file=sys.stderr)
+        return 2
+    result = disputes_mod.locate_finding(
+        record, args.finding_id, args.repo, record_dir)
+    if result is None:
+        print(f"codereview: finding {args.finding_id} is not in "
+              f"{jpath}", file=sys.stderr)
+        return 2
+    print(f"finding {result['finding_id']}: {result['title']}")
+    print(f"  file: {result['file']}  cited line: "
+          f"{result['cited_line']}  line_basis: "
+          f"{result['line_basis'] or '(not recorded)'}")
+    print(f"  quote ({result['quote_source']}, from "
+          f"{result['quote_from']}): {result['quote'][:200]}")
+    if result["blob_error"]:
+        print(f"  blob at {result['blob_ref']}: unreadable — "
+              f"{result['blob_error']}")
+        return 1
+    if not result["positions"]:
+        print(f"  quote not found in {result['file']} at "
+              f"{result['blob_ref'][:12]}… — the citation does "
+              f"not resolve at the reviewed commit")
+        return 1
+    print(f"  blob positions at {result['blob_ref'][:12]}…: "
+          f"{result['positions']}")
+    resolves = ("yes" if result["cited_matches"] else
+                "NO — the numbering basis differs "
+                "(see line_basis)")
+    print(f"  cited line resolves: {resolves}")
+    return 0
 
 
 def _bench_main(argv, providers_override=None):
@@ -1138,6 +1401,10 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
                             fallbacks_override=fallbacks_override)
     if argv and argv[0] == "record-verify":
         return _record_verify_main(argv[1:])
+    if argv and argv[0] == "disputes":
+        return _disputes_main(argv[1:])
+    if argv and argv[0] == "locate":
+        return _locate_main(argv[1:])
     if argv and argv[0] == "bench":
         return _bench_main(argv[1:],
                            providers_override=providers_override)
@@ -1517,6 +1784,11 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
           f"({'; '.join(report.get('gate_reasons') or [])})")
     print(f"  findings: {len(report.get('findings') or [])} "
           f"({n_block} blocking-severity)")
+    open_disputes = report.get("open_disputes") or {}
+    if open_disputes.get("count"):
+        print(f"  open disputes: {open_disputes['count']} "
+              f"({', '.join(open_disputes.get('ids') or [])}) "
+              f"— see `codereview disputes`")
     print(f"  report: {mpath}")
     print(f"  data:   {jpath}")
     return {"pass": 0, "blocked": 1, "inconclusive": 2}.get(
