@@ -1,0 +1,10 @@
+A — failing test WITH __main__ guard:
+  harness kind-'test' probe: outcome=fail exit=1
+  unittest discover control: exit=1 (FAILED — FAILED (failures=1))
+B — same failing test, NO guard:
+  harness kind-'test' probe: outcome=fail exit=1
+  unittest discover control: exit=1 (FAILED — FAILED (failures=1))
+
+repo convention at HEAD: 32/33 files under tests/ carry the unittest.main guard; without it: ['test_fixture_secret_hygiene.py']
+
+VERDICT FACTS (post-fix): kind-'test' probes run through the unittest runner (discovery rooted at the target's directory) — the identical failing test probes 'fail' WITH and WITHOUT the __main__ guard, agreeing with the runner control both ways; a probe verdict no longer depends on a file-level guard the spec contract never required, and a run that executes zero tests is recorded as an error, never as a verdict. Pre-fix, the 'test' kind executed the target file as a script: without the guard the identical failing test probed 'pass', exit 0, ZERO tests executed, while the runner failed it (4cf81c69d7cf, sustained; fixed in the shadow-fixes branch).
