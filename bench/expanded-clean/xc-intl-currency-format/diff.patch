@@ -1,0 +1,18 @@
+diff --git a/src/formatMoney.js b/src/formatMoney.js
+--- /dev/null
++++ b/src/formatMoney.js
+@@ -0,0 +1,14 @@
++export function formatMoney(amountCents, currency, locale = "en-US") {
++  if (!Number.isSafeInteger(amountCents)) {
++    throw new TypeError("amountCents must be a safe integer of cents");
++  }
++  const formatter = new Intl.NumberFormat(locale, {
++    style: "currency",
++    currency,
++  });
++  return formatter.format(amountCents / 100);
++}
++
++export function formatUsd(cents) {
++  return formatMoney(cents, "USD");
++}

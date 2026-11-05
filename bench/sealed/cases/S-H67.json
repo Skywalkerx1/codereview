@@ -1,0 +1,58 @@
+{
+ "case_id": "S-H67",
+ "case_class": "sealed_machinery_holdout",
+ "sealed": true,
+ "title": "Function-level precedent can match the wrong callee when multiple functions share a name",
+ "finding": {
+  "claim": "Function-level precedent can match the wrong callee when multiple functions share a name",
+  "evidence": "The function-key builder indexes callees only by bare name, so later definitions overwrite earlier ones and call sites are matched to whichever same-named function was seen last. In a supported Python module with two different methods or nested functions sharing a name, a precedent for one enclosing function can be treated as still valid or invalid based on an unrelated same-named function elsewhe",
+  "file": "src/codereview/core.py",
+  "line": 1000,
+  "severity_as_raised": "major",
+  "evidence_quote": "        by_name.setdefault(n.name, n)",
+  "recommendation": "Key callees by qualified name or by lexical scope instead of bare `n.name`, and resolve `ast.Attribute` calls against the enclosing class/function scope so same-named functions in other scopes cannot alias each other in the precedent hash.",
+  "raised_by_family": "openai",
+  "record_finding_id": "6b29fe953939"
+ },
+ "code_region": {
+  "commit": "0c02ff6ca043c3695ff82e9a4689d57414329deb",
+  "path": "src/codereview/core.py",
+  "located": true,
+  "start_line": 999,
+  "end_line": 1019,
+  "text": "                    < (target[0].end_lineno or target[0].lineno)\n                    - target[0].lineno):\n                target = (node, qual)\n    if target is None:\n        return None\n    node, qual = target\n    by_name = {}\n    for n, _q in defs:\n        by_name.setdefault(n.name, n)\n    callees = {}\n    for sub in ast.walk(node):\n        if isinstance(sub, ast.Call):\n            fn = sub.func\n            cname = fn.id if isinstance(fn, ast.Name) else (\n                fn.attr if isinstance(fn, ast.Attribute) else None)\n            callee = by_name.get(cname) if cname else None\n            if callee is not None and callee is not node:\n                callees[cname] = _ast_hash(callee)\n    return {\"function\": qual, \"function_hash\": _ast_hash(node),\n            \"callees\": callees}\n"
+ },
+ "refutation": {
+  "by_family": "nvidia",
+  "quote": "        by_name.setdefault(n.name, n)",
+  "reason": "The finding claims that indexing callees by bare name causes later definitions to overwrite earlier ones, but the quoted line shows the code uses `setdefault`, which preserves the first value and does not overwrite existing entries.",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "Mechanism verified at HEAD during the inventory sweep (`by_name.setdefault` = first definition wins; nothing overwrites). Residue CONFIRMED by construction and now by test: two same-named functions, a caller of the second — the pre-fix key hashed the FIRST body, so changing the called function did not move the key. FAIL-SAFE FIX LANDED (commit c1bf1df): qualified resolution where determinable (self.x() → the enclosing class's method, unique scope-local sibling); an ambiguous bare name keys to ALL candidates' hashes; unambiguous names keep the historical bare hash, so existing precedents keep matching. Pinned in `tests/test_v111_hardening.py::CalleeKeyTests`; parent-fail verified (`hardening-parent-fail.txt`: ambiguous + self-call tests fail pre-fix, controls pass).",
+  "basis_evidence_sha256": [
+   "967ad9c3a45f6855470816860ff979bd3dea4e9852fa0b61bf63514c9a2fba73"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/hardening-parent-fail.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "split",
+  "severity_after": null,
+  "scoring": "sealed_split",
+  "reasoning_validity": {
+   "claim": "partially_valid",
+   "refutation": "partially_valid"
+  }
+ },
+ "provenance": {
+  "source": "disposition store entry 6b29fe953939 (decider=owner, marker=ratified, 2026-11-05T02:16:33+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-17-2026-11-04/08-6b29fe953939.md; source record: /home/hatch/workspace/codereview/review-v100/codereview-20261105-000409.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": [
+  "split ruling: neither side wholly correct; scored under the sealed_split rule in SEALED.md",
+  "reason_corrected: recorded on both sides in the check above; neither position as written covers the whole defect."
+ ]
+}

@@ -1,0 +1,51 @@
+{
+ "case_id": "S-D53",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "Configured intake solvers no longer receive the requested timeout",
+ "finding": {
+  "claim": "Configured intake solvers no longer receive the requested timeout",
+  "evidence": "The timeout is only forwarded in the default-provider branch via 'solvers = build_solvers(specs, agent_timeout=args.timeout)', but the earlier branch for explicit solver overrides is untouched. Because the new validation advertises '--timeout' as a per-solver deadline, runs that inject solvers through the existing override seam will silently ignore the user's timeout and can hang far longer than r",
+  "file": "src/codereview/cli.py",
+  "line": 657,
+  "severity_as_raised": "major",
+  "evidence_quote": "            solvers = build_solvers(specs, agent_timeout=args.timeout)",
+  "recommendation": "Thread the timeout through every solver-construction path, including any solvers_override branch, so explicit and default solver selection honor the same contract. Add a unit test covering _intake_main with solvers_override and a non-default timeout.",
+  "raised_by_family": "openai",
+  "record_finding_id": "ad6e36800a86"
+ },
+ "code_region": {
+  "commit": "2fbf94f2ca6feec0ad1180a71d3c9064bf1cef4d",
+  "path": "src/codereview/cli.py",
+  "located": true,
+  "start_line": 672,
+  "end_line": 692,
+  "text": "                      f\"{', '.join(non_solver)}\", file=sys.stderr)\n                return 2\n            if \"solver\" in assignments:\n                specs = [assignments[\"solver\"]] + specs\n        if not specs:\n            print(userconfig.NOT_SET_UP, file=sys.stderr)\n            return 2\n        try:\n            solvers = build_solvers(specs, agent_timeout=args.timeout)\n        except Exception as exc:  # noqa: BLE001\n            print(f\"codereview: solver setup failed: {exc}\",\n                  file=sys.stderr)\n            return 2\n\n    result = intake.run_intake(\n        report, solvers, contexts=contexts,\n        repo_tree=_repo_tree(args.repo) if args.repo else \"\",\n        timeout=args.timeout)\n    solution_path, manifest_path = intake.write_intake(\n        result, args.out, report_name=os.path.basename(args.report))\n    print(f\"codereview intake: {os.path.basename(args.report)}\")"
+ },
+ "refutation": {
+  "by_family": "nvidia",
+  "quote": "            solvers = build_solvers(specs, agent_timeout=args.timeout)",
+  "reason": "The code region explicitly shows the timeout argument being passed to build_solvers in the only solver-construction path present. The finding's claim that the override branch is untouched is contradicted by the diff, which adds the timeout forwarding to the active path without any separate override ",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "Timeout-forwarding probe (`probes/closingB_providers.py`, ad6e36800a86 section; path cli.py:680 → providers.build_solvers providers.py:753-763 → build_providers → command_agent): a solver seat 'slow' configured with agent_timeout=1 was run against a 30-second sleeper command. Result: ProviderError after 1.0s — 'agent command timed out after 1s'. The intake agent timeout IS forwarded through the solver construction chain to the command — the claim's unwired-timeout mechanism does not exist at HEAD.",
+  "basis_evidence_sha256": [
+   "22958cab90badb1f71d0e25f2ca2b2432fa712a5b12d2af593a7bc1e3147d8dd"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/closingB-providers.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_refutation",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry ad6e36800a86 (decider=owner, marker=ratified, 2026-11-05T04:07:58+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-closing-r1-2026-11-04/30-ad6e36800a86.md; source record: review-closing-r1-attempt1/codereview-20261105-031306.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": []
+}

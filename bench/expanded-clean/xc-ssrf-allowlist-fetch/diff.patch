@@ -1,0 +1,72 @@
+diff --git a/app/safe_fetch.py b/app/safe_fetch.py
+--- /dev/null
++++ b/app/safe_fetch.py
+@@ -0,0 +1,68 @@
++import ipaddress
++import socket
++from urllib.parse import urljoin, urlparse
++
++import requests
++
++ALLOWED_HOSTS = frozenset({"api.example.com", "feeds.example.org"})
++MAX_REDIRECTS = 3
++TIMEOUT_SECONDS = 10
++REDIRECT_STATUSES = frozenset({301, 302, 303, 307, 308})
++
++
++def _reject_non_public_host(hostname):
++    """Raise unless every address *hostname* resolves to is public."""
++    try:
++        infos = socket.getaddrinfo(hostname, None)
++    except socket.gaierror as exc:
++        raise ValueError(f"cannot resolve host {hostname!r}") from exc
++    if not infos:
++        raise ValueError(f"cannot resolve host {hostname!r}")
++    for info in infos:
++        address = ipaddress.ip_address(info[4][0])
++        # is_global is False for loopback, private, link-local,
++        # multicast, reserved and unspecified addresses alike.
++        if not address.is_global:
++            raise ValueError(
++                f"host {hostname!r} resolves to non-public {address}"
++            )
++
++
++def _validate_url(url):
++    parsed = urlparse(url)
++    if parsed.scheme != "https":
++        raise ValueError("only https URLs are allowed")
++    if parsed.username or parsed.password:
++        raise ValueError("URLs with credentials are not allowed")
++    host = parsed.hostname
++    if host is None or host.lower() not in ALLOWED_HOSTS:
++        raise ValueError(f"host {host!r} is not on the allowlist")
++    if parsed.port not in (None, 443):
++        raise ValueError("only port 443 is allowed")
++    _reject_non_public_host(host.lower())
++    return parsed
++
++
++def safe_fetch(url):
++    """GET an allowlisted URL, revalidating every redirect hop.
++
++    Redirects are not delegated to the HTTP client: an allowlisted
++    page that redirects to an internal address must be stopped, so
++    each Location is resolved, fully validated again, and only then
++    followed, at most MAX_REDIRECTS times.
++    """
++    current = url
++    for _hop in range(MAX_REDIRECTS + 1):
++        _validate_url(current)
++        response = requests.get(
++            current, timeout=TIMEOUT_SECONDS, allow_redirects=False
++        )
++        if response.status_code not in REDIRECT_STATUSES:
++            response.raise_for_status()
++            return response
++        location = response.headers.get("Location")
++        response.close()
++        if not location:
++            raise ValueError("redirect response without a Location header")
++        current = urljoin(current, location)
++    raise ValueError(f"too many redirects (over {MAX_REDIRECTS})")

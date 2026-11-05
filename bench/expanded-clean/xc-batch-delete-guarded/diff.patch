@@ -1,0 +1,49 @@
+diff --git a/app/cleanup.py b/app/cleanup.py
+--- /dev/null
++++ b/app/cleanup.py
+@@ -0,0 +1,45 @@
++# MySQL dialect: DELETE ... LIMIT is used for the batched cleanup.
++ALLOWED_TABLES = frozenset({"sessions", "password_reset_tokens"})
++DEFAULT_BATCH_SIZE = 500
++MAX_BATCHES = 1000
++
++
++def batched_delete(db, table, where_sql, params=(), batch_size=None,
++                   dry_run=True):
++    """Delete rows matching a mandatory filter, in bounded batches.
++
++    *where_sql* is a trusted fragment written by the calling code
++    (never request input); all values travel as bound *params*. With
++    dry_run (the default) nothing is deleted: the matching row count
++    is reported so an operator can sanity-check the blast radius.
++    """
++    if table not in ALLOWED_TABLES:
++        raise ValueError(f"table {table!r} is not approved for cleanup")
++    if not where_sql or not where_sql.strip():
++        raise ValueError("a non-empty WHERE clause is required")
++    if batch_size is None:
++        batch_size = DEFAULT_BATCH_SIZE
++    if batch_size < 1:
++        raise ValueError("batch_size must be positive")
++    if dry_run:
++        row = db.execute(
++            f"SELECT COUNT(*) FROM {table} WHERE {where_sql}",
++            tuple(params),
++        ).fetchone()
++        return {"dry_run": True, "matching": row[0], "deleted": 0}
++    deleted = 0
++    for _batch in range(MAX_BATCHES):
++        cursor = db.execute(
++            f"DELETE FROM {table} WHERE {where_sql} LIMIT ?",
++            tuple(params) + (batch_size,),
++        )
++        db.commit()
++        deleted += cursor.rowcount
++        if cursor.rowcount < batch_size:
++            break
++    else:
++        raise RuntimeError(
++            f"cleanup of {table} exceeded {MAX_BATCHES} batches; "
++            "refusing to continue unbounded"
++        )
++    return {"dry_run": False, "matching": deleted, "deleted": deleted}

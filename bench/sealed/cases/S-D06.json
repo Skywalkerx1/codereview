@@ -1,0 +1,55 @@
+{
+ "case_id": "S-D06",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "Committed probe output republishes account identifiers",
+ "finding": {
+  "claim": "Committed probe output republishes account identifiers",
+  "evidence": "The generated results file also includes email addresses found in records, e.g. 'admin@example.com'. This is direct disclosure of account identifiers in a committed artifact.",
+  "file": "probes/results/records-scan-a3a2d492b51a.txt",
+  "line": 39,
+  "severity_as_raised": "major",
+  "evidence_quote": "  account_id x2: admin@example.com",
+  "recommendation": "Redact or suppress account-id samples in committed artifacts, or keep these outputs untracked. If the scan must be committed, report counts only and avoid embedding the matched identifiers.",
+  "raised_by_family": "openai",
+  "record_finding_id": "20e4194e5ed9"
+ },
+ "code_region": {
+  "commit": null,
+  "path": "probes/results/records-scan-a3a2d492b51a.txt",
+  "located": false,
+  "start_line": null,
+  "end_line": null,
+  "text": "  account_id x2: admin@example.com",
+  "note": "region text is the finding's validated evidence quote; full region could not be re-located at the record head"
+ },
+ "refutation": {
+  "by_family": "nvidia",
+  "quote": "  account_id x2: admin@example.com",
+  "reason": "The finding claims that account identifiers are disclosed in committed artifacts. However, the code region explicitly shows that the 'account_id' entries are part of the scan's summary totals (Totals by category: account_id: 9) and per-file detail lines that list local_path, hostname, connector_name",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "`probes/gap_scan_exposure_probe.py`, result `gap-scan-exposure-pair.txt`: - The republication mechanism is real: the committed scan file prints matched strings verbatim as per-file samples (capped at 3 per category per file). The account_id samples are at lines 41, 51, 54 — **all nine hits are the single string `admin@example.com`**. - Provenance of that string: every occurrence in the underlying records sits inside a code snippet preserved in a review record — `sendmail(\"admin@example.com\", \"ABNORMALITY in {v.name}\", ...)` in sample code that was itself under review (review-v12 and review-v15 records). It is example data in reviewed code, not an account identifier belonging to the operator or to any user of this system. No real identifier is exposed by this file today. - Interplay: whether committed scan/probe outputs may carry verbatim samples at all is exactly the question the public-record-profile decision (main packet #3) settles. Adopting the profile (counts-only or redacted samples in committed artifacts) gives this item its fix direction without a separate decision; the sister finding G14 shows the same mechanism carrying genuinely sensitive content.",
+  "basis_evidence_sha256": [
+   "52b66a794735620d931e78edd0b438282abc31247e464008f4dc363232b4b4bc"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/gap-scan-exposure-pair.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_finding",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry 20e4194e5ed9 (decider=owner, marker=ratified, 2026-11-05T02:16:32+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-gap-2026-11-04/13-20e4194e5ed9.md; source record: /home/hatch/workspace/codereview/review-pt1-open-refutations/codereview-20261105-004939.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": [
+  "finding sustained at reduced severity (owner downgrade)",
+  "reason_corrected: The scan republishes pattern-matched strings verbatim; the only account_id string present is an example address from code under review. Exposure risk is real as a class (see G14), nil in this instance."
+ ]
+}

@@ -1,0 +1,53 @@
+{
+ "case_id": "S-D44",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "Test probes execute the target file directly instead of running it under the test runner",
+ "finding": {
+  "claim": "Test probes execute the target file directly instead of running it under the test runner",
+  "evidence": "For kind 'test', the harness builds argv as the Python interpreter plus the target path, so a documented spec like {'kind': 'test', 'target': 'tests/test_x.py'} is executed as a script rather than through unittest/pytest semantics. That breaks common test targets that rely on discovery, fixtures, or package-relative imports, causing reachable false failures for supported probe requests.",
+  "file": "src/codereview/probe.py",
+  "line": 184,
+  "severity_as_raised": "major",
+  "evidence_quote": "            argv = [sys.executable, spec[\"target\"]]",
+  "recommendation": "Invoke an actual test runner for 'test' probes, for example 'python -m unittest <target>' or a project-defined runner, and validate the target format accordingly. If direct script execution is intended, rename the probe kind or documentation so callers do not expect test-runner behavior.",
+  "raised_by_family": "openai",
+  "record_finding_id": "f46397a84121"
+ },
+ "code_region": {
+  "commit": "2fbf94f2ca6feec0ad1180a71d3c9064bf1cef4d",
+  "path": "src/codereview/probe.py",
+  "located": true,
+  "start_line": 181,
+  "end_line": 201,
+  "text": "            os.makedirs(probe_dir, exist_ok=True)\n            script = os.path.join(probe_dir, \"probe_main.py\")\n            with open(script, \"w\", encoding=\"utf-8\") as fh:\n                fh.write(spec[\"code\"])\n            argv = [sys.executable, script]\n        elif spec[\"kind\"] == \"command\":\n            argv = list(spec[\"argv\"])\n        else:  # test\n            argv = [sys.executable, spec[\"target\"]]\n        prefix, net_level = _network_prefix()\n        try:\n            res = subprocess.run(\n                prefix + argv, cwd=work, env=_sandbox_env(tmp, work),\n                capture_output=True, text=True,\n                timeout=timeout)\n            output = (res.stdout or \"\") + (res.stderr or \"\")\n            outcome = \"pass\" if res.returncode == 0 else \"fail\"\n            exit_code = res.returncode\n        except subprocess.TimeoutExpired as exc:\n            output = ((exc.stdout or b\"\") if isinstance(\n                exc.stdout, bytes) else (exc.stdout or \"\")) \\"
+ },
+ "refutation": {
+  "by_family": "nvidia",
+  "quote": "            argv = [sys.executable, spec[\"target\"]]",
+  "reason": "The code explicitly constructs argv as [sys.executable, target] for test kind, which runs the target as a script via the Python interpreter rather than invoking a test runner. This matches the finding's description that the harness executes the target directly, confirming the defect.",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "Re-raise of the shadow set's 4cf81c69d7cf (ratified sustain_finding by the owner, 2026-11-04). The fix predates this workup: c3c1463 runs kind-'test' probes through the unittest runner and treats zero executed tests as an error, never a verdict. Verified at HEAD by the sandbox probe (`probes/closingB_probe_sandbox.py`, section 3): an unguarded FAILING test file now probes outcome='fail' (Ran 1 test, FAILED) — direct script execution would have run 0 tests and exited 0. The dedicated after-state probe (469e36e) covers the guarded/unguarded pair.",
+  "basis_evidence_sha256": [
+   "e0993007f4e306717bea3aeeb5c764e8548349da61640f66ad7fb915d890363e"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/closingB-probe-sandbox.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_finding",
+  "severity_after": "major",
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry f46397a84121 (decider=owner, marker=ratified, 2026-11-05T04:07:57+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-closing-r1-2026-11-04/19-f46397a84121.md; source record: review-closing-r1/codereview-20261105-031927.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": [
+  "finding sustained and fixed in commit c3c1463"
+ ]
+}

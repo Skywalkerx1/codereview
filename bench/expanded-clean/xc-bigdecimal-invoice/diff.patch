@@ -1,0 +1,49 @@
+diff --git a/src/main/java/com/example/billing/InvoiceCalculator.java b/src/main/java/com/example/billing/InvoiceCalculator.java
+--- /dev/null
++++ b/src/main/java/com/example/billing/InvoiceCalculator.java
+@@ -0,0 +1,45 @@
++package com.example.billing;
++
++import java.math.BigDecimal;
++import java.math.RoundingMode;
++import java.util.List;
++
++public final class InvoiceCalculator {
++
++    private static final int SCALE = 2;
++    private static final RoundingMode ROUNDING = RoundingMode.HALF_UP;
++
++    public record LineItem(String description, BigDecimal unitPrice,
++                           int quantity) {
++        public LineItem {
++            if (unitPrice == null) {
++                throw new IllegalArgumentException("unitPrice required");
++            }
++            if (quantity <= 0) {
++                throw new IllegalArgumentException("quantity must be > 0");
++            }
++        }
++    }
++
++    private static BigDecimal cents(BigDecimal value) {
++        return value.setScale(SCALE, ROUNDING);
++    }
++
++    public BigDecimal subtotal(List<LineItem> items) {
++        BigDecimal total = cents(BigDecimal.ZERO);
++        for (LineItem item : items) {
++            BigDecimal line = cents(
++                    item.unitPrice().multiply(
++                            BigDecimal.valueOf(item.quantity())));
++            total = total.add(line);
++        }
++        return cents(total);
++    }
++
++    public BigDecimal totalWithTax(List<LineItem> items,
++                                   BigDecimal taxRate) {
++        BigDecimal subtotal = subtotal(items);
++        BigDecimal tax = cents(subtotal.multiply(taxRate));
++        return cents(subtotal.add(tax));
++    }
++}

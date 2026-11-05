@@ -1,0 +1,87 @@
+diff --git a/app/circuit_breaker.py b/app/circuit_breaker.py
+--- /dev/null
++++ b/app/circuit_breaker.py
+@@ -0,0 +1,83 @@
++import threading
++import time
++
++
++class CircuitOpenError(Exception):
++    """Raised when a call is rejected because the circuit is open."""
++
++
++class CircuitBreaker:
++    CLOSED = "closed"
++    OPEN = "open"
++    HALF_OPEN = "half_open"
++
++    def __init__(self, failure_threshold=5, reset_timeout=30.0,
++                 clock=time.monotonic):
++        if failure_threshold < 1:
++            raise ValueError("failure_threshold must be at least 1")
++        if reset_timeout <= 0:
++            raise ValueError("reset_timeout must be positive")
++        self._threshold = failure_threshold
++        self._reset_timeout = reset_timeout
++        self._clock = clock
++        self._lock = threading.Lock()
++        self._state = self.CLOSED
++        self._failures = 0
++        self._opened_at = None
++        self._probe_in_flight = False
++
++    def _refresh_locked(self):
++        """Move OPEN -> HALF_OPEN once the cooldown has elapsed."""
++        if self._state == self.OPEN and self._opened_at is not None:
++            if self._clock() - self._opened_at >= self._reset_timeout:
++                self._state = self.HALF_OPEN
++                self._probe_in_flight = False
++
++    @property
++    def state(self):
++        with self._lock:
++            self._refresh_locked()
++            return self._state
++
++    def call(self, func, *args, **kwargs):
++        with self._lock:
++            self._refresh_locked()
++            if self._state == self.OPEN:
++                raise CircuitOpenError("circuit is open")
++            probing = self._state == self.HALF_OPEN
++            if probing:
++                if self._probe_in_flight:
++                    raise CircuitOpenError("half-open probe in flight")
++                self._probe_in_flight = True
++        try:
++            result = func(*args, **kwargs)
++        except Exception:
++            with self._lock:
++                if probing:
++                    self._state = self.OPEN
++                    self._opened_at = self._clock()
++                    self._probe_in_flight = False
++                else:
++                    self._failures += 1
++                    if self._failures >= self._threshold:
++                        self._state = self.OPEN
++                        self._opened_at = self._clock()
++            raise
++        except BaseException:
++            with self._lock:
++                if probing:
++                    self._probe_in_flight = False
++            raise
++        with self._lock:
++            self._state = self.CLOSED
++            self._failures = 0
++            self._opened_at = None
++            self._probe_in_flight = False
++        return result
++
++    def reset(self):
++        with self._lock:
++            self._state = self.CLOSED
++            self._failures = 0
++            self._opened_at = None
++            self._probe_in_flight = False

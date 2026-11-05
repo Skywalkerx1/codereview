@@ -1,0 +1,51 @@
+diff --git a/app/config.py b/app/config.py
+--- /dev/null
++++ b/app/config.py
+@@ -0,0 +1,47 @@
++import yaml
++
++DEFAULTS = {"debug": False, "timeout_seconds": 30}
++REQUIRED_KEYS = frozenset({"database_url", "port"})
++ALLOWED_KEYS = REQUIRED_KEYS | frozenset(DEFAULTS)
++
++
++def _require_int(config, key):
++    value = config[key]
++    # bool is a subclass of int: True must not pass as a port/timeout.
++    if isinstance(value, bool) or not isinstance(value, int):
++        raise ValueError(f"config key {key!r} must be an integer")
++    return value
++
++
++def load_config(path):
++    """Load and validate the YAML config at *path*.
++
++    yaml.safe_load cannot instantiate arbitrary objects, and every
++    value is type- and range-checked here, so a malformed or hostile
++    config fails at startup with a precise error.
++    """
++    with open(path, encoding="utf-8") as handle:
++        raw = yaml.safe_load(handle)
++    if not isinstance(raw, dict):
++        raise ValueError("config root must be a mapping")
++    unknown = set(raw) - ALLOWED_KEYS
++    if unknown:
++        raise ValueError(f"unknown config keys: {sorted(unknown)}")
++    missing = REQUIRED_KEYS - set(raw)
++    if missing:
++        raise ValueError(f"missing config keys: {sorted(missing)}")
++    config = dict(DEFAULTS)
++    config.update(raw)
++    if not isinstance(config["database_url"], str) or not config[
++        "database_url"
++    ]:
++        raise ValueError("database_url must be a non-empty string")
++    port = _require_int(config, "port")
++    if not 1 <= port <= 65535:
++        raise ValueError("port must be between 1 and 65535")
++    timeout = _require_int(config, "timeout_seconds")
++    if timeout <= 0:
++        raise ValueError("timeout_seconds must be positive")
++    if not isinstance(config["debug"], bool):
++        raise ValueError("debug must be a boolean")
++    return config

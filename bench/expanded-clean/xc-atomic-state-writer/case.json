@@ -1,0 +1,11 @@
+{
+  "id": "xc-atomic-state-writer",
+  "title": "State file persisted via temp file, fsync and atomic rename",
+  "category": "clean",
+  "split": "expanded-clean",
+  "source": "Authored for the CodeReview benchmark corpus (expanded clean stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "expanded-clean",
+  "false_flag_note": "A reviewer may flag the temp file or the os.replace as over-engineering, or the directory fsync as a bug. The pattern is the correct one: the temp file lives in the same directory (same filesystem, so the rename is atomic), the file is flushed and fsynced before the rename, a failed write unlinks the temp file and re-raises, and fsyncing the directory afterwards is what makes the rename itself durable across a crash."
+}

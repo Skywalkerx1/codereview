@@ -1,0 +1,53 @@
+{
+ "case_id": "S-D16",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "Role assignment can bind to the wrong account when the panel contains duplicate preset seats",
+ "finding": {
+  "claim": "Role assignment can bind to the wrong account when the panel contains duplicate preset seats",
+  "evidence": "The role-assignment code records the seat name returned by a fresh one-item build, then reuses any existing provider with that name instead of the actual seat selected by the main panel build. With duplicate presets, the main panel renames seats, so the role can point at a different account than requested.",
+  "file": "src/codereview/cli.py",
+  "line": 751,
+  "severity_as_raised": "major",
+  "evidence_quote": "        seat_roles[role] = seat_name",
+  "recommendation": "Resolve role assignments against the already-built provider set instead of rebuilding the spec in isolation. For duplicate preset seats, either preserve the exact seat identity chosen during the main build or reject ambiguous role specs unless the user names a unique seat explicitly.",
+  "raised_by_family": "openai",
+  "record_finding_id": "78ddf4d5ea27"
+ },
+ "code_region": {
+  "commit": "e35d64b2a81f7af20e64e3662c79c2c16217a936",
+  "path": "src/codereview/cli.py",
+  "located": true,
+  "start_line": 761,
+  "end_line": 781,
+  "text": "                    and any(t is not None for t in existing_tags):\n                raise ProviderError(\n                    f\"role {role!r}: seat name {seat_name!r} is \"\n                    f\"already used by a different kind of seat \"\n                    f\"(agent vs API); rename the seat in the \"\n                    f\"role spec {spec!r}\")\n        else:\n            providers[seat_name] = seat_fn\n        seat_roles[role] = seat_name\n        role_models[role] = {\n            \"seat\": seat_name,\n            \"provider\": desc[\"preset\"] or desc[\"kind\"],\n            \"model\": desc[\"model\"],\n            \"family\": desc[\"family\"],\n            \"key_env\": desc[\"key_env\"],\n        }\n        if role in registry.LENS_ROLES:\n            lens_seats[registry.LENS_ROLES[role]] = seat_name\n    tech_lead = seat_roles.get(\"tech-lead\")\n    return lens_seats, seat_roles, role_models, tech_lead\n"
+ },
+ "refutation": {
+  "by_family": "nvidia",
+  "quote": "        seat_roles[role] = seat_name",
+  "reason": "The code explicitly records seat_roles[role] = seat_name after building the provider from the role spec, ensuring the role maps to the seat built from that exact spec. The finding's claim that the role can point at a different account than requested is contradicted by this direct assignment, which o",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "Duplicate-seat demonstration (`probes/duplicate_seat_probe.py`, result `duplicate-seat-78ddf4d5ea27.txt`): panel built from ['openai', 'openai'] pools two accounts under one seat; the pool sends the registry default 'gpt-5-mini' on both accounts. Applying --role correctness=openai:gpt-9.9-probe records role_models['correctness']['model'] = 'gpt-9.9-probe' while the seat object is unchanged and still sends 'gpt-5-mini' — the override callable is built, discarded on the name collision, and its model recorded anyway. The recorded model NEVER serves. Name-level half: seat names and pool sizes are identical across all spec orderings. Ruled jointly with #10 (same seam; #10's cross-kind guard does not cover a same-kind model override).",
+  "basis_evidence_sha256": [
+   "9a37edd112473e79db0dd61f8d8c19493d50d84001cfbf78673fd70829c1e22d"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/duplicate-seat-78ddf4d5ea27.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_finding",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry 78ddf4d5ea27 (decider=owner, marker=ratified, 2026-11-05T02:16:33+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-17-2026-11-04/16-78ddf4d5ea27.md; source record: /home/hatch/workspace/codereview/review-v110/codereview-20261105-001944.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": [
+  "reason_corrected: 'the role assignment records a model the serving seat does not run, when the seat name is already taken' replaces the renaming framing."
+ ]
+}

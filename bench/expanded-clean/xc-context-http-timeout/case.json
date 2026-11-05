@@ -1,0 +1,11 @@
+{
+  "id": "xc-context-http-timeout",
+  "title": "HTTP GET with a context timeout propagated to the request",
+  "category": "clean",
+  "split": "expanded-clean",
+  "source": "Authored for the CodeReview benchmark corpus (expanded clean stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "expanded-clean",
+  "false_flag_note": "A reviewer may flag the deferred cancel or the second timeout layer as redundant. WithTimeout derives from the caller's context, so caller cancellation and the local 5s deadline both apply; defer cancel() is required to release the context's timer resources even on success; the request is built with NewRequestWithContext so the deadline actually aborts the in-flight call; the body is closed on every path; and the read is capped with LimitReader so a hostile endpoint cannot stream unbounded data into memory."
+}

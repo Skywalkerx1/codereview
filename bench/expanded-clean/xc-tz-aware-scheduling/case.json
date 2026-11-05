@@ -1,0 +1,11 @@
+{
+  "id": "xc-tz-aware-scheduling",
+  "title": "Daily schedule computed with timezone-aware datetimes only",
+  "category": "clean",
+  "split": "expanded-clean",
+  "source": "Authored for the CodeReview benchmark corpus (expanded clean stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "expanded-clean",
+  "false_flag_note": "A reviewer may flag stripping tzinfo from run_at or converting through UTC as suspicious. run_at is a wall-clock time in the named zone, so any tzinfo on the time object itself is meaningless and is dropped before combining with the zone; naive 'after' values are rejected instead of being silently interpreted in the host's local zone; and the candidate is compared in local time (strictly after, so an exact hit rolls to tomorrow) before a single conversion to UTC at the end."
+}

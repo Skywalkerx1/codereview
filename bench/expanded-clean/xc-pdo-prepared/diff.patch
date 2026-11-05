@@ -1,0 +1,24 @@
+diff --git a/src/users.php b/src/users.php
+--- /dev/null
++++ b/src/users.php
+@@ -0,0 +1,20 @@
++<?php
++
++declare(strict_types=1);
++
++function createPdo(string $dsn, string $user, string $pass): PDO
++{
++    return new PDO($dsn, $user, $pass, [
++        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
++        PDO::ATTR_EMULATE_PREPARES => false,
++        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
++    ]);
++}
++
++function findUserByEmail(PDO $pdo, string $email): ?array
++{
++    $stmt = $pdo->prepare('SELECT id, email, password_hash FROM users WHERE email = :email');
++    $stmt->execute(['email' => $email]);
++    $row = $stmt->fetch();
++    return $row === false ? null : $row;
++}

@@ -1,0 +1,11 @@
+{
+  "id": "xc-retry-backoff-jitter",
+  "title": "HTTP helper retries idempotent requests with backoff and jitter",
+  "category": "clean",
+  "split": "expanded-clean",
+  "source": "Authored for the CodeReview benchmark corpus (expanded clean stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "expanded-clean",
+  "false_flag_note": "A reviewer may flag the retry loop as risking duplicate side effects or an infinite loop. It is bounded (max_attempts is validated and the last attempt re-raises), it only retries connection/timeout errors for idempotent methods (GET/HEAD/OPTIONS) and re-raises immediately for anything else, HTTP error statuses are never retried because raise_for_status raises a non-retryable error, and the sleep uses exponential backoff with full jitter so clients do not retry in lockstep."
+}

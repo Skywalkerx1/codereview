@@ -1,0 +1,11 @@
+{
+  "id": "xc-constant-time-compare",
+  "title": "Secret comparison using a constant-time equality check",
+  "category": "clean",
+  "split": "expanded-clean",
+  "source": "Authored for the CodeReview benchmark corpus (expanded clean stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "expanded-clean",
+  "false_flag_note": "A reviewer may flag the early length return as a timing leak, or ask why not ===. === short-circuits on the first differing byte and leaks the match prefix through timing, so timingSafeEqual is required; it throws on unequal lengths, so lengths are compared first, which leaks only the secret's length (not its content) and is the documented, standard guard for this API. Non-string inputs fail closed."
+}

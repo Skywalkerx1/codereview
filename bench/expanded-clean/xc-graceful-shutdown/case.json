@@ -1,0 +1,11 @@
+{
+  "id": "xc-graceful-shutdown",
+  "title": "Worker that stops accepting work on signal and drains in-flight jobs",
+  "category": "clean",
+  "split": "expanded-clean",
+  "source": "Authored for the CodeReview benchmark corpus (expanded clean stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "expanded-clean",
+  "false_flag_note": "A reviewer may flag signal handling as unsafe or the 0.2s poll as a busy loop. The handler does the minimum signal-safe work (setting a threading.Event) and all real shutdown happens on the main thread; the timed queue get exists precisely so the stop flag is re-checked even when no work arrives; and leaving the ThreadPoolExecutor context manager waits for every submitted job to finish, so in-flight work drains instead of being killed mid-write."
+}

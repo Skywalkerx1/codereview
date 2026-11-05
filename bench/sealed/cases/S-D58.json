@@ -1,0 +1,53 @@
+{
+ "case_id": "S-D58",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "Catching all TypeError misclassifies probe implementation failures as wiring errors",
+ "finding": {
+  "claim": "Catching all TypeError misclassifies probe implementation failures as wiring errors",
+  "evidence": "The new handler treats any TypeError raised while calling the probe function as a contract mismatch, but that except block also catches TypeError thrown inside a correctly wired probe implementation after it starts executing.",
+  "file": "src/codereview/core.py",
+  "line": 1396,
+  "severity_as_raised": "major",
+  "evidence_quote": "            except TypeError as exc:",
+  "recommendation": "Only classify argument-binding failures as wiring errors, for example by validating the callable signature before invocation or by inspecting the exception context and traceback to ensure the TypeError originated at the call boundary. Let internal probe TypeError exceptions fall through to the generic probe failure path.",
+  "raised_by_family": "openai",
+  "record_finding_id": "21bb4af17e22"
+ },
+ "code_region": {
+  "commit": "bd371a9ad2831e5475ab620885b4336dec6d98c6",
+  "path": "src/codereview/core.py",
+  "located": true,
+  "start_line": 1389,
+  "end_line": 1409,
+  "text": "    entry[\"draws\"].append(draw)\n    decision = draw[\"decision\"]\n    if decision == \"needs_probe\":\n        spec = draw.get(\"probe_spec\")\n        if probe_fn is not None and spec is not None:\n            try:\n                probe_result = probe_fn(finding,\n                                        json.dumps(spec))\n            except TypeError as exc:\n                # A TypeError at this call boundary means the\n                # wired callable does not implement the\n                # probe_fn(finding, request) contract — a\n                # WIRING failure in the harness setup, not a\n                # probe result (finding 833912a09fa3: the\n                # one-arg call's TypeError was swallowed here\n                # and recorded as \"probe failed\", then fed to\n                # draw 2 as evidence). Record it distinctly,\n                # marked can_rebut False, so neither draw 2\n                # nor a reader of the record can mistake it\n                # for evidence a probe produced.\n                probe_result = {\"status\": \"wiring_error\","
+ },
+ "refutation": {
+  "by_family": "nvidia",
+  "quote": "            except TypeError as exc:",
+  "reason": "The code explicitly catches TypeError at the call boundary to classify it as a wiring error, which directly matches the finding's description. The handler is designed to distinguish this specific TypeError from internal probe exceptions, confirming the defect's premise rather than refuting it.",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "Probe-TypeError probe (`probes/closingA_probe_typeerror.py`): three runs through the production shadow path. (A) A probe_fn with a CORRECT signature whose body raises TypeError internally → status='wiring_error', detail='probe wiring error: unsupported operand type(s) for +: 'int' and 'str'', can_rebut=False — an implementation bug is classified as a WIRING failure (the class reserved for signature/spec mismatches), because the `except TypeError` handler in shadow_adjudicate (core.py:1397, introduced by 849e70e) cannot tell where the TypeError was raised. (B) The same shape raising RuntimeError internally → status='error', detail='probe failed: probe implementation exploded' — classified correctly, proving the breadth is TypeError-specific. (C) The real production path (make_probe_fn over a spec whose code raises TypeError) → outcome='fail' — the harness treats it as probe evidence, not wiring. The exception TEXT survives in the detail in all three; what is wrong in (A) is the status class and its downstream semantics (wiring errors mark the probe as never-wired: can_rebut/can_support False).",
+  "basis_evidence_sha256": [
+   "c1c0782c9f8220a4b7fca2d8eadc43fd4b3bdb8e36b01ac9629cf291bb4cac2d"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/closingA-probe-typeerror.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_finding",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry 21bb4af17e22 (decider=owner, marker=ratified, 2026-11-05T04:08:00+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-closing-r1-2026-11-04/43-21bb4af17e22.md; source record: review-shadowfixes-out/codereview-20261105-032130.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": [
+  "reason_corrected: scope corrected to shadow_adjudicate's `except TypeError` handler (core.py:1397); the detail text is preserved (the loss is the status class and its can_rebut/can_support semantics, not the message)."
+ ]
+}

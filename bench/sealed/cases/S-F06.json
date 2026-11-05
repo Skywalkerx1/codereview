@@ -1,0 +1,49 @@
+{
+ "case_id": "S-F06",
+ "case_class": "sealed_fp_corpus",
+ "sealed": true,
+ "title": "Empty or dot-only name now targets the directory itself",
+ "finding": {
+  "claim": "Empty or dot-only name now targets the directory itself",
+  "evidence": "With the basename call removed, 'name' of '' or '.' leaves 'path' equal to UPLOAD_DIR itself on '    path = os.path.join(UPLOAD_DIR, name)', so the following 'open(path, \"wb\")' raises IsADirectoryError (uncaught, leaking an implementation detail) instead of the request being rejected as an invalid name. Input validation belongs before path construction.",
+  "file": "app/uploads.py",
+  "line": 7,
+  "severity_as_raised": "minor",
+  "evidence_quote": "    path = os.path.join(UPLOAD_DIR, name)",
+  "recommendation": "Validate the name up front (non-empty, not '.'/'..', no separators) and raise a dedicated InvalidUploadName error before touching the filesystem.",
+  "raised_by_family": null,
+  "record_finding_id": "74798f3ab150"
+ },
+ "code_region": {
+  "commit": null,
+  "path": "app/uploads.py",
+  "located": true,
+  "start_line": null,
+  "end_line": null,
+  "text": "diff --git a/app/uploads.py b/app/uploads.py\n--- a/app/uploads.py\n+++ b/app/uploads.py\n@@ -2,6 +2,7 @@ import os\n \n UPLOAD_DIR = \"/var/app/uploads\"\n \n-def save_upload(name, data):\n-    path = os.path.join(UPLOAD_DIR, os.path.basename(name))\n+def save_upload(name, data):\n+    path = os.path.join(UPLOAD_DIR, name)\n     with open(path, \"wb\") as fh:\n         fh.write(data)\n",
+  "note": "region is the benchmark case diff under review (bench/corpus/path-traversal-upload/diff.patch)"
+ },
+ "refutation": {
+  "by_family": "adjudication",
+  "quote": "    path = os.path.join(UPLOAD_DIR, name)",
+  "reason": "Refuted by probe: os.path.basename('')=='' and basename('.')=='.', so old and new code produce byte-identical paths for empty/dot names and the IsADirectoryError behaviour pre-dates the change. The claimed regression does not exist.",
+  "provenance": "constructed-from-adjudication: the refutation position is the step-3 blind probe-first adjudication basis (SS2.3), not a recorded panel refutation"
+ },
+ "probe": {
+  "summary": "Refuted by probe: os.path.basename('')=='' and basename('.')=='.', so old and new code produce byte-identical paths for empty/dot names and the IsADirectoryError behaviour pre-dates the change. The claimed regression does not exist.",
+  "ref": "P2"
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_refutation",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "step-3 adjudication of the 91 unmatched benchmark findings (fp-corpus.jsonl, finding 74798f3ab150, class speculative-false-positive)",
+  "label_independence": "label produced by blind probe-first adjudication before the redesigned Tech Lead existed; adjudicators were blind to the raising seat"
+ },
+ "notes": [
+  "benchmark case: path-traversal-upload"
+ ]
+}

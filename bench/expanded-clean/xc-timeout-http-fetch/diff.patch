@@ -1,0 +1,46 @@
+diff --git a/lib/http_fetch.rb b/lib/http_fetch.rb
+--- /dev/null
++++ b/lib/http_fetch.rb
+@@ -0,0 +1,42 @@
++require "net/http"
++require "uri"
++
++module HttpFetch
++  RETRYABLE_ERRORS = [
++    Net::OpenTimeout, Net::ReadTimeout, Errno::ECONNRESET
++  ].freeze
++  MAX_ATTEMPTS = 3
++  OPEN_TIMEOUT = 3
++  READ_TIMEOUT = 5
++
++  # GETs an https URL. Only idempotent GET is offered, so the bounded
++  # retry of transient transport errors cannot duplicate an effect.
++  def self.get(url)
++    uri = URI.parse(url)
++    unless uri.is_a?(URI::HTTPS)
++      raise ArgumentError, "only https URLs are supported"
++    end
++
++    attempt = 0
++    begin
++      attempt += 1
++      Net::HTTP.start(
++        uri.host, uri.port,
++        use_ssl: true,
++        open_timeout: OPEN_TIMEOUT,
++        read_timeout: READ_TIMEOUT
++      ) do |http|
++        response = http.request(Net::HTTP::Get.new(uri))
++        unless response.is_a?(Net::HTTPSuccess)
++          raise "HTTP #{response.code} for #{uri.host}"
++        end
++        return response.body
++      end
++    rescue *RETRYABLE_ERRORS
++      raise if attempt >= MAX_ATTEMPTS
++
++      sleep(0.5 * (2**(attempt - 1)))
++      retry
++    end
++  end
++end

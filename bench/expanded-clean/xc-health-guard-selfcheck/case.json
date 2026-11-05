@@ -1,0 +1,11 @@
+{
+  "id": "xc-health-guard-selfcheck",
+  "title": "Health endpoint probes its own dependencies with timeouts",
+  "category": "clean",
+  "split": "expanded-clean",
+  "source": "Authored for the CodeReview benchmark corpus (expanded clean stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "expanded-clean",
+  "false_flag_note": "A reviewer may flag the broad 'except Exception' in _run_probe as error swallowing, and the HTTP 200 on a degraded payload as hiding failures. Both are deliberate: a health probe must never crash because a dependency did, every failure is converted into a per-check 'down' entry with the exception type recorded, core dependencies still flip the endpoint to 503, and each probe receives and honours an explicit timeout."
+}

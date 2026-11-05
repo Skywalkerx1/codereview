@@ -1,0 +1,52 @@
+{
+ "case_id": "S-D27",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "_trace_gate_shadow references _scan_functions before its definition",
+ "finding": {
+  "claim": "_trace_gate_shadow references _scan_functions before its definition",
+  "evidence": "    defs = _scan_functions(region_text) or []",
+  "file": "src/codereview/core.py",
+  "line": 720,
+  "severity_as_raised": "major",
+  "evidence_quote": "defs = _scan_functions(region_text) or []",
+  "recommendation": "Ensure _scan_functions is defined before _trace_gate_shadow, or restructure the code to avoid the forward reference, or move the function definition earlier.",
+  "raised_by_family": "nvidia",
+  "record_finding_id": "4cba208656d3"
+ },
+ "code_region": {
+  "commit": null,
+  "path": "src/codereview/core.py",
+  "located": false,
+  "start_line": null,
+  "end_line": null,
+  "text": "defs = _scan_functions(region_text) or []",
+  "note": "region text is the finding's validated evidence quote; full region could not be re-located at the record head"
+ },
+ "refutation": {
+  "by_family": "openai",
+  "quote": "def _trace_gate_shadow(finding, region_text):",
+  "reason": "A reference to another function inside a function body is not evaluated at definition time in Python. The cited region only shows `_trace_gate_shadow` being defined here, not called before `_scan_functions` exists, so the claim as stated is unsupported.",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "Forward-reference probe (`probes/shadow_trace_gate_probe.py`, result `shadow-trace-gate-4cba208656d3.txt`): - Definition order at HEAD is exactly as the claim says (889 vs 1595; the call sits at line 924, inside the function body). - The module imports cleanly — import executes every `def` without touching the referenced name. - `_trace_gate_shadow` was then **called** on a major finding whose cited line calls a callee (`compute_total`) defined in the region: it returned `applies=True, about_callee=['compute_total'], callee_body_quoted=True, would_downgrade=False` — only possible if the `_scan_functions(region_text)` line executed and returned the region's definitions. No NameError. - Contrast call with the callee body **not** quoted in the evidence: `callee_body_quoted=False, would_downgrade=True` — the scan results drive the verdict in both directions, i.e. the forward-referenced call is on the executed path, not dead code that happens not to be reached. There is also no call path that could execute the body before the module finishes loading: the reference appears only inside the function body (no module-scope call, no default-argument or decorator use), and every caller reaches it through the already-imported module.",
+  "basis_evidence_sha256": [
+   "a604ce56cf187d216041d82392ffd610bbd41b8deb758817a4a8439cb1b6142f"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/shadow-trace-gate-4cba208656d3.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_refutation",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry 4cba208656d3 (decider=owner, marker=ratified, 2026-11-05T03:15:16+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-shadow-2026-11-04/04-4cba208656d3.md; source record: /home/hatch/workspace/codereview/review-branch-out/codereview-20261105-011527.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": []
+}

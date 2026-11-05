@@ -1,0 +1,23 @@
+diff --git a/src/render.js b/src/render.js
+--- /dev/null
++++ b/src/render.js
+@@ -0,0 +1,19 @@
++export function escapeHtml(value) {
++  // & must be replaced first, or the entities introduced below would
++  // themselves be escaped a second time.
++  return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
++}
++
++export function renderComment(comment) {
++  const article = document.createElement("article");
++  const author = document.createElement("strong");
++  author.textContent = comment.author;
++  const body = document.createElement("p");
++  body.textContent = comment.body;
++  article.append(author, body);
++  return article;
++}
++
++export function commentHtml(comment) {
++  return `<article><strong>${escapeHtml(comment.author)}</strong><p>${escapeHtml(comment.body)}</p></article>`;
++}

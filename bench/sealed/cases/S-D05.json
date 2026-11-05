@@ -1,0 +1,51 @@
+{
+ "case_id": "S-D05",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "Cross-kind collision check references api_names that may not include all API seat names",
+ "finding": {
+  "claim": "Cross-kind collision check references api_names that may not include all API seat names",
+  "evidence": "if candidate.lower() in api_names:",
+  "file": "src/codereview/providers.py",
+  "line": 260,
+  "severity_as_raised": "major",
+  "evidence_quote": "if candidate.lower() in api_names:",
+  "recommendation": "Populate api_names across all spec types before the agent finalization loop, or validate after both passes complete.",
+  "raised_by_family": "nvidia",
+  "record_finding_id": "1aec997aaec4"
+ },
+ "code_region": {
+  "commit": "e3fc6a8c12bae345ce0102933b90f47bd874d862",
+  "path": "src/codereview/providers.py",
+  "located": true,
+  "start_line": 550,
+  "end_line": 570,
+  "text": "        candidate = base if n == 1 else f\"{base}-{n}\"\n        while True:\n            # Cross-kind and uniqueness checks compare on the\n            # canonical (lowercased) name: seat identity is\n            # case-insensitive, so an agent named 'Bot' must not\n            # slip past an API seat named 'bot' (review-v11\n            # finding — the custom-spec branch above once kept\n            # its case while preset names were lowered).\n            if candidate.lower() in api_names:\n                raise ProviderError(\n                    f\"seat name {candidate!r} is used by both an \"\n                    f\"agent seat and an API seat; rename the agent \"\n                    f\"seat (e.g. agent:{base}-cli:<command>)\")\n            if candidate.lower() not in used:\n                break\n            candidate = _bump_name(candidate)\n        used.add(candidate.lower())\n        agent_final[idx] = candidate\n    seats = {}\n    counts = {}\n    name_kind = {}"
+ },
+ "refutation": {
+  "by_family": "openai",
+  "quote": "            api_names.add(nm)",
+  "reason": "The code populates `api_names` in a full first pass over all non-agent specs before the agent finalization loop runs, so the collision check does include all API seat names from the provided specs.",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "P12 executed (`probes/gap_providers_probe.py`, result `gap-providers-cluster.txt`, collision section) — `build_providers` over spec-order permutations at HEAD: - `agent:gemini` vs preset `gemini`, **both orders** → ProviderError (cross-kind), both times - `agent:myapi` vs custom `myapi|…` spec, **both orders** → ProviderError, both times - Case-folding: `agent:Gemini` vs `gemini`, and `agent:gemini` vs `Gemini` → ProviderError (comparison is on the canonical lowercased name) - Control (no collision): `agent:worker` + `gemini` builds both seats No order hides an API name from the check, because there is no interleaving to exploit: name collection is a complete first pass.",
+  "basis_evidence_sha256": [
+   "861703dc74b83fb4683d0121d2faf013f40e3b33756acdf2b4be875087d2684b"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/gap-providers-cluster.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_refutation",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry 1aec997aaec4 (decider=owner, marker=ratified, 2026-11-05T02:16:32+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-gap-2026-11-04/10-1aec997aaec4.md; source record: /home/hatch/workspace/codereview/review-v15/codereview-20261104-224759.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": []
+}

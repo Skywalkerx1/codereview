@@ -1,0 +1,53 @@
+{
+ "case_id": "S-D41",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "Zero-sized batch budget now causes an infinite loop instead of a bounded incomplete result",
+ "finding": {
+  "claim": "Zero-sized batch budget now causes an infinite loop instead of a bounded incomplete result",
+  "evidence": "In the new oversized-line split path, 'room = max_chars - len(stem)' can become 0 when 'max_chars == len(stem)', but the subsequent 'for i in range(0, len(ln), room):' still executes. This is reachable on POSIX/Python 3.11 whenever a caller passes a zero batch budget and a section with any hunk body line: '_split_section' no longer rejects 0 because it only checks 'if max_chars < 1', and '_batch_s",
+  "file": "src/codereview/core.py",
+  "line": 2148,
+  "severity_as_raised": "major",
+  "evidence_quote": "            for i in range(0, len(ln), room):",
+  "recommendation": "Treat non-positive budgets as unplaceable before any splitting, for example change the guard to 'if max_chars <= 0: return [text], True', and also defensively reject 'room <= 0' before constructing the range.",
+  "raised_by_family": "openai",
+  "record_finding_id": "07a9a2646925"
+ },
+ "code_region": {
+  "commit": "2fbf94f2ca6feec0ad1180a71d3c9064bf1cef4d",
+  "path": "src/codereview/core.py",
+  "located": true,
+  "start_line": 2183,
+  "end_line": 2203,
+  "text": "                pieces.append(piece)\n                piece, phas = stem, False\n            if len(stem) + len(ln) <= max_chars:\n                piece, phas = stem + ln, True\n                continue\n            # A single line longer than a fresh framed piece:\n            # character-split it, the stem repeated per segment.\n            room = max_chars - len(stem)\n            for i in range(0, len(ln), room):\n                pieces.append(stem + ln[i:i + room])\n        if phas:\n            pieces.append(piece)\n    flush()\n    return pieces or [text], False\n\n\ndef _batch_sections_detailed(sections, max_chars):\n    \"\"\"_batch_sections plus the coverage ledger: which files each\n    batch carries (v0.9.3, solution §2a). The record's coverage is\n    derived from this ACTUAL batching — the same lists the jobs\n    are built from — never recomputed after the fact."
+ },
+ "refutation": {
+  "by_family": "nvidia",
+  "quote": "            for i in range(0, len(ln), room):",
+  "reason": "The code at line 2148 uses `room` as the step argument in `range()`. In Python, `range(0, n, 0)` raises a ValueError, so the claim that this causes an infinite loop is incorrect — it would raise an exception instead. The loop does not execute indefinitely; it fails immediately with an error.",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "Batch-budget probe (`probes/closingA_batch_budget.py`): `_batch_sections_detailed` was driven at budgets 0, -3, and 1 in subprocesses with timeouts. Budget 0 → returns with incomplete=True (2 batches); budget -3 → incomplete=True; budget 1 → completes (incomplete=False). No infinite loop at any budget, and no ValueError either. The guard that fires is the batching layer's incomplete flag — the loud, bounded outcome — not the range() failure the refutation predicts and not the hang the claim predicts.",
+  "basis_evidence_sha256": [
+   "62aada0ad08097f435c23a6e5c94a8c6044e521d4e1a3ed2d83aeb13fd260463"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/closingA-batch-budget.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_refutation",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry 07a9a2646925 (decider=owner, marker=ratified, 2026-11-05T04:07:57+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-closing-r1-2026-11-04/16-07a9a2646925.md; source record: review-closing-r1/codereview-20261105-031927.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": [
+  "reason_corrected: the actual guard is the incomplete-flag path in _batch_sections_detailed: over-budget content is flagged incomplete and the run degrades loudly, at any budget including 0 and negative."
+ ]
+}

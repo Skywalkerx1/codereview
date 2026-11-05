@@ -1,0 +1,51 @@
+{
+ "case_id": "S-D20",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "Attempts log path is written without any repository or path safety checks",
+ "finding": {
+  "claim": "Attempts log path is written without any repository or path safety checks",
+  "evidence": "The code opens a user-supplied path directly for append, so invoking the CLI with a crafted '--attempts-log' can write arbitrary files accessible to the process rather than being constrained to the repo or output directory.",
+  "file": "src/codereview/cli.py",
+  "line": 1158,
+  "severity_as_raised": "major",
+  "evidence_quote": "            with open(args.attempts_log, \"a\",",
+  "recommendation": "Validate '--attempts-log' before opening it. At minimum, resolve it against an allowed base directory and reject paths outside that base, or document and intentionally gate arbitrary file writes behind a separate explicit option.",
+  "raised_by_family": "openai",
+  "record_finding_id": "bca4074a632c"
+ },
+ "code_region": {
+  "commit": "e3fc6a8c12bae345ce0102933b90f47bd874d862",
+  "path": "src/codereview/cli.py",
+  "located": true,
+  "start_line": 1169,
+  "end_line": 1189,
+  "text": "                    \"fallback_for\": r.get(\"fallback_for\"),\n                    \"attempts\": r.get(\"attempts\"),\n                    \"error_class\": (r.get(\"error_classes\")\n                                    or [\"\"])[-1],\n                } for r in report.get(\"reviewer_reports\") or []],\n                \"tests_ok\": (all(t.get(\"ok\") for t in test_results)\n                             if test_results else None),\n            }\n            with open(args.attempts_log, \"a\",\n                      encoding=\"utf-8\") as fh:\n                fh.write(json.dumps(entry, ensure_ascii=False) + \"\\n\")\n        except Exception:  # noqa: BLE001 — bookkeeping never breaks\n            pass\n    n_block = sum(1 for f in report.get(\"findings\") or []\n                  if f[\"severity\"] in (\"blocker\", \"major\"))\n    print(f\"codereview: gate = {report['gate'].upper()} \"\n          f\"({'; '.join(report.get('gate_reasons') or [])})\")\n    print(f\"  findings: {len(report.get('findings') or [])} \"\n          f\"({n_block} blocking-severity)\")\n    print(f\"  report: {mpath}\")\n    print(f\"  data:   {jpath}\")"
+ },
+ "refutation": {
+  "by_family": "nvidia",
+  "quote": "            with open(args.attempts_log, \"a\",",
+  "reason": "The code opens the path in append mode ('a'), which only writes to the end of an existing file or creates a new file. It does not traverse directories, execute commands, or resolve symlinks outside the intended path. The open() call respects the path as provided; path traversal would require explici",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "`probes/gap_attempts_log_probe.py`, result `gap-attempts-log-bca4074a632c.txt`: - **P5 provenance — condition holds.** Every `attempts_log` reference in the source tree: one argparse definition (`--attempts-log`, cli.py:1706) and the reads of `args.attempts_log` in the review path. No environment variable, no user/project config file, no policy file, and nothing read from the repository under review can set it. The only principal who can supply the path is the operator running the CLI, typed on their own command line. - **Mechanism — real, as claimed.** A functional CLI run (agent stub seat, temp cwd) with `--attempts-log` pointing outside any repository wrote the entry there: exit 0, one JSON line, append mode. The entry is the run's own telemetry (gate, seat statuses, patch hash — no diff text, no secrets). There is no containment check at HEAD, and none is bypassed: the write goes where the operator pointed it, the same trust class as `--out`. So both sides are partly right: the claim's mechanism is accurately described; its security framing needs an attacker, and the only person who can aim this flag is the person who owns the files it can reach.",
+  "basis_evidence_sha256": [
+   "2e1972a8190b813d25acba30421b87ae1e64fb66ad5d8ab530d0e7c37b309d62"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/gap-attempts-log-bca4074a632c.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_refutation",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry bca4074a632c (decider=owner, marker=ratified, 2026-11-05T02:16:34+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-gap-2026-11-04/03-bca4074a632c.md; source record: /home/hatch/workspace/codereview/review-v15/codereview-20261104-224759.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": []
+}

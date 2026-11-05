@@ -1,0 +1,52 @@
+{
+ "case_id": "S-D47",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "Agent subprocess inherits full parent environment including API keys",
+ "finding": {
+  "claim": "Agent subprocess inherits full parent environment including API keys",
+  "evidence": "            env = dict(os.environ, CODEREVIEW_PROMPT=path)",
+  "file": "src/codereview/providers.py",
+  "line": null,
+  "severity_as_raised": "major",
+  "evidence_quote": "            env = dict(os.environ, CODEREVIEW_PROMPT=path)",
+  "recommendation": "Introduce an environment allow-list/scrubbing mechanism when constructing the child process environment, so that provider API keys and other secrets are not forwarded to third-party agent executables. Alternatively, document the intentional inheritance as an accepted operator trade-off with explicit opt-out.",
+  "raised_by_family": "nvidia",
+  "record_finding_id": "536112b7d4dd"
+ },
+ "code_region": {
+  "commit": "2fbf94f2ca6feec0ad1180a71d3c9064bf1cef4d",
+  "path": "src/codereview/providers.py",
+  "located": false,
+  "start_line": null,
+  "end_line": null,
+  "text": "            env = dict(os.environ, CODEREVIEW_PROMPT=path)",
+  "note": "region text is the finding's validated evidence quote; full region could not be re-located at the record head"
+ },
+ "refutation": {
+  "by_family": "openai",
+  "quote": "    env = {n: os.environ[n] for n in names + extra if n in os.environ}",
+  "reason": "The cited vulnerable line was removed. The current code constructs the child environment from an allow-list plus explicit opt-ins, rather than inheriting the full parent environment.",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "Providers-env probe (`probes/closingB_providers.py`, 536112b7d4dd section; providers.py:189-215, 316): the parent env carried OPENAI_API_KEY / GEMINI_API_KEY / CODEREVIEW_TEST_SECRET / DUMP_PATH. The environment the agent process actually ran with had exactly 10 keys (CODEREVIEW_PROMPT, HOME, HTTPS_PROXY, HTTP_PROXY, LC_CTYPE, NO_PROXY, PATH, and the lowercase proxy spellings) — secret keys present: NONE. With the documented opt-in CODEREVIEW_AGENT_ENV=CODEREVIEW_TEST_SECRET, exactly that named variable appears and OPENAI_API_KEY remains absent: inheritance is per-variable and operator-chosen, never wholesale.",
+  "basis_evidence_sha256": [
+   "22958cab90badb1f71d0e25f2ca2b2432fa712a5b12d2af593a7bc1e3147d8dd"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/closingB-providers.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_refutation",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry 536112b7d4dd (decider=owner, marker=ratified, 2026-11-05T04:07:57+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-closing-r1-2026-11-04/22-536112b7d4dd.md; source record: review-closing-r1-attempt1/codereview-20261105-031306.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": []
+}

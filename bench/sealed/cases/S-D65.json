@@ -1,0 +1,51 @@
+{
+ "case_id": "S-D65",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "Normalized finding uses serving_name instead of name",
+ "finding": {
+  "claim": "Normalized finding uses serving_name instead of name",
+  "evidence": "nf = _normalize_finding(raw_f, serving_name)",
+  "file": "src/codereview/core.py",
+  "line": 3872,
+  "severity_as_raised": "major",
+  "evidence_quote": "nf = _normalize_finding(raw_f, serving_name)",
+  "recommendation": "Verify that serving_name is the intended parameter; if name was the original intent, restore it to avoid unexpected normalization behavior.",
+  "raised_by_family": "nvidia",
+  "record_finding_id": "dd391599588d"
+ },
+ "code_region": {
+  "commit": "2fbf94f2ca6feec0ad1180a71d3c9064bf1cef4d",
+  "path": "src/codereview/core.py",
+  "located": true,
+  "start_line": 2776,
+  "end_line": 2796,
+  "text": "                            f\"{res['error']} | fallback {fb_name!r} \"\n                            f\"also failed: {fb['error']}\")[:300]\n            if res[\"ok\"]:\n                parsed = res[\"parsed\"]\n                rec[\"status\"] = \"ok\"\n                rec[\"error\"] = \"\"\n                rec[\"summary\"] = str(parsed.get(\"summary\") or \"\")[:500]\n                for raw_f in parsed.get(\"findings\") or []:\n                    nf = _normalize_finding(raw_f, serving_name)\n                    if nf:\n                        # Grounding (§2b): the quote must appear\n                        # in the batch text THIS reviewer received.\n                        # Failures are not dropped — they go to the\n                        # re-ground pass below.\n                        nf[\"grounding\"] = (\n                            \"grounded\" if _quote_grounded(\n                                nf.get(\"evidence_quote\"), batch)\n                            else \"ungrounded\")\n                        if nf[\"grounding\"] == \"ungrounded\":\n                            ungrounded.append(\n                                (nf, serving_name, serving_fn))"
+ },
+ "refutation": {
+  "by_family": null,
+  "quote": "nf = _normalize_finding(raw_f, serving_name)",
+  "reason": "No panel refutation was recorded for this finding — it reached the workup undisputed. The opposing/confirmatory position is the executed probe in SS3 of the packet: Serving-name probe (`probes/closingA_serving_name.py`) runs `core.run_verification` with a primary seat that raises and a fallback seat (`fbseat`) that serves the job and raises a NEW finding. At HEAD the code binds `serving_name, serving_fn = name, providers[name]` (core.py:3847), reassigns `serving_name, serving_fn = fb_name, fb_fn` when the fallback serves (core.py:3894), and normalizes new findings with `serving_name` (core.py:3920). Probe output: - reviewer report: `provider='fbseat' fallback_for='primary' status='ok'` - new finding: `sources=['fbseat']` — attributed to the seat that actually produced it Attribution by `serving_name` is fidelity-correct: it names the provider actually called, and it is consistent with the reviewer report (`provider`/`fallback_for`) and the seat metadata taken from the same variable. Substituting `name` would credit the failed primary — a seat that never ran — recreating the record-fidelity defect class the owner had fixed under `78ddf4d5ea27` (a record must never name a model/seat that was not the one actually serving). Re-run at HEAD `61e137d` produced byte-identical output (sha256 unchanged, §5).",
+  "provenance": "none-recorded: no dispute exists in the source record; the workup probe is the only counter-position"
+ },
+ "probe": {
+  "summary": "Serving-name probe (`probes/closingA_serving_name.py`) runs `core.run_verification` with a primary seat that raises and a fallback seat (`fbseat`) that serves the job and raises a NEW finding. At HEAD the code binds `serving_name, serving_fn = name, providers[name]` (core.py:3847), reassigns `serving_name, serving_fn = fb_name, fb_fn` when the fallback serves (core.py:3894), and normalizes new findings with `serving_name` (core.py:3920). Probe output: - reviewer report: `provider='fbseat' fallback_for='primary' status='ok'` - new finding: `sources=['fbseat']` — attributed to the seat that actually produced it Attribution by `serving_name` is fidelity-correct: it names the provider actually called, and it is consistent with the reviewer report (`provider`/`fallback_for`) and the seat metadata taken from the same variable. Substituting `name` would credit the failed primary — a seat that never ran — recreating the record-fidelity defect class the owner had fixed under `78ddf4d5ea27` (a record must never name a model/seat that was not the one actually serving). Re-run at HEAD `61e137d` produced byte-identical output (sha256 unchanged, §5).",
+  "basis_evidence_sha256": [
+   "816e17803f2bfb5048e485a8c15d56f7f6ce83c83f2458a63fb06a10848f4e76"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/closingA-serving-name.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_refutation",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry dd391599588d (decider=owner, marker=ratified, 2026-11-05T04:42:53+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-closing-r1-2026-11-04/58-dd391599588d.md; source record: review-closing-r1/codereview-20261105-031927.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": []
+}

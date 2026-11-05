@@ -1,0 +1,53 @@
+{
+ "case_id": "S-D24",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "Fixture manifest loader can fail with uncaught ValueError on Windows drive mismatches",
+ "finding": {
+  "claim": "Fixture manifest loader can fail with uncaught ValueError on Windows drive mismatches",
+  "evidence": "The containment check calls commonpath on 'full' and 'repo_abs' before handling path-root mismatches; on Windows, paths on different drives raise ValueError, which will surface as a generic load failure for valid-looking inputs.",
+  "file": "src/codereview/cli.py",
+  "line": 79,
+  "severity_as_raised": "major",
+  "evidence_quote": "    if os.path.commonpath([full, repo_abs]) != repo_abs:",
+  "recommendation": "Wrap the commonpath call in a try/except ValueError and convert it into the same explicit outside-repository error path used for other invalid manifest locations.",
+  "raised_by_family": "openai",
+  "record_finding_id": "eae8137a6db3"
+ },
+ "code_region": {
+  "commit": "e3fc6a8c12bae345ce0102933b90f47bd874d862",
+  "path": "src/codereview/cli.py",
+  "located": true,
+  "start_line": 75,
+  "end_line": 95,
+  "text": "    content hash of the exact bytes, policy version, and the\n    enumerated fixture paths. The manifest declares which paths\n    are intentionally vulnerable test DATA; a review run only\n    classifies fixture findings when the operator passes one.\"\"\"\n    repo_abs = os.path.realpath(repo)\n    full = os.path.realpath(\n        path if os.path.isabs(path)\n        else os.path.join(repo_abs, path))\n    if os.path.commonpath([full, repo_abs]) != repo_abs:\n        # The recorded manifest path is replayed by record-verify\n        # as a repo-relative object name; a manifest outside the\n        # repo could neither be recorded honestly nor verified.\n        raise ValueError(\n            f\"fixture manifest {path}: resolves outside the \"\n            f\"repository ({full})\")\n    with open(full, \"rb\") as fh:\n        raw = fh.read()\n    manifest = json.loads(raw.decode(\"utf-8\"))\n    if not isinstance(manifest, dict) \\\n            or manifest.get(\"schema\") != core.FIXTURE_MANIFEST_SCHEMA:\n        raise ValueError("
+ },
+ "refutation": {
+  "by_family": "nvidia",
+  "quote": "    if os.path.commonpath([full, repo_abs]) != repo_abs:",
+  "reason": "The code explicitly checks `os.path.commonpath([full, repo_abs]) != repo_abs` before calling `open(full, ...)`. On Windows, if `full` and `repo_abs` are on different drives, `commonpath` raises ValueError. However, the code does not handle this case, meaning the ValueError propagates uncaught. The f",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "`probes/gap_commonpath_probe.py`, result `gap-commonpath-pair.txt`: - At HEAD, `_is_within` returns False (fails closed, no propagation) for inside/outside/mixed inputs, and under a monkeypatched `commonpath` that raises ValueError — the Windows cross-drive failure mode, simulated because real Windows drives cannot exist on this Linux host; the POSIX mixed absolute/relative case raises the same exception from the same call and is shown directly. - `_load_fixture_scope` against an outside-repo path produces the intended validation error (\"resolves outside the repository\"), not a raw commonpath traceback. - Git: at `4e5cbd8^` the loaders contain 2 direct unguarded commonpath containment checks and no helper; at `4e5cbd8` (v0.9.6) there are 0 and the helper exists. The v15 record's head (e3fc6a8) is an ancestor of the fix — the claim was true of the code it reviewed.",
+  "basis_evidence_sha256": [
+   "92497d24300670edccf61d0fd11130fbbd2a995cf8f157ac753563a15de3e4d2"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/gap-commonpath-pair.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_finding",
+  "severity_after": "major",
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry eae8137a6db3 (decider=owner, marker=ratified, 2026-11-05T02:16:35+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-gap-2026-11-04/04-eae8137a6db3.md; source record: /home/hatch/workspace/codereview/review-v15/codereview-20261104-224759.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": [
+  "finding sustained and fixed in commit 4e5cbd8"
+ ]
+}

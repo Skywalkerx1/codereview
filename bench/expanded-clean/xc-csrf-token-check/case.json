@@ -1,0 +1,11 @@
+{
+  "id": "xc-csrf-token-check",
+  "title": "CSRF middleware enforced on mutating routes only",
+  "category": "clean",
+  "split": "expanded-clean",
+  "source": "Authored for the CodeReview benchmark corpus (expanded clean stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "expanded-clean",
+  "false_flag_note": "A reviewer may flag skipping GET/HEAD/OPTIONS as a hole, or the length check as a timing leak. Safe methods are skipped because they must be side-effect free by HTTP semantics (the handlers behind them honour that contract), while every mutating request must present the session token; the comparison itself runs through timingSafeEqual, whose equal-length precondition is checked first and leaks only length; a missing session token fails closed with 403 rather than passing."
+}

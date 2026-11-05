@@ -1,0 +1,53 @@
+{
+ "case_id": "S-H68",
+ "case_class": "sealed_machinery_holdout",
+ "sealed": true,
+ "title": "write_report now crashes on non-dict finding entries that verifier and iterator paths tolerate",
+ "finding": {
+  "claim": "write_report now crashes on non-dict finding entries that verifier and iterator paths tolerate",
+  "evidence": "The new writer loops over every item in each finding list and unconditionally calls walk_finding, but walk_finding then executes membership tests against the raw object. For a non-dict entry, the added line 'if 'dispute' in f or 'adjudication' in f:' raises TypeError on supported Python when f is not iterable, making write_report fail instead of skipping malformed entries as _iter_evidence_refs do",
+  "file": "src/codereview/core.py",
+  "line": 4404,
+  "severity_as_raised": "major",
+  "evidence_quote": "        if \"dispute\" in f or \"adjudication\" in f:",
+  "recommendation": "Guard this branch with an isinstance(f, dict) check before any membership tests, or return early for non-dict values after the existing seen logic. Keep writer behavior aligned with _iter_evidence_refs, which already skips non-dict findings safely.",
+  "raised_by_family": "openai",
+  "record_finding_id": "bf4c451e8751"
+ },
+ "code_region": {
+  "commit": "0c02ff6ca043c3695ff82e9a4689d57414329deb",
+  "path": "src/codereview/core.py",
+  "located": true,
+  "start_line": 4429,
+  "end_line": 4449,
+  "text": "        for container, key, cap, group in _evidence_targets(f):\n            attach(container, key, cap)\n            if group in (\"dispute\", \"adjudication\"):\n                text = container.get(key)\n                if isinstance(text, str) and text \\\n                        and not isinstance(\n                            container.get(key + \"_ref\"), dict):\n                    complete = False\n        if \"dispute\" in f or \"adjudication\" in f:\n            f[\"evidence_complete\"] = complete\n\n    for list_key in _FINDING_LIST_KEYS:\n        for f in rec.get(list_key) or []:\n            walk_finding(f)\n    for rep in rec.get(\"reviewer_reports\") or []:\n        if not isinstance(rep, dict):\n            continue\n        for f in rep.get(\"findings\") or []:\n            walk_finding(f)\n        for entry in (rep.get(\"resolutions\") or {}).values():\n            if isinstance(entry, dict):"
+ },
+ "refutation": {
+  "by_family": "nvidia",
+  "quote": "        if \"dispute\" in f or \"adjudication\" in f:",
+  "reason": "The finding claims the line raises TypeError on non-dict entries, but the code uses `in` membership tests which work on any object with `__contains__`. The quote shows the exact guard line; the claim that it crashes on non-dict entries is incorrect as written.",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "Non-dict-entry test (`tests/test_v111_hardening.py::NonDictEntryTests`): entries None / 42 / 'dispute' / ['dispute'] in disputed_findings pass through `_attach_evidence_sidecars` and `_iter_evidence_refs` without raising, and the dict entry among them still receives its sidecar + refs. The test passes at HEAD AND at the pre-track parent (`hardening-parent-fail.txt`) — the guard predates this track. Mechanism audit: `walk_finding` checks `isinstance(f, dict)` before the membership line the claim cited, so the line is unreachable for non-dicts; the refuter's stated reason ('`in` works on any object') is wrong — `in` on a non-iterable raises TypeError; on a str entry it would do a substring test, which is exactly why the upstream guard matters. A local second guard was considered and decided AGAINST: guard and membership test are the same function, so a second isinstance adds ceremony, not safety. Out-of-scope observation, reported not fixed: `render_markdown` DOES raise on a non-dict disputed entry (a different function the claim never cited; unreachable from pipeline-written records).",
+  "basis_evidence_sha256": [
+   "967ad9c3a45f6855470816860ff979bd3dea4e9852fa0b61bf63514c9a2fba73"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/hardening-parent-fail.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_refutation",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry bf4c451e8751 (decider=owner, marker=ratified, 2026-11-05T02:16:34+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-17-2026-11-04/09-bf4c451e8751.md; source record: /home/hatch/workspace/codereview/review-v100/codereview-20261105-000409.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": [
+  "reason_corrected: 'unreachable because every path passes an isinstance(f, dict) guard in the same function' replaces '`in` works on any object'."
+ ]
+}

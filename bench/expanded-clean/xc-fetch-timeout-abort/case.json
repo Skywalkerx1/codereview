@@ -1,0 +1,11 @@
+{
+  "id": "xc-fetch-timeout-abort",
+  "title": "fetch wrapper with an AbortController timeout",
+  "category": "clean",
+  "split": "expanded-clean",
+  "source": "Authored for the CodeReview benchmark corpus (expanded clean stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "expanded-clean",
+  "false_flag_note": "A reviewer may flag the timer as leak-prone or overriding the caller's signal as a bug. The timer is cleared in a finally block, so it is released on success, HTTP error, and abort alike; an abort surfaces as the fetch's own AbortError rejection rather than hanging forever; and this helper is documented to own the request signal \u2014 callers who need their own cancellation compose it before calling, which keeps a single, predictable owner of the timeout."
+}

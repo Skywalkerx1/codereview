@@ -1,0 +1,51 @@
+{
+ "case_id": "S-D48",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "Agent timeout zero rejected as ProviderError",
+ "finding": {
+  "claim": "Agent timeout zero rejected as ProviderError",
+  "evidence": "        if timeout <= 0:",
+  "file": "src/codereview/providers.py",
+  "line": 101,
+  "severity_as_raised": "major",
+  "evidence_quote": "        if timeout <= 0:",
+  "recommendation": "Allow timeout=0 to mean 'use default' or map to None, rather than raising an error",
+  "raised_by_family": "nvidia",
+  "record_finding_id": "610a06422389"
+ },
+ "code_region": {
+  "commit": "2fbf94f2ca6feec0ad1180a71d3c9064bf1cef4d",
+  "path": "src/codereview/providers.py",
+  "located": true,
+  "start_line": 282,
+  "end_line": 302,
+  "text": "    agents that need no login state in HOME). The command line is\n    split with shlex and executed WITHOUT a shell: metacharacters\n    are literal; pipes/redirection belong in a wrapper script.\n    Every failure is a ProviderError with retryable=False — the\n    seat degrades honestly in the run report, like any provider\n    failure, and never triggers account rotation.\"\"\"\n    if timeout is None:\n        timeout = AGENT_TIMEOUT\n    if timeout <= 0:\n        raise ProviderError(\n            f\"agent timeout must be a positive number of seconds, \"\n            f\"got {timeout!r}\", retryable=False)\n\n    def call(prompt):\n        try:\n            argv = shlex.split(command)\n        except ValueError as exc:\n            raise ProviderError(f\"bad agent command {command!r}: {exc}\",\n                                retryable=False)\n        if not argv:\n            raise ProviderError(\"empty agent command\", retryable=False)"
+ },
+ "refutation": {
+  "by_family": "openai",
+  "quote": "    `timeout` is the per-call ceiling in seconds: None means the",
+  "reason": "The code explicitly documents and implements that None, not 0, means use the default timeout. Rejecting non-positive values is intentional behavior, not a correctness defect as described.",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "Providers probe (`probes/closingB_providers.py`, 610a06422389 section; providers.py:288-293): timeout=0 → ProviderError at construction ('agent timeout must be a positive number of seconds, got 0'); timeout=-5 → the same refusal; timeout=None → accepted (means the AGENT_TIMEOUT default). The docstring at providers.py:264-270 records the adoption verbatim: 'an explicit value is honored verbatim, and a non-positive value is refused HERE, at construction — never silently swapped for the default (review-v13 finding...)'. The refusal is the owner-adopted v13 contract; the claim asks for exactly the silent acceptance that ruling removed.",
+  "basis_evidence_sha256": [
+   "22958cab90badb1f71d0e25f2ca2b2432fa712a5b12d2af593a7bc1e3147d8dd"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/closingB-providers.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_refutation",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry 610a06422389 (decider=owner, marker=ratified, 2026-11-05T04:07:57+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-closing-r1-2026-11-04/23-610a06422389.md; source record: review-closing-r1-attempt1/codereview-20261105-031306.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": []
+}

@@ -1,0 +1,11 @@
+{
+  "id": "xc-idempotency-keys",
+  "title": "Charge endpoint deduplicated by idempotency key",
+  "category": "clean",
+  "split": "expanded-clean",
+  "source": "Authored for the CodeReview benchmark corpus (expanded clean stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "expanded-clean",
+  "false_flag_note": "A reviewer may flag the in-flight set as over-engineering or worry the gateway is called outside the lock. Holding the lock across the network call would serialise all payments; instead the key is claimed atomically under the lock (begin), the charge happens outside it, and the receipt is published under the lock (complete). A duplicate that arrives mid-charge gets DuplicateRequestInFlight instead of a second charge, a failed charge abandons the claim so a later retry can proceed, and the key is also passed to the gateway so retries are deduplicated downstream as well."
+}

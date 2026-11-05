@@ -1,0 +1,47 @@
+diff --git a/migrations/004_orders_shipping_region.sql b/migrations/004_orders_shipping_region.sql
+--- /dev/null
++++ b/migrations/004_orders_shipping_region.sql
+@@ -0,0 +1,43 @@
++-- Migration 004: orders.shipping_region backfilled from legacy_region.
++-- Platform: PostgreSQL (transactional DDL). Safe to run more than
++-- once: every statement is guarded and the backfill is a no-op when
++-- no rows remain to fill.
++
++BEGIN;
++
++CREATE TABLE IF NOT EXISTS shipping_regions (
++    code        TEXT PRIMARY KEY,
++    display_name TEXT NOT NULL
++);
++
++ALTER TABLE orders
++    ADD COLUMN IF NOT EXISTS shipping_region TEXT;
++
++CREATE INDEX IF NOT EXISTS idx_orders_shipping_region
++    ON orders (shipping_region);
++
++-- Backfill in bounded batches so a large table is never locked or
++-- rewritten in a single statement. Only rows that still need a value
++-- AND have one to copy are selected, so the loop always terminates:
++-- each pass either fills at least one row or affects zero rows.
++DO $$
++DECLARE
++    batch_count INTEGER;
++BEGIN
++    LOOP
++        UPDATE orders
++        SET shipping_region = legacy_region
++        WHERE id IN (
++            SELECT id
++            FROM orders
++            WHERE shipping_region IS NULL
++              AND legacy_region IS NOT NULL
++            ORDER BY id
++            LIMIT 500
++        );
++        GET DIAGNOSTICS batch_count = ROW_COUNT;
++        EXIT WHEN batch_count = 0;
++    END LOOP;
++END $$;
++
++COMMIT;

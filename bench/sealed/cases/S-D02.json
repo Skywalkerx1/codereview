@@ -1,0 +1,51 @@
+{
+ "case_id": "S-D02",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "api_names populated in first pass but collision check in second pass may miss names",
+ "finding": {
+  "claim": "api_names populated in first pass but collision check in second pass may miss names",
+  "evidence": "for spec in specs:",
+  "file": "src/codereview/providers.py",
+  "line": 233,
+  "severity_as_raised": "major",
+  "evidence_quote": "for spec in specs:",
+  "recommendation": "Ensure api_names is fully populated before the cross-kind collision check, or restructure to a single pass with deferred validation.",
+  "raised_by_family": "nvidia",
+  "record_finding_id": "0ad4ed7db98e"
+ },
+ "code_region": {
+  "commit": "e3fc6a8c12bae345ce0102933b90f47bd874d862",
+  "path": "src/codereview/providers.py",
+  "located": true,
+  "start_line": 522,
+  "end_line": 542,
+  "text": "    a suffixed name can never collide with a name another seat owns\n    — including a literal agent name like bot-2 meeting the second\n    bot seat (v0.7.1 external review, finding 3.1): suffixes keep\n    incrementing until the name is unique, and a candidate owned by\n    an API seat raises the cross-kind error. Either way, no\n    configured seat is ever silently dropped or pooled.\"\"\"\n    parsed = []\n    api_names = set()\n    for spec in specs:\n        if spec.startswith(\"agent:\"):\n            base, _options, _cmd = _parse_agent_spec(spec)\n            parsed.append((\"agent\", base, spec))\n        elif \"|\" in spec:\n            nm = spec.split(\"|\")[0].strip().lower()\n            parsed.append((\"api\", nm, spec))\n            api_names.add(nm)\n        else:\n            nm = spec.strip().lower()\n            parsed.append((\"api\", nm, spec))\n            api_names.add(nm)\n    agent_final = {}"
+ },
+ "refutation": {
+  "by_family": "openai",
+  "quote": "            api_names.add(nm)",
+  "reason": "The function performs a full first pass over all specs and adds every API seat name to api_names before the later agent collision loop runs, so the second-pass check does not miss later API names.",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "Same executed run as packet G10 (`probes/gap_providers_probe.py`, result `gap-providers-cluster.txt`): cross-kind collisions raise ProviderError in **every** spec order (agent-first and API-first, preset and custom forms, case-folded variants), and the no-collision control builds. A name appearing later in the spec list than the agent seat is still caught — the exact \"miss\" this claim predicts does not occur.",
+  "basis_evidence_sha256": [
+   "861703dc74b83fb4683d0121d2faf013f40e3b33756acdf2b4be875087d2684b"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/gap-providers-cluster.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_refutation",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry 0ad4ed7db98e (decider=owner, marker=ratified, 2026-11-05T02:16:31+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-gap-2026-11-04/11-0ad4ed7db98e.md; source record: /home/hatch/workspace/codereview/review-v15/codereview-20261104-224759.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": []
+}

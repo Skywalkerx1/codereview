@@ -1,0 +1,54 @@
+{
+ "case_id": "S-D19",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "Precedent store loader has the same uncaught commonpath failure mode",
+ "finding": {
+  "claim": "Precedent store loader has the same uncaught commonpath failure mode",
+  "evidence": "",
+  "file": "src/codereview/cli.py",
+  "line": 138,
+  "severity_as_raised": "major",
+  "evidence_quote": "    if os.path.commonpath([full, repo_abs]) != repo_abs:",
+  "recommendation": "Handle ValueError around commonpath here as well and treat it as an invalid outside-repository path.",
+  "raised_by_family": "openai",
+  "record_finding_id": "ae9e58378eee"
+ },
+ "code_region": {
+  "commit": "4e5cbd894817834148a7580e939f3df39a6cce12",
+  "path": "src/codereview/cli.py",
+  "located": true,
+  "start_line": 130,
+  "end_line": 150,
+  "text": "    patterns = [str(e[\"path\"]) for e in entries]\n    # Optional per-path expected finding counts (v0.9.3, §2f):\n    # when an entry declares one, findings on that path beyond\n    # the count are NOT classified as expected — they stay in\n    # the record as product findings and the excess is noted.\n    # Absent = no count expectation (the policy-v1 behaviour).\n    expected_counts = {}\n    for e in entries:\n        if \"expected_finding_count\" in e:\n            v = e.get(\"expected_finding_count\")\n            if not isinstance(v, int) or isinstance(v, bool) or v < 0:\n                raise ValueError(\n                    f\"fixture manifest {path}: entry \"\n                    f\"{e.get('path')!r} has a bad \"\n                    f\"expected_finding_count {v!r} (want a \"\n                    f\"non-negative integer)\")\n            expected_counts[str(e[\"path\"])] = v\n    return {\n        \"manifest_path\": os.path.relpath(full, repo_abs).replace(\n            os.sep, \"/\"),\n        \"manifest_sha256\": hashlib.sha256(raw).hexdigest(),"
+ },
+ "refutation": {
+  "by_family": "nvidia",
+  "quote": "    if not _is_within(full, repo_abs):",
+  "reason": "The cited commonpath check in _load_precedents has been replaced with a call to _is_within, so the loader no longer directly uses the uncaught commonpath expression described in the finding.",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "Same executed check as packet G4 (`probes/gap_commonpath_probe.py`, result `gap-commonpath-pair.txt`), precedent-loader half: - `_load_precedents` against an outside-repo path at HEAD produces the intended validation error (\"precedent store …: resolves outside the repository\"), not a raw commonpath traceback. - `_is_within` fails closed under a simulated cross-drive ValueError (monkeypatched `commonpath`; real Windows drives cannot exist on this Linux host — the POSIX mixed-path case raises the same exception from the same call and is shown directly in the probe output). - Git: the unguarded pattern existed at `4e5cbd8^` in both loaders and was replaced by the shared helper in `4e5cbd8` (v0.9.6), whose docstring cites this finding by ID. The v15 record's head (e3fc6a8) is an ancestor of the fix — the claim was true of the code it reviewed. Authority note: this item is tagged authority-affecting (precedent/decision validity) because the precedent store feeds standing classifications; the defect itself was a load-time error path, since fixed.",
+  "basis_evidence_sha256": [
+   "92497d24300670edccf61d0fd11130fbbd2a995cf8f157ac753563a15de3e4d2"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/gap-commonpath-pair.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_finding",
+  "severity_after": "major",
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry ae9e58378eee (decider=owner, marker=ratified, 2026-11-05T02:16:34+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-gap-2026-11-04/06-3cecf66f6ce5.md; source record: /home/hatch/workspace/codereview/review-v096/codereview-20261104-233259.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": [
+  "finding sustained and fixed in commit 4e5cbd8",
+  "re-raise twin: packet documents the shared defect under the sibling finding id; disposition recorded against both IDs"
+ ]
+}

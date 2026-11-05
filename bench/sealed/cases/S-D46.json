@@ -1,0 +1,51 @@
+{
+ "case_id": "S-D46",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "collect function runs commands without per-item timeouts in the loop",
+ "finding": {
+  "claim": "collect function runs commands without per-item timeouts in the loop",
+  "evidence": "",
+  "file": "src/codereview/evidence.py",
+  "line": 153,
+  "severity_as_raised": "major",
+  "evidence_quote": "for entry in config.get(\"commands\") or []:",
+  "recommendation": "Pass a per-command timeout from the config or a default and enforce it in _execute, or add a timeout wrapper around the subprocess.Popen call to prevent a single hung command from exhausting resources across all items.",
+  "raised_by_family": "nvidia",
+  "record_finding_id": "8f77565b56a4"
+ },
+ "code_region": {
+  "commit": "2fbf94f2ca6feec0ad1180a71d3c9064bf1cef4d",
+  "path": "src/codereview/evidence.py",
+  "located": true,
+  "start_line": 381,
+  "end_line": 401,
+  "text": "    items = []\n\n    sandbox_root = tempfile.mkdtemp(prefix=\"codereview-evidence-\")\n    workdir = os.path.join(sandbox_root, \"tree\")\n    try:\n        try:\n            _copy_tree(source_dir, workdir)\n        except Exception as exc:  # noqa: BLE001\n            for entry in config.get(\"commands\") or []:\n                items.append(_result(\n                    str(entry.get(\"name\") or entry.get(\"command\")),\n                    \"command\", entry.get(\"required\", True), \"error\",\n                    None, 0.0, b\"\",\n                    detail=f\"sandbox copy failed: {exc}\",\n                    command=str(entry.get(\"command\"))))\n            for entry in config.get(\"adapters\") or []:\n                items.append(_result(\n                    str(entry.get(\"name\")), \"adapter\",\n                    entry.get(\"required\", False), \"error\", None, 0.0,\n                    b\"\", detail=f\"sandbox copy failed: {exc}\"))\n            return _record(config, source_dir, items,"
+ },
+ "refutation": {
+  "by_family": "openai",
+  "quote": "            timeout = entry.get(\"timeout\") or default_timeout",
+  "reason": "The loop does assign a per-item timeout from each command entry, falling back to the configured default. That timeout is then passed into _execute for enforcement, so the claim that commands run without per-item timeouts is incorrect.",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "Evidence-timeout probe (`probes/closingB_evidence.py`, 8f77565b56a4 section): a `sleep 10` command was run through evidence collection with per-item timeout=1. Result: status='timeout' after 1.0s (recorded duration_s=1.005) — the per-item timeout at evidence.py:407 IS enforced by _execute (evidence.py:268-301), contrary to the claim's reading of the call.",
+  "basis_evidence_sha256": [
+   "c508dfd940d601ace58a4db50cb677f907db3851e7e31088af53170df5db165c"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/closingB-evidence.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_refutation",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry 8f77565b56a4 (decider=owner, marker=ratified, 2026-11-05T04:07:57+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-closing-r1-2026-11-04/21-8f77565b56a4.md; source record: review-closing-r1-attempt1/codereview-20261105-031306.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": []
+}

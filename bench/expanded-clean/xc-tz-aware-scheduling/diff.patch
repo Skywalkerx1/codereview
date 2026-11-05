@@ -1,0 +1,21 @@
+diff --git a/app/scheduling.py b/app/scheduling.py
+--- /dev/null
++++ b/app/scheduling.py
+@@ -0,0 +1,17 @@
++from datetime import datetime, time, timedelta, timezone
++from zoneinfo import ZoneInfo
++
++
++def next_daily_run(after: datetime, run_at: time, tz_name: str) -> datetime:
++    """Next daily *run_at* wall time in zone *tz_name*, returned in UTC."""
++    if after.tzinfo is None or after.utcoffset() is None:
++        raise ValueError("after must be timezone-aware")
++    tz = ZoneInfo(tz_name)
++    wall = run_at.replace(tzinfo=None)  # run_at is a wall time in tz
++    local = after.astimezone(tz)
++    candidate = datetime.combine(local.date(), wall, tzinfo=tz)
++    if candidate <= local:
++        candidate = datetime.combine(
++            local.date() + timedelta(days=1), wall, tzinfo=tz
++        )
++    return candidate.astimezone(timezone.utc)

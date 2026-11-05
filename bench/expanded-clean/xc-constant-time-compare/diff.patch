@@ -1,0 +1,17 @@
+diff --git a/src/timingSafeCompare.js b/src/timingSafeCompare.js
+--- /dev/null
++++ b/src/timingSafeCompare.js
+@@ -0,0 +1,13 @@
++import { timingSafeEqual } from "node:crypto";
++
++export function secretsEqual(provided, expected) {
++  if (typeof provided !== "string" || typeof expected !== "string") {
++    return false;
++  }
++  const a = Buffer.from(provided, "utf8");
++  const b = Buffer.from(expected, "utf8");
++  if (a.length !== b.length) {
++    return false;
++  }
++  return timingSafeEqual(a, b);
++}

@@ -1,0 +1,11 @@
+{
+  "id": "xc-token-bucket-limiter",
+  "title": "Token bucket rate limiter on a monotonic clock",
+  "category": "clean",
+  "split": "expanded-clean",
+  "source": "Authored for the CodeReview benchmark corpus (expanded clean stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "expanded-clean",
+  "false_flag_note": "A reviewer may flag updating the refill timestamp even when a request is denied as a bug. It is the standard lazy-refill accounting: elapsed time is converted to tokens (capped at capacity) and the timestamp advances on every call, granted or denied, so tokens can neither be double-counted nor lost. The clock is monotonic, so NTP adjustments cannot mint or burn tokens, and the whole check-and-deduct is atomic under the lock."
+}

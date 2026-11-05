@@ -1,0 +1,53 @@
+{
+ "case_id": "S-D01",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "Nearest-rank percentile indexes past the end and returns the maximum for many inputs",
+ "finding": {
+  "claim": "Nearest-rank percentile indexes past the end and returns the maximum for many inputs",
+  "evidence": "The percentile helper computes 'rank = max(1, -(-len(vals) * pct // 100))' and then returns 'vals[min(rank, len(vals)) - 1]'. For a 2-item sample at p50, this yields rank 2 and returns the second item, not the median-by-nearest-rank first item; for larger samples it similarly biases upward.",
+  "file": "src/codereview/bench.py",
+  "line": 270,
+  "severity_as_raised": "major",
+  "evidence_quote": "    rank = max(1, -(-len(vals) * pct // 100))",
+  "recommendation": "Compute the nearest-rank index with integer arithmetic that preserves the intended ceil(len * pct / 100), for example '(len(vals) * pct + 99) // 100' for integer pct, or use 'math.ceil(len(vals) * pct / 100.0)'. Then index with 'rank - 1' after clamping to [1, len(vals)].",
+  "raised_by_family": "openai",
+  "record_finding_id": "09c536d15270"
+ },
+ "code_region": {
+  "commit": "e3fc6a8c12bae345ce0102933b90f47bd874d862",
+  "path": "src/codereview/bench.py",
+  "located": true,
+  "start_line": 268,
+  "end_line": 288,
+  "text": "    }\n\n\ndef percentile(values, pct):\n    \"\"\"Nearest-rank percentile; None for an empty sample.\"\"\"\n    if not values:\n        return None\n    vals = sorted(values)\n    rank = max(1, -(-len(vals) * pct // 100))\n    return vals[min(rank, len(vals)) - 1]\n\n\ndef aggregate_scores(case_scores):\n    \"\"\"Aggregate per-case score dicts into config-level metrics.\"\"\"\n    total_expected = sum(s[\"expected_total\"] for s in case_scores)\n    matched = sum(s[\"matched\"] for s in case_scores)\n    escaped = sum(s[\"escaped\"] for s in case_scores)\n    total_findings = sum(s[\"findings_total\"] for s in case_scores)\n    matched_findings = sum(s[\"matched_findings\"] for s in case_scores)\n    clean = [s for s in case_scores if s[\"expected_total\"] == 0]\n    return {"
+ },
+ "refutation": {
+  "by_family": "nvidia",
+  "quote": "    rank = max(1, -(-len(vals) * pct // 100))",
+  "reason": "The finding claims the formula biases upward, but the formula uses ceiling division via `-(-N * p // 100)` which computes ceil(N * p / 100). For N=2, p=50, this gives rank=2, and vals[1] returns the second item (the upper median), which is a valid nearest-rank definition. The code then applies min(r",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "P4 property test executed (`probes/gap_percentile_probe.py`, result `gap-percentile-09c536d15270.txt`): - The disputed worked example: N=2, p50 over [10, 20] — the formula's rank executes to **1**, and `percentile` returns **10** (the first item). Both the claim (\"yields rank 2\") and the refutation (\"this gives rank=2\") miscomputed the same expression; `-(-2 * 50 // 100)` is 1, not 2. - Exhaustive: 20,000 (n, pct) pairs (n = 1..200, pct = 1..100) — **zero** disagreements with the textbook nearest-rank definition (rank = ceil(n·pct/100)), **zero** out-of-range indexes (the `min(rank, len)` clamp plus the ceil form keep the index inside the sample by construction and by execution). The function returns the sample maximum in exactly the 673 cases where textbook nearest-rank does — no upward bias beyond the definition.",
+  "basis_evidence_sha256": [
+   "fd2954e32c8e91bfd82852e88a5e39d801f01526016daf0fd391ddc488316a9d"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/gap-percentile-09c536d15270.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_refutation",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry 09c536d15270 (decider=owner, marker=ratified, 2026-11-05T02:16:31+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-gap-2026-11-04/02-09c536d15270.md; source record: /home/hatch/workspace/codereview/review-v15/codereview-20261104-224759.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": [
+  "reason_corrected: For N=2, p=50 the executed rank is 1 and the function returns the first item; the formula equals ceil(N·pct/100) across all 20,000 tested (n, pct) pairs, with no out-of-range index."
+ ]
+}

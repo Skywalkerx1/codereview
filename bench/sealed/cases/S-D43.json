@@ -1,0 +1,53 @@
+{
+ "case_id": "S-D43",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "Probe command specs can execute arbitrary host binaries with full access to the invoking user's filesystem",
+ "finding": {
+  "claim": "Probe command specs can execute arbitrary host binaries with full access to the invoking user's filesystem",
+  "evidence": "The command probe path forwards model-supplied argv directly to subprocess.run with only cwd/env restrictions, so a requested binary can still read or modify any path the current user can access outside the temp copy.",
+  "file": "src/codereview/probe.py",
+  "line": 157,
+  "severity_as_raised": "major",
+  "evidence_quote": "            argv = list(spec[\"argv\"])\n",
+  "recommendation": "Restrict command probes to a safe allowlist of executables and arguments, or run all probes inside a real OS sandbox that also constrains filesystem access, not just cwd and environment. At minimum, reject absolute paths and commands that are not part of a tightly controlled test runner interface.",
+  "raised_by_family": "openai",
+  "record_finding_id": "8479293e76ed"
+ },
+ "code_region": {
+  "commit": "2fbf94f2ca6feec0ad1180a71d3c9064bf1cef4d",
+  "path": "src/codereview/probe.py",
+  "located": true,
+  "start_line": 179,
+  "end_line": 199,
+  "text": "        if spec[\"kind\"] == \"python\":\n            probe_dir = os.path.join(work, \".codereview-probe\")\n            os.makedirs(probe_dir, exist_ok=True)\n            script = os.path.join(probe_dir, \"probe_main.py\")\n            with open(script, \"w\", encoding=\"utf-8\") as fh:\n                fh.write(spec[\"code\"])\n            argv = [sys.executable, script]\n        elif spec[\"kind\"] == \"command\":\n            argv = list(spec[\"argv\"])\n        else:  # test\n            argv = [sys.executable, spec[\"target\"]]\n        prefix, net_level = _network_prefix()\n        try:\n            res = subprocess.run(\n                prefix + argv, cwd=work, env=_sandbox_env(tmp, work),\n                capture_output=True, text=True,\n                timeout=timeout)\n            output = (res.stdout or \"\") + (res.stderr or \"\")\n            outcome = \"pass\" if res.returncode == 0 else \"fail\"\n            exit_code = res.returncode\n        except subprocess.TimeoutExpired as exc:"
+ },
+ "refutation": {
+  "by_family": "nvidia",
+  "quote": "            argv = list(spec[\"argv\"])\n",
+  "reason": "The code explicitly constructs argv from spec[\"argv\"] as a plain list of strings passed to subprocess.run; there is no dynamic path resolution or execution of arbitrary host binaries beyond what the caller specified, and the sandbox enforces cwd, env allowlist, and network namespace restrictions as ",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "Sandbox probe (`probes/closingB_probe_sandbox.py`, section 1): a command spec was executed through run_probe. Recorded sandbox block: cwd='temp-copy', network='network-namespace', env='allowlist', timeout 120. A marker WAS written outside the temp copy and a host file WAS read — filesystem confinement is not part of the model and never engages. The guarantees the design DOES make all held: the child cwd was the temp copy, a secret placed in the parent env was ABSENT from the child's env (allowlist), and the network namespace level was achieved and recorded. This is the documented threat model (probe.py's module docstring + the Epic C C5 sandbox note): probe specs are operator/Tech-Lead-supplied trusted input — the same trust class as test commands — and the sandbox bounds cwd, env, network, and time, not the filesystem.",
+  "basis_evidence_sha256": [
+   "e0993007f4e306717bea3aeeb5c764e8548349da61640f66ad7fb915d890363e"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/closingB-probe-sandbox.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "sustain_refutation",
+  "severity_after": null,
+  "scoring": "exact"
+ },
+ "provenance": {
+  "source": "disposition store entry 8479293e76ed (decider=owner, marker=ratified, 2026-11-05T04:07:57+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-closing-r1-2026-11-04/18-8479293e76ed.md; source record: review-closing-r1/codereview-20261105-031927.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": [
+  "reason_corrected: the claim's factual substrate (a spec can touch the host filesystem) is confirmed and recorded here so the ratification is not read as denying it; what fails is the inference to a defect against the documented model."
+ ]
+}

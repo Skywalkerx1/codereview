@@ -1,0 +1,217 @@
+{
+  "schema": "codereview.benchcorpus/1",
+  "stratum": "expanded-clean",
+  "version": "0",
+  "cases": [
+    {
+      "id": "xc-health-guard-selfcheck",
+      "category": "clean",
+      "split": "expanded-clean",
+      "expected_defects": 0
+    },
+    {
+      "id": "xc-atomic-state-writer",
+      "category": "clean",
+      "split": "expanded-clean",
+      "expected_defects": 0
+    },
+    {
+      "id": "xc-retry-backoff-jitter",
+      "category": "clean",
+      "split": "expanded-clean",
+      "expected_defects": 0
+    },
+    {
+      "id": "xc-bounded-response-read",
+      "category": "clean",
+      "split": "expanded-clean",
+      "expected_defects": 0
+    },
+    {
+      "id": "xc-ssrf-allowlist-fetch",
+      "category": "clean",
+      "split": "expanded-clean",
+      "expected_defects": 0
+    },
+    {
+      "id": "xc-decimal-money",
+      "category": "clean",
+      "split": "expanded-clean",
+      "expected_defects": 0
+    },
+    {
+      "id": "xc-pagination-bounds",
+      "category": "clean",
+      "split": "expanded-clean",
+      "expected_defects": 0
+    },
+    {
+      "id": "xc-locked-counter",
+      "category": "clean",
+      "split": "expanded-clean",
+      "expected_defects": 0
+    },
+    {
+      "id": "xc-idempotency-keys",
+      "category": "clean",
+      "split": "expanded-clean",
+      "expected_defects": 0
+    },
+    {
+      "id": "xc-circuit-breaker",
+      "category": "clean",
+      "split": "expanded-clean",
+      "expected_defects": 0
+    },
+    {
+      "id": "xc-token-bucket-limiter",
+      "category": "clean",
+      "split": "expanded-clean",
+      "expected_defects": 0
+    },
+    {
+      "id": "xc-graceful-shutdown",
+      "category": "clean",
+      "split": "expanded-clean",
+      "expected_defects": 0
+    },
+    {
+      "id": "xc-redacted-logging",
+      "category": "clean",
+      "split": "expanded-clean",
+      "expected_defects": 0
+    },
+    {
+      "id": "xc-batch-delete-guarded",
+      "category": "clean",
+      "split": "expanded-clean",
+      "expected_defects": 0
+    },
+    {
+      "id": "xc-tz-aware-scheduling",
+      "category": "clean",
+      "split": "expanded-clean",
+      "expected_defects": 0
+    },
+    {
+      "id": "xc-safe-yaml-config",
+      "category": "clean",
+      "split": "expanded-clean",
+      "expected_defects": 0
+    },
+    {
+      "id": "xc-deadletter-worker",
+      "category": "clean",
+      "split": "expanded-clean",
+      "expected_defects": 0
+    },
+    {
+      "id": "xc-constant-time-compare",
+      "category": "clean",
+      "split": "expanded-clean",
+      "expected_defects": 0
+    },
+    {
+      "id": "xc-csrf-token-check",
+      "category": "clean",
+      "split": "expanded-clean",
+      "expected_defects": 0
+    },
+    {
+      "id": "xc-escaped-rendering",
+      "category": "clean",
+      "split": "expanded-clean",
+      "expected_defects": 0
+    },
+    {
+      "id": "xc-fetch-timeout-abort",
+      "category": "clean",
+      "split": "expanded-clean",
+      "expected_defects": 0
+    },
+    {
+      "id": "xc-intl-currency-format",
+      "category": "clean",
+      "split": "expanded-clean",
+      "expected_defects": 0
+    },
+    {
+      "id": "xc-debounce-search",
+      "category": "clean",
+      "split": "expanded-clean",
+      "expected_defects": 0
+    },
+    {
+      "id": "xc-strict-json-body",
+      "category": "clean",
+      "split": "expanded-clean",
+      "expected_defects": 0
+    },
+    {
+      "id": "xc-context-http-timeout",
+      "category": "clean",
+      "split": "expanded-clean",
+      "expected_defects": 0
+    },
+    {
+      "id": "xc-mutex-guarded-map",
+      "category": "clean",
+      "split": "expanded-clean",
+      "expected_defects": 0
+    },
+    {
+      "id": "xc-errgroup-drain",
+      "category": "clean",
+      "split": "expanded-clean",
+      "expected_defects": 0
+    },
+    {
+      "id": "xc-graceful-http-shutdown",
+      "category": "clean",
+      "split": "expanded-clean",
+      "expected_defects": 0
+    },
+    {
+      "id": "xc-jdbc-prepared",
+      "category": "clean",
+      "split": "expanded-clean",
+      "expected_defects": 0
+    },
+    {
+      "id": "xc-double-checked-cache",
+      "category": "clean",
+      "split": "expanded-clean",
+      "expected_defects": 0
+    },
+    {
+      "id": "xc-bigdecimal-invoice",
+      "category": "clean",
+      "split": "expanded-clean",
+      "expected_defects": 0
+    },
+    {
+      "id": "xc-pdo-prepared",
+      "category": "clean",
+      "split": "expanded-clean",
+      "expected_defects": 0
+    },
+    {
+      "id": "xc-password-hash-verify",
+      "category": "clean",
+      "split": "expanded-clean",
+      "expected_defects": 0
+    },
+    {
+      "id": "xc-timeout-http-fetch",
+      "category": "clean",
+      "split": "expanded-clean",
+      "expected_defects": 0
+    },
+    {
+      "id": "xc-guarded-migration",
+      "category": "clean",
+      "split": "expanded-clean",
+      "expected_defects": 0
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "id": "xc-intl-currency-format",
+  "title": "Currency display from integer cents via Intl.NumberFormat",
+  "category": "clean",
+  "split": "expanded-clean",
+  "source": "Authored for the CodeReview benchmark corpus (expanded clean stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "expanded-clean",
+  "false_flag_note": "A reviewer may flag cents / 100 as float money math. No arithmetic is done in floats: amounts are stored and validated as safe-integer cents (non-integers and values beyond Number.MAX_SAFE_INTEGER are rejected), and the division happens exactly once, at the display boundary, as the input Intl.NumberFormat requires. Locale and currency formatting \u2014 grouping, symbol placement, fraction digits \u2014 is delegated to Intl instead of hand-rolled string code."
+}

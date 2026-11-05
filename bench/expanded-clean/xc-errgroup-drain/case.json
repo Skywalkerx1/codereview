@@ -1,0 +1,11 @@
+{
+  "id": "xc-errgroup-drain",
+  "title": "Parallel jobs run under an errgroup that is always awaited",
+  "category": "clean",
+  "split": "expanded-clean",
+  "source": "Authored for the CodeReview benchmark corpus (expanded clean stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "expanded-clean",
+  "false_flag_note": "A reviewer may flag the job := job copy or the error wrap as noise. The copy is the pre-Go-1.22-safe capture of the loop variable for the goroutine closure (harmless on newer Go); WithContext means the first failure cancels the shared context so sibling jobs that watch ctx.Done() stop early; and g.Wait() is called on every path \u2014 it is what blocks until all goroutines finish and surfaces the first error, so RunAll never returns while work is still running."
+}

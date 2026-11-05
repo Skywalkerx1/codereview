@@ -1,0 +1,11 @@
+{
+  "id": "xc-jdbc-prepared",
+  "title": "Repository lookup via PreparedStatement with try-with-resources",
+  "category": "clean",
+  "split": "expanded-clean",
+  "source": "Authored for the CodeReview benchmark corpus (expanded clean stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "expanded-clean",
+  "false_flag_note": "A reviewer may flag the unclosed Connection field as a leak. The repository deliberately does not own the connection \u2014 its lifecycle belongs to the caller/pool that constructed the repository \u2014 while everything this method creates (the PreparedStatement and the ResultSet) is closed by nested try-with-resources on every path. The user id is bound as a parameter, never concatenated, so the query is not injectable, and an absent row maps to Optional.empty rather than null."
+}

@@ -1,0 +1,58 @@
+{
+ "case_id": "S-D59",
+ "case_class": "sealed_disposition",
+ "sealed": true,
+ "title": "kind-'test' now runs every matching test in the directory, not just the requested target",
+ "finding": {
+  "claim": "kind-'test' now runs every matching test in the directory, not just the requested target",
+  "evidence": "The new unittest invocation discovers tests from the target directory using the target basename as a pattern, so a request for one file can execute additional matching files and fail or pass based on unrelated tests in that directory.",
+  "file": "src/codereview/probe.py",
+  "line": 194,
+  "severity_as_raised": "major",
+  "evidence_quote": "                    \"discover\", \"-s\", start,",
+  "recommendation": "Limit execution to the requested test module or file instead of directory-wide discovery. For unittest, derive the module path for the exact target and invoke it directly, or otherwise constrain discovery so unrelated files cannot affect the verdict.",
+  "raised_by_family": "openai",
+  "record_finding_id": "b9e2819976fe"
+ },
+ "code_region": {
+  "commit": "bd371a9ad2831e5475ab620885b4336dec6d98c6",
+  "path": "src/codereview/probe.py",
+  "located": true,
+  "start_line": 188,
+  "end_line": 208,
+  "text": "        else:  # test — execute through the unittest runner\n            # (discovery rooted at the target's directory), NOT\n            # as a plain script: script execution runs zero\n            # tests when the file lacks a __main__ guard and\n            # still exits 0 (finding 4cf81c69d7cf).\n            target = spec[\"target\"]\n            start = os.path.dirname(target) or \".\"\n            argv = [sys.executable, \"-m\", \"unittest\",\n                    \"discover\", \"-s\", start,\n                    \"-p\", os.path.basename(target)]\n        prefix, net_level = _network_prefix()\n        try:\n            res = subprocess.run(\n                prefix + argv, cwd=work, env=_sandbox_env(tmp, work),\n                capture_output=True, text=True,\n                timeout=timeout)\n            output = (res.stdout or \"\") + (res.stderr or \"\")\n            outcome = \"pass\" if res.returncode == 0 else \"fail\"\n            exit_code = res.returncode\n        except subprocess.TimeoutExpired as exc:\n            output = ((exc.stdout or b\"\") if isinstance("
+ },
+ "refutation": {
+  "by_family": "nvidia",
+  "quote": "                    \"discover\", \"-s\", start,",
+  "reason": "The quoted line shows the unittest discover flag uses the directory path (start), not the target basename as a pattern to execute unrelated files. The discovery is rooted at the target's directory, which limits scope to that directory, not all matching files across the codebase.",
+  "provenance": "recorded"
+ },
+ "probe": {
+  "summary": "Test-runner probe (`probes/closingB_probe_sandbox.py`, b9e2819976fe section; probe.py:196-207): a directory holding a PASSING test_target.py and a FAILING test_unrelated.py was probed on the target only: outcome='pass', runner summary 'Ran 1 test, OK' — the different-basename neighbour did NOT run. The same directory plus a FAILING subpkg/test_target.py (SAME basename, in a subpackage): outcome='fail', 'Ran 2 tests, FAILED' — the subpackage namesake DID run (discovery recurses and the module name still matches).",
+  "basis_evidence_sha256": [
+   "e0993007f4e306717bea3aeeb5c764e8548349da61640f66ad7fb915d890363e"
+  ],
+  "basis_files": [
+   "/home/hatch/workspace/codereview/probes/results/closingB-probe-sandbox.txt"
+  ]
+ },
+ "probe_settled": true,
+ "expected": {
+  "decision": "split",
+  "severity_after": null,
+  "scoring": "sealed_split",
+  "reasoning_validity": {
+   "claim": "partially_valid",
+   "refutation": "partially_valid"
+  }
+ },
+ "provenance": {
+  "source": "disposition store entry b9e2819976fe (decider=owner, marker=ratified, 2026-11-05T04:08:00+00:00); packet: /home/hatch/workspace/goals/reviewloop-multi-model-code-review-product/files/ruling-packets-closing-r1-2026-11-04/44-b9e2819976fe.md; source record: review-shadowfixes-out/codereview-20261105-032130.json",
+  "label_independence": "probe-grounded: basis_evidence sha256 verified against the probe artifact file on disk; the label rests on executed evidence, not on shadow Tech Lead output (SS3.6 probe route)"
+ },
+ "notes": [
+  "split ruling: neither side wholly correct; scored under the sealed_split rule in SEALED.md",
+  "reason_corrected: the scope is: same module basename, anywhere under the probed directory (recursive discovery) — not 'every matching test in the directory' (claim) and not 'only the exact file' (refutation)."
+ ]
+}

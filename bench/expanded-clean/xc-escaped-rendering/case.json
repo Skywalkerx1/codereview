@@ -1,0 +1,11 @@
+{
+  "id": "xc-escaped-rendering",
+  "title": "Comment rendering via textContent and a correctly ordered escaper",
+  "category": "clean",
+  "split": "expanded-clean",
+  "source": "Authored for the CodeReview benchmark corpus (expanded clean stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "expanded-clean",
+  "false_flag_note": "A reviewer may flag building DOM nodes as verbose, or the string escaper as a place an XSS could hide. User text is assigned through textContent, which the browser never parses as markup; the escaper exists only for the one legacy string-template call site, and it replaces & first \u2014 any other order would double-escape the entities it just introduced and corrupt output \u2014 then covers <, >, double and single quotes so values are safe in both element and attribute contexts."
+}

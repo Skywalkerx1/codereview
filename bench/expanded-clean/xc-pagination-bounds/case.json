@@ -1,0 +1,11 @@
+{
+  "id": "xc-pagination-bounds",
+  "title": "Keyset pagination with a limit-plus-one probe",
+  "category": "clean",
+  "split": "expanded-clean",
+  "source": "Authored for the CodeReview benchmark corpus (expanded clean stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "expanded-clean",
+  "false_flag_note": "A reviewer may flag 'LIMIT limit + 1' as an off-by-one bug and the discarded row as waste. Fetching one row past the page is the standard probe: has_more is exactly 'a (limit+1)-th row exists', the page is sliced back to limit before returning, and next_cursor is the id of the last row actually returned, so the next page resumes strictly after it (WHERE id > cursor) with no overlap or gap. The limit is clamped to [1, 100] and the cursor is parsed defensively."
+}
