@@ -1,0 +1,18 @@
+HARDENING PARENT-FAIL VERIFICATION
+Test file from HEAD overlaid on parent 7c73fbf (pre-hardening).
+
+  test_ambiguous_name_keys_to_all_candidates: FAIL
+  test_finding_public_marks_long_evidence: FAIL
+  test_missing_and_valid_configs: ok
+  test_nested_sibling_resolution: ok
+  test_over_cap_marker_complete_and_boundary_clean: ERROR
+  test_providers_wrong_types_raise_value_error: FAIL
+  test_roles_wrong_types_raise_value_error: FAIL
+  test_self_call_resolves_to_the_method: FAIL
+  test_sidecar_walk_skips_non_dicts_and_serves_dicts: ok
+  test_single_long_word_still_marked: ERROR
+  test_unambiguous_name_keeps_bare_hash: ok
+  test_under_cap_unchanged: ERROR
+
+Pattern check: fix tests fail at parent = True; controls + non-dict test pass at parent = True
+VERIFIED: each hardening fix is pinned by a parent-failing test; bf4c451e8751's guard predates the track (passes in both trees).
