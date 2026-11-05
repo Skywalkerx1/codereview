@@ -444,5 +444,27 @@ class ConfigLoadTests(unittest.TestCase):
                 {"commands": [{"name": "no-command"}]})
 
 
+class EvidenceMainTests(unittest.TestCase):
+    def test_collect_failure_returns_2_not_traceback(self):
+        # 934fab88a12e: a config value that passes validation
+        # and fails inside collect (a numeric-string timeout
+        # reaches Popen as a str) is a subcommand error —
+        # exit 2, never an exception out of _evidence_main.
+        import contextlib
+        import io
+        from codereview import cli
+        with tempfile.TemporaryDirectory() as td:
+            cfg = os.path.join(td, "evidence.json")
+            with open(cfg, "w", encoding="utf-8") as fh:
+                json.dump({"commands": [{"name": "t",
+                                         "command": "true",
+                                         "timeout": "10"}]}, fh)
+            with contextlib.redirect_stderr(io.StringIO()):
+                rc = cli._evidence_main(
+                    ["--repo", td, "--config", cfg,
+                     "--out", os.path.join(td, "out")])
+            self.assertEqual(rc, 2)
+
+
 if __name__ == "__main__":
     unittest.main()

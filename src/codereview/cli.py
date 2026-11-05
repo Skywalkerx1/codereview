@@ -316,7 +316,16 @@ def _evidence_main(argv):
     except ValueError as exc:
         print(f"codereview: {exc}", file=sys.stderr)
         return 2
-    record = evidence_mod.collect(config, args.repo)
+    try:
+        record = evidence_mod.collect(config, args.repo)
+    except Exception as exc:  # noqa: BLE001
+        # A collect failure (e.g. a mistyped config value that
+        # passes validation and blows up inside a subprocess
+        # call) is a subcommand error — exit 2 with the reason,
+        # never a traceback (934fab88a12e).
+        print(f"codereview evidence: collection failed: {exc}",
+              file=sys.stderr)
+        return 2
     path = os.path.join(args.out, "evidence.json")
     with open(path, "w", encoding="utf-8") as fh:
         json.dump(record, fh, ensure_ascii=False, indent=2)
