@@ -1,5 +1,54 @@
 # Changelog
 
+## Unreleased — process tooling (branch `process-tooling`)
+
+Implements §5 of the adopted open-refutations solution
+(2026-11-04): the computed dispute inventory, the append-only
+disposition store, the release-flow freshness check, the
+deterministic authority-affecting tagger, and quote anchoring.
+
+- **`codereview disputes`** scans all `review-*/` records (plus
+  evidence sidecars) and prints the open-dispute inventory —
+  findings with status `disputed` or `refutation_weak` and no
+  disposition in the store — grouped by record with lens,
+  raiser/refuter families, and the authority-affecting tag;
+  `--json` for tooling. Run summaries now carry `open_disputes`
+  (count + fingerprint list).
+- **Disposition store** `dispositions.jsonl` (repo root,
+  append-only): entries carry the fingerprint, type
+  (`sustain_refutation` / `sustain_finding` / `split` / `fixed`
+  (requires the fixing commit) / `retired_archived_subject` /
+  `retired_out_of_scope` / `superseded` / `downgraded`), decider
+  (`owner` / `tech_lead` / `probe`), date, the reasoning-quality
+  fields `reason_check` / `reason_corrected` / `basis_evidence`,
+  and a `ratified` / `override` marker. `codereview disputes
+  --record <entry.json>` appends with validation: a fingerprint
+  is dispositioned once, unless the new entry is an override
+  naming the entry it supersedes. `record-verify` consults the
+  store automatically when present (a disputed finding with an
+  entry counts as dispositioned; consumed entries are named);
+  with no store, verification is unchanged.
+- **Freshness check:** `codereview disputes --check --span
+  A..B` exits non-zero listing any dispute in records touching
+  the span that is neither dispositioned nor listed in a
+  caller-supplied `--inventory` file. Documented in the README
+  as the release-flow gate; intentionally not wired into any
+  automated script.
+- **Authority-affecting tagger** (deterministic, §5.5): the
+  former "protected class", defined as findings that could
+  change who decides, whether independence holds, whether a
+  precedent/decision is valid, whether eligibility passes, or
+  what leaves the machine. Report rendering and prompt display
+  truncation are explicitly excluded; a manual override list
+  wins over the rules.
+- **Quote anchoring** (§5.6): findings gain `line_basis`
+  (`blob` / `diff`) when the cited line and quote determine one
+  numbering; deterministic findings are `blob`. `codereview
+  locate <finding-id> --record <path>` resolves a finding's
+  validated quote (sidecar full text when truncated) to its
+  blob position(s) at the reviewed commit; legacy findings
+  without a basis still locate by quote.
+
 ## 0.11.1 — 2026-11-04
 The v0.11.0 fix step: dispositions the standing items of the v0.11.0 internal review (record `review-v110/codereview-20261105-001944.json`, BLOCKED as received) — one deterministic blocker, one major, two minors, each cited by finding ID below. Nothing here adjudicates any disputed or refutation-weak finding; the owner's protected-class queue (nine items) is untouched, and the announcement hold stays ON.
 - **Blocker `44a6ae2d215a` — closed durably; the deterministic rule is NOT weakened.** The hardcoded-secret rule fired for the third time on a test fixture's fake key value — this time the `DEEPSEEK_API_KEY` fixture at `tests/test_user_setup.py:97`. The in-branch rename (`98ad1d9`) had removed the key-prefix shape but not the assignment shape the rule reads, which is why it re-fired; the correction to the v0.11.0 disposition bullet recorded in `0ba2c17` stands, is not rewritten, and this release is the fix it pointed at. Instead of renaming one string again, the whole fixture surface was audited and the class closed: **every string neutralized** (the full `tests/` tree scanned against the three deterministic secret rules plus bare key shapes) — (1) `tests/test_user_setup.py`: the fixture value `sentinel-value-never-stored` → `placeholder-deepseek-key-never-stored`, carrying the scan's own placeholder exemption token so the rule can never read it as a secret (the test's assertion — the value never reaches the saved config — is unchanged); (2) `tests/test_core.py`: the scanner/redaction fixture value is assembled at runtime from fragments (`FAKE_KEY_VALUE`, with a short placeholder token inside the `BUGGY` patch replaced at build time) — the runtime value is byte-identical, so the scan and redaction assertions are unchanged, but no literal line matches; (3) `tests/test_external_review_v070.py`: the agent-env fixture value likewise assembled from fragments (`FAKE_OPENAI_VALUE`), runtime value identical. **Audited and left as-is:** `ghp-test-SECRET` (`tests/test_external_review_v070.py`) — a hyphenated test marker that matches no secret pattern (GitHub's token shape is `ghp_` + alphanumerics). **Regression guard:** new `tests/test_fixture_secret_hygiene.py` runs the product's own deterministic scan (with its placeholder exemption) over every line under `tests/` presented as added diff lines — exactly what a review of a test-suite change sees — plus a bare key-shape scan; a fourth firing now fails the suite instead of surfacing in a review. Negative control verified: all three historical fixture shapes trip the guard.

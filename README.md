@@ -205,6 +205,102 @@ A gate verdict you intend to *publish* (a release record) has to survive its own
 - **Tier attestation (v0.9.3).** Records carry the run's own `private` declaration (from `--private`) alongside each seat's tier. `record-verify`'s `tier_policy` check fails exactly one conjunction: a `private=true` record with a *successful* free-tier seat. Public runs attest `private=false` and are unaffected; records without a declaration report the check as not applicable.
 - **Content-addressed precedent (v0.9.3).** Re-litigating a settled rebuttal every round wastes the panel; trusting prose dispositions would let a builder talk the gate down. The middle path is a **precedent store** (`precedents.json`, passed with `--precedents`): each entry keys a finding fingerprint + cited path to the cited file's git blob at disposition time. A matching finding is classified **standing** — listed in `standing_findings` with its repeat count and disposition link, non-blocking — *only while that file's blob is unchanged*; any edit retires the precedent automatically and the finding is adjudicated fresh. `record-verify` recomputes the store hash and every link against the recorded head, so a stale or forged link fails.
 
+## Dispositions and the open-dispute inventory
+
+A refutation is not a bug to be solved: it is a dispute to be
+dispositioned. Until a human ruling exists, a finding whose
+refutation is `disputed` or `refutation_weak` stays open. The
+tooling here makes that state computable instead of
+hand-maintained (the inventory used to be re-derived by reading
+every record by hand, repeatedly).
+
+    codereview disputes [--repo DIR] [--store PATH] [--json]
+    codereview disputes --record entry.json [--store PATH]
+    codereview disputes --check --span A..B [--inventory FILE]
+
+- **Computed inventory.** `codereview disputes` scans every
+  `review-*/` record (JSON plus evidence sidecars), collects the
+  findings whose dispute is not closed in the disposition store,
+  and prints them grouped by record with fingerprints, severity,
+  lens, raiser/refuter families, and the authority-affecting tag
+  below. `--json` emits the same inventory for tooling. Run
+  summaries also carry an `open_disputes` count and fingerprint
+  list, so a finished review names what it leaves open.
+- **Append-only store.** `dispositions.jsonl` at the repository
+  root holds one JSON entry per dispositioned finding — nothing
+  is edited or deleted. An entry carries the finding
+  fingerprint; a `type` (`sustain_refutation`, `sustain_finding`,
+  `split`, `fixed` — which requires the fixing `commit` —
+  `retired_archived_subject`, `retired_out_of_scope`,
+  `superseded`, `downgraded`); the `decider` (`owner`,
+  `tech_lead`, or `probe`); a `date`; and the reasoning-quality
+  fields `reason_check` (`verified` / `unverified` /
+  `contradicted`), `reason_corrected`, and `basis_evidence`
+  (sha256 hashes of the evidence the reasoning was checked
+  against) — a ruling whose mechanism was wrong is a good
+  outcome and a bad precedent, so the record keeps both. A
+  fingerprint can be dispositioned only once, unless the new
+  entry is marked `override` and names the `supersedes` hash of
+  the entry it replaces; `codereview disputes --record` validates
+  all of this on append.
+- **Verification consults the store.** `record-verify`
+  automatically loads `dispositions.jsonl` from the repository
+  root (or `--dispositions PATH`): a disputed finding with a
+  store entry counts as dispositioned, and the verdict names the
+  entries consumed. When no store exists, verification behaves
+  exactly as it always has.
+- **Freshness check (the release-flow gate).** Before a release
+  is cut, run `codereview disputes --check --span <base>..<head>`.
+  It exits non-zero and lists every dispute ID in records
+  touching the span that is neither dispositioned in the store
+  nor present in a caller-supplied inventory file
+  (`--inventory inv.json`, e.g. a fresh `disputes --json`
+  snapshot): the release's dispute state is either ruled,
+  listed, or the release waits. The check is a command plus this
+  documentation — it is deliberately not wired into any
+  automated release script.
+
+### Authority-affecting findings
+
+The older "protected class" is now defined deterministically. A
+finding is **authority-affecting** if it could change:
+
+- **who decides** — role/seat assignment, the Tech Lead, or the
+  adjudication path;
+- **whether independence holds** — family attribution;
+- **whether a precedent or decision is valid** — precedent keys,
+  the decision cache, verdict records as subjects;
+- **whether eligibility passes** — coverage, quorum, finder
+  confirmation, record-verify, gate logic;
+- **what leaves the machine** — redaction, tier policy,
+  `--private`, public record surfaces.
+
+Explicitly **not** authority-affecting: report rendering and
+prompt display truncation (storage is full-text; the public view
+is display-only). The tagger applies this definition over a
+finding's title, category, and file path; a manual override list
+(`{"authority": [...], "not_authority": [...]}` JSON) always
+wins. The disputes inventory prints the tag and the dimensions
+matched, so a tag is auditable rather than asserted.
+
+### Quote anchoring and `locate`
+
+Reviewers cite line numbers in two numberings — new-side blob
+lines and diff-relative indices — and nothing used to say which.
+Findings now carry `line_basis` (`blob` or `diff`) whenever the
+cited line and quote determine exactly one numbering;
+deterministic-scan findings are always `blob`. To resolve a
+citation back to the reviewed commit:
+
+    codereview locate <finding-id> --record <record.json|dir>
+
+`locate` takes the finding's validated quote (the evidence
+sidecar's full text when the record's display copy is truncated)
+and prints every blob line at the reviewed commit whose text
+matches it, plus whether the cited line itself resolves. Legacy
+findings without `line_basis` — or records without a head — still
+locate by quote alone.
+
 ## Benchmark — prove it, don't pitch it
 
 CodeReview's claim is measured, not asserted. The benchmark (Epic A) runs named panel configurations over a labelled corpus of diffs and scores them against ground truth:
