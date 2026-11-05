@@ -1,0 +1,3 @@
+Reviewer note: the handler returns an authentication error when the
+token is missing, and the usage limit handling deserves a comment.
+Nothing here is a CLI failure message; it is prose about a diff.

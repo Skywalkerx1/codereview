@@ -13,6 +13,11 @@ Custom:  name|openai-compatible|https://base.url/v1|model|KEY_ENV
          name|gemini|-|model|KEY_ENV
          name|anthropic|-|model|KEY_ENV
          openai-compatible:<base>|<model>|<KEY_ENV (escape hatch)
+Local:   local:<name>:<base-url>|<model> — a named local model
+         server (Epic L5), plus the registry's local presets
+         (ollama, lmstudio). Keyless: no key env is read and no
+         Authorization header is sent — the endpoint is the
+         user's own machine. Family tag 'local'.
 Agent:   agent:<name>:<command> — a local agent CLI (Claude Code,
          Codex, Gemini CLI, a wrapper script, ...) seated as a
          reviewer or solver. The prompt is written to a temp file
@@ -35,8 +40,20 @@ import shutil
 import signal
 import subprocess
 import tempfile
+import threading
+import time
 import urllib.error
 import urllib.request
+
+try:
+    from . import seatstate
+except ImportError:  # standalone module load
+    import seatstate  # type: ignore
+
+try:
+    from . import herdrhost
+except ImportError:  # standalone module load
+    import herdrhost  # type: ignore
 
 DEFAULT_TIMEOUT = 240
 AGENT_TIMEOUT = 900
@@ -99,7 +116,13 @@ def openai_compatible(base_url, model, key_env, extra_payload=None,
     `omit_temperature` drops the temperature field entirely for
     models whose API rejects a caller-set value (registry quirk
     table — e.g. OpenAI's gpt-5 line answers HTTP 400); the field
-    is omitted, never replaced with a fabricated default."""
+    is omitted, never replaced with a fabricated default.
+
+    `key_env` None is the keyless local form (Epic L5): no
+    credential is read and NO Authorization header is sent — the
+    endpoint is a model server on the user's own machine, which
+    expects none. Keyed callers are untouched: same header, same
+    _key failure when the env var is unset."""
     def call(prompt):
         payload = {
             "model": model,
@@ -111,9 +134,11 @@ def openai_compatible(base_url, model, key_env, extra_payload=None,
             payload["temperature"] = 0.1
         if extra_payload:
             payload.update(extra_payload)
+        headers = {} if key_env is None else {
+            "Authorization": f"Bearer {_key(key_env)}"}
         data = _post_json(
             base_url.rstrip("/") + "/chat/completions",
-            {"Authorization": f"Bearer {_key(key_env)}"}, payload)
+            headers, payload)
         try:
             text = (data["choices"][0]["message"].get("content")
                     or "").strip()
@@ -258,7 +283,464 @@ def _read_tail(path, limit):
         return ""
 
 
-def command_agent(command, timeout=AGENT_TIMEOUT, private_home=False):
+def _run_seat_process(proc, pgid, prompt, timeout, out_path,
+                      err_path, cli_key, log, stall_after,
+                      block_grace):
+    """Supervised wait for one agent-seat process (Epic K2).
+
+    Feeds the prompt on a writer thread (a seat may never read
+    stdin; a blocked pipe must not stall supervision), polls the
+    capture files for output activity, and returns an outcome
+    dict: {"kind": "exit"} when the process ended on its own
+    (returncode set); {"kind": "timeout", "facts": ...} when the
+    per-call ceiling killed it (facts classify blocked/stalled
+    when the seat had been silent past the stall bound, else
+    timed-out); {"kind": "blocked", "facts": ...} when a
+    verified failure pattern matched on stderr and output then
+    stayed silent for the whole grace bound — the seat is stuck
+    on a condition it cannot recover from by waiting, so it is
+    terminated early instead of burning the full timeout. Live
+    stall episodes are emitted to `log` (the job's SeatStateLog)
+    as they happen; the terminal classification itself is the
+    caller's, taken from the outcome's facts."""
+
+    def _feed():
+        try:
+            proc.stdin.write(prompt.encode("utf-8"))
+            proc.stdin.close()
+        except (BrokenPipeError, OSError, ValueError):
+            pass
+
+    threading.Thread(target=_feed, daemon=True).start()
+
+    def _size(path):
+        try:
+            return os.path.getsize(path)
+        except OSError:
+            return -1
+
+    started = time.monotonic()
+    deadline = started + timeout
+    last_size = _size(out_path) + _size(err_path)
+    last_activity = started
+    stalled = False
+    matched = None
+    while True:
+        if proc.poll() is not None:
+            # A seat's final write can land in the same poll as
+            # its exit: an open stall episode still closes, so
+            # the trace never ends on a stall the seat recovered
+            # from by answering.
+            if stalled and log is not None and (
+                    _size(out_path) + _size(err_path) != last_size):
+                log.emit("working")
+            return {"kind": "exit"}
+        now = time.monotonic()
+        size = _size(out_path) + _size(err_path)
+        if size != last_size:
+            last_size = size
+            last_activity = now
+            if stalled:
+                stalled = False
+                if log is not None:
+                    log.emit("working")
+        silent = now - last_activity
+        if log is not None and not stalled \
+                and silent >= stall_after:
+            stalled = True
+            log.emit("blocked", "stalled",
+                     {"silent_s": round(silent, 1),
+                      "stall_after_s": stall_after,
+                      "transient": True})
+        if matched is None and cli_key is not None:
+            matched = seatstate.match_failure(
+                cli_key, _read_tail(err_path, 8192))
+        if matched is not None and silent >= block_grace:
+            _kill_tree(proc, pgid)
+            proc.wait()
+            return {"kind": "blocked", "facts": {
+                "state": "blocked", "class": matched["class"],
+                "evidence": {"pattern": matched["pattern"],
+                             "matched": matched["matched"],
+                             "source": "stderr",
+                             "early_terminated": True,
+                             "silent_s": round(silent, 1)}}}
+        if now >= deadline:
+            _kill_tree(proc, pgid)
+            proc.wait()
+            if silent >= stall_after:
+                facts = {"state": "blocked", "class": "stalled",
+                         "evidence": {
+                             "silent_s": round(silent, 1),
+                             "timeout_s": timeout}}
+            else:
+                facts = {"state": "timed-out", "class": None,
+                         "evidence": {"timeout_s": timeout}}
+            return {"kind": "timeout", "facts": facts}
+        time.sleep(0.05)
+
+
+def _hosted_outcome_error(outcome, timeout, block_grace):
+    """The ProviderError a hosted seat's non-exit outcome maps
+    to — the headless messages, verbatim, plus seat_facts, so a
+    hosted failure reads exactly like its headless twin in the
+    record (the hosting receipt carries the transport facts)."""
+    if outcome["kind"] == "timeout":
+        err = ProviderError(
+            f"agent command timed out after {timeout}s",
+            retryable=False)
+        err.seat_facts = outcome["facts"]
+        return err
+    if outcome["kind"] == "blocked":
+        facts = outcome["facts"]
+        err = ProviderError(
+            f"agent command blocked ({facts['class']}): "
+            f"matched {facts['evidence']['pattern']} on "
+            f"stderr; no output for {block_grace:g}s — "
+            f"terminated early", retryable=False)
+        err.seat_facts = facts
+        return err
+    # kind == "herdr-failure": the transport died under the
+    # seat (herdr exited, the pane vanished, the session was
+    # restarted). A recorded seat failure — never a retry under
+    # a new pane inside this attempt, never a silent resume.
+    err = ProviderError(
+        f"herdr hosting failed ({outcome['stage']}): "
+        f"{outcome['detail']}", retryable=False)
+    err.seat_facts = {
+        "state": "failed", "class": "error",
+        "evidence": {"stage": outcome["stage"],
+                     "transport": "herdr",
+                     "detail": outcome["detail"][:300]}}
+    return err
+
+
+def _run_hosted_seat(host, receipt, pane_id, out_path, err_path,
+                     rc_path, cli_key, log, timeout, stall_after,
+                     block_grace):
+    """Supervised wait for one herdr-hosted seat (Epic K3a).
+
+    The headless wait supervises OUR subprocess; here the
+    process lives in a herdr pane, so the truth is recovered
+    from the same artefacts the headless runner reads — the
+    capture files (activity, stderr patterns, the response)
+    plus the exit-code file the pane command writes when the
+    seat command finishes. Herdr's agent_status is polled as
+    the wrapper-layer subscription (see herdrhost.py): it
+    annotates the receipt and may raise an ADVISORY
+    blocked:input episode in the seat-state log; it never
+    decides the outcome. A failed poll is an event break
+    (events_lost at the socket layer): reconcile via
+    session.snapshot — same pane, same terminal_id, or the
+    seat fails. Returns the headless outcome shapes
+    ({"kind": "exit", "returncode": N} / "timeout" /
+    "blocked") plus {"kind": "herdr-failure", ...}."""
+
+    def _size(path):
+        try:
+            return os.path.getsize(path)
+        except OSError:
+            return -1
+
+    def _rc():
+        try:
+            with open(rc_path, encoding="utf-8") as fh:
+                return int(fh.read().strip())
+        except (OSError, ValueError):
+            return None
+
+    started = time.monotonic()
+    deadline = started + timeout
+    last_size = _size(out_path) + _size(err_path)
+    last_activity = started
+    stalled = False
+    matched = None
+    last_status = None
+    advisory_blocked = False
+    terminal_id = None
+
+    def _observe(pane, via):
+        """Fold one pane observation into the receipt (+ the
+        advisory log episodes). Returns a herdr-failure
+        outcome when the observation proves the session was
+        restarted under the seat, else None."""
+        nonlocal last_status, advisory_blocked, terminal_id
+        if not isinstance(pane, dict):
+            return None
+        tid = pane.get("terminal_id")
+        if tid is not None:
+            if terminal_id is None:
+                terminal_id = tid
+                receipt["terminal_id"] = tid
+            elif tid != terminal_id:
+                return {"kind": "herdr-failure",
+                        "stage": "session-restarted",
+                        "detail": "the pane's terminal changed "
+                        "mid-run (herdr restarted); a resumed "
+                        "session is never silently continued"}
+        status = pane.get("agent_status")
+        if status is not None and status != last_status:
+            last_status = status
+            observations = receipt.setdefault("observations", [])
+            if len(observations) < 100:
+                observations.append({
+                    "at_ms": int((time.monotonic() - started)
+                                 * 1000),
+                    "agent_status": status, "via": via})
+            if log is not None:
+                if status == "blocked" and not advisory_blocked:
+                    advisory_blocked = True
+                    # K2 signal #4: herdr's blocked is an
+                    # approval/question UI — in a non-
+                    # interactive seat that is an input wait.
+                    # Advisory only: non-terminal, and process
+                    # truth (the files) still decides the seat.
+                    log.emit("blocked", "input", {
+                        "source": "herdr",
+                        "herdr_status": "blocked",
+                        "advisory": True})
+                elif status != "blocked" and advisory_blocked:
+                    advisory_blocked = False
+                    log.emit("working", None, {
+                        "source": "herdr",
+                        "herdr_status": status,
+                        "advisory": True})
+        return None
+
+    def _reconcile():
+        """After an event break: session.snapshot is the
+        documented recovery. Returns None when the snapshot
+        proves the same pane under the same terminal (the
+        watch resumes), else the seat-failure outcome."""
+        try:
+            snap = host.snapshot()
+        except herdrhost.HerdrError as exc:
+            return {"kind": "herdr-failure",
+                    "stage": "herdr-unreachable",
+                    "detail": f"event break, and reconciliation "
+                    f"failed: {exc}"}
+        receipt["reconciled"] = True
+        panes = snap.get("panes") or []
+        pane = next((p for p in panes
+                     if isinstance(p, dict)
+                     and p.get("pane_id") == pane_id), None)
+        if pane is None:
+            if _rc() is not None:
+                return None  # the seat finished as the pane
+                # went away; the exit file is senior truth
+            return {"kind": "herdr-failure",
+                    "stage": "pane-exited",
+                    "detail": "the pane exited before the seat "
+                    "command wrote its exit code"}
+        return _observe(pane, "snapshot")
+
+    while True:
+        rc = _rc()
+        if rc is not None:
+            if stalled and log is not None and (
+                    _size(out_path) + _size(err_path) != last_size):
+                log.emit("working")
+            return {"kind": "exit", "returncode": rc}
+        now = time.monotonic()
+        size = _size(out_path) + _size(err_path)
+        if size != last_size:
+            last_size = size
+            last_activity = now
+            if stalled:
+                stalled = False
+                if log is not None:
+                    log.emit("working")
+        silent = now - last_activity
+        if log is not None and not stalled \
+                and silent >= stall_after:
+            stalled = True
+            log.emit("blocked", "stalled",
+                     {"silent_s": round(silent, 1),
+                      "stall_after_s": stall_after,
+                      "transient": True})
+        if matched is None and cli_key is not None:
+            matched = seatstate.match_failure(
+                cli_key, _read_tail(err_path, 8192))
+        if matched is not None and silent >= block_grace:
+            return {"kind": "blocked", "facts": {
+                "state": "blocked", "class": matched["class"],
+                "evidence": {"pattern": matched["pattern"],
+                             "matched": matched["matched"],
+                             "source": "stderr",
+                             "early_terminated": True,
+                             "silent_s": round(silent, 1),
+                             "transport": "herdr"}}}
+        # The watch: one pane poll per loop is the subscription
+        # at the wrapper layer. Herdr CLI calls are quick; the
+        # seat timeout bounds the whole loop regardless.
+        try:
+            failure = _observe(host.pane_get(pane_id), "pane.get")
+        except herdrhost.HerdrError:
+            receipt["events_lost"] = \
+                receipt.get("events_lost", 0) + 1
+            failure = _reconcile()
+        if failure is not None:
+            return failure
+        # Fresh clock, not the iteration-start sample: a slow
+        # herdr call must not push the timeout outcome past
+        # the deadline by its own duration. Silence is
+        # recomputed on the same clock so the terminal
+        # classification is taken at the decision instant.
+        now = time.monotonic()
+        silent = now - last_activity
+        if now >= deadline:
+            if silent >= stall_after:
+                facts = {"state": "blocked", "class": "stalled",
+                         "evidence": {
+                             "silent_s": round(silent, 1),
+                             "timeout_s": timeout,
+                             "transport": "herdr"}}
+            else:
+                facts = {"state": "timed-out", "class": None,
+                         "evidence": {"timeout_s": timeout,
+                                      "transport": "herdr"}}
+            return {"kind": "timeout", "facts": facts}
+        time.sleep(0.05)
+
+
+def _call_hosted(host, argv, prompt, timeout, private_home,
+                 stall_after, block_grace):
+    """One herdr-hosted seat call: the headless seat contract
+    (providers.command_agent) executed in a herdr pane.
+
+    Isolation mirrors the headless runner where the transport
+    allows it: a fresh scratch directory containing ONLY the
+    prompt file is the pane's cwd; stdout/stderr are captured
+    to files outside it and read back capped. Two honest
+    differences: there is no process-group kill or RLIMIT_FSIZE
+    to give (the pane is herdr's process, not ours — the seat
+    is bounded by closing its workspace and by the same
+    timeout), and the pane session carries the user's own
+    shell environment (herdrhost.py's U7 note: we add only
+    CODEREVIEW_PROMPT, plus HOME for a home=private seat;
+    operator keys are never added). Response and failure
+    semantics — messages, seat_facts, classifications — are
+    the headless ones."""
+    log = seatstate.current_log()
+    cli_key = seatstate.cli_key_for_argv(argv)
+    receipt = {"transport": "herdr",
+               "herdr_version": host.version_text}
+    box = herdrhost.RECEIPTS.get()
+    workdir = tempfile.mkdtemp(prefix="codereview-agent-")
+    cap_fds = []
+    workspace_id = None
+    try:
+        prompt_path = os.path.join(workdir, "prompt.md")
+        with open(prompt_path, "w", encoding="utf-8") as fh:
+            fh.write(prompt)
+        out_fd, out_path = tempfile.mkstemp(
+            prefix="codereview-agent-out-")
+        err_fd, err_path = tempfile.mkstemp(
+            prefix="codereview-agent-err-")
+        os.close(out_fd)
+        os.close(err_fd)
+        rc_path = out_path + ".rc"
+        cap_fds = [out_path, err_path, rc_path]
+        pane_env = {"CODEREVIEW_PROMPT": prompt_path}
+        if private_home:
+            pane_env["HOME"] = workdir
+        try:
+            workspace_id, pane_id = host.create_workspace(
+                cwd=workdir, label="codereview-seat",
+                env=pane_env)
+        except herdrhost.HerdrError as exc:
+            err = ProviderError(
+                f"herdr hosting failed (workspace-create): "
+                f"{exc}", retryable=False)
+            err.seat_facts = {
+                "state": "failed", "class": "error",
+                "evidence": {"stage": "workspace-create",
+                             "transport": "herdr",
+                             "detail": str(exc)[:300]}}
+            raise err
+        receipt["workspace_id"] = workspace_id
+        receipt["pane_id"] = pane_id
+        # The launcher line: the seat's own argv, stdin FROM
+        # the prompt file (never typed — the packet travels by
+        # file), output to the capture files, and the exit code
+        # to its own file, which is what lets supervision read
+        # process truth instead of scraping the screen. POSIX
+        # redirection + $? — the pane runs the user's shell.
+        line = (shlex.join(argv)
+                + f" < {shlex.quote(prompt_path)}"
+                + f" > {shlex.quote(out_path)}"
+                + f" 2> {shlex.quote(err_path)}"
+                + f"; echo $? > {shlex.quote(rc_path)}")
+        try:
+            host.pane_run(pane_id, line)
+        except herdrhost.HerdrError as exc:
+            err = ProviderError(
+                f"herdr hosting failed (pane-run): {exc}",
+                retryable=False)
+            err.seat_facts = {
+                "state": "failed", "class": "error",
+                "evidence": {"stage": "pane-run",
+                             "transport": "herdr",
+                             "detail": str(exc)[:300]}}
+            raise err
+        outcome = _run_hosted_seat(
+            host, receipt, pane_id, out_path, err_path, rc_path,
+            cli_key, log, timeout, stall_after, block_grace)
+        if outcome["kind"] in ("timeout", "blocked"):
+            # Early termination / deadline: closing the
+            # workspace is the pane-side tree kill.
+            try:
+                host.close_workspace(workspace_id)
+            except herdrhost.HerdrError:
+                pass
+            raise _hosted_outcome_error(
+                outcome, timeout, block_grace)
+        if outcome["kind"] == "herdr-failure":
+            raise _hosted_outcome_error(
+                outcome, timeout, block_grace)
+        returncode = outcome["returncode"]
+        if returncode != 0:
+            state, cls, evidence = seatstate.classify_exit(
+                cli_key, returncode,
+                _read_tail(out_path, 8192),
+                _read_tail(err_path, 8192))
+            tail = _read_tail(err_path, 4096).strip()[-300:]
+            err = ProviderError(
+                f"agent command exited {returncode}"
+                + (f": {tail}" if tail else ""), retryable=False)
+            err.seat_facts = {"state": state, "class": cls,
+                              "evidence": evidence}
+            raise err
+        text = _read_tail(out_path, MAX_AGENT_OUTPUT).strip()
+        if not text:
+            err = ProviderError("agent command produced no output",
+                                retryable=False)
+            err.seat_facts = {
+                "state": "failed", "class": "error",
+                "evidence": {"exit_code": 0,
+                             "reason": "no output"}}
+            raise err
+        return text
+    finally:
+        if workspace_id is not None:
+            try:
+                host.close_workspace(workspace_id)
+            except Exception:  # noqa: BLE001 — cleanup is
+                pass            # best-effort; the outcome stands
+        if box is not None:
+            box.append(receipt)
+        shutil.rmtree(workdir, ignore_errors=True)
+        for cap in cap_fds:
+            try:
+                os.unlink(cap)
+            except OSError:
+                pass
+
+
+def command_agent(command, timeout=AGENT_TIMEOUT, private_home=False,
+                  stall_after=seatstate.STALL_AFTER_S,
+                  block_grace=seatstate.BLOCK_GRACE_S,
+                  host=None):
     """Callable backed by a local agent command.
 
     `timeout` is the per-call ceiling in seconds: None means the
@@ -284,13 +766,33 @@ def command_agent(command, timeout=AGENT_TIMEOUT, private_home=False):
     are literal; pipes/redirection belong in a wrapper script.
     Every failure is a ProviderError with retryable=False — the
     seat degrades honestly in the run report, like any provider
-    failure, and never triggers account rotation."""
+    failure, and never triggers account rotation.
+
+    Seat-state supervision (Epic K2): the wait is supervised —
+    output activity on the capture files is polled, live stall
+    episodes are emitted to the job's seat-state log when one is
+    installed (seatstate.CURRENT), a verified per-CLI failure
+    pattern matched on stderr followed by `block_grace` seconds
+    of total silence terminates the seat early as blocked, and
+    every ProviderError raised here carries `seat_facts` (the
+    terminal state/class/evidence the job owner records). The
+    error MESSAGES are unchanged from the unsupervised wait.
+
+    Herdr hosting (Epic K3a): with `host` (a herdrhost.HerdrHost)
+    the same contract executes inside a herdr pane instead of a
+    subprocess — see _call_hosted. The default None is the
+    headless path, byte-identical to before hosting existed."""
     if timeout is None:
         timeout = AGENT_TIMEOUT
     if timeout <= 0:
         raise ProviderError(
             f"agent timeout must be a positive number of seconds, "
             f"got {timeout!r}", retryable=False)
+    if stall_after <= 0 or block_grace <= 0:
+        raise ProviderError(
+            f"seat supervision bounds must be positive seconds, "
+            f"got stall_after={stall_after!r} "
+            f"block_grace={block_grace!r}", retryable=False)
 
     def call(prompt):
         try:
@@ -300,6 +802,15 @@ def command_agent(command, timeout=AGENT_TIMEOUT, private_home=False):
                                 retryable=False)
         if not argv:
             raise ProviderError("empty agent command", retryable=False)
+        if host is not None:
+            # Epic K3a: this seat is hosted in a herdr pane.
+            # The contract, messages, and classifications are
+            # the headless ones; only the transport differs.
+            return _call_hosted(host, argv, prompt, timeout,
+                                private_home, stall_after,
+                                block_grace)
+        log = seatstate.current_log()
+        cli_key = seatstate.cli_key_for_argv(argv)
         workdir = tempfile.mkdtemp(prefix="codereview-agent-")
         cap_fds = []
         try:
@@ -330,40 +841,72 @@ def command_agent(command, timeout=AGENT_TIMEOUT, private_home=False):
                         if os.name == "posix" else None)
                     if os.name == "posix":
                         pgid = os.getpgid(proc.pid)
-                    try:
-                        proc.communicate(
-                            input=prompt.encode("utf-8"),
-                            timeout=timeout)
-                    except subprocess.TimeoutExpired:
-                        _kill_tree(proc, pgid)
-                        proc.communicate()
-                        raise ProviderError(
-                            f"agent command timed out after {timeout}s",
-                            retryable=False)
+                    outcome = _run_seat_process(
+                        proc, pgid, prompt, timeout, out_path,
+                        err_path, cli_key, log,
+                        stall_after=stall_after,
+                        block_grace=block_grace)
             except OSError as exc:
-                raise ProviderError(
+                err = ProviderError(
                     f"agent command failed to start: "
                     f"{exc.strerror or exc}", retryable=False)
+                err.seat_facts = {
+                    "state": "failed", "class": "error",
+                    "evidence": {"stage": "start"}}
+                raise err
             finally:
                 if proc is not None:
                     # Normal exit included: an agent's background
                     # children die with their seat (finding 3.2).
                     _kill_tree(proc, pgid)
+            if outcome["kind"] == "timeout":
+                err = ProviderError(
+                    f"agent command timed out after {timeout}s",
+                    retryable=False)
+                err.seat_facts = outcome["facts"]
+                raise err
+            if outcome["kind"] == "blocked":
+                facts = outcome["facts"]
+                err = ProviderError(
+                    f"agent command blocked ({facts['class']}): "
+                    f"matched {facts['evidence']['pattern']} on "
+                    f"stderr; no output for {block_grace:g}s — "
+                    f"terminated early", retryable=False)
+                err.seat_facts = facts
+                raise err
             if proc.returncode != 0:
                 if os.name == "posix" and proc.returncode \
                         == -signal.SIGXFSZ:
-                    raise ProviderError(
+                    err = ProviderError(
                         "agent output exceeded the per-file size "
                         f"limit ({MAX_AGENT_FILE} bytes)",
                         retryable=False)
+                    err.seat_facts = {
+                        "state": "failed", "class": "error",
+                        "evidence": {
+                            "exit_code": proc.returncode,
+                            "signal": "SIGXFSZ"}}
+                    raise err
+                state, cls, evidence = seatstate.classify_exit(
+                    cli_key, proc.returncode,
+                    _read_tail(out_path, 8192),
+                    _read_tail(err_path, 8192))
                 tail = _read_tail(err_path, 4096).strip()[-300:]
-                raise ProviderError(
+                err = ProviderError(
                     f"agent command exited {proc.returncode}"
                     + (f": {tail}" if tail else ""), retryable=False)
+                err.seat_facts = {"state": state, "class": cls,
+                                  "evidence": evidence}
+                raise err
             text = _read_tail(out_path, MAX_AGENT_OUTPUT).strip()
             if not text:
-                raise ProviderError("agent command produced no output",
+                err = ProviderError("agent command produced no output",
                                     retryable=False)
+                err.seat_facts = {
+                    "state": "failed", "class": "error",
+                    "evidence": {"exit_code": 0,
+                                 "reason": "no output"}}
+                raise err
             return text
         finally:
             shutil.rmtree(workdir, ignore_errors=True)
@@ -390,6 +933,32 @@ PRESETS = {
 }
 
 
+def parse_local_spec(spec):
+    """local:<name>:<base-url>|<model> -> (name, base_url, model).
+
+    The named local-endpoint form (Epic L5). The base URL keeps
+    its own colons (scheme, port) — only the FIRST colon after
+    the name separates, and the model rides after the '|' the
+    other spec forms already use. Name and model are required:
+    a local seat is an ordinary seat, and a seat without a model
+    cannot be called. Raises ProviderError on a malformed spec."""
+    rest = spec.strip()[len(registry.LOCAL_SPEC_PREFIX):]
+    name, colon, tail = rest.partition(":")
+    base, pipe, model = tail.partition("|")
+    name, base, model = name.strip(), base.strip(), model.strip()
+    if not colon or not name or not base or not pipe or not model:
+        raise ProviderError(
+            f"bad local provider spec {spec!r}: want "
+            "local:<name>:<base-url>|<model> (e.g. "
+            "local:box:http://localhost:8080/v1|my-model)")
+    if not (base.startswith("http://")
+            or base.startswith("https://")):
+        raise ProviderError(
+            f"bad local provider spec {spec!r}: base-url must "
+            f"start with http:// or https://, got {base!r}")
+    return name, base, model
+
+
 def describe_spec(spec):
     """spec -> {seat, kind, preset, model, key_env, family,
     base_url} WITHOUT building or calling anything. The CLI uses
@@ -402,6 +971,11 @@ def describe_spec(spec):
                 "model": None, "key_env": None, "family": "agent",
                 "base_url": None}
     stripped = spec.strip()
+    if stripped.lower().startswith(registry.LOCAL_SPEC_PREFIX):
+        name, base, model = parse_local_spec(stripped)
+        return {"seat": name, "kind": "openai-compatible",
+                "preset": None, "model": model, "key_env": None,
+                "family": registry.LOCAL_FAMILY, "base_url": base}
     if stripped.lower().startswith("openai-compatible:"):
         rest = stripped[len("openai-compatible:"):]
         parts = [p.strip() for p in rest.split("|")]
@@ -473,7 +1047,7 @@ def _parse_agent_spec(spec):
 
 
 def build_provider(spec, occurrence=1, text_mode=False,
-                   agent_timeout=None):
+                   agent_timeout=None, host=None):
     """spec -> (name, callable, account_label).
 
     `occurrence` > 1 (the same seat requested again) selects the
@@ -495,13 +1069,23 @@ def build_provider(spec, occurrence=1, text_mode=False,
             command,
             timeout=(AGENT_TIMEOUT if agent_timeout is None
                      else agent_timeout),
-            private_home=options.get("home") == "private"), \
+            private_home=options.get("home") == "private",
+            host=host), \
             f"agent:{agent_name}"
     if spec.strip().lower().startswith("openai-compatible:"):
         desc = describe_spec(spec)
         return desc["seat"], openai_compatible(
             desc["base_url"], desc["model"], desc["key_env"],
             system=system), desc["key_env"]
+    if spec.strip().lower().startswith(registry.LOCAL_SPEC_PREFIX):
+        # Epic L5 named local endpoint: keyless by construction
+        # (key_env None — no credential read, no Authorization
+        # header). The account label names the seat, never a
+        # credential: there is none.
+        desc = describe_spec(spec)
+        return desc["seat"], openai_compatible(
+            desc["base_url"], desc["model"], None,
+            system=system), f"local:{desc['seat']}"
     if "|" in spec:
         parts = [p.strip() for p in spec.split("|")]
         if len(parts) != 5:
@@ -523,7 +1107,10 @@ def build_provider(spec, occurrence=1, text_mode=False,
     name = desc["preset"]
     kind, base, model, key_env, extra = PRESETS[name]
     model = desc["model"]
-    if occurrence > 1:
+    if occurrence > 1 and key_env is not None:
+        # Account rotation renames the KEY env; a keyless local
+        # preset (Epic L5) has no accounts to rotate — every
+        # occurrence is the same local server.
         key_env = f"{key_env}_{occurrence}"
     if kind == "gemini":
         return name, gemini(model, key_env, system=system,
@@ -531,10 +1118,15 @@ def build_provider(spec, occurrence=1, text_mode=False,
     if kind == "anthropic":
         return name, anthropic(model, key_env,
                                system=system), key_env
+    # The account label is the key env for keyed presets; a
+    # keyless local preset (Epic L5) labels itself local:<preset>
+    # — records show what served, and there is no credential
+    # the label could leak.
+    label = key_env if key_env is not None else f"local:{name}"
     return name, openai_compatible(
         base, model, key_env, extra, system=system,
         omit_temperature=registry.omit_temperature(name, model)), \
-        key_env
+        label
 
 
 _RETRYABLE_MARKERS = ("429", "500", "502", "503", "504", "401", "403",
@@ -604,13 +1196,22 @@ def _bump_name(name):
     return name + "-2"
 
 
-def build_providers(specs, text_mode=False, agent_timeout=None):
+def build_providers(specs, text_mode=False, agent_timeout=None,
+                    herdr_host=None, herdr_seats=None):
     """specs -> {seat name: callable}. Repeating a seat (the same
     preset twice, or custom specs sharing a name) builds an
     AccountPool for that seat with one account per occurrence.
     Agent seats are the exception: each occurrence runs a different
     command, so occurrences become distinct seats (name, name-2,
     ...) instead of accounts of one seat.
+
+    Herdr hosting (Epic K3a): `herdr_host` (a detected
+    herdrhost.HerdrHost) plus `herdr_seats` (the seat names the
+    saved config marks for hosting) host those agent seats in
+    herdr panes; the match is on the seat's FINAL name (the one
+    build_providers assigns), case-insensitively. Both default
+    to None — every existing caller builds headless seats,
+    byte-identical to before hosting existed.
 
     Seat names live in one namespace per KIND: an agent seat and an
     API seat sharing a name (agent:gemini next to the gemini preset)
@@ -631,6 +1232,17 @@ def build_providers(specs, text_mode=False, agent_timeout=None):
         if spec.startswith("agent:"):
             base, _options, _cmd = _parse_agent_spec(spec)
             parsed.append(("agent", base, spec))
+        elif spec.strip().lower().startswith(
+                registry.LOCAL_SPEC_PREFIX):
+            # Epic L5: the seat's base name is the name INSIDE
+            # the spec (local:<name>:<base-url>|<model>), so two
+            # distinct local endpoints are two seats — pooling
+            # them under 'local' would merge different servers
+            # into one seat — and the family-tag pass below finds
+            # each seat by that name.
+            nm, _base, _model = parse_local_spec(spec.strip())
+            parsed.append(("api", nm, spec))
+            api_names.add(nm.lower())
         elif spec.strip().lower().startswith("openai-compatible:"):
             parsed.append(("api", "openai-compatible", spec))
             api_names.add("openai-compatible")
@@ -677,9 +1289,14 @@ def build_providers(specs, text_mode=False, agent_timeout=None):
     for idx, (kind, base, spec) in enumerate(parsed):
         seat_key = (kind, base.lower())
         counts[seat_key] = counts.get(seat_key, 0) + 1
+        seat_host = None
+        if kind == "agent" and herdr_host is not None \
+                and agent_final[idx].lower() in {
+                    str(s).lower() for s in (herdr_seats or ())}:
+            seat_host = herdr_host
         name, fn, label = build_provider(
             spec, counts[seat_key], text_mode=text_mode,
-            agent_timeout=agent_timeout)
+            agent_timeout=agent_timeout, host=seat_host)
         if kind == "agent":
             name = agent_final[idx]
             seats[name] = [(f"agent:{name}", fn)]

@@ -1,0 +1,204 @@
+"""MCP stdio transport (Epic L2): the wire layer only.
+
+Newline-delimited JSON-RPC 2.0 over a pair of binary streams —
+the Model Context Protocol's stdio transport. This module
+knows nothing about CodeReview, the gate, or the tools served
+on top of it (that layer is codereview.mcp_tools); it frames
+messages, dispatches them to a caller-supplied handler, and
+writes the responses.
+
+Fail-closed contract (a bad frame can never kill the host
+loop or take the server down with it):
+
+- an unparseable line is answered with a JSON-RPC parse error
+  (id null) and the loop continues with the next line;
+- a frame larger than the size cap is discarded through its
+  terminating newline, answered with an invalid-request error,
+  and the loop continues — the stream stays in sync;
+- a structurally invalid request (not an object, no method,
+  a batch array — MCP does not batch) is answered with an
+  invalid-request error;
+- an exception escaping the handler becomes an internal-error
+  response for that request; for a notification it is only
+  recorded (notifications never get responses).
+
+Every protocol-level failure is appended to the server's
+`errors` ledger and mirrored to the diagnostic log (stderr in
+production — stdout is the protocol), so a malformed or
+oversized request is always recorded somewhere inspectable,
+never silently swallowed. Stdlib only, like the rest of the
+package.
+"""
+
+import json
+import sys
+
+# JSON-RPC 2.0 error codes used by this layer.
+PARSE_ERROR = -32700
+INVALID_REQUEST = -32600
+METHOD_NOT_FOUND = -32601
+INVALID_PARAMS = -32602
+INTERNAL_ERROR = -32603
+
+# One frame's ceiling. A gate request carries a diff; the
+# review path's own per-batch budget is 80k chars, and even a
+# monorepo-scale hand-off diff fits far under this — 16 MiB is
+# generous headroom, not an invitation.
+MAX_FRAME_BYTES = 16 * 1024 * 1024
+
+
+class JsonRpcError(Exception):
+    """A protocol-level error: answered to the client with
+    `code` and `message`, never raised out of the serve loop."""
+
+    def __init__(self, code, message, data=None):
+        super().__init__(message)
+        self.code = code
+        self.message = message
+        self.data = data
+
+
+def result_response(req_id, result):
+    return {"jsonrpc": "2.0", "id": req_id, "result": result}
+
+
+def error_response(req_id, code, message, data=None):
+    error = {"code": code, "message": message}
+    if data is not None:
+        error["data"] = data
+    return {"jsonrpc": "2.0", "id": req_id, "error": error}
+
+
+class StdioServer:
+    """Serve newline-delimited JSON-RPC over binary streams.
+
+    `dispatch(method, params, notification)` returns the result
+    for a request (its return value is ignored for a
+    notification) and raises JsonRpcError for protocol-level
+    refusals. Anything else it raises becomes an internal
+    error. `max_frame_bytes` is injectable so tests can trip
+    the cap without moving megabytes.
+    """
+
+    def __init__(self, dispatch, stdin=None, stdout=None,
+                 log=None, max_frame_bytes=MAX_FRAME_BYTES):
+        self._dispatch = dispatch
+        self._stdin = stdin if stdin is not None \
+            else sys.stdin.buffer
+        self._stdout = stdout if stdout is not None \
+            else sys.stdout.buffer
+        self._log = log if log is not None else (
+            lambda text: print(text, file=sys.stderr))
+        self._max_frame_bytes = max_frame_bytes
+        # The failure ledger: one entry per protocol-level
+        # failure, in arrival order — the recorded half of the
+        # fail-closed contract.
+        self.errors = []
+
+    # -- framing ------------------------------------------------
+
+    def _read_frame(self):
+        """Read one newline-terminated frame. Returns
+        (raw_bytes, oversized): raw is None at EOF. An oversized
+        frame's bytes are consumed through its newline (and
+        dropped) so the next frame starts in sync."""
+        chunk = self._stdin.readline(self._max_frame_bytes + 2)
+        if chunk == b"":
+            return None, False
+        if len(chunk) <= self._max_frame_bytes + 1 \
+                and chunk.endswith(b"\n"):
+            return chunk, False
+        if len(chunk) <= self._max_frame_bytes + 1:
+            # Final line without a newline (EOF right after):
+            # still a frame.
+            return chunk, False
+        # Oversized: discard through the terminating newline.
+        while not chunk.endswith(b"\n"):
+            chunk = self._stdin.readline(self._max_frame_bytes + 2)
+            if chunk == b"":
+                break
+        return b"", True
+
+    def _send(self, message):
+        data = (json.dumps(message, ensure_ascii=False)
+                + "\n").encode("utf-8")
+        self._stdout.write(data)
+        self._stdout.flush()
+
+    def _record(self, kind, detail):
+        entry = {"kind": kind, "detail": str(detail)[:500]}
+        self.errors.append(entry)
+        self._log(f"codereview mcp: {kind}: {entry['detail']}")
+
+    # -- the loop -------------------------------------------------
+
+    def serve_forever(self):
+        """Run until EOF on stdin. Never raises for a bad
+        frame, a bad request, or a failing handler."""
+        while True:
+            raw, oversized = self._read_frame()
+            if raw is None:
+                return
+            if oversized:
+                self._record(
+                    "oversized_frame",
+                    f"frame exceeds {self._max_frame_bytes} bytes")
+                self._send(error_response(
+                    None, INVALID_REQUEST,
+                    "request frame exceeds the size limit "
+                    f"({self._max_frame_bytes} bytes)"))
+                continue
+            if not raw.strip():
+                continue
+            try:
+                message = json.loads(raw.decode("utf-8"))
+            except (UnicodeDecodeError, ValueError) as exc:
+                self._record("parse_error", exc)
+                self._send(error_response(
+                    None, PARSE_ERROR, f"parse error: {exc}"))
+                continue
+            self._handle(message)
+
+    def _handle(self, message):
+        if not isinstance(message, dict):
+            self._record("invalid_request",
+                         "request is not a JSON object")
+            self._send(error_response(
+                None, INVALID_REQUEST,
+                "request must be a JSON object"))
+            return
+        method = message.get("method")
+        if not isinstance(method, str) or not method:
+            self._record("invalid_request",
+                         "request has no method")
+            self._send(error_response(
+                message.get("id"), INVALID_REQUEST,
+                "request has no method"))
+            return
+        notification = "id" not in message
+        req_id = message.get("id")
+        try:
+            result = self._dispatch(
+                method, message.get("params"), notification)
+        except JsonRpcError as exc:
+            if notification:
+                self._record("notification_error",
+                             f"{method}: {exc.message}")
+                return
+            self._record("request_error",
+                         f"{method}: {exc.message}")
+            self._send(error_response(
+                req_id, exc.code, exc.message, exc.data))
+            return
+        except Exception as exc:  # noqa: BLE001 — fail closed
+            if notification:
+                self._record("notification_error",
+                             f"{method}: {exc}")
+                return
+            self._record("internal_error", f"{method}: {exc}")
+            self._send(error_response(
+                req_id, INTERNAL_ERROR,
+                f"internal error: {exc}"))
+            return
+        if not notification:
+            self._send(result_response(req_id, result))

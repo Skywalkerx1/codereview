@@ -1,5 +1,305 @@
 # Changelog
 
+## Unreleased — Epic L2 (MCP server for the gate)
+
+The gate is now callable from inside another agent's loop:
+`codereview mcp serve` speaks the Model Context Protocol
+over stdio and exposes two tools — `run_gate` (a patch, or a
+git range in a repo, plus an optional policy path → the
+verdict and the run record's path) and `get_verdict` (a
+stored record → verdict summary and findings).
+
+- **In-tree protocol subset, stdlib only:** the wire layer
+  (`codereview.mcp_transport` — newline-delimited JSON-RPC
+  2.0 framing, dispatch, error ledger) and the tool layer
+  (`codereview.mcp_tools` — handshake negotiation for
+  protocol versions 2025-03-26 / 2024-11-05, tools/list,
+  tools/call) are separate modules; no new dependency.
+- **Serving only:** the server is a front door onto the
+  existing gate, not a new gate — a run goes through the
+  CLI's own `main()` with the arguments translated, so the
+  served verdict is the CLI's verdict on the same change and
+  the record on disk is the ordinary run record. The review
+  path consumes no MCP tools; reviewers stay read-only and
+  tool-less (Epic F2 unchanged).
+- **No credentials, no built-in panel:** the server stores
+  nothing; seats resolve from the operator's saved setup (or
+  $CODEREVIEW_PROVIDERS) under the CLI's own discipline.
+  With no setup, run_gate answers with the CLI's not-set-up
+  message verbatim.
+- **Fail-closed wire:** malformed JSON, non-object frames,
+  oversized frames (16 MiB cap, discarded in sync), and
+  handler crashes are each answered or recorded in the
+  server's error ledger and logged to stderr — the loop
+  never dies on a bad frame. Tool arguments are validated
+  against the published schemas (unknown keys, wrong types,
+  patch+range together are refused before anything runs).
+- **Verification:** 15 new tests (`tests/test_mcp.py`), none
+  passing on pre-L2 master — transport failure modes,
+  handshake/list, MCP-vs-CLI verdict equality in-process,
+  the no-setup answer, and a full subprocess session (a
+  minimal in-tree client over a real stdio pipe, seats from
+  a local OpenAI-compatible stub) whose verdict is compared
+  against the CLI binary's on the same diff. A brand-name
+  MCP client session (Claude Code / Codex) is UNVERIFIED:
+  no agent CLI on the build machine is logged in. Full
+  suite 1005/1005 on the branch; 1018/1018 on master after
+  the parallel L5 merge.
+## Unreleased — Epic L5 (first-class local-model seats)
+
+Local model servers are now first-class seats: named
+presets in the provider registry for the endpoints a user
+runs on their own machine, offered by the setup wizard with
+a short recipe, replacing the unnamed `openai-compatible:`
+escape hatch for the local case (the hatch itself is
+unchanged).
+
+- **Registry** (`codereview.registry`): `ollama`
+  (http://localhost:11434/v1) and `lmstudio`
+  (http://localhost:1234/v1) presets with family tag
+  `local`, plus the generic form
+  `local:<name>:<base-url>|<model>` for any other
+  OpenAI-compatible local endpoint. A preset names an
+  endpoint, never a panel — the serving model is still the
+  user's pick (`ollama:<model>`), per the first-run rule.
+- **Keyless by construction:** local presets carry
+  `key_env` None — no credential is read, no Authorization
+  header is sent, and the wizard never prompts for a key
+  for a local seat (there is none). Account rotation does
+  not invent `KEY_ENV_2`-style names for them; the account
+  label in records is `local:<seat>`.
+- **Wizard:** local presets are listed as their own
+  section — endpoint, suggested model, and the recipe
+  (start the server → pick the preset → `codereview
+  doctor` probe) — and the per-seat summary states the
+  no-network nature ("runs on your machine; the review
+  never leaves it"). Hosted seats' key-env summary is
+  unchanged.
+- **Ordinary seats:** a local seat is built, pooled, probed
+  by `doctor`, and recorded like any other, with family
+  `local` travelling on the callable into the record's
+  seat metadata — so the independence checks see it
+  honestly (never a second vendor family). Non-local specs
+  and records are untouched. 13 new tests
+  (`tests/test_local_seats.py`), 11 failing on pre-L5
+  master (the escape-hatch regression and the
+  malformed-spec test pass on both by design); full suite
+  1003/1003.
+
+## Unreleased — Epic L1 (AGENTS.md ingestion)
+
+Reviewer context now includes the repository's own guidance:
+`AGENTS.md` at the repo root and nested along the changed
+paths is ingested at run start, alongside (never instead of)
+`.codereview.toml`.
+
+- **Ingestion** (`codereview.agentsmd`, wired into repo
+  reviews; `--no-agents-context` opts out): discovery is
+  deterministic — the root plus the ancestor directories of
+  the changed paths, ordered nearest-wins (root first; the
+  file nearest a changed file governs on conflict, and the
+  prompt says so). A `## Code Review Rules` section is
+  surfaced at the head of the attached context as advisory
+  review rules the panel may cite in findings.
+- **Trust model:** the files are untrusted content on the
+  diff's own terms — passed through the review path's
+  redaction, delimited in the prompt as data under a header
+  that forbids following instructions inside them, and
+  structurally unable to change a gate rule, the panel, or
+  a record field (pinned by a prompt-injection test: a
+  hostile AGENTS.md demanding a pass leaves the gate, the
+  findings, the panel, and the gate-profile section
+  byte-identical to the no-guidance control run). The TOML
+  policy remains the only machine-enforced layer.
+- **Bounds + provenance:** capped per file (16,000 chars)
+  and in total (32,000), truncation marked in the text and
+  recorded per file; the run record's `agents_context`
+  section carries each ingested file's path and the sha256
+  of its raw bytes, its sizes, and whether its rules section
+  was present. Nothing is silently dropped — the collector's
+  ledger covers skipped files with reasons.
+- **Equivalence:** with no AGENTS.md on any changed path
+  (or with the opt-out), prompts and records are
+  byte-identical to the pre-L1 construction; the bench and
+  registered confirmation runs never pass the new argument,
+  so their prompts are unchanged. 17 new tests
+  (`tests/test_agents_md.py`), none passing on pre-L1
+  master; full suite 990/990.
+
+## Unreleased — Epic K3b (herdr ecosystem artefact)
+
+Presence in herdr's ecosystem, with the engine staying in
+the pip package: a herdr plugin artefact and an agent skill,
+both shipped in this repo (and, via a new `MANIFEST.in`, in
+the sdist — verified: a test sdist build carries both).
+
+- **Herdr plugin** (`herdr-plugin-codereview/`):
+  `herdr-plugin.toml` (`superstartelecom.codereview`,
+  `min_herdr_version` 0.9.0 — the floor K3a verified)
+  declares one workspace action, "CodeReview: review current
+  workspace", and one overlay pane entrypoint. Both run the
+  launcher, `codereview_launch.py` (Python, stdlib only): it
+  locates `codereview` on PATH — if absent it prints the
+  `pip install codereview-ai` hint and exits non-zero
+  *before doing anything else*, so that failure has no side
+  effects — resolves the workspace from herdr's invocation
+  context (`workspace_cwd`), reads an optional
+  `policy`/`out` config from the plugin config dir, runs the
+  gate in the workspace streaming its output, and exits with
+  the gate's own exit code. The launcher stores no
+  credentials, makes no network calls, and writes nothing
+  itself (imports and read-only file opens are pinned by
+  AST tests); the only files a run creates are CodeReview's
+  own records in the reviewed workspace.
+- **Agent skill** (`skills/codereview/SKILL.md`, standard
+  Agent Skills format): teaches an agent to run the gate,
+  read the JSON record as the source of truth, and report
+  PASS / BLOCKED / INCONCLUSIVE honestly — a BLOCKED is
+  never softened, an INCONCLUSIVE is never upgraded, and no
+  verdict may be claimed that the record doesn't carry.
+- **Verified here:** the launcher against a stub
+  `codereview` honouring the real CLI's printed contract
+  (verdict/record lines, exit codes 0/1/2, config
+  pass-through, no-side-effect failure); the plugin's
+  action contract against a stub `herdr` invoking the
+  manifest argv the way herdr does (cwd = plugin dir,
+  `HERDR_PLUGIN_*` env); and an end-to-end smoke of the
+  launcher driving the real CLI (two scripted agent seats)
+  to a real PASS record on a scratch repo. 20 new tests,
+  all failing on pre-K3b master.
+- **UNVERIFIED — plugin link.** Real herdr is not installed
+  on the build machine (no Rust toolchain), so
+  `herdr plugin link` on a clean profile and the action's
+  appearance in `herdr plugin action list` on a real herdr
+  have NOT been run; the stub-herdr contract test above is
+  the closest honest exercise. The marketplace listing
+  remains GitHub-gated and out of scope.
+- **UNVERIFIED — skill dogfood.** The only agent CLI on
+  this machine (codex) is not logged in, and no other agent
+  CLI is installed, so no fresh agent session has yet been
+  driven through the SKILL.md; no transcript is claimed.
+  The skill's procedure is the exact command sequence the
+  end-to-end smoke above executed by hand.
+
+## Unreleased — Epic K3a (herdr pane hosting)
+
+Agent seats named in the saved config's `[hosting]` table
+(`herdr = ["seat", ...]` in the user setup file) can now run
+inside herdr panes instead of headless subprocesses, so a run
+is watchable from herdr's UI. The `agent:` spec grammar is
+unchanged — hosting is a config hint, never part of a spec —
+and herdr is never a hard dependency.
+
+- **Optional by construction** (new `herdrhost` module):
+  detection probes, in order, `herdr` on PATH → version floor
+  (`MIN_HERDR_VERSION` 0.9.0, set from the inspected 0.9.5
+  tree) → feature-detect against `herdr api schema --json`
+  (the used methods and the `pane.agent_status_changed` /
+  `pane.exited` event names must be present) → a reachable
+  session (`herdr api snapshot`). Any failure leaves the
+  adapter inert: every seat runs headless exactly as before,
+  and the run record carries exactly one `herdr_hosting` line
+  saying why. With no hosting configured, records are
+  byte-identical to pre-K3a records.
+- **CLI wrappers only** — no raw socket. The seat launches
+  via `herdr pane run` (herdr's primitive for ordinary
+  terminal processes; `agent start` is for interactive
+  prompting of recognised agents). The review packet is
+  never typed: the pane command redirects stdin from the
+  prompt file, and `$CODEREVIEW_PROMPT` is set via
+  `workspace create --env`. Output and the exit code land in
+  files, and supervision reads process truth from them —
+  the same capture files, pattern table, and terminal
+  classifications as the headless runner, with identical
+  error messages. A hosted seat's run leaves a `hosting`
+  receipt in the record (transport, herdr version, pane,
+  advisory observations), next to `seat_state`.
+- **Advisory pane state, failure discipline.** Herdr's
+  `agent_status` is signal #4 (K2): it annotates the receipt
+  and may raise an advisory `blocked:input` episode in the
+  seat-state trace; it never decides an outcome, and when it
+  disagrees with the files, the files win and the
+  disagreement stays in the receipt. There is no `events`
+  CLI in herdr, so the subscription is a supervised `pane
+  get` watch; a break in it is treated as `events_lost` and
+  reconciled via `session.snapshot` — same pane, same
+  terminal, or the seat fails. Herdr dying mid-run, a pane
+  exiting early, or a restarted session are recorded seat
+  failures; a resumed session is never silently continued
+  and no command is ever re-run inside an attempt.
+- **Environment discipline** (spec U7): we add only
+  `CODEREVIEW_PROMPT` (a path) to the pane — plus `HOME` for
+  a `home=private` seat. Operator API keys are never added;
+  the pane session's own environment is the user's, which is
+  the point of hosting a subscription CLI.
+- **UNVERIFIED — live smoke.** Real herdr is not installed
+  on the build machine (and there is no Rust toolchain to
+  build it), so the spec's live-smoke leg — a real herdr
+  session hosting two seats through a real gate run — has
+  NOT been run. The full lifecycle, hosted/headless
+  equivalence, and the chaos cases (herdr dies mid-run,
+  event break + reconcile, vanished pane, restarted
+  session, contradictory pane state) are covered against a
+  stub `herdr` executable implementing the used CLI surface
+  (31 new tests; 30 fail on pre-K3a code, the one pass being
+  the byte-identity guard for unchanged setups). The
+  adapter's reading of herdr's response envelopes is taken
+  from herdr's source and docs, not from a live session.
+
+## Unreleased — Epic K2 (seat-state supervision)
+
+Every seat in a run now carries a live state — pending →
+working → done / blocked:<class> / failed / timed-out, with
+blocked classes quota, auth, input, stalled — shown on the
+CLI's stderr as transitions happen and persisted per seat in
+the record (`seat_state`, plus `seat_state_primary` when a
+fallback attempt determined the outcome), alongside the
+existing error_detail machinery. A blocked seat degrades the
+panel exactly as a seat failure does today (fallback with the
+reason recorded, or degraded → INCONCLUSIVE); state itself
+never changes a verdict.
+
+- **Detection is ours, over subprocess signals** (new
+  `seatstate` module): exit codes, captured output, activity,
+  timeout. The per-CLI failure-pattern table is probe-grounded
+  (the K spec's U6 matrix): Codex auth patterns are taken from
+  a live logged-out capture of codex-cli 0.164.0-alpha.9, its
+  quota text from the vendor's own source; Claude's quota/auth
+  text from the official error reference; Gemini's quota text
+  from the official FAQ. Gemini auth text is UNVERIFIED in the
+  docs, so gemini ships no auth pattern; the `input` class is
+  wired but pattern-less for the same reason. Patterns scan
+  stderr while a seat runs and, after a non-zero exit, stderr
+  then stdout (Claude prints in-run failures as its result);
+  a successful run's stdout is never scanned.
+- **Supervised agent wait** (`providers.command_agent`): the
+  single communicate() wait is now a poll loop over the
+  capture files — a verified blocked pattern followed by a
+  grace period of total silence terminates a stuck seat early
+  as blocked; a seat killed by its timeout while silent past
+  the stall bound ends blocked:stalled, while still producing
+  output it ends timed-out. Stall episodes are live/recorded
+  liveness signals, never kills by themselves. All existing
+  ProviderError messages are unchanged; errors now also carry
+  `seat_facts` for the record.
+- **Discovery offers all three CLIs** (U6-verified forms):
+  Codex (`codex exec -s read-only --skip-git-repo-check -`;
+  form verified live + docs, end-to-end success not live-
+  verified — no login on the build VM) and Gemini CLI
+  (`gemini -p "…"`; docs-verified only), each entry carrying
+  its provenance in comments.
+- **Not done, deliberately:** herdr pane-state annotation —
+  seats are not herdr-hosted until K3a, so there is no pane
+  state to read; when hosting lands it will be recorded as an
+  advisory annotation only, never as the basis of a blocked
+  classification (this track's classifications are ours alone,
+  per the K2 spec).
+- Guard/test updates that ride along: the v14 subprocess
+  guard accepts the supervised seat wait as a Popen pairing
+  (it enforces the same timeout as a deadline + tree kill);
+  one scripted-wizard test pins PATH so host-installed CLIs
+  cannot add prompts to its script.
+
 ## Unreleased — 2026-11-05 (empty-content failure class)
 
 - **Seat `ProviderError(kind="empty")` is now a content-class
@@ -92,6 +392,33 @@ confirmation scorer.
   model — a 600 s per-job wall-clock cap inside an 1,800 s
   per-case budget (per-seat case deadlines in
   `bench/generation.py`).
+
+## Unreleased — 2026-11-05 (Epic K1: setup CLI discovery)
+
+First-run setup now looks at the machine before asking for
+provider specs (`src/codereview/discovery.py` + the wizard's
+discovery step). It scans PATH for the agent CLIs the product
+already knows how to seat — Claude Code, Codex, Gemini CLI —
+reports each found binary with its resolved path and a cheap
+`--version` probe outcome (failures are printed as failures,
+never smoothed over), and offers the ones carrying a verified
+non-interactive invocation as panel seats: "they review using
+your existing CLI logins, no API key needed." Today exactly one
+invocation is verified in-tree — Claude Code's, the shipped
+example wrapper's `claude -p --tools "" ...` — so Codex and
+Gemini CLI are reported as found but not pre-filled, until a
+probe-verified template enters the table (spec U6). A confirmed
+pick saves an ordinary `agent:<name>:<command>` spec through
+the existing save path; declining everything leaves the flow
+and the saved config byte-identical to before. When discovery
+contributes seats, a family-diversity check warns in plain
+words if the confirmed panel covers a single vendor family
+and offers one API spec as the second family (never blocks
+saving). Non-interactive runs are untouched: no setup still
+stops with setup instructions. Tests:
+`tests/test_discovery_wizard.py` (22; fake PATHs/stub
+executables throughout, plus a hermetic end-to-end where a
+discovered stub seat serves a real review).
 
 ## Unreleased — 2026-11-05 (step-3 error persistence)
 
@@ -255,6 +582,39 @@ metric definitions, gate semantics, or the confirmation scorer.
   is verified by neither the cited line nor the finding's
   grounded quote (9 of 48 shipped cases, P06 among them),
   carried loudly on the shadow entry.
+
+## 0.12.1 — 2026-11-05 — acceptance fixes
+
+Patch release from the clean-room acceptance test of the built
+0.12.0 package (verdict: READY-WITH-DEFECTS). The planted defect
+was caught precisely and the first-run, policy, evidence and
+record-verify surfaces behaved as designed, but a clean, correct
+change could be BLOCKED by confident false findings. 0.12.0 was
+never published to PyPI (tag only); the corrected build ships
+as 0.12.1. Suite 870.
+
+- **D1 — file context on the standard diff path:** reviewers
+  previously received only the plain unified diff (3 lines of
+  context), so definitions outside the hunk were invisible and
+  correct code drew false "undefined symbol" majors from two
+  model families at 0.98 confidence. The diff path now attaches
+  the post-change contents of changed files, with per-file and
+  total caps, in-text truncation markers, and the context budget
+  allocated to the most-changed files first. `run_review` gains
+  `file_context=None` — bench and registered-run prompt shapes
+  stay byte-identical by default; the acceptance clean case now
+  reaches PASS while the planted defect still BLOCKs.
+- **D2 — stored error type/status:** seat error strings stored
+  in run records now preserve the HTTP status and exception
+  type instead of truncating mid-token, so a rate limit (429)
+  is distinguishable from a crash in the record.
+- **D3 — `--help` subcommand list:** top-level `codereview
+  --help` now lists the subcommands (setup, policy,
+  record-verify, doctor, …) instead of leaving them
+  discoverable only through the README.
+- **D4 — same-line finding merge:** identical findings raised
+  by two seats on the same line are merged into one finding
+  listing all raising seats, and the gate counts it once.
 
 ## 0.12.0 — 2026-11-04 — the finish release
 

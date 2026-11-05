@@ -339,7 +339,13 @@ class SubprocessTimeoutGuardTests(unittest.TestCase):
     finding is real or rebutted): every subprocess execution in
     src/ carries a timeout — subprocess.run/check_* via the
     timeout keyword, Popen via a communicate(timeout=...) in
-    the same function."""
+    the same function. Epic K2 adds the second accepted Popen
+    pairing: handing the process to providers._run_seat_process
+    (the supervised seat wait), which takes the same timeout
+    and enforces it as a poll-loop deadline with a process-tree
+    kill — a stronger bound than communicate's, not a weaker
+    one; the guard accepts the call by name so the pairing
+    stays explicit in the seat code."""
 
     def _files(self):
         for fname in sorted(os.listdir(SRC)):
@@ -388,11 +394,19 @@ class SubprocessTimeoutGuardTests(unittest.TestCase):
                     and isinstance(n.func, ast.Attribute)
                     and n.func.attr == "communicate"
                     and any(k.arg == "timeout" for k in n.keywords)
+                    for n in ast.walk(node)) or any(
+                    isinstance(n, ast.Call)
+                    and ((isinstance(n.func, ast.Name)
+                          and n.func.id == "_run_seat_process")
+                         or (isinstance(n.func, ast.Attribute)
+                             and n.func.attr
+                             == "_run_seat_process"))
                     for n in ast.walk(node))
                 if not guarded:
                     offenders.append(
                         f"{fname}:{node.name} Popen without a "
-                        "communicate(timeout=...) in the function")
+                        "communicate(timeout=...) or the "
+                        "supervised seat wait in the function")
         self.assertGreaterEqual(total_popen, 1)
         self.assertEqual(offenders, [])
 

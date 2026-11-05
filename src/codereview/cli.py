@@ -36,9 +36,11 @@ import sys
 
 import inspect
 
+from . import agentsmd
 from . import bench as bench_mod
 from . import core
 from . import disputes as disputes_mod
+from . import herdrhost
 from . import policy as policy_mod
 from . import evidence as evidence_mod
 from . import registry
@@ -824,7 +826,8 @@ _FAMILY_BY_PRESET = {"gemini": "google", "openai": "openai",
 
 
 def _apply_role_assignments(providers, role_values,
-                            agent_timeout=None):
+                            agent_timeout=None, herdr_host=None,
+                            herdr_seats=None):
     """Resolve --role <role>=<provider-spec> assignments against
     the panel: each role's seat is built (once) and merged into
     `providers` if not already present, so the role's model is
@@ -843,7 +846,9 @@ def _apply_role_assignments(providers, role_values,
         record_family = desc["family"]
         requested_model = None
         built = build_providers([spec],
-                                agent_timeout=agent_timeout)
+                                agent_timeout=agent_timeout,
+                                herdr_host=herdr_host,
+                                herdr_seats=herdr_seats)
         (seat_name, seat_fn), = built.items()
         if seat_name in providers:
             # Cross-kind collision (internal review, refutation-
@@ -1492,6 +1497,34 @@ def _sarif_main(argv):
     return 0
 
 
+def _mcp_main(argv):
+    """codereview mcp serve — serve the gate over the Model
+    Context Protocol (Epic L2): a stdio server exposing
+    run_gate / get_verdict so an MCP-speaking agent can invoke
+    the gate from inside its own loop. Serving only — the
+    server is a front door onto this same CLI (a run goes
+    through main() itself), holds no credentials of its own,
+    and draws seats only from the saved setup / environment,
+    exactly like a CLI run. Protocol on stdout; all
+    diagnostics on stderr."""
+    if not argv or argv[0] != "serve":
+        print("usage: codereview mcp serve", file=sys.stderr)
+        return 2
+    ap = argparse.ArgumentParser(
+        prog="codereview mcp serve",
+        description="Serve the CodeReview gate over MCP "
+                    "(stdio transport; tools: run_gate, "
+                    "get_verdict).")
+    ap.parse_args(argv[1:])
+    from . import mcp_tools
+    print(f"codereview mcp: serving the gate on stdio "
+          f"(server {mcp_tools.SERVER_INFO['name']} "
+          f"{mcp_tools.SERVER_INFO['version']}; seats from "
+          f"your saved setup)", file=sys.stderr)
+    mcp_tools.serve_stdio()
+    return 0
+
+
 def _policy_main(argv):
     """codereview policy check — validate the project's policy
     file (.codereview.toml, Epic B) and print the effective
@@ -1709,6 +1742,26 @@ def _acceptance_main(argv, providers_override=None):
     return 0 if result["unlock_all_gates_pass"] else 1
 
 
+def _seat_progress(event):
+    """Live seat-state line (Epic K2): one stderr line per seat
+    transition while a review/verification round runs, so a
+    seat stuck on its plan's quota, a login, or a stall is
+    visible as it happens — the same transitions the record
+    persists per seat (seat_state). A seat that ends blocked
+    on quota gets the spec's operator guidance; the panel's
+    degraded handling itself is the gate's, unchanged."""
+    state = event.get("state") or ""
+    cls = event.get("class")
+    label = f"{state}:{cls}" if cls else state
+    print(f"codereview: seat {event.get('seat')}: {label}",
+          file=sys.stderr)
+    if event.get("terminal") and state == "blocked" \
+            and cls == "quota":
+        print(f"codereview: seat {event.get('seat')} hit its "
+              f"plan's allowance; the panel continues degraded "
+              f"— top up or wait for the reset.", file=sys.stderr)
+
+
 def main(argv=None, providers_override=None, seat_meta_override=None,
          fallbacks_override=None):
     if argv is None:
@@ -1749,10 +1802,38 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
     if argv and argv[0] == "intake":
         return _intake_main(argv[1:],
                             solvers_override=providers_override)
+    if argv and argv[0] == "mcp":
+        return _mcp_main(argv[1:])
     ap = argparse.ArgumentParser(
         prog="codereview",
         description="Multi-model code review loop with a "
-                    "deterministic gate.")
+                    "deterministic gate.",
+        epilog="Subcommands (each has its own --help; running "
+               "one replaces the review flags above): "
+               "setup — first-run wizard: pick providers, keys "
+               "and per-role models; "
+               "doctor — probe the configured seats; "
+               "policy — validate and print the effective "
+               "project policy; "
+               "record-verify — verify a stored run record "
+               "offline; "
+               "disputes — list and record rulings on disputed "
+               "findings; "
+               "bench — run the benchmark corpus and reports; "
+               "intake — turn an issue report into a reviewed "
+               "solution; "
+               "pr — review a GitHub pull request in place; "
+               "workflow — run a saved multi-step review "
+               "workflow; "
+               "loop — repeat review rounds until the gate "
+               "passes; "
+               "sarif — export a record's findings as SARIF; "
+               "evidence — run an evidence config standalone; "
+               "locate — resolve a cited quote to blob "
+               "positions; "
+               "acceptance — run the acceptance harness; "
+               "mcp — serve the gate over the Model Context "
+               "Protocol (stdio; run_gate / get_verdict).")
     src = ap.add_argument_group("change source (pick one)")
     src.add_argument("--patch", help="unified diff file")
     src.add_argument("--repo", help="git repository path (default: .)")
@@ -1809,6 +1890,30 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
                          "confirms B1 on the holdout (step 7)")
     ap.add_argument("--max-patch-chars", type=int, default=80000,
                     help="per-batch diff budget (default 80000)")
+    ap.add_argument("--no-file-context", action="store_true",
+                    help="do not attach post-change file contents "
+                         "to the reviewer prompts (default for "
+                         "repo reviews: the contents of each "
+                         "changed file — from the range target, "
+                         "the index, or the working tree — ride "
+                         "along as reference so definitions "
+                         "outside the diff hunks can be checked; "
+                         "capped per file and in total, with "
+                         "truncation marked in the text and "
+                         "listed in the record)")
+    ap.add_argument("--no-agents-context", action="store_true",
+                    help="do not ingest AGENTS.md project "
+                         "guidance into the reviewer prompts "
+                         "(default for repo reviews: AGENTS.md at "
+                         "the repo root and nested along the "
+                         "changed paths is attached as advisory, "
+                         "untrusted context alongside — never "
+                         "instead of — .codereview.toml; its "
+                         "'## Code Review Rules' section is "
+                         "surfaced as rules the panel may cite; "
+                         "redacted, capped per file and in total "
+                         "with truncation recorded, provenance "
+                         "(path + sha256) written to the record)")
     ap.add_argument("--verify-previous",
                     help="previous report JSON: run a verification round")
     ap.add_argument("--builder-response", default="",
@@ -1980,6 +2085,14 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
               file=sys.stderr)
         return 2
 
+    # Epic K3a hosting state for this run (set in the specs
+    # branch below): an active HerdrHost plus the config-marked
+    # seat names, or the inert reason the record carries as one
+    # `herdr_hosting` line. Override providers (bench, internal
+    # runner) are never hosted.
+    herdr_host = None
+    herdr_seats = None
+    herdr_inert = None
     if providers_override is not None:
         providers = providers_override
     else:
@@ -2010,9 +2123,28 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
         if not specs:
             print(userconfig.NOT_SET_UP, file=sys.stderr)
             return 2
+        # Epic K3a: seats the saved config marks for herdr
+        # hosting ([hosting] herdr = [...]) are detected ONCE
+        # for the run. An active detection hosts those seats;
+        # an inert one leaves every seat headless and puts ONE
+        # line in the record (record_extra below) — herdr is
+        # never a hard dependency.
+        try:
+            herdr_seats = userconfig.default_hosting_herdr_seats()
+        except ValueError as exc:
+            print(f"codereview: {exc}", file=sys.stderr)
+            return 2
+        if herdr_seats:
+            plan = herdrhost.detect()
+            if plan["active"]:
+                herdr_host = plan["host"]
+            else:
+                herdr_inert = herdrhost.inert_line(plan)
+                herdr_seats = None
         try:
             providers = build_providers(
-                specs, agent_timeout=args.timeout)
+                specs, agent_timeout=args.timeout,
+                herdr_host=herdr_host, herdr_seats=herdr_seats)
         except Exception as exc:  # noqa: BLE001
             print(f"codereview: provider setup failed: {exc}",
                   file=sys.stderr)
@@ -2037,7 +2169,9 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
                     providers,
                     [f"{r}={spec}" for r, spec
                      in _merged_roles.items()],
-                    agent_timeout=args.timeout)
+                    agent_timeout=args.timeout,
+                    herdr_host=herdr_host,
+                    herdr_seats=herdr_seats)
         except Exception as exc:  # noqa: BLE001
             print(f"codereview: role assignment failed: {exc}",
                   file=sys.stderr)
@@ -2099,6 +2233,12 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
         record_extra = {**(record_extra or {}),
                         "seat_roles": seat_roles,
                         "role_models": role_models}
+    if herdr_inert:
+        # Epic K3a: hosting was configured but the adapter
+        # stayed inert — exactly one line in the record says
+        # why; the seats all ran headless.
+        record_extra = {**(record_extra or {}),
+                        "herdr_hosting": herdr_inert}
 
 
     cwd = args.repo or "."
@@ -2163,6 +2303,73 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
         if shadow_seat:
             review_kwargs["tech_lead_shadow_seat"] = shadow_seat
 
+    file_context = None
+    if not args.verify_previous and not args.patch \
+            and not args.files and not args.no_file_context:
+        # Acceptance D1: attach the post-change contents of the
+        # changed files so reviewers can check definitions the
+        # hunks reference but do not contain. A collection
+        # problem degrades to the old diff-only behaviour with
+        # the reason on stderr — context is an aid, never a
+        # reason to fail a review.
+        try:
+            file_context, fc_entries = core.collect_file_context(
+                args.repo or ".", patch, range_spec=args.range,
+                staged=args.staged)
+        except Exception as exc:  # noqa: BLE001
+            print(f"codereview: file context unavailable "
+                  f"({exc}); reviewing the diff alone",
+                  file=sys.stderr)
+            file_context = None
+        if file_context is not None:
+            attached = [e for e in fc_entries
+                        if e.get("sent_chars")]
+            skipped = [e for e in fc_entries if e.get("skipped")]
+            notes = []
+            for e in fc_entries:
+                if e.get("truncated"):
+                    notes.append(
+                        f"{e['file']} truncated "
+                        f"({e['truncated']})")
+            print(f"codereview: file context: "
+                  f"{len(attached)} file(s) attached "
+                  f"({sum(e['sent_chars'] for e in attached)} "
+                  f"chars), {len(skipped)} skipped"
+                  + (f"; {'; '.join(notes)}" if notes else ""),
+                  file=sys.stderr)
+            if not file_context:
+                file_context = None
+
+    agents_context = None
+    if not args.verify_previous and not args.patch \
+            and not args.files and not args.no_agents_context:
+        # Epic L1: ingest the repository's AGENTS.md guidance
+        # (root + nested along the changed paths) as advisory
+        # reviewer context. The files are untrusted: the
+        # collector redacts them, run_review delimits them as
+        # data in the prompt, and their provenance lands in the
+        # record — they never touch the policy, the panel, or
+        # the gate. A collection problem degrades to no guidance
+        # with the reason on stderr, exactly like file context.
+        try:
+            agents_context, ag_entries = \
+                agentsmd.collect_agents_context(
+                    args.repo or ".", patch)
+        except Exception as exc:  # noqa: BLE001
+            print(f"codereview: AGENTS.md context unavailable "
+                  f"({exc}); reviewing without project guidance",
+                  file=sys.stderr)
+            agents_context = None
+        if agents_context is not None:
+            skipped = [e for e in ag_entries if e.get("skipped")]
+            print(f"codereview: AGENTS.md context: "
+                  f"{len(agents_context['files'])} file(s) "
+                  f"ingested ({agents_context['total_chars']} "
+                  f"chars), {len(skipped)} skipped"
+                  + ("; truncation recorded"
+                     if agents_context["truncated"] else ""),
+                  file=sys.stderr)
+
     if args.verify_previous:
         try:
             with open(args.verify_previous, encoding="utf-8") as fh:
@@ -2179,7 +2386,7 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
             allow_major=args.allow_major, strict=args.strict,
             seat_meta=seat_meta, fallbacks=fallbacks,
             record_extra=record_extra,
-            private=args.private)
+            private=args.private, progress=_seat_progress)
     else:
         report = core.run_review(
             patch, providers, context=_maybe_file(args.context),
@@ -2191,6 +2398,8 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
             fixture_scope=fixture_scope, private=args.private,
             precedents=precedents, policy=project_policy,
             gate_profile=args.gate_profile,
+            file_context=file_context, progress=_seat_progress,
+            agents_context=agents_context,
             tech_lead_timeout=args.timeout, **review_kwargs)
 
     jpath, mpath = core.write_report(report, args.out)

@@ -152,3 +152,34 @@ by this branch):
   per-key exhausted state: a later case stamps a fresh
   deadline, and within the case the deadline check itself
   fails re-entry fast before any transport call.
+
+## Dedicated bench key (2026-11-05)
+
+Registered runs from now on draw their DeepSeek seat on the
+dedicated bench key, registered as the vault connector
+`custom.deepseek-bench`, instead of the editorial key
+(`custom.deepseek`, which serves the mitbbs editorial drain).
+Both keys sit on the same DeepSeek account and share its balance;
+the separation buys independent metering and revocation, and the
+generation machinery's resumability (first-valid cache, per-case
+resume) is what protects a run if the shared balance still dips.
+
+Mechanism: the swarm's `llm_chain.call_deepseek` resolves its
+connector at call time via `llm_chain._deepseek_connector()` —
+`CODEREVIEW_DEEPSEEK_CONNECTOR` when set, else `custom.deepseek`
+(unchanged default for the editorial drain, the internal review
+loop, and every other caller). The bench driver entry points
+(`bench/scripts/run_panel_baseline.py`, `run_generation_v2.py`,
+`run_confirmation_v2.py`) set the variable to
+`custom.deepseek-bench` via `os.environ.setdefault`. The switch
+is covered by `tests/test_deepseek_connector_switch.py`
+(parent-fail verified against the pre-change chain).
+
+Live proof (2026-11-05, branch build): one public case
+(`http-no-timeout`) through `run_generation_v2.py` — the
+deepseek seat's generation record is `valid`, served by
+deepseek (model deepseek-flash, usage metered), and importing
+the bench driver resolves `_deepseek_connector()` to
+`custom.deepseek-bench` with `deepseek_configured()` true
+against that entry, while a no-env process still resolves
+`custom.deepseek`.

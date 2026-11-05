@@ -46,6 +46,12 @@ WORKTREE = os.path.dirname(os.path.dirname(HERE))
 sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(WORKTREE, "src"))
 
+# Registered confirmation runs draw DeepSeek on the dedicated bench
+# key, not the editorial key (run_panel_baseline sets this too; it is
+# set here as well so this entry point stands on its own).
+os.environ.setdefault("CODEREVIEW_DEEPSEEK_CONNECTOR",
+                      "custom.deepseek-bench")
+
 import run_panel_baseline as panel_driver  # noqa: E402
 from codereview import bench as bench_mod  # noqa: E402
 from codereview import core  # noqa: E402
