@@ -32,6 +32,22 @@ The SCORING half is untouched: `to_attempt_record` adapts a
 generation case result into exactly the record shape
 bench/scripts/score_confirmation_v2.py consumes, and that scorer
 is used unchanged.
+
+Budgets are two-level, one coherent model (the same model
+Addendum A's retry-budget item states from the case side):
+
+  * per-JOB: one (seat, prompt) job retries transport failures
+    inside a 600 s wall-clock budget (and the per-job attempt
+    cap) — `GenerationSeat.wall_clock_budget_s`,
+    JOB_WALL_CLOCK_BUDGET_S;
+  * per-CASE: all of a case's seat jobs, retries and waits share
+    a 1,800 s (30-minute) wall-clock budget —
+    `run_generation(case_budget_s=...)`,
+    CASE_WALL_CLOCK_BUDGET_S — enforced by stamping each seat
+    with a case deadline for the duration of the case's
+    run_review call. A job that hits the case deadline exhausts
+    exactly like a job that hits its own budget: the seat's
+    record for the case lands unscored-infra.
 """
 
 import hashlib
@@ -48,6 +64,11 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(
 from codereview import core  # noqa: E402
 
 GENERATION_SCHEMA = "codereview.generation/1"
+
+# The two-level budget model (module docstring): a per-job
+# wall-clock cap nested inside a per-case wall-clock budget.
+JOB_WALL_CLOCK_BUDGET_S = 600.0
+CASE_WALL_CLOCK_BUDGET_S = 1800.0
 
 # ------------------------------------------------------------------
 # Shadow pricing (S4)
@@ -172,6 +193,15 @@ def cache_key(seat, model, params, prompt):
 
 RETRYABLE_KINDS = ("rate_limit", "transient")
 
+# The exhaustion reason for the per-case deadline. Unlike the
+# per-job budgets, a case deadline is stamped per case: tripping
+# it must NOT latch the per-key exhausted state, or one case's
+# blown budget would poison the same prompt in a later case
+# (whose deadline is fresh). Within the case, re-entry still
+# fails fast — the deadline check itself raises before any
+# transport call.
+CASE_DEADLINE_REASON = "per-case wall-clock budget exceeded"
+
 
 class GenerationExhausted(Exception):
     """The per-job generation budget (attempts or wall clock) is
@@ -195,7 +225,8 @@ class GenerationSeat:
 
     def __init__(self, name, model, transport, cache=None,
                  params=None, max_attempts=5,
-                 wall_clock_budget_s=600.0, base_delay_s=1.0,
+                 wall_clock_budget_s=JOB_WALL_CLOCK_BUDGET_S,
+                 base_delay_s=1.0,
                  max_delay_s=30.0, sleep=None, clock=None,
                  now_iso=None, rng=None):
         self.name = name
@@ -214,6 +245,11 @@ class GenerationSeat:
         self.rng = rng or random.random
         self.events = []
         self._keys = {}  # prompt_hash -> per-key budget state
+        # Per-case deadline (absolute, on this seat's clock),
+        # stamped by run_generation for the duration of one
+        # case: the outer level of the two-level budget model.
+        # None = no case in flight.
+        self.case_deadline = None
 
     # -- internals ------------------------------------------------
 
@@ -237,6 +273,24 @@ class GenerationSeat:
                     self.base_delay_s * (2 ** (attempt - 1)))
         self.sleep(delay * (0.5 + self.rng()))
 
+    def _budget_reason(self, state):
+        """Why this job's budget is spent, or None while budget
+        remains: the per-job attempt cap, the per-job wall-clock
+        budget, or the per-case deadline stamped on the seat."""
+        if state["attempts"] >= self.max_attempts:
+            return f"attempt cap {self.max_attempts} reached"
+        if self.clock() - state["started"] \
+                > self.wall_clock_budget_s:
+            return (f"wall-clock budget "
+                    f"{self.wall_clock_budget_s}s exceeded")
+        if self.case_deadline is not None \
+                and self.clock() > self.case_deadline:
+            return CASE_DEADLINE_REASON
+        return None
+
+    def _within_budget(self, state):
+        return self._budget_reason(state) is None
+
     def __call__(self, prompt):
         key, ph, qh = cache_key(self.name, self.model,
                                 self.params, prompt)
@@ -259,20 +313,13 @@ class GenerationSeat:
                 f"generation budget exhausted for seat "
                 f"{self.name}: {state['exhausted']}")
         while True:
-            if state["attempts"] >= self.max_attempts:
-                state["exhausted"] = (
-                    f"attempt cap {self.max_attempts} reached")
+            reason = self._budget_reason(state)
+            if reason is not None:
+                if reason != CASE_DEADLINE_REASON:
+                    state["exhausted"] = reason
                 raise GenerationExhausted(
                     f"generation budget exhausted for seat "
-                    f"{self.name}: {state['exhausted']}")
-            if self.clock() - state["started"] \
-                    > self.wall_clock_budget_s:
-                state["exhausted"] = (
-                    f"wall-clock budget "
-                    f"{self.wall_clock_budget_s}s exceeded")
-                raise GenerationExhausted(
-                    f"generation budget exhausted for seat "
-                    f"{self.name}: {state['exhausted']}")
+                    f"{self.name}: {reason}")
             state["attempts"] += 1
             try:
                 raw = self.transport(prompt)
@@ -282,9 +329,7 @@ class GenerationSeat:
                             attempts=1, error_class=kind,
                             detail=exc)
                 if kind in RETRYABLE_KINDS and \
-                        state["attempts"] < self.max_attempts and \
-                        self.clock() - state["started"] \
-                        <= self.wall_clock_budget_s:
+                        self._within_budget(state):
                     self._backoff(state["attempts"])
                     continue
                 if kind not in RETRYABLE_KINDS:
@@ -299,12 +344,12 @@ class GenerationSeat:
                             attempts=1, error_class="empty_body",
                             detail="transport returned an empty "
                                    "body")
-                if state["attempts"] < self.max_attempts and \
-                        self.clock() - state["started"] \
-                        <= self.wall_clock_budget_s:
+                if self._within_budget(state):
                     self._backoff(state["attempts"])
                     continue
-                state["exhausted"] = "empty_body"
+                if self._budget_reason(state) \
+                        != CASE_DEADLINE_REASON:
+                    state["exhausted"] = "empty_body"
                 raise GenerationExhausted(
                     f"generation budget exhausted for seat "
                     f"{self.name}: empty body from transport")
@@ -493,13 +538,26 @@ def run_generation(cases, seats, seat_lenses, *, cache_dir,
                    run_label="baseline-v2-confirmation",
                    fallbacks=None, gate_profile="balanced",
                    allow_major=False, strict=False,
-                   seat_meta=None, log=print):
+                   seat_meta=None, log=print,
+                   case_budget_s=CASE_WALL_CLOCK_BUDGET_S):
     """Generate (or resume generating) every case x seat, writing
     per-case generation records and scorer-format attempt records.
 
     `seats`: {name: GenerationSeat}. `seat_lenses`: the explicit
     binding (S1). `fallbacks`: {lens: seat name} — the pre-declared
-    fallback seats (§3.3), resolved against `seats`.
+    fallback seats (§3.3), resolved against `seats`. An unknown
+    lens or a fallback seat that is not in the panel is a loud
+    ValueError, never a silent drop: what serves must be what was
+    declared. The effective fallbacks join the run's identity —
+    the manifest records them and a run identity hash over
+    (config hash, binding, fallbacks); a resume whose fallbacks
+    differ from the manifest's is a hard error, like a config
+    hash mismatch.
+
+    `case_budget_s`: the per-case wall-clock budget (the outer
+    level of the two-level budget model, module docstring).
+    Each seat is stamped with a case deadline on its own clock
+    for the duration of the case's run_review call.
 
     Resume semantics: a (case, seat, lens) generation record
     already valid on disk is kept and never re-recorded; every
@@ -517,8 +575,21 @@ def run_generation(cases, seats, seat_lenses, *, cache_dir,
     binding = core.normalize_seat_lenses(seat_lenses)
     fb = {}
     for lens, seat_name in (fallbacks or {}).items():
-        if seat_name in seats:
-            fb[lens] = (seat_name, seats[seat_name])
+        if lens not in core.LENSES:
+            raise ValueError(
+                f"fallbacks: unknown lens {lens!r} (known: "
+                f"{', '.join(core.LENSES)})")
+        if seat_name not in seats:
+            raise ValueError(
+                f"fallbacks: lens {lens!r} names seat "
+                f"{seat_name!r}, which is not in the panel "
+                f"{sorted(seats)} — a fallback must name a "
+                f"declared panel seat")
+        fb[lens] = (seat_name, seats[seat_name])
+    fb_map = {lens: name for lens, (name, _s) in fb.items()}
+    run_identity = _canonical_sha({
+        "config_sha256": config_sha256, "seat_lenses": binding,
+        "fallbacks": fb_map})
     gen_path = os.path.join(
         out_dir, f"generation-attempt-{attempt}.jsonl")
     att_path = os.path.join(out_dir, f"attempt-{attempt}.jsonl")
@@ -532,10 +603,20 @@ def run_generation(cases, seats, seat_lenses, *, cache_dir,
                 "generation manifest config hash mismatch: "
                 f"{manifest.get('config_sha256')} != "
                 f"{config_sha256} — refusing to mix panels")
+        if "fallbacks" in manifest \
+                and manifest["fallbacks"] != fb_map:
+            raise ValueError(
+                "generation manifest fallbacks mismatch: "
+                f"{manifest['fallbacks']} != {fb_map} — "
+                f"refusing to mix serving configurations")
+        manifest["fallbacks"] = fb_map
+        manifest["run_identity_sha256"] = run_identity
     else:
         manifest = {"run": run_label, "attempt": attempt,
                     "config": config_name,
                     "config_sha256": config_sha256,
+                    "fallbacks": fb_map,
+                    "run_identity_sha256": run_identity,
                     "created_at": core._now_iso(), "cases": {}}
     prior = _read_jsonl(gen_path)
     # Resume granularity is the (case, seat, lens) record: a pair
@@ -557,13 +638,20 @@ def run_generation(cases, seats, seat_lenses, *, cache_dir,
                        f"{case.get('context') or ''}").strip()
             for seat in seats.values():
                 seat.events = []
+                # Per-case budget: stamp the deadline on the
+                # seat's own clock for this case's calls.
+                seat.case_deadline = seat.clock() + case_budget_s
             started = time.monotonic()
-            report = core.run_review(
-                case["diff"], dict(seats), context=context,
-                allow_major=allow_major, strict=strict,
-                seat_meta=seat_meta or None,
-                seat_lenses=binding, fallbacks=fb or None,
-                gate_profile=gate_profile)
+            try:
+                report = core.run_review(
+                    case["diff"], dict(seats), context=context,
+                    allow_major=allow_major, strict=strict,
+                    seat_meta=seat_meta or None,
+                    seat_lenses=binding, fallbacks=fb or None,
+                    gate_profile=gate_profile)
+            finally:
+                for seat in seats.values():
+                    seat.case_deadline = None
             duration_ms = int(
                 (time.monotonic() - started) * 1000)
             events = [e for seat in seats.values()
@@ -643,6 +731,11 @@ def run_generation(cases, seats, seat_lenses, *, cache_dir,
         "shadow_cost_usd": round(summary["shadow_cost_usd"], 6),
         "tokens_in": summary["tokens_in"],
         "tokens_out": summary["tokens_out"],
+        "budgets": {
+            "per_job_wall_clock_s": sorted(
+                {seat.wall_clock_budget_s
+                 for seat in seats.values()}),
+            "per_case_wall_clock_s": case_budget_s},
         "shadow_price_note": SHADOW_PRICE_NOTE}
     with open(man_path, "w", encoding="utf-8") as fh:
         json.dump(manifest, fh, indent=1)

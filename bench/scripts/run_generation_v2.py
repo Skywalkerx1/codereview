@@ -20,14 +20,22 @@ Differences from the voided run_confirmation_v2 driver:
   * per-lens fallback seats are pre-declared (§3.3): by default,
     for each lens, the first panel seat in config order that is
     not the lens's first bound seat (override with --fallbacks);
+    the effective fallbacks are validated at entry against the
+    panel and the seat_lenses binding and join the run's
+    identity in the generation manifest;
   * cost is metered in tokens and shadow-priced (S4), never
     written as the $0 convention.
 
-Registered-set guard: the A5 holdout split and the
-expanded-clean stratum are refused unless the environment
-variable CODEREVIEW_REGISTERED_RUN=1 is set — the registered
-run under Addendum A is what sets it. Machinery work and smoke
-runs use the public split.
+Registered-set guard: ONLY the public split is open. Every
+other split — the A5 holdout, the expanded-clean stratum, and
+any split a future loader learns — is a registered set and is
+refused, before config load, preflight, or any seat call,
+unless the environment variable CODEREVIEW_REGISTERED_RUN=1
+is set; the registered run under Addendum A is what sets it.
+Machinery work and smoke runs use the public split. The guard
+is `registered_guard` below and refuses by split NAME, not by
+which sets today's loader can reach, so a loader change cannot
+silently open a registered set.
 
 Usage:
   run_generation_v2.py [--split public] [--cases id,id]
@@ -100,6 +108,60 @@ def default_fallbacks(panel, binding):
     return out
 
 
+def registered_guard(split, registered):
+    """The registered-set guard: a refusal message if generating
+    `split` is not allowed, else None. Only "public" is open;
+    every other split name is registered-only. The check is on
+    the NAME, independent of what today's loader can load, so
+    wiring a new corpus directory to a registered split cannot
+    bypass it."""
+    if split == "public" or registered:
+        return None
+    return (f"REFUSED: split {split!r} is a registered set; "
+            f"generation against it runs only under Addendum A "
+            f"(CODEREVIEW_REGISTERED_RUN=1).")
+
+
+def validate_fallbacks(fallbacks, panel, binding, explicit=False):
+    """Validate the effective per-lens fallbacks at driver entry
+    (review minors on the S1 binding). Raises ValueError:
+
+      * an unknown lens, or a fallback seat that is not in the
+        panel — a fallback must name a declared panel seat;
+      * under an EXPLICIT seat_lenses binding, a fallback that
+        names, for a lens, a seat the binding does not bind to
+        that lens while the lens is bound to other seat(s): the
+        fallback would silently reassign the lens to a different
+        seat — the S1 remap. (A fallback for a lens the binding
+        leaves unbound is fine: it covers an otherwise unserved
+        lens. Under a derived binding the historical
+        order-based fallbacks stand, but panel membership is
+        still enforced.)
+    """
+    for lens, seat in (fallbacks or {}).items():
+        if lens not in core.LENSES:
+            raise ValueError(
+                f"fallbacks: unknown lens {lens!r} (known: "
+                f"{', '.join(core.LENSES)})")
+        if seat not in panel:
+            raise ValueError(
+                f"fallbacks: lens {lens!r} names seat {seat!r}, "
+                f"which is not in the panel {list(panel)} — a "
+                f"fallback must name a declared panel seat")
+        if explicit:
+            bound = {s for s, lenses in binding.items()
+                     if lens in lenses}
+            if bound and seat not in bound:
+                raise ValueError(
+                    f"fallbacks: lens {lens!r} is explicitly "
+                    f"bound to {sorted(bound)} by seat_lenses, "
+                    f"but its fallback names {seat!r} — a "
+                    f"fallback may not reassign a lens the "
+                    f"binding gives to a different seat (S1); "
+                    f"declare the fallback from the lens's "
+                    f"bound seats or amend the binding")
+
+
 def main(argv):
     args = argv[1:]
     split = "public"
@@ -116,16 +178,27 @@ def main(argv):
         only = {c.strip() for c in
                 args[args.index("--cases") + 1].split(",")}
     registered = os.environ.get("CODEREVIEW_REGISTERED_RUN") == "1"
-    if split == "holdout" and not registered:
-        print("REFUSED: the holdout split is a registered set; "
-              "generation against it runs only under Addendum A "
-              "(CODEREVIEW_REGISTERED_RUN=1).", file=sys.stderr)
+    refusal = registered_guard(split, registered)
+    if refusal is not None:
+        print(refusal, file=sys.stderr)
         return 2
     cfg = bench_mod.load_config(CONFIG_SPEC)
     cfg_sha = bench_mod._config_sha(cfg)
     panel = [n for n in bench_mod._provider_seat_names(
         cfg["providers"]) if n in PARAMS]
     binding = cfg["seat_lenses"]
+    if "--fallbacks" in args:
+        fallbacks = json.loads(args[args.index("--fallbacks") + 1])
+    else:
+        fallbacks = default_fallbacks(panel, binding)
+    try:
+        validate_fallbacks(
+            fallbacks, panel, binding,
+            explicit=cfg["seat_lenses_source"] == "explicit")
+    except ValueError as exc:
+        print(f"REFUSED: {exc}", file=sys.stderr)
+        return 2
+    print(f"fallbacks (pre-declared): {fallbacks}")
     health = panel_driver.preflight()
     print(json.dumps({"preflight": health}, indent=1))
     print(f"panel (config order): {panel}")
@@ -138,11 +211,6 @@ def main(argv):
     seats = {name: gen.GenerationSeat(
         name, panel_driver.MODELS[name], build_transport(name),
         params=PARAMS[name]) for name in panel}
-    if "--fallbacks" in args:
-        fallbacks = json.loads(args[args.index("--fallbacks") + 1])
-    else:
-        fallbacks = default_fallbacks(panel, binding)
-    print(f"fallbacks (pre-declared): {fallbacks}")
     corpus = bench_mod.load_corpus(CORPUS)
     cases = [c for c in corpus if c["split"] == split]
     if only is not None:

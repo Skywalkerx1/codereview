@@ -54,6 +54,20 @@ confirmation scorer.
   joins the config hash; a derived one does not (it is a pure
   function of the provider list already hashed, so pre-S1
   config hashes — and their stored records — are unchanged).
+- **Verification-round fixes on the generation driver** (the
+  internal review blocked this branch on one major + four
+  minors; all fixed, detail in
+  `bench/VOID-SOLUTION-FINDINGS.md`): the registered-set guard
+  now refuses every non-public split by name — holdout,
+  expanded-clean, any future split — before any seat call,
+  unless `CODEREVIEW_REGISTERED_RUN=1`; fallbacks are validated
+  at driver entry (panel membership; under an explicit binding
+  a fallback may not reassign a lens to a different seat) and
+  the effective fallbacks join the run's identity in the
+  generation manifest; budgets are stated and enforced as one
+  model — a 600 s per-job wall-clock cap inside an 1,800 s
+  per-case budget (per-seat case deadlines in
+  `bench/generation.py`).
 
 ## Unreleased — 2026-11-05 (acceptance wiring, protocol v2)
 
