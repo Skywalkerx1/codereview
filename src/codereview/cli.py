@@ -1497,6 +1497,34 @@ def _sarif_main(argv):
     return 0
 
 
+def _mcp_main(argv):
+    """codereview mcp serve — serve the gate over the Model
+    Context Protocol (Epic L2): a stdio server exposing
+    run_gate / get_verdict so an MCP-speaking agent can invoke
+    the gate from inside its own loop. Serving only — the
+    server is a front door onto this same CLI (a run goes
+    through main() itself), holds no credentials of its own,
+    and draws seats only from the saved setup / environment,
+    exactly like a CLI run. Protocol on stdout; all
+    diagnostics on stderr."""
+    if not argv or argv[0] != "serve":
+        print("usage: codereview mcp serve", file=sys.stderr)
+        return 2
+    ap = argparse.ArgumentParser(
+        prog="codereview mcp serve",
+        description="Serve the CodeReview gate over MCP "
+                    "(stdio transport; tools: run_gate, "
+                    "get_verdict).")
+    ap.parse_args(argv[1:])
+    from . import mcp_tools
+    print(f"codereview mcp: serving the gate on stdio "
+          f"(server {mcp_tools.SERVER_INFO['name']} "
+          f"{mcp_tools.SERVER_INFO['version']}; seats from "
+          f"your saved setup)", file=sys.stderr)
+    mcp_tools.serve_stdio()
+    return 0
+
+
 def _policy_main(argv):
     """codereview policy check — validate the project's policy
     file (.codereview.toml, Epic B) and print the effective
@@ -1774,6 +1802,8 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
     if argv and argv[0] == "intake":
         return _intake_main(argv[1:],
                             solvers_override=providers_override)
+    if argv and argv[0] == "mcp":
+        return _mcp_main(argv[1:])
     ap = argparse.ArgumentParser(
         prog="codereview",
         description="Multi-model code review loop with a "
@@ -1801,7 +1831,9 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
                "evidence — run an evidence config standalone; "
                "locate — resolve a cited quote to blob "
                "positions; "
-               "acceptance — run the acceptance harness.")
+               "acceptance — run the acceptance harness; "
+               "mcp — serve the gate over the Model Context "
+               "Protocol (stdio; run_gate / get_verdict).")
     src = ap.add_argument_group("change source (pick one)")
     src.add_argument("--patch", help="unified diff file")
     src.add_argument("--repo", help="git repository path (default: .)")

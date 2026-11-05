@@ -1,5 +1,50 @@
 # Changelog
 
+## Unreleased — Epic L2 (MCP server for the gate)
+
+The gate is now callable from inside another agent's loop:
+`codereview mcp serve` speaks the Model Context Protocol
+over stdio and exposes two tools — `run_gate` (a patch, or a
+git range in a repo, plus an optional policy path → the
+verdict and the run record's path) and `get_verdict` (a
+stored record → verdict summary and findings).
+
+- **In-tree protocol subset, stdlib only:** the wire layer
+  (`codereview.mcp_transport` — newline-delimited JSON-RPC
+  2.0 framing, dispatch, error ledger) and the tool layer
+  (`codereview.mcp_tools` — handshake negotiation for
+  protocol versions 2025-03-26 / 2024-11-05, tools/list,
+  tools/call) are separate modules; no new dependency.
+- **Serving only:** the server is a front door onto the
+  existing gate, not a new gate — a run goes through the
+  CLI's own `main()` with the arguments translated, so the
+  served verdict is the CLI's verdict on the same change and
+  the record on disk is the ordinary run record. The review
+  path consumes no MCP tools; reviewers stay read-only and
+  tool-less (Epic F2 unchanged).
+- **No credentials, no built-in panel:** the server stores
+  nothing; seats resolve from the operator's saved setup (or
+  $CODEREVIEW_PROVIDERS) under the CLI's own discipline.
+  With no setup, run_gate answers with the CLI's not-set-up
+  message verbatim.
+- **Fail-closed wire:** malformed JSON, non-object frames,
+  oversized frames (16 MiB cap, discarded in sync), and
+  handler crashes are each answered or recorded in the
+  server's error ledger and logged to stderr — the loop
+  never dies on a bad frame. Tool arguments are validated
+  against the published schemas (unknown keys, wrong types,
+  patch+range together are refused before anything runs).
+- **Verification:** 15 new tests (`tests/test_mcp.py`), none
+  passing on pre-L2 master — transport failure modes,
+  handshake/list, MCP-vs-CLI verdict equality in-process,
+  the no-setup answer, and a full subprocess session (a
+  minimal in-tree client over a real stdio pipe, seats from
+  a local OpenAI-compatible stub) whose verdict is compared
+  against the CLI binary's on the same diff. A brand-name
+  MCP client session (Claude Code / Codex) is UNVERIFIED:
+  no agent CLI on the build machine is logged in. Full
+  suite 1005/1005.
+
 ## Unreleased — Epic L1 (AGENTS.md ingestion)
 
 Reviewer context now includes the repository's own guidance:
