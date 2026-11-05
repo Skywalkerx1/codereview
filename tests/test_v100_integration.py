@@ -232,5 +232,284 @@ class ProbeLoopBoundTests(unittest.TestCase):
         self.assertEqual(adj["probe"]["outcome"], "rebutted")
 
 
+ARCHIVED_PATCH = (
+    "diff --git a/app.py b/app.py\n"
+    "--- a/app.py\n"
+    "+++ b/app.py\n"
+    "@@ -1,1 +1,2 @@\n"
+    " import os\n"
+    "+VALUE = compute_total(items)\n"
+    "diff --git a/review-v096/codereview-20261104-000000.json "
+    "b/review-v096/codereview-20261104-000000.json\n"
+    "--- /dev/null\n"
+    "+++ b/review-v096/codereview-20261104-000000.json\n"
+    "@@ -0,0 +1,2 @@\n"
+    "+{\"findings\": [{\"evidence\": \"result = "
+    "eval(preserved_input)\"}]}\n"
+    "+{\"note\": \"pre-fix lines preserved as evidence\"}\n"
+    "diff --git a/gate-attempts.jsonl b/gate-attempts.jsonl\n"
+    "--- /dev/null\n"
+    "+++ b/gate-attempts.jsonl\n"
+    "@@ -0,0 +1,1 @@\n"
+    "+{\"gate\": \"blocked\", \"range\": \"a..b\"}\n")
+
+
+class RecordingSeat:
+    """Pass-verdict seat that remembers every prompt it saw."""
+
+    def __init__(self):
+        self.prompts = []
+
+    def __call__(self, prompt):
+        self.prompts.append(prompt)
+        return json.dumps({"verdict": "pass", "summary": "ok",
+                           "findings": []})
+
+
+class ArchivedExclusionFlowTests(unittest.TestCase):
+    """Solution §5.4: committed review records and the attempts
+    ledger are excluded from the span, visibly, and findings
+    citing them classify as archived-text."""
+
+    def run_archived(self):
+        seats = [RecordingSeat(), RecordingSeat(), RecordingSeat()]
+        rec = core.run_review(
+            ARCHIVED_PATCH,
+            {"seatA": seats[0], "seatB": seats[1],
+             "seatC": seats[2]},
+            seat_meta=META3, sleep=lambda *_a: None)
+        return rec, seats
+
+    def test_exclusions_listed_with_rules(self):
+        rec, _seats = self.run_archived()
+        self.assertEqual(
+            rec["archived_exclusions"],
+            [{"path": "review-v096/codereview-20261104-000000.json",
+              "rule": "review-*/"},
+             {"path": "gate-attempts.jsonl",
+              "rule": "gate-attempts.*"}])
+        self.assertEqual(rec["files"], ["app.py"])
+        self.assertEqual(
+            set(rec["coverage"]["files"]), {"app.py"})
+        self.assertTrue(any("archived-record rule" in r
+                            for r in rec["gate_reasons"]))
+
+    def test_reviewers_never_see_archived_sections(self):
+        _rec, seats = self.run_archived()
+        seen = "\n".join(p for s in seats for p in s.prompts)
+        self.assertNotIn("preserved_input", seen)
+        self.assertIn("compute_total", seen)
+
+    def test_det_finding_on_archived_path_classified(self):
+        rec, _seats = self.run_archived()
+        # The preserved eval( line would be a deterministic
+        # BLOCKER as live code; as archived text it is preserved
+        # in archived_text_findings and cannot block the gate.
+        self.assertEqual(rec["gate"], "pass")
+        self.assertEqual(
+            [f for f in rec["findings"]
+             if f.get("rule") == "eval-exec"], [])
+        arch = rec["archived_text_findings"]
+        self.assertEqual(len(arch), 1)
+        self.assertEqual(arch[0]["rule"], "eval-exec")
+        self.assertEqual(arch[0]["archived_text"],
+                         {"rule": "review-*/", "basis": "path"})
+
+    def test_span_without_archives_records_no_exclusions(self):
+        rec = review3(Seat(), Seat(), Seat())
+        self.assertNotIn("archived_exclusions", rec)
+        self.assertNotIn("archived_text_findings", rec)
+
+
+class ArchivedTextClassifierTests(unittest.TestCase):
+    """Unit coverage of _split_archived_text's two bases."""
+
+    ARCH = [("review-v15/rec.json",
+             "header\nOLD PREFIX LINE preserved\nfooter\n")]
+    KEPT_FILES = {"app.py"}
+    KEPT_TEXT = "VALUE = compute_total(items)\n"
+
+    def classify(self, findings):
+        return core._split_archived_text(
+            findings, self.KEPT_FILES, self.KEPT_TEXT, self.ARCH)
+
+    def test_path_basis(self):
+        f = {"file": "gate-attempts.jsonl", "evidence_quote": "x"}
+        kept, arch = self.classify([f])
+        self.assertEqual(kept, [])
+        self.assertEqual(arch[0]["archived_text"],
+                         {"rule": "gate-attempts.*",
+                          "basis": "path"})
+
+    def test_quote_basis_reraise_shape(self):
+        # The v0.9.6 re-raise shape: a claim about a source file
+        # whose cited text exists ONLY inside a committed record.
+        f = {"file": "src/codereview/core.py",
+             "evidence_quote": "OLD PREFIX LINE preserved"}
+        kept, arch = self.classify([f])
+        self.assertEqual(kept, [])
+        self.assertEqual(arch[0]["archived_text"],
+                         {"rule": "archived-text",
+                          "basis": "quote"})
+
+    def test_quote_also_in_reviewed_material_stays(self):
+        f = {"file": "src/codereview/core.py",
+             "evidence_quote": "VALUE = compute_total(items)"}
+        kept, arch = self.classify([f])
+        self.assertEqual(arch, [])
+        self.assertEqual(kept, [f])
+
+    def test_no_archived_sections_passthrough(self):
+        f = {"file": "review-v15/rec.json", "evidence_quote": "x"}
+        kept, arch = core._split_archived_text(
+            [f], self.KEPT_FILES, self.KEPT_TEXT, [])
+        self.assertEqual((kept, arch), ([f], []))
+
+
+LONG_LINE = "VALUE = compute_total(" + ", ".join(
+    f"item_{i}" for i in range(80)) + ")"
+LONG_PATCH = (
+    "diff --git a/app.py b/app.py\n"
+    "--- a/app.py\n"
+    "+++ b/app.py\n"
+    "@@ -1,1 +1,2 @@\n"
+    " import os\n"
+    f"+{LONG_LINE}\n")
+
+
+def _check(result, name):
+    for c in result["checks"]:
+        if c["name"] == name:
+            return c
+    raise AssertionError(f"check {name} not present")
+
+
+class EvidenceSidecarTests(unittest.TestCase):
+    """Solution §4 Q7: full-text, hash-verified evidence."""
+
+    def write(self, report):
+        tmp = tempfile.mkdtemp()
+        jpath, _mpath = core.write_report(report, tmp)
+        with open(jpath, encoding="utf-8") as fh:
+            return tmp, json.load(fh)
+
+    def test_long_quote_round_trips_in_full_via_sidecar(self):
+        self.assertGreater(len(LONG_LINE), 400)
+        a = Seat(review={"verdict": "changes_requested",
+                         "findings": [mk_finding(
+                             quote=LONG_LINE, sev="minor")]})
+        rec = core.run_review(
+            LONG_PATCH, {"seatA": a, "seatB": Seat()},
+            seat_meta={"seatA": {"family": "famA", "tier": "paid"},
+                       "seatB": {"family": "famB", "tier": "paid"}},
+            sleep=lambda *_a: None)
+        _tmp, written = self.write(rec)
+        f = written["findings"][0]
+        ref = f["evidence_quote_ref"]
+        self.assertTrue(ref["truncated"])
+        self.assertEqual(ref["length"], len(LONG_LINE))
+        self.assertEqual(f["evidence_quote"], LONG_LINE[:400])
+        sidecar = os.path.join(_tmp, "evidence", ref["sha256"])
+        with open(sidecar, encoding="utf-8") as fh:
+            self.assertEqual(fh.read(), LONG_LINE)
+        self.assertEqual(
+            ref["sha256"],
+            hashlib.sha256(LONG_LINE.encode()).hexdigest())
+        self.assertEqual(written["evidence_sidecars"]["dir"],
+                         "evidence")
+
+    def test_short_quote_ref_not_truncated(self):
+        rec = review3(raiser(), Seat(), Seat())
+        _tmp, written = self.write(rec)
+        f = written["findings"][0]
+        ref = f["evidence_quote_ref"]
+        self.assertFalse(ref["truncated"])
+        self.assertEqual(f["evidence_quote"], CITED)
+
+    def test_caller_report_is_not_mutated(self):
+        rec = review3(raiser(), Seat(), Seat())
+        self.write(rec)
+        self.assertNotIn("evidence_quote_ref", rec["findings"][0])
+        self.assertNotIn("evidence_sidecars", rec)
+
+    def test_dispute_texts_full_and_evidence_complete(self):
+        long_reason = "the claim fails because " + "x" * 400
+        b = Seat(xconfirm={"verdict": "refute",
+                           "evidence_quote": OTHER_LINE,
+                           "reason": long_reason})
+        long_detail = "probe output " + "y" * 700
+        tl = Seat(tech_lead=[
+            {"decision": "needs_probe",
+             "probe_request": "check the guard",
+             "rationale": "cannot tell"},
+            {"decision": "sustain_refutation",
+             "evidence_quote": THIRD_LINE,
+             "rationale": "settled " + "z" * 700}])
+        rec = review3(raiser(), b, tl, probe_fn=lambda _f, _r: {
+            "outcome": "rebutted", "evidence_quote": THIRD_LINE,
+            "detail": long_detail})
+        _tmp, written = self.write(rec)
+        f = written["adjudicated_refuted_findings"][0]
+        self.assertTrue(f["evidence_complete"])
+        d_ref = f["dispute"]["reason_ref"]
+        self.assertEqual(d_ref["length"], len(long_reason))
+        self.assertTrue(d_ref["truncated"])
+        self.assertEqual(f["dispute"]["reason"],
+                         long_reason[:300])
+        adj = f["adjudication"]
+        self.assertEqual(adj["rationale_ref"]["length"],
+                         len("settled " + "z" * 700))
+        self.assertEqual(adj["probe"]["detail_ref"]["length"],
+                         len(long_detail))
+        # ...and the record verifies against its own sidecars.
+        result = core.verify_record(written, repo=_tmp,
+                                    record_dir=".")
+        check = _check(result, "evidence_sidecars")
+        self.assertTrue(check["ok"], check["detail"])
+
+    def test_tampered_sidecar_fails_verification(self):
+        rec = review3(raiser(), Seat(), Seat())
+        tmp, written = self.write(rec)
+        ref = written["findings"][0]["evidence_quote_ref"]
+        path = os.path.join(tmp, "evidence", ref["sha256"])
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write("tampered evidence")
+        result = core.verify_record(written, repo=tmp,
+                                    record_dir=".")
+        check = _check(result, "evidence_sidecars")
+        self.assertFalse(check["ok"])
+        self.assertIn("does not hash", check["detail"])
+
+    def test_missing_sidecar_fails_verification(self):
+        rec = review3(raiser(), Seat(), Seat())
+        tmp, written = self.write(rec)
+        ref = written["findings"][0]["evidence_quote_ref"]
+        os.unlink(os.path.join(tmp, "evidence", ref["sha256"]))
+        result = core.verify_record(written, repo=tmp,
+                                    record_dir=".")
+        self.assertFalse(
+            _check(result, "evidence_sidecars")["ok"])
+
+    def test_legacy_record_sidecar_check_not_applicable(self):
+        # A real pre-sidecar record (review-v096, written by
+        # v0.9.6): no refs anywhere -> the check passes as
+        # not-applicable and nothing else about the record's
+        # verification changes.
+        repo = os.path.join(os.path.dirname(__file__), "..")
+        rdir = os.path.join(repo, "review-v096")
+        names = [n for n in os.listdir(rdir) if n.endswith(".json")]
+        self.assertTrue(names)
+        with open(os.path.join(rdir, names[0]),
+                  encoding="utf-8") as fh:
+            legacy = json.load(fh)
+        self.assertEqual(list(core._iter_evidence_refs(legacy)),
+                         [])
+        result = core.verify_record(legacy, repo=repo,
+                                    record_dir="review-v096")
+        check = _check(result, "evidence_sidecars")
+        self.assertTrue(check["ok"])
+        self.assertIn("not applicable", check["detail"])
+
+
 if __name__ == "__main__":
     unittest.main()

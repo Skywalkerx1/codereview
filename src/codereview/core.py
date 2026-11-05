@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import ast
 import concurrent.futures
+import copy
 import datetime
 import fnmatch
 import hashlib
@@ -45,7 +46,7 @@ import subprocess
 import threading
 import time
 
-VERSION = "0.9.6"
+VERSION = "0.10.0"
 SCHEMA = "codereview.report/1"
 
 SEVERITIES = ("blocker", "major", "minor", "nit")
@@ -133,6 +134,79 @@ def path_matches(path, patterns):
 
 FIXTURE_MANIFEST_SCHEMA = "codereview.fixture-manifest/1"
 FIXTURE_POLICY_VERSIONS = (1,)
+
+
+# Archived-record exclusion (refutation-process solution §5.4,
+# owner-adopted): committed review output — the record
+# directories every run files (review-v15/, review-v096/,
+# review-step4-out/, ...) and the gate attempts ledger — is
+# GENERATED ARTIFACT, not source. Reviewing it re-raises the
+# very findings those records preserve (in the v0.9.6 review,
+# two disputed majors were the #6/#8 claims re-raised against
+# pre-fix lines quoted inside historical records), and every
+# fix that quotes old code into a record manufactures a fresh
+# dispute. So archived artifacts never enter the reviewed
+# span: their sections are excluded before batching, each
+# exclusion is listed in the record with the rule that matched
+# (the same visible mechanism as the fixture manifest), and a
+# finding that nevertheless cites archived material — its path
+# is an archived artifact, or its quote exists ONLY inside
+# archived sections — classifies as archived-text, preserved
+# in archived_text_findings, never blocking, never routed to
+# adjudication.
+ARCHIVED_RULE_REVIEW_DIR = "review-*/"
+ARCHIVED_RULE_LEDGER = "gate-attempts.*"
+
+
+def _archived_rule(path):
+    """The archived-artifact rule matching `path`, or None.
+    Rules (repo-relative paths): a top-level directory whose
+    name starts with `review-` or `review_` (run record output),
+    and the `gate-attempts.*` ledger by basename anywhere."""
+    if not path:
+        return None
+    parts = [p for p in str(path).split("/") if p not in ("", ".")]
+    if not parts:
+        return None
+    if parts[-1].startswith("gate-attempts."):
+        return ARCHIVED_RULE_LEDGER
+    if len(parts) > 1 and (parts[0].startswith("review-")
+                           or parts[0].startswith("review_")):
+        return ARCHIVED_RULE_REVIEW_DIR
+    return None
+
+
+def _split_archived_text(findings, kept_files, kept_text,
+                         archived_sections):
+    """Partition findings into (kept, archived_text_findings)
+    against the sections excluded from the span. A finding is
+    archived-text when its cited path is itself an archived
+    artifact (basis "path"), or when its file is not a reviewed
+    top-level file and its evidence quote appears ONLY inside
+    archived sections (basis "quote") — the re-raise shape: a
+    claim about pre-fix code preserved in a record. A quote
+    that also appears in reviewed material keeps the finding:
+    classification must never hide a live claim."""
+    if not archived_sections:
+        return list(findings), []
+    archived_blob = "\n".join(t for _n, t in archived_sections)
+    kept, archived = [], []
+    for f in findings:
+        rule = _archived_rule(f.get("file") or "")
+        if rule:
+            f["archived_text"] = {"rule": rule, "basis": "path"}
+            archived.append(f)
+            continue
+        quote = f.get("evidence_quote") or ""
+        if quote and (f.get("file") or "") not in kept_files \
+                and _quote_grounded(quote, archived_blob) \
+                and not _quote_grounded(quote, kept_text):
+            f["archived_text"] = {"rule": "archived-text",
+                                  "basis": "quote"}
+            archived.append(f)
+            continue
+        kept.append(f)
+    return kept, archived
 
 _NESTED_GIT_RE = re.compile(r"^\+diff --git a/\S+ b/(\S+)$")
 _NESTED_PLUS_RE = re.compile(r"^\+\+\+\+ b/(.+)$")
@@ -1585,7 +1659,17 @@ def run_review(patch, providers, context="", test_results=None,
     adjudication call's wait in seconds (default
     TECH_LEAD_CALL_TIMEOUT) — the panel timeout wired through
     adjudication (step4 amendment review, confirmed major
-    1321bec43a24)."""
+    1321bec43a24).
+
+    Archived-record exclusion (refutation-process solution
+    §5.4): sections under a `review-*/` output directory or
+    named `gate-attempts.*` are generated artifacts — they are
+    excluded from the span before batching, listed in the
+    record's `archived_exclusions` with the rule that matched,
+    and findings citing them (or text preserved only inside
+    them) classify as archived-text in
+    `archived_text_findings`: preserved, non-blocking, never
+    adjudicated."""
     test_results = test_results or []
     det = deterministic_scan(patch, test_results)
     clean_patch = redact_secrets(patch)
@@ -1599,7 +1683,21 @@ def run_review(patch, providers, context="", test_results=None,
             "grounded" if _quote_grounded(
                 f.get("evidence_quote"), clean_patch)
             else "not_applicable")
-    sections = split_patch_sections(clean_patch)
+    # Archived-record exclusion (§5.4): generated review
+    # artifacts are removed from the span BEFORE batching —
+    # reviewers never see them, so preserved pre-fix code can
+    # no longer be re-raised as a live claim. Every excluded
+    # path is recorded with its rule (archived_exclusions).
+    all_sections = split_patch_sections(clean_patch)
+    sections, archived_sections, archived_exclusions = [], [], []
+    for _name, _text in all_sections:
+        _rule = _archived_rule(_name)
+        if _rule:
+            archived_sections.append((_name, _text))
+            archived_exclusions.append(
+                {"path": _name, "rule": _rule})
+        else:
+            sections.append((_name, _text))
     batches, batch_files, truncated = _batch_sections_detailed(
         sections, max_patch_chars)
     tests_txt = _test_summary(test_results)
@@ -1808,6 +1906,18 @@ def run_review(patch, providers, context="", test_results=None,
         degraded = True
 
     merged = merge_findings(all_findings)
+    # Archived-text classification (§5.4): deterministic
+    # findings fired on archived paths (the scan runs on the
+    # full patch), and any finding whose quote exists only
+    # inside archived sections, leave the gate here — before
+    # fixture/precedent/platform classification and long
+    # before adjudication. Preserved in
+    # archived_text_findings with the matching rule.
+    archived_text_findings = []
+    if archived_sections:
+        merged, archived_text_findings = _split_archived_text(
+            merged, {name for name, _t in sections},
+            "\n".join(t for _n, t in sections), archived_sections)
     fixture_findings = []
     if fixture_scope:
         # Fixture classification (clean-gate solution §3): the
@@ -2242,6 +2352,21 @@ def run_review(patch, providers, context="", test_results=None,
             f"out-of-scope (documented) under the supported-"
             f"platform manifest (POSIX, Python >= 3.11) — "
             f"preserved in out_of_scope_findings, not blocking"]
+    if archived_exclusions:
+        reasons = reasons + [
+            f"{len(archived_exclusions)} generated artifact "
+            f"path(s) excluded from the reviewed span under "
+            f"the archived-record rule (review-*/, "
+            f"gate-attempts.*) — listed in "
+            f"archived_exclusions; committed review records "
+            f"are evidence, not source"]
+    if archived_text_findings:
+        reasons = reasons + [
+            f"{len(archived_text_findings)} finding(s) "
+            f"classified archived-text (they cite committed "
+            f"review records or text preserved only inside "
+            f"them) — preserved in archived_text_findings, "
+            f"not blocking, never adjudicated"]
     if fixture_scope:
         reasons = reasons + [
             f"{len(fixture_findings)} expected fixture finding(s) "
@@ -2330,6 +2455,10 @@ def run_review(patch, providers, context="", test_results=None,
         report["precedent_candidates"] = precedent_candidates
     if out_of_scope_findings:
         report["out_of_scope_findings"] = out_of_scope_findings
+    if archived_exclusions:
+        report["archived_exclusions"] = archived_exclusions
+    if archived_text_findings:
+        report["archived_text_findings"] = archived_text_findings
     if standing_findings:
         report["standing_findings"] = standing_findings
     if precedents:
@@ -2581,6 +2710,19 @@ def run_verification(patch, providers, previous_report, builder_response,
             # not cleared.
             unjudged.append({**f, "last_statuses": statuses})
     merged_new = merge_findings(new_findings)
+    # Archived-text classification (§5.4), same rule as the
+    # review path: a verification round's new findings that
+    # cite committed review records (or text preserved only
+    # inside them) are preserved as archived-text and never
+    # hold a verification gate hostage to historical evidence.
+    _vfy_sections = split_patch_sections(clean_patch)
+    _vfy_archived = [s for s in _vfy_sections
+                     if _archived_rule(s[0])]
+    _vfy_kept = [s for s in _vfy_sections
+                 if not _archived_rule(s[0])]
+    merged_new, archived_text_findings = _split_archived_text(
+        merged_new, {n for n, _t in _vfy_kept},
+        "\n".join(t for _n, t in _vfy_kept), _vfy_archived)
     all_open = remaining + [f for f in merged_new
                             if f["severity"] in blocking_sevs]
     quorum_ok = len(ok_recs) >= 2 or len(providers) <= 1
@@ -2645,6 +2787,14 @@ def run_verification(patch, providers, previous_report, builder_response,
         "degraded": degraded, "truncated": truncated,
         "gate": gate, "gate_reasons": reasons,
     }
+    if archived_text_findings:
+        report["archived_text_findings"] = archived_text_findings
+        report["gate_reasons"] = reasons + [
+            f"{len(archived_text_findings)} new finding(s) "
+            f"classified archived-text (they cite committed "
+            f"review records or text preserved only inside "
+            f"them) — preserved in archived_text_findings, "
+            f"not blocking"]
     if record_extra:
         report.update({k: v for k, v in record_extra.items()
                        if v is not None})
@@ -2898,6 +3048,34 @@ def verify_record(record, repo=None, record_dir=None):
                 "; ".join(problems) if problems else
                 "precedent store hash, entry links and cited-file "
                 "blobs all recompute")
+    # Evidence sidecars (§4 Q7): every quote/reason/probe text
+    # a record carries must recompute against its content-
+    # addressed sidecar file. A record with no refs predates
+    # sidecars — not applicable, never a retroactive failure,
+    # the same machinery-era semantics as coverage/tier. A
+    # record WITH refs whose sidecars are missing or tampered
+    # FAILS: adjudication-grade evidence must be whole.
+    ev_refs = list(_iter_evidence_refs(record))
+    if not ev_refs:
+        add("evidence_sidecars", True,
+            "no evidence sidecar refs recorded (pre-v0.10 "
+            "record); check not applicable")
+    else:
+        ev_dir = (os.path.join(repo, record_dir, "evidence")
+                  if repo and record_dir else None)
+        problems = _validate_evidence_sidecars(record, ev_dir)
+        incomplete = sum(
+            1 for lst in _FINDING_LIST_KEYS
+            for f in record.get(lst) or []
+            if isinstance(f, dict)
+            and ("dispute" in f or "adjudication" in f)
+            and f.get("evidence_complete") is not True)
+        add("evidence_sidecars", not problems,
+            "; ".join(problems) if problems else
+            f"{len(ev_refs)} evidence ref(s) recompute against "
+            f"their sidecars; {incomplete} dispute-bearing "
+            f"finding(s) lack complete refs "
+            f"(adjudication-ineligible inputs)")
     return {"eligible": all(c["ok"] for c in checks),
             "checks": checks}
 
@@ -3181,6 +3359,31 @@ def verify_chain(records, repo=None, record_dirs=None):
         f"record: {missing}" if missing else
         f"all {len(open1)} round-1 blocker/major finding(s) "
         f"cleared by verification rounds")
+    # Evidence sidecars (§4 Q7), chain-wide: refs in ANY record
+    # of the chain must recompute against the sidecars filed
+    # beside that record. Records without refs predate sidecars
+    # and are not held to it (verify_record semantics).
+    ev_problems, ev_ref_count = [], 0
+    for i, rec in enumerate(records):
+        refs = list(_iter_evidence_refs(rec))
+        ev_ref_count += len(refs)
+        if not refs:
+            continue
+        rdir = (record_dirs[i]
+                if record_dirs and i < len(record_dirs) else None)
+        ev_dir = (os.path.join(repo, rdir, "evidence")
+                  if repo and rdir else None)
+        for p in _validate_evidence_sidecars(rec, ev_dir):
+            ev_problems.append(f"record {i + 1}: {p}")
+    if not ev_ref_count:
+        add("evidence_sidecars", True,
+            "no evidence sidecar refs in the chain (pre-v0.10 "
+            "records); check not applicable")
+    else:
+        add("evidence_sidecars", not ev_problems,
+            "; ".join(ev_problems) if ev_problems else
+            f"{ev_ref_count} evidence ref(s) across the chain "
+            f"recompute against their sidecars")
     last = records[-1]
     add("final_gate_pass", last.get("gate") == "pass",
         f"final gate={last.get('gate')!r}")
@@ -4092,15 +4295,240 @@ def render_markdown(report):
     return "\n".join(lines) + "\n"
 
 
+# ------------------------------------------------- evidence sidecars
+#
+# Refutation-process solution §4 Q7 (owner-adopted): an
+# adjudicator — human or model — may decide only on evidence
+# whose FULL text is stored and hash-verified. The v15/v095
+# records truncated quotes at 400 chars and reasons at 300,
+# mid-word, at ingest: adjudication was being asked to decide
+# on cut-off evidence. Now evidence text is stored full-text
+# in the run, and at record-write time every quote, reason,
+# probe output and resolution evidence is ALSO written as a
+# content-addressed sidecar file (evidence/<sha256>) beside
+# the record JSON. The JSON keeps a short display copy with an
+# explicit `truncated` flag on its ref when the full text is
+# longer; the ref carries {sha256, length, truncated} and
+# record-verify recomputes every hash. A dispute-bearing
+# finding is stamped `evidence_complete` when every position
+# text it carries has a sidecar ref — a future adjudication
+# over a finding WITHOUT complete refs is record-ineligible
+# (the flag the Q2 eligibility checklist reads).
+
+_EVIDENCE_CAPS = {"evidence": 400, "evidence_quote": 400,
+                  "reason": 300, "rationale": 600, "detail": 600,
+                  "withdrawn_reason": 300}
+
+_FINDING_LIST_KEYS = (
+    "findings", "deterministic_findings", "fixture_findings",
+    "disputed_findings", "refutation_weak_findings",
+    "standing_findings", "withdrawn_findings",
+    "out_of_scope_findings", "escalated_findings",
+    "adjudicated_refuted_findings", "archived_text_findings",
+    "cleared", "remaining", "unjudged")
+
+
+def _evidence_targets(finding):
+    """Yield (container, key, cap, group) for every evidence
+    text a finding carries: its own evidence/quote, the
+    dispute positions (cross-family refutation), the Tech Lead
+    adjudication (decision quote, rationale, probe output, both
+    positions), and a re-ground withdrawal reason. Groups
+    "dispute"/"adjudication" feed the evidence_complete flag."""
+    for key in ("evidence", "evidence_quote", "withdrawn_reason"):
+        if key in finding:
+            yield finding, key, _EVIDENCE_CAPS[key], "core"
+    dispute = finding.get("dispute")
+    if isinstance(dispute, dict):
+        for key in ("evidence_quote", "reason"):
+            if key in dispute:
+                yield dispute, key, _EVIDENCE_CAPS[key], "dispute"
+    adj = finding.get("adjudication")
+    if isinstance(adj, dict):
+        for key in ("evidence_quote", "rationale"):
+            if key in adj:
+                yield adj, key, _EVIDENCE_CAPS[key], "adjudication"
+        probe = adj.get("probe")
+        if isinstance(probe, dict):
+            for key in ("evidence_quote", "detail"):
+                if key in probe:
+                    yield probe, key, _EVIDENCE_CAPS[key], \
+                        "adjudication"
+        positions = adj.get("positions")
+        if isinstance(positions, dict):
+            for side in ("raiser", "refuter"):
+                pos = positions.get(side)
+                if isinstance(pos, dict):
+                    for key in ("evidence_quote", "reason"):
+                        if key in pos:
+                            yield pos, key, _EVIDENCE_CAPS[key], \
+                                "adjudication"
+
+
+def _iter_evidence_refs(record):
+    """Yield (container, key, ref) for every evidence sidecar
+    ref in a record — the verification-side mirror of
+    _evidence_targets, driven by the *_ref fields themselves so
+    it also audits refs a future writer adds."""
+    def walk_finding(f):
+        if not isinstance(f, dict):
+            return
+        for container, key, _cap, _group in _evidence_targets(f):
+            ref = container.get(key + "_ref")
+            if isinstance(ref, dict):
+                yield container, key, ref
+
+    for list_key in _FINDING_LIST_KEYS:
+        for f in record.get(list_key) or []:
+            yield from walk_finding(f)
+    for rep in record.get("reviewer_reports") or []:
+        if not isinstance(rep, dict):
+            continue
+        for f in rep.get("findings") or []:
+            yield from walk_finding(f)
+        for entry in (rep.get("resolutions") or {}).values():
+            if isinstance(entry, dict) \
+                    and isinstance(entry.get("evidence_ref"), dict):
+                yield entry, "evidence", entry["evidence_ref"]
+
+
+def _attach_evidence_sidecars(report, out_dir):
+    """Return the record as written to disk: a copy whose
+    evidence texts carry sidecar refs (and display caps), with
+    the full texts written under out_dir/evidence/<sha256>.
+    Findings aliased across lists (a merged finding is the
+    same dict in reviewer_reports and findings) are processed
+    once, by identity."""
+    rec = copy.deepcopy(report)
+    pending = {}
+    seen = set()
+    total = 0
+
+    def attach(container, key, cap):
+        nonlocal total
+        text = container.get(key)
+        if not isinstance(text, str) or not text:
+            return True  # no text: nothing to preserve
+        digest = hashlib.sha256(
+            text.encode("utf-8")).hexdigest()
+        pending[digest] = text
+        truncated = len(text) > cap
+        container[key + "_ref"] = {
+            "sha256": digest, "length": len(text),
+            "truncated": truncated}
+        if truncated:
+            container[key] = text[:cap]
+        total += 1
+        return True
+
+    def walk_finding(f):
+        if not isinstance(f, dict) or id(f) in seen:
+            return
+        seen.add(id(f))
+        complete = True
+        for container, key, cap, group in _evidence_targets(f):
+            attach(container, key, cap)
+            if group in ("dispute", "adjudication"):
+                text = container.get(key)
+                if isinstance(text, str) and text \
+                        and not isinstance(
+                            container.get(key + "_ref"), dict):
+                    complete = False
+        if "dispute" in f or "adjudication" in f:
+            f["evidence_complete"] = complete
+
+    for list_key in _FINDING_LIST_KEYS:
+        for f in rec.get(list_key) or []:
+            walk_finding(f)
+    for rep in rec.get("reviewer_reports") or []:
+        if not isinstance(rep, dict):
+            continue
+        for f in rep.get("findings") or []:
+            walk_finding(f)
+        for entry in (rep.get("resolutions") or {}).values():
+            if isinstance(entry, dict):
+                # Resolution evidence displays at the historical
+                # 300-char cap; the sidecar carries it in full.
+                attach(entry, "evidence", 300)
+    if pending:
+        ev_dir = os.path.join(out_dir, "evidence")
+        os.makedirs(ev_dir, exist_ok=True)
+        for digest, text in pending.items():
+            path = os.path.join(ev_dir, digest)
+            if not os.path.exists(path):
+                with open(path, "w", encoding="utf-8") as fh:
+                    fh.write(text)
+        rec["evidence_sidecars"] = {
+            "dir": "evidence", "files": len(pending),
+            "refs": total}
+    return rec
+
+
+def _validate_evidence_sidecars(record, evidence_dir):
+    """Recompute every evidence sidecar ref in a record
+    against the files beside it. Returns problems (empty =
+    valid). A record with no refs predates sidecars: no
+    problems — the caller reports the check not-applicable,
+    exactly like the other machinery-era checks. When refs
+    exist, each sidecar must be present, hash to its ref, have
+    the recorded length, agree with the truncated flag, and
+    have the JSON display copy as its exact prefix."""
+    refs = list(_iter_evidence_refs(record))
+    if not refs:
+        return []
+    if evidence_dir is None:
+        return [f"record carries {len(refs)} evidence sidecar "
+                f"ref(s) but no evidence directory was located"]
+    problems = []
+    cache = {}
+    for container, key, ref in refs:
+        digest = str(ref.get("sha256") or "")
+        label = f"{key} (sha256 {digest[:12]}…)"
+        if digest not in cache:
+            path = os.path.join(evidence_dir, digest)
+            if not os.path.isfile(path):
+                cache[digest] = None
+            else:
+                with open(path, encoding="utf-8") as fh:
+                    cache[digest] = fh.read()
+        full = cache[digest]
+        if full is None:
+            problems.append(f"{label}: sidecar file missing")
+            continue
+        if hashlib.sha256(
+                full.encode("utf-8")).hexdigest() != digest:
+            problems.append(f"{label}: sidecar content does "
+                            f"not hash to its ref (tampered or "
+                            f"corrupt)")
+            continue
+        if ref.get("length") != len(full):
+            problems.append(
+                f"{label}: recorded length {ref.get('length')} "
+                f"!= sidecar length {len(full)}")
+        display = container.get(key)
+        if not isinstance(display, str) \
+                or not full.startswith(display):
+            problems.append(f"{label}: JSON display copy is "
+                            f"not a prefix of the full text")
+        elif bool(ref.get("truncated")) != (len(display)
+                                            < len(full)):
+            problems.append(
+                f"{label}: truncated flag "
+                f"{ref.get('truncated')!r} disagrees with the "
+                f"display/full lengths")
+    return problems
+
+
 def write_report(report, out_dir, stem=None):
     os.makedirs(out_dir, exist_ok=True)
     stem = stem or ("codereview-" + datetime.datetime.now(
         datetime.timezone.utc).strftime("%Y%m%d-%H%M%S"))
+    record = _attach_evidence_sidecars(report, out_dir)
     jpath = os.path.join(out_dir, stem + ".json")
     mpath = os.path.join(out_dir, stem + ".md")
     with open(jpath, "w", encoding="utf-8") as fh:
-        json.dump(report, fh, ensure_ascii=False, indent=2)
+        json.dump(record, fh, ensure_ascii=False, indent=2)
         fh.write("\n")
     with open(mpath, "w", encoding="utf-8") as fh:
-        fh.write(render_markdown(report))
+        fh.write(render_markdown(record))
     return jpath, mpath
