@@ -190,6 +190,22 @@ def cache_key(seat, model, params, prompt):
 # do not heal in minutes) — they end the job and, unserved, mark
 # the case unscored-infra. An empty body from the transport layer
 # is a transport failure too (the solution names it explicitly).
+#
+# One typed exception to that mapping (soak 2026-11-05): a
+# ProviderError with kind "empty" from a seat wrapper means the
+# provider ANSWERED — a well-formed response whose content
+# channel is empty (the model spent its completion budget in the
+# reasoning channel the wrapper discards; the soak reproduced it
+# on 5/24 bench calls on a healthy account, and the raw-API probe
+# measured reasoning at 80–87% of completion tokens on the two
+# worst prompts). That is a CONTENT failure, not transport: the
+# seat hands it to the product's own retry behaviour as an
+# unusable response (GenerationSeat.__call__), the per-lens
+# fallback seat is the next step, and it never burns the
+# transport retry budget nor latches the per-key exhausted
+# state. The raw empty-body return above stays transport class —
+# Addendum A item 4 names the two cases separately, and only the
+# typed wrapper error is remapped.
 
 RETRYABLE_KINDS = ("rate_limit", "transient")
 
@@ -337,6 +353,28 @@ class GenerationSeat:
             try:
                 raw = self.transport(prompt)
             except Exception as exc:  # noqa: BLE001 — classified
+                if getattr(exc, "kind", None) == "empty":
+                    # Content-class failure (see the failure
+                    # classes header): the seat wrapper answered
+                    # with an empty content channel. Return an
+                    # empty text so the product's own retry
+                    # behaviour (_call_and_parse's repair + fresh
+                    # sample, inside run_review) re-draws, and the
+                    # pre-declared per-lens fallback seat is the
+                    # step after that — exactly the content path.
+                    # No transport-budget retry here, no exhausted
+                    # latch: the re-draw must reach the transport.
+                    self._event(qh, "content_invalid",
+                                started_iso, attempts=1,
+                                error_class="empty",
+                                detail=exc,
+                                duration_ms=int(
+                                    (self.clock()
+                                     - attempt_started) * 1000),
+                                prompt_chars=len(prompt),
+                                http_status=core._http_status_of(
+                                    exc))
+                    return ""
                 kind, _tries = core._classify_error(exc)
                 self._event(qh, "transport_error", started_iso,
                             attempts=1, error_class=kind,
