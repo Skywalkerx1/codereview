@@ -10,10 +10,14 @@ rounds; record-verify --chain 12/12, exit 0). Suite 691.
   append-only disposition store (116 owner-ratified entries),
   authority-affecting tagger, quote-anchored locate, release-flow
   freshness check in record-verify --chain.
-- Epic A benchmark + first quotable baseline: recall 1.000 (24/24),
-  escaped-defect rate 0.000 on the public split; deterministic layer
-  alone 0.458. Precision 0.209 and clean-control FP rate 0.60 are
-  stated caveats in bench/BASELINE-2026-11-04.md.
+- Epic A benchmark + first quotable baseline: recall 24/24 on the
+  public split (Wilson 95% lower bound 0.86), escaped-defect rate
+  0.000; deterministic layer alone recall 0.458. Precision 0.209
+  naive (blocking-tier 0.267; merged-finding 0.727 with 82 duplicate
+  matches removed); clean-case BLOCKED rate 0.40 (2/5) and
+  clean-case any-finding rate 0.60 (3/5) are the stated caveats —
+  corrected figures in the measurement-repair addendum,
+  bench/BASELINE-2026-11-04.md §6 (adopted solution §2.2).
 - Epic B policy file, Epic C evidence runner, Epic D1 SARIF export.
 - Probe harness (sandboxed, rebut-only) + shadow Tech Lead (full
   adjudication schema, A/B blinding, double-draw). Acceptance run

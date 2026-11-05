@@ -83,8 +83,14 @@ severity first, one-to-one both ways.
   escapes: the default gate would have shipped the change. This
   is the headline metric.
 - **Precision** — matched findings / all reported findings.
-- **Clean-case FP rate** — clean cases with ≥ 1 finding / clean
-  cases. On a clean case every finding is a false positive.
+- **Clean-case BLOCKED rate** — clean cases whose gate verdict is
+  blocked / clean cases. The user-visible harm figure.
+- **Clean-case any-finding rate** — clean cases with ≥ 1 finding /
+  clean cases (the harness's `clean_fp_rate` field). On a clean
+  case every finding is a false positive; this rate measures
+  noise, not harm — do not quote it as the blocked rate.
+- **Clean-case blocking-finding count** — blocker/major findings
+  on clean cases, reported per case.
 - **Cost per verdict** — summed seat attempts × the config's
   `cost_per_call_usd`, over cases run. Scripted seats cost 0;
   real configs must declare their rates or report $0.
@@ -131,14 +137,16 @@ the run; the panel that served was OpenAI (gpt-5.4, correctness) +
 NVIDIA (nemotron-3.5-lightning, operations) + DeepSeek
 (deepseek-flash, correctness), seats injected from the swarm's
 llm_chain via `bench/scripts/run_panel_baseline.py`. All 27 public
-cases ran, **zero degraded, 81/81 seat jobs ok**: **recall 1.000,
-escaped-defect rate 0.000** over the split's 24 defects — against
-precision 0.209 and a clean-case FP rate of 0.60 (2 of 5 clean
-controls gate-blocked on false positives). Full numbers, per-family
+cases ran, **zero degraded, 81/81 seat jobs ok**: **recall 24/24
+on the public split, escaped-defect rate 0.000** — against naive
+precision 0.209, a clean-case BLOCKED rate of 0.40 (2 of 5 clean
+controls gate-blocked on false positives) and a clean-case
+any-finding rate of 0.60 (3 of 5). Full numbers, per-family
 and per-lens breakdowns, and the caveats that must travel with the
 headline are in `bench/BASELINE-2026-11-04.md`, with the official
-report and raw records beside it. A Gemini-inclusive baseline
-still awaits a quota reset.
+report and raw records beside it; corrected figures and intervals
+are in that file's measurement-repair addendum (§6). A
+Gemini-inclusive baseline still awaits a quota reset.
 
 ## Holdout discipline
 
