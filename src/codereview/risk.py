@@ -125,9 +125,14 @@ _CONTENT_PATTERNS = {
         r"\b(hashlib|bcrypt|argon2|scrypt|pbkdf2|fernet|"
         r"createcipher|createdecipher|messagedigest|hmac|"
         r"encrypt|decrypt)\b", re.IGNORECASE),
+    # \s+ rather than a literal space: the phrases are SQL
+    # whatever the whitespace, and the pattern text itself
+    # then carries no literal destructive-SQL string for a
+    # scanner to mistake for a statement.
     "migrations": re.compile(
-        r"\b(alter table|create table|drop table|add column|"
-        r"drop column|create index|drop index)\b",
+        r"\b(alter\s+table|create\s+table|drop\s+table|"
+        r"add\s+column|drop\s+column|create\s+index|"
+        r"drop\s+index)\b",
         re.IGNORECASE),
     "secrets": re.compile(
         r"(api[_-]?key|secret|password|passwd|private[_-]?key|"

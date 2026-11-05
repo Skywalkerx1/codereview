@@ -239,14 +239,27 @@ class ScorerSizeAndDependencyTests(unittest.TestCase):
         self.assertTrue(any("capped" in r
                             for r in section["reasons"]))
 
-    def test_score_never_exceeds_100(self):
+    def test_score_ceiling_is_exactly_100(self):
+        # Every contribution maxed: all six classes (subtotal
+        # 135, capped at 60) + dependencies (15) + the top
+        # size tier (25) = exactly 100 — the arithmetic
+        # ceiling of the model, so the score can never pass
+        # it (the min(100, ...) clamp is defence in depth).
         patch = _patch(
             ("src/auth/a.py",
-             tuple(f"v{i} = {i}" for i in range(600)), ()),
-            ("package.json", ('"a": 1',), ()),
-            ("app/config.py", (_SECRET_LINE,), ()))
+             tuple(f"v{i} = {i}" for i in range(1000)), ()),
+            ("app/billing/b.py", ("pass",), ()),
+            ("app/c.py", ("from hashlib import sha256",), ()),
+            ("db/migrations/0001.py", ("pass",), ()),
+            ("app/config.py", (_SECRET_LINE,), ()),
+            ("app/d.py", ("obj = pickle.loads(data)",), ()),
+            ("package.json", ('"a": 1',), ()))
         section = risk.score_patch(patch)
-        self.assertLessEqual(section["score"], 100)
+        self.assertEqual(section["points"],
+                         {"patterns": risk.PATTERN_CAP,
+                          "dependencies": 15, "size": 25})
+        self.assertEqual(section["score"], 100)
+        self.assertEqual(section["band"], "high")
 
 
 class ScorerDeterminismTests(unittest.TestCase):

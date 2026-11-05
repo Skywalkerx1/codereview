@@ -1,0 +1,594 @@
+{
+  "schema": "codereview.report/1",
+  "version": "0.12.1",
+  "mode": "review",
+  "created_at": "2026-11-05T20:09:56+00:00",
+  "patch_sha256": "0abb2efb2a4b2c769d4fdc0f62b8b537407cede2f523e76dc6b0b60a731ef799",
+  "patch_chars": 43772,
+  "files": [
+    "CHANGELOG.md",
+    "src/codereview/core.py",
+    "src/codereview/policy.py",
+    "src/codereview/risk.py",
+    "tests/test_risk.py"
+  ],
+  "context": "Epic E1: deterministic risk scorer. New src/codereview/risk.py (pure scorer over diff sections: pattern classes auth/payments/crypto/migrations/secrets/deserialization on paths+added lines, dependency manifests, size tiers; pattern cap 60; score<=100; bands via thresholds). Policy: new [risk] table (enabled/medium_threshold/high_threshold) with B1 line-referenced validation + render only when enabled. core.run_review: when policy enables risk, record gains a risk section computed from the kept s",
+  "private": false,
+  "supported_platforms": {
+    "os": [
+      "posix"
+    ],
+    "python": ">=3.11"
+  },
+  "coverage": {
+    "batch_count": 1,
+    "truncated": false,
+    "complete": false,
+    "omissions": [
+      "CHANGELOG.md: no successful correctness review of batch(es) [1]",
+      "src/codereview/core.py: no successful correctness review of batch(es) [1]",
+      "src/codereview/policy.py: no successful correctness review of batch(es) [1]",
+      "src/codereview/risk.py: no successful correctness review of batch(es) [1]",
+      "tests/test_risk.py: no successful correctness review of batch(es) [1]"
+    ],
+    "files": {
+      "CHANGELOG.md": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "src/codereview/core.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "src/codereview/policy.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "src/codereview/risk.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [],
+          "operations": [
+            1
+          ]
+        }
+      },
+      "tests/test_risk.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [],
+          "operations": [
+            1
+          ]
+        }
+      }
+    }
+  },
+  "test_results": [],
+  "deterministic_findings": [
+    {
+      "id": "c8a09d51df2a",
+      "rule": "drop-table",
+      "severity": "blocker",
+      "category": "data-loss",
+      "file": "src/codereview/risk.py",
+      "line": 129,
+      "line_basis": "blob",
+      "title": "DROP TABLE in added code",
+      "evidence": "r\"\\b(alter table|create table|drop table|add column|\"",
+      "evidence_quote": "r\"\\b(alter table|create table|drop table|add column|\"",
+      "recommendation": "Confirm this is a deliberate, backed-up migration; otherwise remove.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "source_lenses": {
+        "deterministic": [
+          "deterministic"
+        ]
+      },
+      "consensus": false,
+      "grounding": "grounded",
+      "evidence_ref": {
+        "sha256": "1cf596960bf8a187b7cd87e9d40ff945d8afa359132a681fd78eccab6d32db61",
+        "length": 53,
+        "truncated": false
+      },
+      "evidence_quote_ref": {
+        "sha256": "1cf596960bf8a187b7cd87e9d40ff945d8afa359132a681fd78eccab6d32db61",
+        "length": 53,
+        "truncated": false
+      }
+    }
+  ],
+  "reviewer_reports": [
+    {
+      "provider": "gemini",
+      "lens": "correctness",
+      "batch": 1,
+      "status": "error",
+      "error": "ProviderError (HTTP 429): gemini quota: HTTP 429 | fallback 'openai' also failed: ProviderError (HTTP 429): openai quota: HTTP 429",
+      "summary": "",
+      "findings": [],
+      "attempts": 2,
+      "error_classes": [
+        "quota"
+      ],
+      "duration_ms": 2455,
+      "prompt_chars": 107998,
+      "error_detail": {
+        "error": "gemini quota: HTTP 429",
+        "http_status": 429,
+        "error_classes": [
+          "quota"
+        ],
+        "fallback_error": "openai quota: HTTP 429",
+        "fallback_http_status": 429
+      },
+      "family": "google",
+      "tier": "free",
+      "seat_state": {
+        "state": "blocked",
+        "class": "quota",
+        "evidence": {
+          "error_class": "quota"
+        },
+        "transitions": [
+          {
+            "state": "pending",
+            "class": null,
+            "at_ms": 0
+          },
+          {
+            "state": "working",
+            "class": null,
+            "at_ms": 0
+          },
+          {
+            "state": "blocked",
+            "class": "quota",
+            "at_ms": 1225,
+            "evidence": {
+              "error_class": "quota"
+            },
+            "terminal": true
+          }
+        ]
+      },
+      "seat_state_primary": {
+        "state": "blocked",
+        "class": "quota",
+        "evidence": {
+          "error_class": "quota"
+        },
+        "transitions": [
+          {
+            "state": "pending",
+            "class": null,
+            "at_ms": 0
+          },
+          {
+            "state": "working",
+            "class": null,
+            "at_ms": 0
+          },
+          {
+            "state": "blocked",
+            "class": "quota",
+            "at_ms": 1230,
+            "evidence": {
+              "error_class": "quota"
+            },
+            "terminal": true
+          }
+        ]
+      }
+    },
+    {
+      "provider": "nvidia",
+      "lens": "operations",
+      "batch": 1,
+      "status": "ok",
+      "error": "",
+      "summary": "The risk scorer introduces a new deterministic scoring mechanism, but the diff contains several reliability and correctness issues: the score can exceed 100 before the cap is applied (evidence_quote shows pattern_points + dependency_points + size_points without the min(100, ...) clamp being visible in the reason output; the score_sections function does apply min(100,) but the reason text does not reflect the cap correctly; dependency manifest detection uses case-insensitive basename matching whi",
+      "findings": [
+        {
+          "id": "504401322948",
+          "rule": "",
+          "severity": "major",
+          "category": "correctness",
+          "file": "src/codereview/risk.py",
+          "line": 291,
+          "title": "Score exceeds 100 before cap is applied in reasons",
+          "evidence": "",
+          "evidence_quote": "score = min(100, pattern_points + dependency_points + size_points)",
+          "recommendation": "Ensure the reason strings reflect the capped score and that the cap is applied before any score accumulation; add a test verifying the score does not exceed 100 when pattern + dependency + size points would otherwise surpass it.",
+          "confidence": 0.85,
+          "sources": [
+            "nvidia"
+          ],
+          "consensus": false,
+          "source_lenses": {
+            "nvidia": [
+              "operations"
+            ]
+          },
+          "grounding": "withdrawn",
+          "reground_seat": "nvidia",
+          "withdrawn_reason": "The provided diff text shows the score calculation as `score = min(100, pattern_points + dependency_points + size_points)` on the final return line, which matches the evidence_quote in the finding. The claim that the score exceeds 100 before the cap is applied is unsupported by this text; the cap is",
+          "withdrawn_by": "nvidia",
+          "evidence_quote_ref": {
+            "sha256": "d3c15e8a60d79d0fe16ec1ef21bea1b609b08c9227713ac73fee7ebd02dd84a8",
+            "length": 66,
+            "truncated": false
+          },
+          "withdrawn_reason_ref": {
+            "sha256": "96bd231dc1b5b73154e0807239f4a75cb74d22e6a581a4e0145e3f09dfa8bdb8",
+            "length": 418,
+            "truncated": true
+          }
+        },
+        {
+          "id": "175fd674c026",
+          "rule": "",
+          "severity": "minor",
+          "category": "reliability",
+          "file": "src/codereview/risk.py",
+          "line": 111,
+          "title": "Dependency manifest detection may misclassify non-manifest txt files",
+          "evidence": "",
+          "evidence_quote": "return \"requirements\" in parts[:-1] and base.endswith(\".txt\")",
+          "recommendation": "Review the _is_dependency_manifest logic for the requirements/<env>.txt layout; ensure that only genuine dependency manifests (or explicitly listed files) are flagged, and that plain .txt files not under a requirements/ directory are excluded.",
+          "confidence": 0.6,
+          "sources": [
+            "nvidia"
+          ],
+          "consensus": false,
+          "source_lenses": {
+            "nvidia": [
+              "operations"
+            ]
+          },
+          "grounding": "withdrawn",
+          "reground_seat": "nvidia",
+          "withdrawn_reason": "The provided diff text does not contain the line `return \"requirements\" in parts[:-1] and base.endswith(\".txt\")`. The `_is_dependency_manifest` function is present in the diff, but its body uses `return \"requirements\" in parts[:-1] and base.endswith(\".txt\")` only in the comment/reasoning of the find",
+          "withdrawn_by": "nvidia",
+          "evidence_quote_ref": {
+            "sha256": "7caa84137022fb6200490e707d03cf71ffcf896efb2cad1d56bfb220970fc4ce",
+            "length": 61,
+            "truncated": false
+          },
+          "withdrawn_reason_ref": {
+            "sha256": "6e8d491643b10d9972b3f7b18dad94458f0403f96e47b82deeaecda691b73379",
+            "length": 694,
+            "truncated": true
+          }
+        },
+        {
+          "id": "be56c2118155",
+          "rule": "",
+          "severity": "minor",
+          "category": "performance",
+          "file": "src/codereview/risk.py",
+          "line": 158,
+          "title": "score_sections iterates all classes per section without early exit",
+          "evidence": "",
+          "evidence_quote": "for name in CLASS_ORDER:",
+          "recommendation": "Consider adding early break or optimization if the class has already been matched for the section, to reduce unnecessary pattern checks on large diffs.",
+          "confidence": 0.5,
+          "sources": [
+            "nvidia"
+          ],
+          "consensus": false,
+          "source_lenses": {
+            "nvidia": [
+              "operations"
+            ]
+          },
+          "grounding": "grounded",
+          "evidence_quote_ref": {
+            "sha256": "2ed669e98a791da917b8dbaffc4b7f01e9454fd41153efb60e77ef0126256ab9",
+            "length": 24,
+            "truncated": false
+          }
+        },
+        {
+          "id": "b29ed8a9dc88",
+          "rule": "",
+          "severity": "minor",
+          "category": "testing",
+          "file": "tests/test_risk.py",
+          "line": 341,
+          "title": "test_score_never_exceeds_100 does not verify cap is applied",
+          "evidence": "",
+          "evidence_quote": "self.assertLessEqual(section[\"score\"], 100)",
+          "recommendation": "Add assertions or subtests that verify the score is capped at 100 and that the reasons do not claim uncapped points after the cap is applied.",
+          "confidence": 0.7,
+          "sources": [
+            "nvidia"
+          ],
+          "consensus": false,
+          "source_lenses": {
+            "nvidia": [
+              "operations"
+            ]
+          },
+          "grounding": "grounded",
+          "evidence_quote_ref": {
+            "sha256": "8d81e923a80a3cc507ecf272b6695b201bf37aea69c58784604a6ef3af7ceb40",
+            "length": 43,
+            "truncated": false
+          }
+        }
+      ],
+      "attempts": 1,
+      "error_classes": [],
+      "duration_ms": 12528,
+      "prompt_chars": 108069,
+      "family": "nvidia",
+      "tier": "free",
+      "seat_state": {
+        "state": "done",
+        "class": null,
+        "evidence": {},
+        "transitions": [
+          {
+            "state": "pending",
+            "class": null,
+            "at_ms": 0
+          },
+          {
+            "state": "working",
+            "class": null,
+            "at_ms": 0
+          },
+          {
+            "state": "done",
+            "class": null,
+            "at_ms": 12528,
+            "terminal": true
+          }
+        ]
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "c8a09d51df2a",
+      "rule": "drop-table",
+      "severity": "blocker",
+      "category": "data-loss",
+      "file": "src/codereview/risk.py",
+      "line": 129,
+      "line_basis": "blob",
+      "title": "DROP TABLE in added code",
+      "evidence": "r\"\\b(alter table|create table|drop table|add column|\"",
+      "evidence_quote": "r\"\\b(alter table|create table|drop table|add column|\"",
+      "recommendation": "Confirm this is a deliberate, backed-up migration; otherwise remove.",
+      "confidence": 0.9,
+      "sources": [
+        "deterministic"
+      ],
+      "source_lenses": {
+        "deterministic": [
+          "deterministic"
+        ]
+      },
+      "consensus": false,
+      "grounding": "grounded",
+      "evidence_class": "E0",
+      "evidence_ref": {
+        "sha256": "1cf596960bf8a187b7cd87e9d40ff945d8afa359132a681fd78eccab6d32db61",
+        "length": 53,
+        "truncated": false
+      },
+      "evidence_quote_ref": {
+        "sha256": "1cf596960bf8a187b7cd87e9d40ff945d8afa359132a681fd78eccab6d32db61",
+        "length": 53,
+        "truncated": false
+      }
+    },
+    {
+      "id": "be56c2118155",
+      "rule": "",
+      "severity": "minor",
+      "category": "performance",
+      "file": "src/codereview/risk.py",
+      "line": 158,
+      "title": "score_sections iterates all classes per section without early exit",
+      "evidence": "",
+      "evidence_quote": "for name in CLASS_ORDER:",
+      "recommendation": "Consider adding early break or optimization if the class has already been matched for the section, to reduce unnecessary pattern checks on large diffs.",
+      "confidence": 0.5,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false,
+      "source_lenses": {
+        "nvidia": [
+          "operations"
+        ]
+      },
+      "grounding": "grounded",
+      "evidence_class": "E3",
+      "evidence_quote_ref": {
+        "sha256": "2ed669e98a791da917b8dbaffc4b7f01e9454fd41153efb60e77ef0126256ab9",
+        "length": 24,
+        "truncated": false
+      }
+    },
+    {
+      "id": "b29ed8a9dc88",
+      "rule": "",
+      "severity": "minor",
+      "category": "testing",
+      "file": "tests/test_risk.py",
+      "line": 341,
+      "title": "test_score_never_exceeds_100 does not verify cap is applied",
+      "evidence": "",
+      "evidence_quote": "self.assertLessEqual(section[\"score\"], 100)",
+      "recommendation": "Add assertions or subtests that verify the score is capped at 100 and that the reasons do not claim uncapped points after the cap is applied.",
+      "confidence": 0.7,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false,
+      "source_lenses": {
+        "nvidia": [
+          "operations"
+        ]
+      },
+      "grounding": "grounded",
+      "evidence_class": "E3",
+      "evidence_quote_ref": {
+        "sha256": "8d81e923a80a3cc507ecf272b6695b201bf37aea69c58784604a6ef3af7ceb40",
+        "length": 43,
+        "truncated": false
+      }
+    }
+  ],
+  "degraded": true,
+  "truncated": false,
+  "degraded_causes": [
+    "reviewer failure",
+    "coverage incomplete"
+  ],
+  "gate": "blocked",
+  "gate_reasons": [
+    "coverage incomplete: 5 file/lens omission(s) — run marked degraded",
+    "1 blocking finding(s) (blocker)",
+    "at least one reviewer failed (degraded review)",
+    "2 finding(s) withdrawn in the re-ground pass — preserved in withdrawn_findings"
+  ],
+  "gate_profile": {
+    "profile": "strict",
+    "source": "default",
+    "demotions": []
+  },
+  "file_context": {
+    "attached": [
+      {
+        "file": "CHANGELOG.md",
+        "chars": 11922
+      },
+      {
+        "file": "src/codereview/core.py",
+        "chars": 24079
+      },
+      {
+        "file": "src/codereview/policy.py",
+        "chars": 24078
+      }
+    ]
+  },
+  "withdrawn_findings": [
+    {
+      "id": "504401322948",
+      "rule": "",
+      "severity": "major",
+      "category": "correctness",
+      "file": "src/codereview/risk.py",
+      "line": 291,
+      "title": "Score exceeds 100 before cap is applied in reasons",
+      "evidence": "",
+      "evidence_quote": "score = min(100, pattern_points + dependency_points + size_points)",
+      "recommendation": "Ensure the reason strings reflect the capped score and that the cap is applied before any score accumulation; add a test verifying the score does not exceed 100 when pattern + dependency + size points would otherwise surpass it.",
+      "confidence": 0.85,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false,
+      "source_lenses": {
+        "nvidia": [
+          "operations"
+        ]
+      },
+      "grounding": "withdrawn",
+      "reground_seat": "nvidia",
+      "withdrawn_reason": "The provided diff text shows the score calculation as `score = min(100, pattern_points + dependency_points + size_points)` on the final return line, which matches the evidence_quote in the finding. The claim that the score exceeds 100 before the cap is applied is unsupported by this text; the cap is",
+      "withdrawn_by": "nvidia",
+      "evidence_quote_ref": {
+        "sha256": "d3c15e8a60d79d0fe16ec1ef21bea1b609b08c9227713ac73fee7ebd02dd84a8",
+        "length": 66,
+        "truncated": false
+      },
+      "withdrawn_reason_ref": {
+        "sha256": "96bd231dc1b5b73154e0807239f4a75cb74d22e6a581a4e0145e3f09dfa8bdb8",
+        "length": 418,
+        "truncated": true
+      }
+    },
+    {
+      "id": "175fd674c026",
+      "rule": "",
+      "severity": "minor",
+      "category": "reliability",
+      "file": "src/codereview/risk.py",
+      "line": 111,
+      "title": "Dependency manifest detection may misclassify non-manifest txt files",
+      "evidence": "",
+      "evidence_quote": "return \"requirements\" in parts[:-1] and base.endswith(\".txt\")",
+      "recommendation": "Review the _is_dependency_manifest logic for the requirements/<env>.txt layout; ensure that only genuine dependency manifests (or explicitly listed files) are flagged, and that plain .txt files not under a requirements/ directory are excluded.",
+      "confidence": 0.6,
+      "sources": [
+        "nvidia"
+      ],
+      "consensus": false,
+      "source_lenses": {
+        "nvidia": [
+          "operations"
+        ]
+      },
+      "grounding": "withdrawn",
+      "reground_seat": "nvidia",
+      "withdrawn_reason": "The provided diff text does not contain the line `return \"requirements\" in parts[:-1] and base.endswith(\".txt\")`. The `_is_dependency_manifest` function is present in the diff, but its body uses `return \"requirements\" in parts[:-1] and base.endswith(\".txt\")` only in the comment/reasoning of the find",
+      "withdrawn_by": "nvidia",
+      "evidence_quote_ref": {
+        "sha256": "7caa84137022fb6200490e707d03cf71ffcf896efb2cad1d56bfb220970fc4ce",
+        "length": 61,
+        "truncated": false
+      },
+      "withdrawn_reason_ref": {
+        "sha256": "6e8d491643b10d9972b3f7b18dad94458f0403f96e47b82deeaecda691b73379",
+        "length": 694,
+        "truncated": true
+      }
+    }
+  ],
+  "open_disputes": {
+    "count": 0,
+    "ids": []
+  },
+  "range": "f1f1f35..HEAD",
+  "head": "21fedf74e25b46317233ac527139b3b8dc2fb137",
+  "evidence_sidecars": {
+    "dir": "evidence",
+    "files": 7,
+    "refs": 12
+  }
+}
