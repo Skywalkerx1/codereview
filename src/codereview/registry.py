@@ -42,7 +42,7 @@ from __future__ import annotations
 
 # role -> the lens it pins, where the role IS a review lens.
 ROLES = ("correctness", "operations", "verifier", "tech-lead",
-         "solver")
+         "tech-lead-shadow", "solver")
 LENS_ROLES = {"correctness": "correctness",
               "operations": "operations"}
 

@@ -33,6 +33,8 @@ from __future__ import annotations
 
 import ast
 import concurrent.futures
+
+from .probe import parse_probe_spec
 import copy
 import datetime
 import fnmatch
@@ -688,6 +690,32 @@ def _xconfirm_call(fn, finding, region):
 # amendment review, confirmed major f6064fc5e515).
 MAX_PROBE_ROUNDS = 1
 
+# Shadow Tech Lead (refutation-process solution Q2/Q4 +
+# four-disputed solution, owner-adopted 2026-11-04): the FULL
+# structured adjudication, run in shadow — decisions recorded
+# in the record's shadow_adjudications section, labelled
+# non-binding, never consulted by the gate. Protocol and
+# rubric versions ride in every decision and in its cache key.
+ADJUDICATION_PROTOCOL_VERSION = 1
+RUBRIC_VERSION = 1
+RUBRIC_CLAUSES = {
+    "R1": "reachable defect not demonstrated (a blocker or "
+          "major requires a demonstrated, reachable defect "
+          "with the reachable path cited)",
+    "R2": "outside the supported configuration (depends only "
+          "on an unsupported platform or configuration)",
+    "R3": "impact overstated for the severity",
+    "R4": "by-design or documented behaviour",
+    "R5": "evidence insufficient to support the severity",
+}
+PLATFORM_MANIFEST = dict(SUPPORTED_PLATFORMS)
+
+
+def _manifest_hash():
+    return hashlib.sha256(json.dumps(
+        PLATFORM_MANIFEST, sort_keys=True).encode(
+            "utf-8")).hexdigest()
+
 
 def _norm_quote(text):
     """Normalize a quote for the adequacy comparison: strip, drop
@@ -990,6 +1018,372 @@ def _select_tech_lead(seat_fns, ok_seats, fam_by_seat, designated,
     return (None, None, None, substitution,
             "no seat from a family independent of both the "
             "raiser and the refuter served on this panel")
+
+
+# ---------------- shadow Tech Lead (non-binding) ----------------
+
+_VENDOR_SCRUB_RE = re.compile(
+    r"\b(openai|gpt-?\d[\w.]*|nvidia|nemotron|gemini|google|"
+    r"anthropic|claude|deepseek|meta|llama|mistral|xai|grok|"
+    r"moonshot|kimi|minimax)\b", re.IGNORECASE)
+
+
+def _scrub_vendor(text, extra=()):
+    """Strip vendor/model fingerprints from a position text
+    before it is shown to the shadow Tech Lead (adopted
+    blinding rule): family names, seat names, and known vendor
+    or model names become neutral markers. Applied only to
+    what the adjudicator SEES; the record keeps the originals."""
+    out = str(text or "")
+    for token in extra:
+        if token:
+            out = re.sub(re.escape(str(token)), "[seat]",
+                         out, flags=re.IGNORECASE)
+    return _VENDOR_SCRUB_RE.sub("[model]", out)
+
+
+_SHADOW_TECH_LEAD_PROMPT = """You are the TECH LEAD deciding a disputed code-review finding in SHADOW MODE: your decision is recorded for evaluation and changes nothing. Two reviewers disagreed about the claim below. Their identities are hidden: their positions are presented as POSITION A and POSITION B in an order chosen at random. Judge only the claim, the two positions, and the code region.
+
+Rules:
+- Restate the claim in your own words; say whether it is falsifiable by an executable check.
+- Grade each position: does its quoted evidence actually address the claim? Say why. (The two grading fields are keyed by position: position_a / position_b.)
+- Your deciding evidence must be quoted VERBATIM from the code region.
+- If the case can be settled by running code, set "probe_request" to a machine-executable spec as a JSON string — {{"kind": "python", "code": "..."}} or {{"kind": "command", "argv": ["...", "..."]}} or {{"kind": "test", "target": "path::name"}} — and decision "needs_probe". A probe result, when present, can only rebut a claim; it never proves one by itself.
+- severity_after_rubric: keep the finding's severity unless a rubric clause lowers it. Clauses: R1 reachable-defect-not-demonstrated; R2 outside-supported-configuration; R3 impact-overstated; R4 by-design-or-documented-behaviour; R5 evidence-insufficient. Never raise severity; any change must name its clause.
+- reasoning_assessment.refutation_validity grades the OPPOSING position's reasoning mechanism: "valid", "weak_self_quote" (it merely restates the cited line), or "contradicted" (it asserts something the code shows is false).
+
+Finding (severity {severity}): {finding}
+Code region (the cited file's section):
+{region}
+
+POSITION A argues:
+{A_text}
+A's evidence quote: {A_quote}
+
+POSITION B argues:
+{B_text}
+B's evidence quote: {B_quote}
+{probe_block}
+Respond with ONLY a JSON object:
+{{"claim_restated": "...", "claim_falsifiable": true, "position_a_addresses_claim": {{"value": true, "why": "..."}}, "position_b_addresses_claim": {{"value": false, "why": "..."}}, "reasoning_assessment": {{"claim_valid": true, "refutation_validity": "valid"}}, "deciding_evidence": {{"quote": "..."}}, "probe_request": null, "decision": "sustain_finding | sustain_refutation | needs_probe | escalate", "severity_after_rubric": {{"level": "{severity}", "rubric_clause": null}}, "confidence": "high | medium | low", "rationale": "..."}}"""
+
+
+def _shadow_cache_key(finding, region, probe_result=None):
+    """The adopted decision-cache tuple (solution Q4):
+    fingerprint, function hash + callee hashes, platform
+    manifest hash, rubric + protocol versions, probe-result
+    hash — serialized and hashed."""
+    fk = finding.get("function_key") or {}
+    if fk.get("function_hash"):
+        function_part = {"function_hash": fk["function_hash"],
+                         "callees": fk.get("callees") or {}}
+    else:
+        function_part = {"region_hash": hashlib.sha256(
+            (region or "").encode("utf-8")).hexdigest()}
+    probe_hash = None
+    if probe_result is not None:
+        probe_hash = hashlib.sha256(json.dumps(
+            probe_result, sort_keys=True, default=str).encode(
+                "utf-8")).hexdigest()
+    payload = {
+        "fingerprint": finding.get("id"),
+        **function_part,
+        "manifest_hash": _manifest_hash(),
+        "rubric_version": RUBRIC_VERSION,
+        "protocol_version": ADJUDICATION_PROTOCOL_VERSION,
+        "probe_result_hash": probe_hash}
+    return hashlib.sha256(json.dumps(
+        payload, sort_keys=True, default=str).encode(
+            "utf-8")).hexdigest()
+
+
+def _shadow_draw(fn, finding, region, dispute, rng, probe=None,
+                 timeout=None, force_swap=False):
+    """One blinded shadow draw. Positions are assigned to A/B
+    by the run's rng (or forced swapped for mutation testing);
+    the returned draw carries the position mapping so the
+    recorder can key the grades canonically. A draw whose
+    deciding quote does not validate, or that changes severity
+    without a rubric clause, is normalized to escalate — the
+    eligibility discipline applies to shadow draws too."""
+    raiser_text = _scrub_vendor(
+        (finding.get("title") or "") + "\n"
+        + (finding.get("evidence") or ""),
+        extra=(dispute.get("raiser_family"),))
+    refuter_text = _scrub_vendor(
+        dispute.get("reason") or "",
+        extra=(dispute.get("family"),))
+    positions = {"raiser": (raiser_text,
+                            finding.get("evidence_quote") or ""),
+                 "refuter": (refuter_text,
+                             dispute.get("evidence_quote") or "")}
+    swap = rng.random() < 0.5
+    if force_swap:
+        swap = not swap
+    order = ("refuter", "raiser") if swap else ("raiser",
+                                               "refuter")
+    probe_block = ""
+    if probe is not None:
+        probe_block = (
+            "\nProbe result (a probe can only rebut; it never "
+            "decides):\n" + json.dumps(
+                probe, ensure_ascii=False, default=str)[:1500]
+            + "\n")
+    prompt = _SHADOW_TECH_LEAD_PROMPT.format(
+        finding=_finding_public(finding),
+        severity=finding.get("severity") or "",
+        region=(region or "")[:20000],
+        A_text=positions[order[0]][0][:1500],
+        A_quote=positions[order[0]][1][:400],
+        B_text=positions[order[1]][0][:1500],
+        B_quote=positions[order[1]][1][:400],
+        probe_block=probe_block)
+    draw = {"positions": {"A": order[0], "B": order[1]},
+            "decision": "escalate", "error": None}
+    res = _review_job_bounded(fn, prompt, max_attempts=2,
+                              timeout=timeout)
+    if not res["ok"]:
+        draw["error"] = f"shadow Tech Lead call failed: " \
+                        f"{res['error']}"
+        return draw
+    parsed = res["parsed"] or {}
+
+    def grade(key):
+        g = parsed.get(key) or {}
+        if not isinstance(g, dict):
+            g = {}
+        return {"value": bool(g.get("value")),
+                "why": str(g.get("why") or "")}
+
+    grades = {order[0]: grade("position_a_addresses_claim"),
+              order[1]: grade("position_b_addresses_claim")}
+    draw["raiser_evidence_addresses_claim"] = grades["raiser"]
+    draw["refuter_evidence_addresses_claim"] = grades["refuter"]
+    draw["claim_restated"] = str(
+        parsed.get("claim_restated") or "")
+    draw["claim_falsifiable"] = bool(
+        parsed.get("claim_falsifiable"))
+    assess = parsed.get("reasoning_assessment") or {}
+    if not isinstance(assess, dict):
+        assess = {}
+    validity = str(assess.get("refutation_validity") or "")
+    draw["reasoning_assessment"] = {
+        "claim_valid": bool(assess.get("claim_valid")),
+        "refutation_validity": validity if validity in (
+            "valid", "weak_self_quote", "contradicted")
+        else "valid"}
+    deciding = parsed.get("deciding_evidence") or {}
+    if not isinstance(deciding, dict):
+        deciding = {}
+    draw["deciding_quote"] = str(deciding.get("quote") or "")
+    draw["deciding_line"] = deciding.get("line")
+    pr = parsed.get("probe_request")
+    draw["probe_request"] = pr if isinstance(
+        pr, (str, dict)) else None
+    draw["probe_spec"] = parse_probe_spec(pr)
+    draw["rationale"] = str(parsed.get("rationale") or "")
+    conf = str(parsed.get("confidence") or "").strip().lower()
+    draw["confidence"] = conf if conf in (
+        "high", "medium", "low") else "low"
+    sev_after = parsed.get("severity_after_rubric") or {}
+    if not isinstance(sev_after, dict):
+        sev_after = {}
+    level = str(sev_after.get("level") or "").strip().lower()
+    clause = sev_after.get("rubric_clause")
+    clause = str(clause).strip().upper() \
+        if clause else None
+    base_level = finding.get("severity") or ""
+    if level not in _SEV_RANK:
+        level = base_level
+    if _SEV_RANK[level] < _SEV_RANK.get(base_level, 99):
+        draw["error"] = "shadow draw attempted to RAISE " \
+                        "severity; normalized to escalate"
+        return draw
+    if level != base_level and clause not in RUBRIC_CLAUSES:
+        draw["error"] = "severity change without a valid " \
+                        "rubric clause; normalized to escalate"
+        return draw
+    draw["severity_after_rubric"] = {
+        "level": level, "rubric_clause": clause}
+    decision = str(parsed.get("decision") or "").strip().lower()
+    if decision == "needs_probe":
+        draw["decision"] = "needs_probe"
+        return draw
+    if decision in ("sustain_finding", "sustain_refutation"):
+        if _quote_grounded(draw["deciding_quote"], region):
+            draw["decision"] = decision
+        else:
+            draw["error"] = "deciding quote does not appear " \
+                            "in the cited region"
+        return draw
+    if decision == "escalate":
+        return draw
+    draw["error"] = f"unrecognized shadow decision: " \
+                    f"{decision!r}"
+    return draw
+
+
+def shadow_adjudicate(fn, finding, region, dispute, *,
+                      seat_name=None, seat_family=None,
+                      independence="independent", probe_fn=None,
+                      cache=None, timeout=None, rng=None,
+                      force_swap=False):
+    """Run the shadow Tech Lead over one disputed finding and
+    return the recorded entry for the record's
+    shadow_adjudications section. NON-BINDING by construction:
+    nothing here touches the finding or the gate.
+
+    Adopted discipline, shadow form: blinded A/B positions;
+    majors take TWO draws and a dismissal (or any decision)
+    stands only when both draws agree — disagreement
+    escalates; a falsifiable dismissal needs probe support or
+    a validated deciding quote (the draws enforce the quote);
+    under REDUCED independence (the seat's family is the
+    raiser's or the refuter's) a sustain stands but a major
+    DISMISSAL is recorded as adjudication-pending-independence
+    — the decision is kept, marked non-effective. Decisions
+    are cached on the adopted tuple when `cache` (a dict) is
+    supplied."""
+    severity = finding.get("severity") or ""
+    major_plus = severity in ("blocker", "critical", "major")
+    entry = {
+        "finding_id": finding.get("id"),
+        "file": finding.get("file"),
+        "line": finding.get("line"),
+        "mode": "shadow", "binding": False,
+        "seat": seat_name, "family": seat_family,
+        "independence": independence,
+        "protocol_version": ADJUDICATION_PROTOCOL_VERSION,
+        "rubric_version": RUBRIC_VERSION,
+        "state": "shadow_escalated", "decision": None,
+        "draws": [], "draws_agree": None, "cache_hit": False,
+        "probe_request": None, "probe_result": None,
+        "error": None}
+    if fn is None:
+        entry["state"] = "shadow_unavailable"
+        entry["error"] = "no shadow Tech Lead seat available"
+        entry["cache_key"] = _shadow_cache_key(finding, region)
+        return entry
+    if rng is None:
+        seed = int(hashlib.sha256(str(
+            finding.get("id") or "").encode(
+                "utf-8")).hexdigest()[:8], 16)
+        rng = random.Random(seed)
+    key_pre = _shadow_cache_key(finding, region)
+    if cache is not None and key_pre in cache:
+        hit = copy.deepcopy(cache[key_pre])
+        hit["cache_hit"] = True
+        hit["seat"] = seat_name
+        hit["family"] = seat_family
+        return hit
+    probe_result = None
+    draw = _shadow_draw(fn, finding, region, dispute, rng,
+                        timeout=timeout, force_swap=force_swap)
+    entry["draws"].append(draw)
+    decision = draw["decision"]
+    if decision == "needs_probe":
+        spec = draw.get("probe_spec")
+        if probe_fn is not None and spec is not None:
+            try:
+                probe_result = probe_fn(json.dumps(spec))
+            except Exception as exc:  # noqa: BLE001
+                probe_result = {"status": "error",
+                                "detail": f"probe failed: "
+                                          f"{exc}"}
+            entry["probe_request"] = draw.get("probe_request")
+            entry["probe_result"] = probe_result
+            draw = _shadow_draw(fn, finding, region, dispute,
+                                rng, probe=probe_result,
+                                timeout=timeout,
+                                force_swap=force_swap)
+            entry["draws"].append(draw)
+            decision = draw["decision"]
+            if decision == "needs_probe":
+                decision = "escalate"
+                draw = {**draw, "decision": "escalate",
+                        "error": "second needs_probe in shadow "
+                                 "mode escalates (one probe "
+                                 "round maximum)"}
+                entry["draws"][-1] = draw
+        else:
+            decision = "escalate"
+            entry["error"] = "needs_probe but no executable " \
+                             "probe channel/spec available"
+    if major_plus and decision in ("sustain_finding",
+                                   "sustain_refutation"):
+        draw2 = _shadow_draw(fn, finding, region, dispute, rng,
+                             probe=probe_result, timeout=timeout,
+                             force_swap=force_swap)
+        entry["draws"].append(draw2)
+        entry["draws_agree"] = draw2["decision"] == decision
+        if not entry["draws_agree"]:
+            decision = "escalate"
+            entry["error"] = "double-draw disagreement on a " \
+                             "major: escalated"
+            draw = draw2
+    final = entry["draws"][-1]
+    entry["claim_restated"] = final.get("claim_restated")
+    entry["claim_falsifiable"] = final.get("claim_falsifiable")
+    entry["raiser_evidence_addresses_claim"] = final.get(
+        "raiser_evidence_addresses_claim")
+    entry["refuter_evidence_addresses_claim"] = final.get(
+        "refuter_evidence_addresses_claim")
+    entry["reasoning_assessment"] = final.get(
+        "reasoning_assessment")
+    entry["deciding_evidence"] = {
+        "file": finding.get("file"),
+        "line": final.get("deciding_line")
+        or finding.get("line"),
+        "quote": final.get("deciding_quote") or ""}
+    entry["severity_after_rubric"] = final.get(
+        "severity_after_rubric") or {
+            "level": severity, "rubric_clause": None}
+    entry["confidence"] = final.get("confidence")
+    entry["positions"] = final.get("positions")
+    if entry["error"] is None and final.get("error"):
+        entry["error"] = final["error"]
+    entry["decision"] = decision if decision in (
+        "sustain_finding", "sustain_refutation") else None
+    if decision == "sustain_finding":
+        entry["state"] = "shadow_sustained_finding"
+    elif decision == "sustain_refutation":
+        if major_plus and independence == "reduced":
+            entry["state"] = "adjudication-pending-independence"
+        else:
+            entry["state"] = "shadow_sustained_refutation"
+    else:
+        entry["state"] = "shadow_escalated"
+    entry["cache_key"] = _shadow_cache_key(
+        finding, region, probe_result)
+    if cache is not None:
+        cache[key_pre] = copy.deepcopy(entry)
+        cache[entry["cache_key"]] = copy.deepcopy(entry)
+    return entry
+
+
+def _shadow_evidence_targets(entry):
+    """(container, key, display cap) triples for a shadow
+    adjudication entry's evidence texts — the sidecar walk
+    extension for the shadow_adjudications section."""
+    if not isinstance(entry, dict):
+        return
+    yield entry, "claim_restated", 600
+    deciding = entry.get("deciding_evidence")
+    if isinstance(deciding, dict):
+        yield deciding, "quote", 400
+    for grade_key in ("raiser_evidence_addresses_claim",
+                      "refuter_evidence_addresses_claim"):
+        grade = entry.get(grade_key)
+        if isinstance(grade, dict):
+            yield grade, "why", 600
+    for draw in entry.get("draws") or []:
+        if isinstance(draw, dict):
+            yield draw, "deciding_quote", 400
+            yield draw, "rationale", 600
+    probe_result = entry.get("probe_result")
+    if isinstance(probe_result, dict):
+        yield probe_result, "detail", 2000
+        yield probe_result, "evidence_quote", 400
 
 
 def _precedent_candidate(finding, precedents):
@@ -1999,7 +2393,8 @@ def run_review(patch, providers, context="", test_results=None,
                seat_meta=None, fallbacks=None, sleep=None,
                record_extra=None, fixture_scope=None, private=False,
                precedents=None, tech_lead=None, probe_fn=None,
-               tech_lead_timeout=None, lens_seats=None):
+               tech_lead_timeout=None, lens_seats=None,
+               tech_lead_shadow=False, tech_lead_shadow_seat=None):
     """One review round. `providers` maps name -> callable(prompt)->str.
 
     Returns the report dict. Never raises for provider failures; they
@@ -2456,6 +2851,8 @@ def run_review(patch, providers, context="", test_results=None,
     assertion_failures = []
     shadow_reason_checks = []
     shadow_trace_evals = []
+    shadow_entries = []
+    shadow_cache = {}
     substitutions = []
     precedent_candidates = []
     fam_by_seat = {}
@@ -2551,6 +2948,70 @@ def run_review(patch, providers, context="", test_results=None,
         shadow_trace_evals.append({
             "finding_id": f.get("id"),
             **f["dispute"]["trace_gate_shadow"]})
+        if tech_lead_shadow:
+            # Shadow Tech Lead: the FULL structured decision,
+            # recorded in shadow_adjudications, labelled
+            # non-binding, and NEVER consulted by the gate —
+            # the binding flow below proceeds exactly as it
+            # would with shadow off. Seat choice mirrors the
+            # binding discipline: an independent seat is
+            # preferred; the designated shadow seat or any
+            # served seat may act under reduced independence
+            # (sustain stands; a major dismissal is recorded
+            # as adjudication-pending-independence).
+            s_name = s_fn = s_fam = s_indep = None
+            if tech_lead_shadow_seat \
+                    and tech_lead_shadow_seat in seat_fns:
+                cand = tech_lead_shadow_seat
+                cand_fam = fam_by_seat.get(cand)
+                if _tech_lead_eligible(
+                        cand_fam, cand in ok_seats, fam,
+                        refuter_fam):
+                    s_name, s_fn, s_fam, s_indep = (
+                        cand, seat_fns[cand], cand_fam,
+                        "independent")
+                elif cand in ok_seats:
+                    s_name, s_fn, s_fam, s_indep = (
+                        cand, seat_fns[cand], cand_fam,
+                        "reduced")
+            if s_fn is None:
+                for n, fn2 in seat_fns.items():
+                    if _tech_lead_eligible(
+                            fam_by_seat.get(n), n in ok_seats,
+                            fam, refuter_fam):
+                        s_name, s_fn, s_fam, s_indep = (
+                            n, fn2, fam_by_seat.get(n),
+                            "independent")
+                        break
+            if s_fn is None:
+                for n, fn2 in seat_fns.items():
+                    if n in ok_seats:
+                        s_name, s_fn, s_fam, s_indep = (
+                            n, fn2, fam_by_seat.get(n),
+                            "reduced")
+                        break
+            try:
+                s_entry = shadow_adjudicate(
+                    s_fn, f, region, f["dispute"],
+                    seat_name=s_name, seat_family=s_fam,
+                    independence=s_indep or "reduced",
+                    probe_fn=probe_fn, cache=shadow_cache,
+                    timeout=tl_timeout)
+            except Exception as exc:  # noqa: BLE001
+                # Shadow must never break a run.
+                s_entry = {
+                    "finding_id": f.get("id"),
+                    "mode": "shadow", "binding": False,
+                    "state": "shadow_unavailable",
+                    "decision": None,
+                    "error": f"shadow adjudication failed: "
+                             f"{exc}"}
+            shadow_entries.append(s_entry)
+            f["tech_lead_shadow"] = {
+                "status": "recorded",
+                "state": s_entry.get("state"),
+                "decision": s_entry.get("decision"),
+                "binding": False}
         tl_name, tl_fn, tl_fam, substitution, tl_unavailable = \
             _select_tech_lead(seat_fns, ok_seats, fam_by_seat,
                               tech_lead, fam, refuter_fam)
@@ -2921,6 +3382,8 @@ def run_review(patch, providers, context="", test_results=None,
         report["shadow_reason_checks"] = shadow_reason_checks
     if shadow_trace_evals:
         report["shadow_trace_gate"] = shadow_trace_evals
+    if shadow_entries:
+        report["shadow_adjudications"] = shadow_entries
     if precedent_candidates:
         report["precedent_candidates"] = precedent_candidates
     if out_of_scope_findings:
@@ -4886,6 +5349,14 @@ def _iter_evidence_refs(record):
             if isinstance(entry, dict) \
                     and isinstance(entry.get("evidence_ref"), dict):
                 yield entry, "evidence", entry["evidence_ref"]
+    for entry in record.get("shadow_adjudications") or []:
+        if not isinstance(entry, dict):
+            continue
+        for container, key, _cap in _shadow_evidence_targets(
+                entry):
+            ref = container.get(key + "_ref")
+            if isinstance(ref, dict):
+                yield container, key, ref
 
 
 def _attach_evidence_sidecars(report, out_dir):
@@ -4946,6 +5417,10 @@ def _attach_evidence_sidecars(report, out_dir):
                 # Resolution evidence displays at the historical
                 # 300-char cap; the sidecar carries it in full.
                 attach(entry, "evidence", 300)
+    for entry in rec.get("shadow_adjudications") or []:
+        for container, key, cap in _shadow_evidence_targets(
+                entry):
+            attach(container, key, cap)
     if pending:
         ev_dir = os.path.join(out_dir, "evidence")
         os.makedirs(ev_dir, exist_ok=True)

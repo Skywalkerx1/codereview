@@ -1238,6 +1238,20 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
                          "substituted, loudly, on the record. "
                          "Without a designation, the first "
                          "independent seat serves")
+    ap.add_argument("--tech-lead-shadow", action="store_true",
+                    help="run the Tech Lead in SHADOW mode: for "
+                         "every disputed finding the full "
+                         "structured adjudication is produced and "
+                         "recorded in the record's "
+                         "shadow_adjudications section — blinded "
+                         "A/B positions, double-drawn for majors "
+                         "— but the decisions are non-binding and "
+                         "never change the gate verdict. The seat "
+                         "is the --tech-lead seat when designated, "
+                         "else an independent seat, else any "
+                         "served seat under reduced independence. "
+                         "Equivalent to the CODEREVIEW_TECH_LEAD_"
+                         "SHADOW=1 environment variable")
     ap.add_argument("--attempts-log",
                     help="append one JSON line describing this run "
                          "(seats, error classes, gate) to this file. "
@@ -1473,6 +1487,19 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
         # --role/saved-setup assignment can; the command line wins
         # (the same precedence --role has over the saved setup).
         review_kwargs["tech_lead"] = args.tech_lead
+    shadow_role_seat = seat_roles.get("tech-lead-shadow")
+    if args.tech_lead_shadow or shadow_role_seat or os.environ.get(
+            "CODEREVIEW_TECH_LEAD_SHADOW") == "1":
+        # Shadow Tech Lead: recorded, non-binding, gate-neutral
+        # (the engine guarantees verdict invariance). Seat
+        # precedence: an explicit tech-lead-shadow role, then
+        # the binding --tech-lead designation, then the engine's
+        # own independent-seat choice.
+        review_kwargs["tech_lead_shadow"] = True
+        shadow_seat = shadow_role_seat or args.tech_lead \
+            or tech_lead_seat
+        if shadow_seat:
+            review_kwargs["tech_lead_shadow_seat"] = shadow_seat
 
     if args.verify_previous:
         try:

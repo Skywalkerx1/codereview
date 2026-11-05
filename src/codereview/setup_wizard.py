@@ -105,7 +105,12 @@ def run_wizard(input_fn=input, print_fn=print, environ=None,
              "suggestion, type any provider spec to override, "
              "'-' leaves the role to the panel.")
     roles = {}
-    for i, role in enumerate(registry.ROLES):
+    # The wizard assigns the serving roles; tech-lead-shadow is
+    # an opt-in evaluation seat assigned via --role or the saved
+    # config, not part of the first-run flow.
+    wizard_roles = [r for r in registry.ROLES
+                    if r != "tech-lead-shadow"]
+    for i, role in enumerate(wizard_roles):
         suggestion = providers[i % len(providers)]
         answer = _ask(
             input_fn, print_fn,
