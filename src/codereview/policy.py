@@ -350,13 +350,23 @@ def load_policy(path):
     with open(path, "rb") as fh:
         raw = fh.read()
     try:
-        text = raw.decode("utf-8")
+        # P2-04: utf-8-sig accepts a UTF-8 BOM as well as plain
+        # UTF-8 — editors that save with a BOM must not make a
+        # valid policy unloadable.
+        text = raw.decode("utf-8-sig")
     except UnicodeDecodeError as exc:
         raise PolicyError(f"{path}: not valid UTF-8 ({exc})")
     try:
         data = tomllib.loads(text)
     except tomllib.TOMLDecodeError as exc:
         raise PolicyError(f"{path}: invalid TOML: {exc}")
+    except RecursionError as exc:
+        # P2-04: a deeply nested document exhausts the parser's
+        # stack instead of raising TOMLDecodeError — surface it
+        # as the loader's one error type.
+        raise PolicyError(
+            f"{path}: invalid TOML: excessive nesting depth"
+        ) from exc
     lines = text.splitlines()
     for key in data:
         if key not in _TABLES:

@@ -193,6 +193,28 @@ class LoaderTests(unittest.TestCase):
             self.assertEqual(policy.find_policy(tmp),
                              os.path.join(tmp, ".codereview.toml"))
 
+    def test_excessive_nesting_raises_policy_error(self):
+        # P2-04: a 500-deep nested document exhausts the TOML
+        # parser's stack; the loader must surface PolicyError,
+        # not leak the RecursionError.
+        deep = "x = " + "{a = " * 500 + "1" + "}" * 500 + "\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(policy.PolicyError) as ctx:
+                load(tmp, deep)
+        self.assertIn("nesting", str(ctx.exception))
+
+    def test_bom_prefixed_policy_loads_like_plain(self):
+        # P2-04: a UTF-8 BOM (editors that save with one) must
+        # not make a valid policy unloadable.
+        text = "[gate]\nprofile = \"balanced\"\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            plain = load(tmp, text)
+            path = os.path.join(tmp, "bom.toml")
+            with open(path, "wb") as fh:
+                fh.write(b"\xef\xbb\xbf" + text.encode("utf-8"))
+            bom = policy.load_policy(path)
+        self.assertEqual(bom["gate"], plain["gate"])
+
 
 class EvaluatePanelTests(unittest.TestCase):
     def pol(self, tmp_text):
