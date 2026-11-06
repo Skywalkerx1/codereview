@@ -1878,19 +1878,31 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
                     help="degraded or truncated reviews are INCONCLUSIVE "
                          "instead of passing")
     ap.add_argument("--gate-profile",
-                    choices=("strict", "balanced"), default=None,
+                    choices=("strict", "balanced", "corroborated"),
+                    default=None,
                     help="gate profile: 'strict' (the default — "
-                         "every blocking-severity finding blocks) "
-                         "or 'balanced' (policy B1: a blocking "
+                         "every blocking-severity finding blocks), "
+                         "'balanced' (policy B1: a blocking "
                          "finding raised solely by the operations "
                          "lens, with no correctness-lens or "
                          "deterministic corroboration in the "
                          "merged finding, is demoted to a visible "
-                         "minor). Overrides the policy file's "
-                         "[gate] profile; the policy file "
+                         "minor), or 'corroborated' (policy B2: "
+                         "evidence-class blocking for every lens "
+                         "— a blocking finding needs deterministic, "
+                         "probe-confirmed, or cross-family-"
+                         "corroborated evidence, plus a validated "
+                         "quote and a concrete trigger; "
+                         "single-source findings become visible "
+                         "non-blocking unverified majors. Requires "
+                         "at least two distinct vendor families "
+                         "able to serve the correctness lens; "
+                         "single-family panels keep 'strict'. B2 "
+                         "is opt-in and unconfirmed — dev "
+                         "evidence only). Overrides the policy "
+                         "file's [gate] profile; the policy file "
                          "overrides the default. The default "
-                         "stays 'strict' until Baseline v2 "
-                         "confirms B1 on the holdout (step 7)")
+                         "stays 'strict'")
     ap.add_argument("--max-patch-chars", type=int, default=80000,
                     help="per-batch diff budget (default 80000)")
     ap.add_argument("--no-file-context", action="store_true",

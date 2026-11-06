@@ -38,25 +38,37 @@ Schema (every key optional; defaults in parentheses):
   [gate]
   profile = "strict"       # the gate profile: "strict" (the
                            # default — every blocking-severity
-                           # finding blocks) or "balanced"
+                           # finding blocks), "balanced"
                            # (policy B1, step 6: a blocking
                            # finding whose merged sources are
                            # solely the operations lens, with
                            # no correctness-lens or
                            # deterministic corroboration within
                            # the gate's merge identity, is
-                           # demoted to a visible minor). The
-                           # CLI's --gate-profile overrides
-                           # this; the default stays "strict"
-                           # until Baseline v2 confirms B1 on
-                           # the holdout. A third profile from
-                           # the original design, "quiet"
-                           # (blanket corroboration for every
-                           # lens), was REJECTED on the step-4
-                           # replay evidence — it demoted three
-                           # real single-seat majors — and is
-                           # not implemented: its absence is a
-                           # decision, not an omission, and
+                           # demoted to a visible minor), or
+                           # "corroborated" (policy B2:
+                           # evidence-class blocking for every
+                           # lens — a blocking finding needs
+                           # deterministic, probe-confirmed,
+                           # or cross-family-corroborated
+                           # evidence, plus a validated quote
+                           # and a concrete trigger;
+                           # single-source findings become
+                           # visible non-blocking "unverified
+                           # majors". The panel must offer at
+                           # least two distinct vendor families
+                           # for the correctness lens. B2 is
+                           # opt-in and unconfirmed — dev
+                           # evidence only). The CLI's
+                           # --gate-profile overrides this; the
+                           # default stays "strict". A fourth
+                           # profile from the original design,
+                           # "quiet" (blanket corroboration for
+                           # every lens), was REJECTED on the
+                           # step-4 replay evidence — it demoted
+                           # three real single-seat majors — and
+                           # is not implemented: its absence is
+                           # a decision, not an omission, and
                            # naming it here is an error.
 
   [[paths]]                # repeatable; applies when the change
@@ -178,10 +190,10 @@ POLICY_SCHEMA = "codereview.policy/1"
 # together so they cannot drift.
 KNOWN_LENSES = ("correctness", "operations")
 
-# Mirrors core.GATE_PROFILES (the gate profiles, step 6), kept
-# here under the same import-free discipline; a test pins the
-# two together.
-KNOWN_GATE_PROFILES = ("strict", "balanced")
+# Mirrors core.GATE_PROFILES (the gate profiles, step 6; B2
+# added "corroborated"), kept here under the same import-free
+# discipline; a test pins the two together.
+KNOWN_GATE_PROFILES = ("strict", "balanced", "corroborated")
 
 _ENFORCE_LEVELS = ("block", "advisory")
 

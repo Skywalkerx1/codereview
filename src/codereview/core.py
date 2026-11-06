@@ -32,6 +32,7 @@ A provider is any callable: prompt (str) -> raw model text (str).
 from __future__ import annotations
 
 import ast
+from collections import Counter
 import concurrent.futures
 
 from .probe import parse_probe_spec
@@ -534,6 +535,13 @@ def deterministic_scan(patch, test_results=None):
             "title": title, "evidence": redact_secrets(evidence),
             "evidence_quote": redact_secrets(evidence),
             "recommendation": recommendation,
+            # B2 trigger field: a deterministic match's trigger
+            # is the cited line's presence itself — the rule
+            # fires on the change exactly as written.
+            "trigger": ("The cited added line is present in the "
+                        "reviewed diff, so this deterministic "
+                        "rule match fires on the change as "
+                        "written."),
             "confidence": confidence, "sources": ["deterministic"],
             "source_lenses": {"deterministic": ["deterministic"]},
             "consensus": False,
@@ -673,6 +681,55 @@ Diff under review ({batch}):
 {patch}
 """
 
+# Policy B2 seat-prompt variant (expert solution §4.3, Step 2+3
+# of the B2 follow-up): the `corroborated` profile's runs use a
+# prompt that adds intent-relative review, the severity rubric's
+# calibration examples, and a required `trigger` field for
+# blocking findings. The variant is part of the policy: it is
+# versioned and hashed (review_prompt_version /
+# review_prompt_sha256), and the hash rides in the record's
+# gate_profile section. Other profiles keep the base prompt
+# byte-identical.
+REVIEW_PROMPT_VERSION = "review-v1"
+B2_REVIEW_PROMPT_VERSION = "review-v2-b2"
+
+_B2_PROMPT_SECTION = """
+Policy B2 reviewer rules (this run uses the corroborated gate profile):
+- Intent-relative review: the change's stated intent is the Change context below, plus any explicit project rules shown to you. A defect is a violation of that stated behaviour, of an explicit project rule, or of a security invariant in a supported configuration.
+- Do not invent requirements. Missing hardening beyond the stated behaviour — extra validation, extra guards, or stricter defaults that no stated contract calls for — is a minor suggestion, never a major.
+- Every blocker or major MUST carry a "trigger": the concrete input, state, or call sequence that reaches the defect and makes the code misbehave. A claim whose trigger you cannot state concretely is minor at most.
+- Calibration examples: MAJOR — 'parse_amount returns 100x the stated total when the input carries a comma decimal separator, because the separator is stripped before parsing' (concrete trigger, stated contract broken). MINOR — 'the parser could also reject negative amounts if a caller ever passed one' (no stated contract and no reachable caller: hardening only).
+- Confidence is not evidence: never let a high confidence substitute for the quote and the trigger.
+"""
+
+_REVIEW_PROMPT_B2 = _REVIEW_PROMPT.replace(
+    '"confidence": 0.0-1.0}}]}}',
+    '"confidence": 0.0-1.0, "trigger": "concrete input, state, '
+    'or call sequence that reaches the defect; empty string '
+    'for minor or nit"}}]}}').replace(
+    "\nChange context (builder-supplied, also untrusted):",
+    _B2_PROMPT_SECTION
+    + "\nChange context (builder-supplied, also untrusted):")
+
+
+def review_prompt_for_profile(profile):
+    """The reviewer prompt template a gate profile runs with.
+    Only `corroborated` (policy B2) has its own variant; every
+    other profile uses the base template, byte-identical."""
+    return _REVIEW_PROMPT_B2 if profile == "corroborated" \
+        else _REVIEW_PROMPT
+
+
+def review_prompt_version(profile):
+    return B2_REVIEW_PROMPT_VERSION if profile == "corroborated" \
+        else REVIEW_PROMPT_VERSION
+
+
+def review_prompt_sha256(profile):
+    return hashlib.sha256(
+        review_prompt_for_profile(profile).encode(
+            "utf-8")).hexdigest()
+
 # Acceptance D1: when the caller attaches post-change file
 # contents (run_review's `file_context`), each batch's prompt
 # gains this section AFTER the diff. The diff stays the only
@@ -713,7 +770,7 @@ Rules:
 - Also report any NEW blocking problems the fix introduced, in "new_findings" (same schema as a normal review, including an "evidence_quote" copied exactly from the new diff, without the leading '+').
 - Severity rubric (adopted policy): a NEW finding at major or above requires a demonstrated, reachable defect with impact in a supported configuration (POSIX operating systems, Python 3.11 or newer), with the reachable path cited in its evidence. Claims that depend only on an unsupported platform, on operator-supplied input being malicious, or on hypothetical future seat kinds are minor or nit at most, with the dependency stated.
 - Output ONLY one JSON object, no prose, no code fences:
-{{"resolutions": [{{"finding_id": "...", "status": "fixed|still_present|invalid|unclear", "evidence": "what in the new diff proves it"}}], "new_findings": [{{"severity": "blocker|major|minor|nit", "category": "...", "file": "path", "line": 123, "title": "...", "evidence": "...", "evidence_quote": "...", "recommendation": "...", "confidence": 0.0-1.0}}]}}
+{{"resolutions": [{{"finding_id": "...", "status": "fixed|still_present|invalid|unclear", "evidence": "what in the new diff proves it"}}], "new_findings": [{{"severity": "blocker|major|minor|nit", "category": "...", "file": "path", "line": 123, "title": "...", "evidence": "...", "evidence_quote": "...", "recommendation": "...", "confidence": 0.0-1.0, "trigger": "concrete input, state, or call sequence that reaches the defect; empty string for minor or nit"}}]}}
 
 Prior blocking findings ({prior_part} — resolve ONLY the findings listed in this part):
 {prior}
@@ -784,6 +841,12 @@ def _normalize_finding(raw, source, lens=None):
         "evidence_quote": str(
             raw.get("evidence_quote") or raw.get("evidence")
             or ""),
+        # B2 (R4): the concrete trigger — input, state, or call
+        # sequence that makes the code misbehave. Seats emit it
+        # under the corroborated profile's prompt; the profile's
+        # deterministic trigger check reads it. Empty when the
+        # seat stated none.
+        "trigger": str(raw.get("trigger") or "")[:500],
         "recommendation": str(raw.get("recommendation") or "")[:500],
         "confidence": max(0.0, min(1.0, conf)),
         "sources": [source], "consensus": False,
@@ -1065,7 +1128,8 @@ def _finding_public(finding):
     every cut with the full length and sha256."""
     shown = {k: finding.get(k) for k in
              ("id", "severity", "category", "file", "line", "title",
-              "evidence", "evidence_quote", "recommendation")}
+              "evidence", "evidence_quote", "recommendation",
+              "trigger")}
     shown["evidence"] = _prompt_slice(shown.get("evidence"), 2000)
     shown["evidence_quote"] = _prompt_slice(
         shown.get("evidence_quote"), 1000)
@@ -1119,6 +1183,69 @@ def _xconfirm_call(fn, finding, region):
     if verdict == "confirm":
         return "confirmed", quote, reason
     return "unresolved", quote, reason or "no verdict returned"
+
+
+def _b2_confirmation_fn(fam_by_seat, ok_seats, seat_fns,
+                        correctness_seats, section_text):
+    """Build the cross-family confirmation channel the
+    `corroborated` profile (policy B2) uses for single-source
+    (E3) blocking findings. The checker is a seat that SERVED
+    this run on the correctness lens and belongs to a
+    different vendor family than the raiser. A confirmation
+    promotes only with a deciding quote that validates
+    against the cited region (expert solution §4.1 rule 3 —
+    stricter than the §2c pass, where a bare confirm stands
+    because the finding blocks anyway under strict). When no
+    eligible checker served, the outcome is "unavailable" —
+    the caller marks the run degraded (B2 degraded mode)."""
+    def confirm(finding):
+        srcs = [s for s in (finding.get("sources") or [])
+                if s != "deterministic"]
+        fams = {fam_by_seat.get(s, "unknown") for s in srcs}
+        fams.discard("unknown")
+        if len(fams) != 1:
+            return {"outcome": "unavailable", "by": None,
+                    "family": None, "evidence_quote": "",
+                    "reason": "the raising family is not "
+                              "identifiable on the record",
+                    "quote_valid": False}
+        fam = next(iter(fams))
+        checker = None
+        seen = set()
+        for name in list(correctness_seats) + list(seat_fns):
+            if name in seen or name not in seat_fns:
+                continue
+            seen.add(name)
+            if name not in ok_seats:
+                continue
+            if fam_by_seat.get(name) in (fam, "unknown", None):
+                continue
+            checker = name
+            break
+        if checker is None:
+            return {"outcome": "unavailable", "by": None,
+                    "family": None, "evidence_quote": "",
+                    "reason": "no seat of another family served "
+                              "the correctness lens this run",
+                    "quote_valid": False}
+        region = section_text.get(finding.get("file") or "", "")
+        outcome, quote, reason = _xconfirm_call(
+            seat_fns[checker], finding, region)
+        quote_valid = bool(quote) and _quote_grounded(
+            quote, region)
+        if outcome == "confirmed" and not quote_valid:
+            outcome = "unresolved"
+            reason = (reason + " — the confirmation carried no "
+                      "quote that appears in the cited region, "
+                      "so it does not promote the finding").strip(
+                          " —")
+        return {"outcome": outcome, "by": checker,
+                "family": fam_by_seat.get(checker),
+                "evidence_quote": quote, "reason": reason,
+                "quote_valid": bool(
+                    quote_valid
+                    and outcome in ("confirmed", "refuted"))}
+    return confirm
 
 
 # ------------- dispute ladder (§5a: adequacy + Tech Lead)
@@ -2538,13 +2665,17 @@ def upsert_precedent(entries, finding, blob, round_label,
 # frozen by the step-4 replay sweep): "strict" is the
 # historical gate — every blocking-severity finding blocks.
 # "balanced" is policy B1 (per-lens corroboration).
-# policy.KNOWN_GATE_PROFILES mirrors this tuple (the policy
-# module stays import-free of the engine; a test pins the two
-# together). "quiet" (blanket corroboration) is deliberately
+# "corroborated" is policy B2 (expert solution §4.1, R3 form
+# + the R4 trigger rule; Step 2+3 of the B2 follow-up):
+# evidence-class blocking across ALL lenses. It is opt-in
+# and UNCONFIRMED — dev evidence only; the default stays
+# "strict". "quiet" (blanket corroboration) is deliberately
 # absent: the sweep rejected it — it demoted three real
 # single-seat majors (D6–D8) — so naming it is an error, not
-# a fallback.
-GATE_PROFILES = ("strict", "balanced")
+# a fallback. policy.KNOWN_GATE_PROFILES mirrors this tuple
+# (the policy module stays import-free of the engine; a test
+# pins the two together).
+GATE_PROFILES = ("strict", "balanced", "corroborated")
 
 
 def _source_lenses_of(finding):
@@ -2566,25 +2697,133 @@ def _source_lenses_of(finding):
     return out
 
 
-def _evidence_class(finding):
-    """Evidence class metadata (solution §2.4 lever A),
-    recorded on every merged finding. It changes no verdict:
-    under `strict` nothing acts on it; under `balanced` only
-    the B1 rule acts, and only as specified there. E0: the
-    deterministic layer is a source. E1: corroborated — more
-    than one distinct source in the merged finding. E3:
-    single-seat, unverified. E2 (probe-confirmed) is never
-    assigned here: probes run later, in adjudication, so no
-    merged finding is probe-confirmed at profile time."""
+def _evidence_class(finding, family_by_source=None):
+    """Evidence class of a merged finding (solution §2.4
+    lever A; B2 form per the expert solution §4.1). E0: the
+    deterministic layer is a source. E2: probe-confirmed —
+    carried on the finding (`probe_confirmed`, or an E2 stamp
+    from an earlier evaluation); probes run in adjudication,
+    so a live run assigns E2 only when a probe result already
+    rides on the finding. E1: corroborated — the merged
+    sources span at least two distinct vendor FAMILIES (via
+    `family_by_source`; with no family map, distinct sources
+    stand in for families, the pre-B2 behaviour), or a
+    cross-family confirmation with a validated deciding
+    quote stands on the finding (`corroboration` — the
+    record the B2 profile pass itself writes). The §2c
+    pass's `cross_family` stamp is NOT read: the profile
+    pass runs before §2c in the live pipeline, so at
+    evaluation time that stamp cannot exist, and counting
+    it would let a later stage rewrite an earlier verdict
+    (the Step-2 bench refactor caught exactly this
+    divergence against the Step-1 sources-only definition).
+    E3: single-source, unverified. Under `strict` and
+    `balanced` the class is metadata; under `corroborated`
+    it decides what may block."""
     sources = finding.get("sources") or []
     if "deterministic" in sources:
         return "E0"
-    if len(set(sources)) >= 2:
+    if finding.get("probe_confirmed") \
+            or finding.get("evidence_class") == "E2":
+        return "E2"
+    corr = finding.get("corroboration") or {}
+    if corr.get("outcome") == "confirmed" \
+            and corr.get("quote_valid"):
+        return "E1"
+    fams = set()
+    for src in sources:
+        if family_by_source is not None:
+            fam = family_by_source.get(src)
+            if fam and fam != "unknown":
+                fams.add(str(fam))
+        else:
+            fams.add(str(src))
+    if family_by_source is not None and not fams:
+        # The map knows nothing about these sources (an
+        # untagged panel): families are unknowable, so
+        # distinct sources stand in — the pre-B2 behaviour.
+        # A map that knows at least one source's family is
+        # applied strictly.
+        fams = {str(s) for s in sources}
+    if len(fams) >= 2:
         return "E1"
     return "E3"
 
 
-def _apply_gate_profile(findings, profile):
+def _quote_validated(finding):
+    """Deterministic quote check for the B2 trigger rule: the
+    finding's evidence quote must be validated. The pipeline's
+    grounding state decides when present (grounded /
+    reground_confirmed / not_applicable pass; unresolved /
+    ungrounded / withdrawn fail); a stored finding with no
+    grounding state passes on a non-trivial quote — the
+    offline evaluator has nothing stronger to check against."""
+    state = finding.get("grounding")
+    if state in ("grounded", "reground_confirmed",
+                 "not_applicable"):
+        return True
+    if state in ("unresolved", "ungrounded", "withdrawn"):
+        return False
+    return len(str(finding.get("evidence_quote") or "").strip()) >= 4
+
+
+# Words that make a trigger CONCRETE: the statement names an
+# input, a call, a state, or a value class — something a
+# reproducer could act on. A trigger with none of these (or
+# too short to carry one) is vague, however confident it
+# sounds. Deliberately a small, legible list: the check is a
+# floor, not a judge.
+_TRIGGER_CONCRETE_RE = re.compile(
+    r"\b(input|inputs|call|calling|calls|invoke|invokes|invoked|"
+    r"request|payload|value|values|argument|arguments|parameter|"
+    r"parameters|state|null|none|empty|zero|negative|positive|"
+    r"duplicate|concurrent|race|sequence|when|if|after|before|"
+    r"with|using|via|contains|containing|passes|passing|pass|"
+    r"sends|sending|returns|returning|raises|raising)\b",
+    re.IGNORECASE)
+
+
+def _trigger_concrete(trigger):
+    """Whether a stated trigger is concrete enough for the B2
+    trigger rule: at least a short sentence AND at least one
+    concrete marker (an input, call, state, or value class).
+    'might break under some conditions' fails both legs in
+    spirit and the marker leg in fact."""
+    text = " ".join(str(trigger or "").split())
+    if len(text) < 20:
+        return False
+    return bool(_TRIGGER_CONCRETE_RE.search(text))
+
+
+def _profile_demote(finding, demotions, profile, rule, basis,
+                    reason, unverified=False):
+    """Demote a blocking finding to a visible minor under a
+    gate profile, with the demotion and its basis on the
+    finding's record (demote, never delete — the house rule
+    every profile follows)."""
+    original = finding["severity"]
+    finding["severity"] = "minor"
+    finding["profile_demotion"] = {
+        "rule": rule, "profile": profile,
+        "from": original, "to": "minor",
+        "basis": basis, "reason": reason}
+    if unverified:
+        finding["unverified_major"] = {
+            "from": original,
+            "evidence_class": finding.get("evidence_class"),
+            "basis": basis}
+    demotions.append({
+        "finding_id": finding.get("id"),
+        "file": finding.get("file"),
+        "title": finding.get("title"),
+        "from": original, "to": "minor",
+        "rule": rule, "basis": basis})
+
+
+def _apply_gate_profile(findings, profile,
+                        family_by_source=None,
+                        confirmation_outcomes=None,
+                        confirm_fn=None, require_trigger=True):
     """Apply a gate profile to merged findings ->
     (findings, demotions). Every finding gains `evidence_class`
     metadata and a normalised `source_lenses` map. Demote,
@@ -2618,45 +2857,149 @@ def _apply_gate_profile(findings, profile):
     behaviour therefore sits between strict and the replay's
     B row; step 7 confirms B1 once, as-is, on the private
     holdout + expanded clean set before the default may
-    change."""
+    change.
+
+    `corroborated` (policy B2, expert solution §4.1 — R3 form
+    plus the R4 trigger rule): a blocking finding may block
+    only with evidence class E0, E2, or E1 (see
+    _evidence_class). An E3 finding is put to cross-family
+    confirmation when a caller supplies one
+    (`confirmation_outcomes` by finding id, or `confirm_fn`):
+    a confirmation with a validated deciding quote promotes
+    it to E1; a refutation with a validated quote demotes it
+    as refuted; anything else — unresolved, unavailable, or
+    no confirmation channel at all — demotes it as an
+    UNVERIFIED MAJOR (visible, counted, non-blocking). A
+    blocking-eligible model finding must also carry a
+    validated quote and (when `require_trigger`) a concrete
+    `trigger`; missing or vague caps it at minor.
+    Deterministic (E0) and probe-confirmed (E2) findings are
+    exempt from the trigger leg: their evidence is the
+    machine match / the executed reproducer itself. The
+    offline sweep evaluates R2/R3 with require_trigger=False
+    (the stored findings predate the trigger field — R4 is a
+    pilot-and-after rule); the live profile always requires
+    it. B2 subsumes B1: it applies to every lens."""
     demotions = []
     for f in findings:
         f["source_lenses"] = _source_lenses_of(f)
-        f["evidence_class"] = _evidence_class(f)
-        if profile != "balanced":
+        f["evidence_class"] = _evidence_class(
+            f, family_by_source)
+        if profile == "balanced":
+            if f.get("severity") not in BLOCKING_DEFAULT:
+                continue
+            sources = f.get("sources") or []
+            if not sources:
+                continue
+            lenses = set()
+            unattributed = False
+            for src in sources:
+                src_lenses = f["source_lenses"].get(src)
+                if not src_lenses:
+                    unattributed = True
+                    break
+                lenses.update(src_lenses)
+            if unattributed or lenses != {"operations"}:
+                continue
+            original = f["severity"]
+            f["severity"] = "minor"
+            f["profile_demotion"] = {
+                "rule": "B1", "profile": "balanced",
+                "from": original, "to": "minor",
+                "reason": (
+                    "blocking-severity finding whose merged "
+                    "sources are solely the operations lens — no "
+                    "correctness-lens or deterministic "
+                    "corroboration within the gate's merge "
+                    "identity (policy B1)"),
+            }
+            demotions.append({
+                "finding_id": f.get("id"), "file": f.get("file"),
+                "title": f.get("title"),
+                "from": original, "to": "minor", "rule": "B1"})
+            continue
+        if profile != "corroborated":
             continue
         if f.get("severity") not in BLOCKING_DEFAULT:
             continue
-        sources = f.get("sources") or []
-        if not sources:
+        eclass = f["evidence_class"]
+        exempt = eclass in ("E0", "E2")
+        if not exempt and not _quote_validated(f):
+            _profile_demote(
+                f, demotions, profile, "B2", "quote_requirement",
+                "blocking-eligible finding whose evidence quote "
+                "is not validated — capped at minor under policy "
+                "B2's trigger rule (a blocking claim needs a "
+                "validated quote and a concrete trigger)")
             continue
-        lenses = set()
-        unattributed = False
-        for src in sources:
-            src_lenses = f["source_lenses"].get(src)
-            if not src_lenses:
-                unattributed = True
-                break
-            lenses.update(src_lenses)
-        if unattributed or lenses != {"operations"}:
+        if require_trigger and not exempt \
+                and not _trigger_concrete(f.get("trigger")):
+            _profile_demote(
+                f, demotions, profile, "B2",
+                "trigger_requirement",
+                "blocking-eligible finding with no concrete "
+                "trigger stated — capped at minor under policy "
+                "B2's trigger rule (the trigger names the "
+                "input, state, or call sequence that makes the "
+                "code misbehave)")
             continue
-        original = f["severity"]
-        f["severity"] = "minor"
-        f["profile_demotion"] = {
-            "rule": "B1", "profile": "balanced",
-            "from": original, "to": "minor",
-            "reason": (
-                "blocking-severity finding whose merged "
-                "sources are solely the operations lens — no "
-                "correctness-lens or deterministic "
-                "corroboration within the gate's merge "
-                "identity (policy B1)"),
-        }
-        demotions.append({
-            "finding_id": f.get("id"), "file": f.get("file"),
-            "title": f.get("title"),
-            "from": original, "to": "minor", "rule": "B1"})
+        if eclass != "E3":
+            continue
+        outcome = None
+        if confirmation_outcomes is not None:
+            outcome = confirmation_outcomes.get(f.get("id"))
+        if outcome is None and confirm_fn is not None:
+            outcome = confirm_fn(f)
+        if outcome:
+            f["corroboration"] = dict(outcome)
+        oc = (outcome or {}).get("outcome")
+        if oc == "confirmed" and outcome.get("quote_valid"):
+            f["evidence_class"] = "E1"
+            f["cross_family"] = "confirmed"
+            continue
+        if oc == "refuted" and outcome.get("quote_valid"):
+            _profile_demote(
+                f, demotions, profile, "B2",
+                "cross_family_refuted",
+                "single-source finding refuted by a seat of "
+                "another vendor family with a quote that "
+                "validates against the cited region — demoted "
+                "under policy B2 (cross-family confirmation)")
+            continue
+        _profile_demote(
+            f, demotions, profile, "B2",
+            "unverified_single_source",
+            "single-source finding with no corroboration — "
+            "recorded as an unverified major, visible and "
+            "non-blocking, under policy B2 (evidence-class "
+            "blocking)", unverified=True)
     return findings, demotions
+
+
+def evaluate_gate_policy(findings, profile, family_by_source=None,
+                         confirmation_outcomes=None, confirm_fn=None,
+                         require_trigger=True):
+    """THE policy-evaluation entry point (expert solution
+    §6.1: replay = live). Grouping (core.merge_findings) and
+    the profile pass (_apply_gate_profile) in one call, so
+    the bench replay, the dev pilot, and any future
+    confirmation all evaluate a policy through exactly the
+    code the live gate runs. Returns (merged_findings,
+    demotions). Any evaluation that cannot go through this
+    function is non-predictive and must be labelled as such."""
+    staged = []
+    for f in findings or []:
+        g = dict(f)
+        g["sources"] = list(f.get("sources") or [])
+        if isinstance(f.get("source_lenses"), dict):
+            g["source_lenses"] = {
+                k: list(v) for k, v in f["source_lenses"].items()}
+        staged.append(g)
+    merged = merge_findings(staged)
+    return _apply_gate_profile(
+        merged, profile, family_by_source=family_by_source,
+        confirmation_outcomes=confirmation_outcomes,
+        confirm_fn=confirm_fn, require_trigger=require_trigger)
 
 
 def merge_findings(findings):
@@ -2722,6 +3065,18 @@ def merge_findings(findings):
                             "grounded", "reground_confirmed"):
                     m["grounding"] = f["grounding"]
                     m["evidence_quote"] = f.get("evidence_quote") or ""
+                # B2: a merged finding keeps a stated trigger,
+                # a probe confirmation, and a validated
+                # cross-family confirmation from any of its
+                # sources — the profile pass reads all three.
+                if f.get("trigger") and not m.get("trigger"):
+                    m["trigger"] = f["trigger"]
+                if f.get("probe_confirmed"):
+                    m["probe_confirmed"] = True
+                if (f.get("corroboration") or {}).get(
+                        "outcome") == "confirmed" \
+                        and not (m.get("corroboration") or {}):
+                    m["corroboration"] = f["corroboration"]
                 placed = True
                 break
         if not placed:
@@ -3626,22 +3981,34 @@ def run_review(patch, providers, context="", test_results=None,
     installed) makes a passing gate INCONCLUSIVE.
 
     Gate profile (step 6; honest-negatives solution §2.4,
-    candidate frozen by the step-4 replay sweep):
-    `gate_profile` selects the gate's admission rule for
-    blocking findings — "strict" (the default: today's
-    behaviour, every blocking-severity finding blocks) or
-    "balanced" (policy B1: a blocking finding whose merged
-    sources are solely the operations lens, with no
-    correctness-lens or deterministic corroboration within
-    the gate's merge identity, is demoted to a visible minor
-    before any further classification — see
-    _apply_gate_profile for the rule and the replay-to-live
-    gap). Resolution order: the explicit argument, then the
-    policy file's [gate] profile, then "strict". The
-    effective profile, its source, and every demotion are
-    recorded in the report's gate_profile section. The
-    default stays "strict" until Baseline v2 confirms B1
-    once on the holdout (step 7).
+    candidate frozen by the step-4 replay sweep; B2 added by
+    the expert solution §4.1): `gate_profile` selects the
+    gate's admission rule for blocking findings — "strict"
+    (the default: today's behaviour, every blocking-severity
+    finding blocks), "balanced" (policy B1: a blocking
+    finding whose merged sources are solely the operations
+    lens, with no correctness-lens or deterministic
+    corroboration within the gate's merge identity, is
+    demoted to a visible minor before any further
+    classification — see _apply_gate_profile for the rule
+    and the replay-to-live gap), or "corroborated" (policy
+    B2: evidence-class blocking for every lens — E0/E2/E1
+    may block, E3 single-source findings go to cross-family
+    confirmation and otherwise land as visible unverified
+    majors; a validated quote and a concrete trigger are
+    required of blocking model findings; the panel must
+    offer at least two correctness families, enforced loudly
+    before any seat is called; an unavailable corroborating
+    family marks the run degraded). Resolution order: the
+    explicit argument, then the policy file's [gate]
+    profile, then "strict". The effective profile, its
+    source, and every demotion are recorded in the report's
+    gate_profile section (B2 adds the prompt version/hash,
+    evidence-class counts, confirmation outcomes, and the
+    unverified-major list). The default stays "strict"; B1
+    was NOT confirmed by Baseline v2 (attempt 1 failed on
+    clean-BLOCKED), and B2 is opt-in and unconfirmed — dev
+    evidence only.
 
     File context (acceptance D1): `file_context` optionally
     maps a changed file's path to its post-change contents
@@ -3961,6 +4328,30 @@ def run_review(patch, providers, context="", test_results=None,
             tasks = tasks + [t for t in _stage1_tasks
                              if (t[0], t[2]) not in _task_pairs]
 
+    if effective_profile == "corroborated":
+        # Policy B2 config rule (expert solution §4.1 rule 5):
+        # an evidence-class profile needs at least two distinct
+        # vendor families able to serve the correctness lens —
+        # without them nothing can corroborate, and the run
+        # must say so loudly rather than silently behave like
+        # strict. Single-family and single-seat setups keep
+        # `strict` (or `balanced`).
+        corr_families = {
+            _seat_meta(seat_meta, name)["family"]
+            for name, _fn, lens in tasks if lens == "correctness"}
+        corr_families |= {
+            _seat_meta(seat_meta, fb_name)["family"]
+            for lens, (fb_name, _fb_fn) in (fallbacks or {}).items()
+            if lens == "correctness"}
+        corr_families.discard("unknown")
+        if len(corr_families) < 2:
+            raise ValueError(
+                "gate profile 'corroborated' (policy B2) "
+                "requires at least two distinct vendor families "
+                "able to serve the correctness lens; this panel "
+                f"offers {sorted(corr_families) or 'none known'} "
+                "— use 'strict' for single-family panels")
+
     job_fallback_for = {}
     jobs = []
     context_attached = {}
@@ -3979,7 +4370,8 @@ def run_review(patch, providers, context="", test_results=None,
             suffix += (_AGENTS_CONTEXT_HEADER
                        + agents_context["prompt_text"])
         for name, fn, lens in tasks:
-            prompt = _REVIEW_PROMPT.format(
+            prompt = review_prompt_for_profile(
+                effective_profile).format(
                 lens=LENSES[lens], context=(context or "(none)")[:4000],
                 tests=tests_txt,
                 batch=f"batch {bi + 1}/{len(batches)}", patch=batch)
@@ -4355,9 +4747,60 @@ def run_review(patch, providers, context="", test_results=None,
     # profile demotes consumes none of that machinery — the
     # frozen policy's semantics: it does not ENTER the blocking
     # set. Under "strict" this stamps evidence-class metadata
-    # only and changes nothing.
+    # only and changes nothing. The family map is the panel's
+    # seat->family record (seat_meta, completed from the
+    # reviewer reports): B2's evidence classes are defined
+    # over families, not seat names.
+    fam_by_seat_profile = {}
+    for name in list((seat_meta or {}).keys()) + [
+            n for n, _f, _l in tasks]:
+        fam_by_seat_profile[name] = _seat_meta(
+            seat_meta, name)["family"]
+    for r in reviewer_reports:
+        if r.get("provider") and fam_by_seat_profile.get(
+                r["provider"]) in (None, "unknown"):
+            fam_by_seat_profile[r["provider"]] = (
+                r.get("family") or "unknown")
+    b2_confirm_fn = None
+    if effective_profile == "corroborated":
+        b2_ok_seats = {r.get("provider") for r in reviewer_reports
+                       if r.get("status") == "ok"}
+        b2_seat_fns = {}
+        for name, fn, _lens in tasks:
+            b2_seat_fns.setdefault(name, fn)
+        for _lens, (fb_name, fb_fn) in (fallbacks or {}).items():
+            b2_seat_fns.setdefault(fb_name, fb_fn)
+        b2_correctness_seats = [
+            name for name, _fn, lens in tasks
+            if lens == "correctness"] + [
+            fb_name for lens, (fb_name, _fb_fn)
+            in (fallbacks or {}).items() if lens == "correctness"]
+        b2_confirm_fn = _b2_confirmation_fn(
+            fam_by_seat_profile, b2_ok_seats, b2_seat_fns,
+            b2_correctness_seats, section_text)
     merged, profile_demotions = _apply_gate_profile(
-        merged, effective_profile)
+        merged, effective_profile,
+        family_by_source=fam_by_seat_profile,
+        confirm_fn=b2_confirm_fn)
+    if effective_profile == "corroborated":
+        # B2 degraded mode (expert solution §4.1 rule 4): an
+        # E3 major whose corroborating family was unavailable
+        # cannot block, AND the run is marked degraded — it
+        # cannot PASS cleanly on a panel that could not
+        # corroborate.
+        b2_unavailable = [
+            f for f in merged
+            if (f.get("corroboration") or {}).get(
+                "outcome") == "unavailable"]
+        if b2_unavailable:
+            degraded = True
+            cause = (
+                "corroboration unavailable for "
+                f"{len(b2_unavailable)} unverified major(s) "
+                "under gate profile 'corroborated' (policy B2 "
+                "degraded mode)")
+            if cause not in degraded_causes:
+                degraded_causes.append(cause)
     # Archived-text classification (§5.4): deterministic
     # findings fired on archived paths (the scan runs on the
     # full patch), and any finding whose quote exists only
@@ -4541,6 +4984,20 @@ def run_review(patch, providers, context="", test_results=None,
     kept = []
     for f in merged:
         if f.get("severity") not in blocking_sevs_x:
+            kept.append(f)
+            continue
+        if effective_profile == "corroborated" and (
+                f.get("evidence_class") == "E2"
+                or (f.get("corroboration") or {}).get(
+                    "outcome") == "confirmed"):
+            # Policy B2 already settled this finding's evidence:
+            # a probe confirmation, or a cross-family
+            # confirmation with a validated deciding quote at
+            # the profile pass. The §2c dispute ladder does not
+            # re-open it.
+            if (f.get("corroboration") or {}).get(
+                    "outcome") == "confirmed":
+                f["cross_family"] = "confirmed"
             kept.append(f)
             continue
         srcs = [s for s in (f.get("sources") or [])
@@ -5016,7 +5473,7 @@ def run_review(patch, providers, context="", test_results=None,
             "human decision required: disputed, "
             "refutation-weak, escalated or ungrounded "
             "finding(s) are recorded in the record"] + reasons
-    if profile_demotions:
+    if profile_demotions and effective_profile == "balanced":
         reasons = reasons + [
             f"gate profile 'balanced' (policy B1 — per-lens "
             f"corroboration): {len(profile_demotions)} blocking "
@@ -5024,6 +5481,21 @@ def run_review(patch, providers, context="", test_results=None,
             f"without corroboration demoted to minor — visible, "
             f"non-blocking; see the record's gate_profile "
             f"section"]
+    if profile_demotions and effective_profile == "corroborated":
+        b2_bases = {}
+        for d in profile_demotions:
+            b2_bases[d.get("basis") or ""] = (
+                b2_bases.get(d.get("basis") or "", 0) + 1)
+        b2_detail = ", ".join(
+            f"{basis}: {n}" for basis, n in sorted(b2_bases.items())
+            if basis)
+        reasons = reasons + [
+            f"gate profile 'corroborated' (policy B2 — "
+            f"evidence-class blocking): "
+            f"{len(profile_demotions)} blocking finding(s) "
+            f"demoted to visible minor ({b2_detail}) — "
+            f"non-blocking; unverified majors are listed in "
+            f"the record's unverified_majors section"]
     policy_outcome = None
     if policy is not None:
         # Project policy (Epic B2): evaluated on the round's
@@ -5164,6 +5636,30 @@ def run_review(patch, providers, context="", test_results=None,
                          "source": profile_source,
                          "demotions": profile_demotions},
     }
+    if effective_profile == "corroborated":
+        # Policy B2 record surface (expert solution §7.2): the
+        # prompt the policy ran with (version + hash), the
+        # evidence-class breakdown of the findings as they
+        # stand, the cross-family confirmation outcomes, and
+        # the unverified-major count — a reader sees why every
+        # case was or was not blocked.
+        report["gate_profile"].update({
+            "prompt_version": review_prompt_version(
+                effective_profile),
+            "prompt_sha256": review_prompt_sha256(
+                effective_profile),
+            "evidence_class_counts": dict(sorted(
+                Counter(f.get("evidence_class") or "unstamped"
+                        for f in merged).items())),
+            "corroboration_outcomes": dict(sorted(
+                Counter((f.get("corroboration") or {}).get(
+                    "outcome") or "not_sought"
+                    for f in merged).items())),
+            "unverified_major_count": sum(
+                1 for f in merged if "unverified_major" in f),
+        })
+        report["unverified_majors"] = [
+            f for f in merged if "unverified_major" in f]
     if file_context:
         # D1: the record states exactly which files' post-change
         # contents were attached to the reviewer prompts.
@@ -7346,10 +7842,17 @@ def render_markdown(report):
             if f.get("line"):
                 loc += f":{f['line']}"
             state = ""
+            if f.get("evidence_class"):
+                # §7.2: the evidence class rides on every
+                # finding line, so a reader sees why a case
+                # was or was not blocked.
+                state += f" · evidence {f['evidence_class']}"
+            if "unverified_major" in f:
+                state += " · unverified major (non-blocking)"
             if f.get("grounding") == "unresolved":
-                state = " · ⚠ UNGROUNDED (re-ground unresolved)"
+                state += " · ⚠ UNGROUNDED (re-ground unresolved)"
             elif f.get("grounding") == "reground_confirmed":
-                state = " · re-grounded"
+                state += " · re-grounded"
             if f.get("cross_family") == "confirmed":
                 state += " · cross-family confirmed"
             elif f.get("cross_family") == "tech_lead_sustained":
@@ -7366,6 +7869,14 @@ def render_markdown(report):
         lines.append("")
     else:
         lines += ["## Findings", "None.", ""]
+    unverified = report.get("unverified_majors") or []
+    if unverified:
+        lines.append(
+            f"Unverified majors (policy B2 — single-source, "
+            f"non-blocking): {len(unverified)} — listed in the "
+            f"findings above at minor severity with their "
+            f"demotion basis; they did not block this gate.")
+        lines.append("")
     for key, heading, render in (
             ("disputed_findings", "## Disputed findings — human "
              "gate decides",
