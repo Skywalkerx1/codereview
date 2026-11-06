@@ -36,7 +36,12 @@ Items checked:
      §3 Addendum A append of 2026-11-05 (Addendum A signed the same
      day; addendum body hash d83c93977d66769c..., recorded in the
      registration's §3); the post-append state is the current value
-     and is verified by strict equality.
+     and is verified by strict equality. The §3 A1-A3 append of
+     2026-11-05 (the three §2 protocol amendments, ratified by the
+     owner that day before any §2 sealed attempt) supersedes the
+     post-Addendum A state in turn; the post-A1-A3 body hash is the
+     current value, verified by strict equality, with both earlier
+     states reported SUPERSEDED.
 
 Stdlib only. No network, no seat calls, no scoring.
 """
@@ -79,10 +84,20 @@ REGISTRATION_BODY_SHA256_SUPERSEDED = \
 # one independent reviewer; addendum body hash
 # d83c93977d66769c614f6510159c0713f3b2addf8ba3c7854a7d6b5bdeea528d,
 # recorded in the registration's section 3 alongside this append).
-# This is the current authoritative body state: Addendum A item 10
-# requires this script to exit 0 before any run under the addendum.
-REGISTRATION_BODY_SHA256_CURRENT = \
+# Superseded by the section-3 A1-A3 append below; retained as the
+# expected value of the second SUPERSEDED row in check 6.
+REGISTRATION_BODY_SHA256_POST_ADDENDUM_A = \
     "5d9bea160d9ee93f2aebd9a194cef41e602b0d79e63f95ae10780115b12a74df"
+# Body hash after the section-3 A1-A3 append of 2026-11-05 —
+# the three section-2 protocol amendments (deterministic-path
+# scoring decision-only; the probe-settled set for M2; the
+# dismissal veto across all strata), ratified by the owner that
+# day adopting the settlement memo's recommendations
+# (tl-sealed-protocol-settlement-2026-11-05.md) and appended to
+# section 3 before any section-2 sealed attempt. This is the
+# current authoritative body state.
+REGISTRATION_BODY_SHA256_CURRENT = \
+    "a98d93788e875a5525f8cf2d5475fabc6ec4598e9a4eb97a2daff6d2b513cd9f"
 
 
 def sha256(data):
@@ -219,7 +234,15 @@ def main():
                      "SUPERSEDED"
                      if body_hash == REGISTRATION_BODY_SHA256_CURRENT
                      else "FAIL"))
-        check("pre-registration body hash (post-Addendum A append, "
+        rows.append(("pre-registration body hash (post-Addendum A "
+                     "append, §3)",
+                     REGISTRATION_BODY_SHA256_POST_ADDENDUM_A,
+                     "superseded by the §3 A1-A3 append "
+                     "(2026-11-05)",
+                     "SUPERSEDED"
+                     if body_hash == REGISTRATION_BODY_SHA256_CURRENT
+                     else "FAIL"))
+        check("pre-registration body hash (post-A1-A3 append, "
               "§3)", REGISTRATION_BODY_SHA256_CURRENT, body_hash)
     except (OSError, ValueError, IndexError) as exc:
         rows.append(("pre-registration integrity", "readable document",
@@ -237,7 +260,8 @@ def main():
         print(f"RESULT: FAIL ({len(failures)} item(s) did not verify)")
         return 1
     print("RESULT: PASS (all registered hashes verify; superseded: "
-          "A5 set hash, pre-Addendum-A body hash)")
+          "A5 set hash, pre-Addendum-A body hash, post-Addendum-A "
+          "body hash)")
     return 0
 
 
