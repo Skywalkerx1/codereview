@@ -219,8 +219,16 @@ class StdioServer:
             # An ABSENT id is a notification and never reaches
             # this check.
             raw_id = message["id"]
-            if isinstance(raw_id, bool) or not isinstance(
-                    raw_id, (str, int)):
+            # One carve-out, inherited from P3-10: a NON-FINITE
+            # float (NaN/Infinity — not producible by a
+            # conforming JSON encoder, and unemittable in a
+            # strict-JSON response) is sanitised to a null id
+            # by _sanitised_id and served, rather than refused.
+            nonfinite = isinstance(raw_id, float) and not \
+                math.isfinite(raw_id)
+            if not nonfinite and (isinstance(raw_id, bool)
+                                  or not isinstance(
+                                      raw_id, (str, int))):
                 self._record("invalid_request",
                              "request id is not a string or "
                              "an integer")

@@ -254,6 +254,16 @@ class TestP505McpEnvelope(unittest.TestCase):
                          ["abc", 0, 1180591620717411303424])
         self.assertTrue(all("result" in r for r in responses))
 
+    def test_nonfinite_float_id_keeps_p310_sanitisation(self):
+        # Boundary with the Phase 3 pin: NaN cannot be emitted
+        # in strict JSON, so it is echoed as null and SERVED
+        # (P3-10); finite floats are refused (P5-05, above).
+        responses = self._run([
+            b'{"jsonrpc": "2.0", "id": NaN, "method": "ping"}\n'])
+        self.assertEqual(len(responses), 1)
+        self.assertIsNone(responses[0]["id"])
+        self.assertEqual(responses[0]["result"], {"echo": "ping"})
+
     def test_absent_id_is_a_silent_notification(self):
         responses = self._run([
             b'{"jsonrpc": "2.0", "method": "ping"}\n',
