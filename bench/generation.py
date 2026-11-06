@@ -592,6 +592,15 @@ def to_attempt_record(case, report, cfg_name, cfg_sha, attempt,
         "degraded": report["degraded"],
         "degraded_causes": report.get("degraded_causes"),
         "gate_profile": report["gate_profile"],
+        # B2 confirmation (registration §8(a)): the case's
+        # stratum rides into every record when the case carries
+        # one, and the report's unverified majors (B2's visible
+        # non-blocking tier) are preserved for the corroboration
+        # accounting. Attempt-1-era cases carry neither; both
+        # keys are additive and ignored by the v2 scorer.
+        "stratum": case.get("stratum"),
+        "unverified_majors": report.get("unverified_majors")
+        or [],
         "duration_ms": duration_ms,
         "calls": calls,
         "cost_usd": round(float(shadow_cost_usd), 6),

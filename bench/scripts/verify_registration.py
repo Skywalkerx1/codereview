@@ -42,6 +42,20 @@ Items checked:
      post-Addendum A state in turn; the post-A1-A3 body hash is the
      current value, verified by strict equality, with both earlier
      states reported SUPERSEDED.
+  7. B2 confirmation registration (pre-registration-b2-2026-11-05
+     §10): (a) sha256 of bench/generation-v3/SEALED-MANIFEST.json
+     at HEAD; (b) every per-file sha256 in that manifest (176 case
+     files + 105 validation files = 281) recomputed from the
+     committed blob at the manifest's source commit 0e3bf46;
+     (c) the B2 policy freeze — core.py and the bench panel
+     config at freeze commit a88df64; (d) the B2 registration's
+     integrity, pattern of item 6: the FOOTER-HASH line carries
+     the drafting value, the drafting body state and the
+     post-signature §13 state (signatures recorded 2026-11-06,
+     JCL + CC e-sign by owner confirmation in chat — the
+     Addendum A execution form) are SUPERSEDED, and the
+     post-runner-pin §13 body state is the current value,
+     verified by strict equality.
 
 Stdlib only. No network, no seat calls, no scoring.
 """
@@ -99,6 +113,37 @@ REGISTRATION_BODY_SHA256_POST_ADDENDUM_A = \
 REGISTRATION_BODY_SHA256_CURRENT = \
     "a98d93788e875a5525f8cf2d5475fabc6ec4598e9a4eb97a2daff6d2b513cd9f"
 
+# Item 7 (B2 confirmation registration, pre-registration-b2-
+# 2026-11-05 §10): generation-v3 seal + B2 policy freeze + the
+# B2 registration's integrity.
+DEFAULT_B2_REGISTRATION = os.path.join(
+    GOAL_FILES, "pre-registration-b2-2026-11-05.md")
+GENERATION_V3_SEALED_MANIFEST_SHA256 = \
+    "35bea8029e94fbda7bf961f646325cab5b5baa5287634a07a6b6638852b40690"
+GENERATION_V3_SOURCE_COMMIT = \
+    "0e3bf464d930b48e4d89be64e90e2029b84a271d"
+B2_FREEZE_COMMIT = "a88df64558aa58e4eea8e1288dfdf3c8d3fa8030"
+B2_CORE_PY_SHA256 = \
+    "afe6bc2e1557543e6cd05d6132063463de6dcd0be01ea99a91bc3478bb8d6543"
+B2_PANEL_CONFIG_SHA256 = \
+    "26ca5b303827a00f3c5684c4be18a0b1ce6debdd5e6db5688cf339227f4b0440"
+# The B2 registration's FOOTER-HASH line carries the drafting
+# body hash (the value §10's constant block names, filled at
+# signing from the footer).
+REGISTRATION_B2_FOOTER_HASH = \
+    "58d7c5b120ffe9d37885ceb5f335542b7f7226f28c36ace92951635198baeea1"
+# Body hash after the §13 signature fill of 2026-11-06
+# (signatures recorded there: JCL + CC, e-sign by owner
+# confirmation in chat — the Addendum A execution form).
+# Superseded by the §13 runner/scorer hash-pin fill below.
+REGISTRATION_B2_BODY_SHA256_POST_SIGNATURE = \
+    "35620d5ee6f7cd457ad71b6bf24be6a500238deb51457a12136647b11295303d"
+# Body hash after the §13 runner/scorer hash-pin fill of
+# 2026-11-06 (§8 (a)–(e)) — the current authoritative state
+# of the B2 registration, verified by strict equality.
+REGISTRATION_B2_BODY_SHA256_CURRENT = \
+    "368e5012654e5fffff3383678ff1179ac5af09fe3e330687a23c26ce644ef6ee"
+
 
 def sha256(data):
     return hashlib.sha256(data).hexdigest()
@@ -124,6 +169,10 @@ def main():
     ap.add_argument("--a5-manifest", default=DEFAULT_A5_MANIFEST,
                     help="path to the A5 per-file manifest JSON "
                          "(Addendum A item 8)")
+    ap.add_argument("--registration-b2",
+                    default=DEFAULT_B2_REGISTRATION,
+                    help="path to the B2 pre-registration document "
+                         "(item 7)")
     ap.add_argument("--sets-rev", default="HEAD",
                     help="git revision the set manifests are verified "
                          "at (default: HEAD)")
@@ -248,6 +297,80 @@ def main():
         rows.append(("pre-registration integrity", "readable document",
                      f"error: {exc}", "FAIL"))
 
+    # 7. B2 confirmation registration (§10 of
+    # pre-registration-b2-2026-11-05).
+    check("generation-v3 sealed manifest (B2 §10a)",
+          GENERATION_V3_SEALED_MANIFEST_SHA256,
+          sha256(repo.blob(args.sets_rev,
+                           "bench/generation-v3/"
+                           "SEALED-MANIFEST.json")))
+    try:
+        man = json.loads(repo.blob(
+            args.sets_rev,
+            "bench/generation-v3/SEALED-MANIFEST.json"))
+        entries = list(man.get("files") or []) + list(
+            (man.get("validation") or {}).get("files") or [])
+        bad7 = []
+        for entry in entries:
+            if sha256(repo.blob(GENERATION_V3_SOURCE_COMMIT,
+                                entry["path"])) != entry["sha256"]:
+                bad7.append(entry["path"])
+        rows.append((f"generation-v3 per-file manifest "
+                     f"({len(entries)} files @ 0e3bf46) (B2 §10b)",
+                     "all match manifest",
+                     "all match" if not bad7
+                     else f"mismatch: {', '.join(bad7[:3])}",
+                     "PASS" if not bad7 else "FAIL"))
+    except (KeyError, ValueError, subprocess.CalledProcessError) \
+            as exc:
+        rows.append(("generation-v3 per-file manifest (B2 §10b)",
+                     "readable manifest", f"error: {exc}", "FAIL"))
+    check("B2 freeze core.py @ a88df64 (§10c)",
+          B2_CORE_PY_SHA256,
+          sha256(repo.blob(B2_FREEZE_COMMIT,
+                           "src/codereview/core.py")))
+    check("B2 freeze panel config @ a88df64 (§10c)",
+          B2_PANEL_CONFIG_SHA256,
+          sha256(repo.blob(
+              B2_FREEZE_COMMIT,
+              "bench/configs/panel-baseline-2026-11-04.json")))
+    try:
+        with open(args.registration_b2, "rb") as fh:
+            data7 = fh.read()
+        marker7 = b"\nFOOTER-HASH:"
+        idx7 = data7.find(marker7)
+        if idx7 < 0:
+            raise ValueError("FOOTER-HASH line not found")
+        body7 = sha256(data7[:idx7])
+        line_end7 = data7.find(b"\n", idx7 + 1)
+        footer_line7 = data7[idx7 + 1:line_end7].decode(
+            "utf-8", "replace")
+        footer_value7 = footer_line7.split("`")[1] \
+            if "`" in footer_line7 else footer_line7
+        check("B2 registration FOOTER-HASH line (§10d)",
+              REGISTRATION_B2_FOOTER_HASH, footer_value7.strip())
+        rows.append(("B2 registration body hash (drafting state, "
+                     "§13)",
+                     REGISTRATION_B2_FOOTER_HASH,
+                     "superseded by the §13 signature fill "
+                     "(2026-11-06)",
+                     "SUPERSEDED"
+                     if body7 == REGISTRATION_B2_BODY_SHA256_CURRENT
+                     else "FAIL"))
+        rows.append(("B2 registration body hash (post-signature "
+                     "fill, §13)",
+                     REGISTRATION_B2_BODY_SHA256_POST_SIGNATURE,
+                     "superseded by the §13 runner-pin fill "
+                     "(2026-11-06)",
+                     "SUPERSEDED"
+                     if body7 == REGISTRATION_B2_BODY_SHA256_CURRENT
+                     else "FAIL"))
+        check("B2 registration body hash (post-runner-pin fill, "
+              "§13)", REGISTRATION_B2_BODY_SHA256_CURRENT, body7)
+    except (OSError, ValueError, IndexError) as exc:
+        rows.append(("B2 registration integrity (§10d)",
+                     "readable document", f"error: {exc}", "FAIL"))
+
     print(f"verify-registration — repo {root} @ {head[:12]}")
     print(f"{'item':<52} {'expected':<22} {'recomputed':<22} status")
     print("-" * 118)
@@ -262,6 +385,9 @@ def main():
     print("RESULT: PASS (all registered hashes verify; superseded: "
           "A5 set hash, pre-Addendum-A body hash, post-Addendum-A "
           "body hash)")
+    print("B2 registration (item 7): PASS — generation-v3 seal, "
+          "B2 freeze, and body-hash chain verify; drafting and "
+          "post-signature body states SUPERSEDED")
     return 0
 
 
