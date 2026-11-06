@@ -1510,6 +1510,15 @@ def _mcp_main(argv):
     and draws seats only from the saved setup / environment,
     exactly like a CLI run. Protocol on stdout; all
     diagnostics on stderr."""
+    if argv and argv[0] in ("-h", "--help"):
+        ap = argparse.ArgumentParser(
+            prog="codereview mcp",
+            description="Serve the CodeReview gate over the "
+                        "Model Context Protocol.")
+        ap.add_argument("action", choices=("serve",),
+                        help="serve — serve the gate on stdio "
+                             "(tools: run_gate, get_verdict)")
+        ap.parse_args(argv)
     if not argv or argv[0] != "serve":
         print("usage: codereview mcp serve", file=sys.stderr)
         return 2
@@ -1534,6 +1543,15 @@ def _policy_main(argv):
     policy: the file's rules with every default filled in. With
     no policy file, the effective policy is the defaults — no
     requirements — and that is a valid state, printed as such."""
+    if argv and argv[0] in ("-h", "--help"):
+        ap = argparse.ArgumentParser(
+            prog="codereview policy",
+            description="Validate and print the effective "
+                        "project policy.")
+        ap.add_argument("action", choices=("check",),
+                        help="check — validate the policy file "
+                             "and print the effective policy")
+        ap.parse_args(argv)
     if not argv or argv[0] != "check":
         print("usage: codereview policy check [--repo DIR] "
               "[--policy PATH]", file=sys.stderr)
@@ -1571,6 +1589,16 @@ def _policy_main(argv):
 
 def _bench_main(argv, providers_override=None):
     """codereview bench run|report — Epic A benchmark harness."""
+    if argv and argv[0] in ("-h", "--help"):
+        ap = argparse.ArgumentParser(
+            prog="codereview bench",
+            description="Run the benchmark corpus and "
+                        "reports (Epic A harness).")
+        ap.add_argument("action", choices=("run", "report"),
+                        help="run — run the corpus under a "
+                             "config; report — summarise saved "
+                             "results")
+        ap.parse_args(argv)
     if not argv or argv[0] not in ("run", "report"):
         print("usage: codereview bench run --config NAME [...] "
               "[--corpus DIR] [--out DIR] [--split all|public|holdout]\n"
@@ -1837,6 +1865,9 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
                "acceptance — run the acceptance harness; "
                "mcp — serve the gate over the Model Context "
                "Protocol (stdio; run_gate / get_verdict).")
+    ap.add_argument("--version", action="version",
+                    version=core.VERSION,
+                    help="print the codereview version and exit")
     src = ap.add_argument_group("change source (pick one)")
     src.add_argument("--patch", help="unified diff file")
     src.add_argument("--repo", help="git repository path (default: .)")
