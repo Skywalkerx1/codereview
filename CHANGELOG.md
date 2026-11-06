@@ -17,6 +17,28 @@ before landing:
   policy case in working-tree mode). Which policy keys
   apply, and whether hooks run, are UNCHANGED — restricting
   a discovered policy's authority awaits an owner decision.
+- **P3-01 — the trust restriction has landed (owner ruling
+  2026-11-06, option 1: restrict).** A policy DISCOVERED in
+  the reviewed repository now keeps only its strengthening
+  keys. Its `[hooks]` (commands and timeout), a
+  weaker-than-`strict` `[gate]` profile, `[[paths]]
+  enforce = "advisory"`, the `[waivers]` leniency values,
+  `[diversity] enforce = "degrade"` /
+  `exclude_builder_family`, and `[risk]` tiering with its
+  seat selection are dropped back to defaults at load —
+  before the hook runner is built or the gate reads the
+  policy — enumerated in one audit point
+  (`policy.DISCOVERED_POLICY_RESTRICTED_KEYS`, enforced by
+  `policy.apply_discovered_restrictions`). Dropped keys are
+  named in the record's `policy.ignored_keys`, counted in
+  the CLI's discovered-policy warning (which now names the
+  remedy), and returned to MCP clients as
+  `policy_ignored_keys`. New `--trust-repo-policy` flag
+  (CLI, and `run_gate`'s `trust_repo_policy` argument)
+  honours a discovered policy in full; an operator-named
+  `--policy` is honoured in full exactly as before.
+  THREAT-MODEL gains the "policy may come from the reviewed
+  tree" trust-boundary entry.
 - **P3-02 — the deterministic scanner is no longer cubic.**
   Every unbounded gap in the `sql-string-build` rule is
   bounded to 200 chars and a single added line is scanned
