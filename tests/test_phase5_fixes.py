@@ -218,5 +218,63 @@ class TestP511InconclusiveStatus(unittest.TestCase):
         self.assertIn("inconclusive", desc)
 
 
+from codereview import mcp_transport  # noqa: E402
+
+
+class TestP505McpEnvelope(unittest.TestCase):
+    def _run(self, frames):
+        raw_in = io.BytesIO(b"".join(frames))
+        raw_out = io.BytesIO()
+        server = mcp_transport.StdioServer(
+            lambda method, params, notification: {"echo": method},
+            stdin=raw_in, stdout=raw_out, log=lambda _t: None)
+        server.serve_forever()
+        return [json.loads(line) for line in
+                raw_out.getvalue().decode("utf-8").splitlines()
+                if line.strip()]
+
+    def test_invalid_ids_get_invalid_request(self):
+        for bad in ("true", "1.5", "null", '{"a": 1}', "[1]"):
+            frame = ('{"jsonrpc": "2.0", "id": %s, '
+                     '"method": "ping"}\n' % bad).encode()
+            responses = self._run([frame])
+            self.assertEqual(len(responses), 1, bad)
+            self.assertEqual(responses[0]["error"]["code"], -32600,
+                             bad)
+            self.assertIsNone(responses[0]["id"], bad)
+
+    def test_valid_ids_still_answered(self):
+        responses = self._run([
+            b'{"jsonrpc": "2.0", "id": "abc", "method": "ping"}\n',
+            b'{"jsonrpc": "2.0", "id": 0, "method": "ping"}\n',
+            b'{"jsonrpc": "2.0", "id": 1180591620717411303424, '
+            b'"method": "ping"}\n'])
+        self.assertEqual([r["id"] for r in responses],
+                         ["abc", 0, 1180591620717411303424])
+        self.assertTrue(all("result" in r for r in responses))
+
+    def test_absent_id_is_a_silent_notification(self):
+        responses = self._run([
+            b'{"jsonrpc": "2.0", "method": "ping"}\n',
+            b'{"jsonrpc": "2.0", "id": 9, "method": "ping"}\n'])
+        self.assertEqual([r["id"] for r in responses], [9])
+
+    def test_wrong_jsonrpc_still_invalid_request(self):
+        responses = self._run([
+            b'{"id": 1, "method": "ping"}\n',
+            b'{"jsonrpc": "1.0", "id": 2, "method": "ping"}\n',
+            b'{"jsonrpc": "2.0", "id": 3, "method": "ping"}\n'])
+        self.assertEqual(
+            [r["error"]["code"] for r in responses[:2]],
+            [-32600, -32600])
+        self.assertEqual(responses[2]["id"], 3)  # still alive
+
+    def test_duplicate_ids_still_answered(self):
+        responses = self._run([
+            b'{"jsonrpc": "2.0", "id": 5, "method": "ping"}\n',
+            b'{"jsonrpc": "2.0", "id": 5, "method": "ping"}\n'])
+        self.assertEqual([r["id"] for r in responses], [5, 5])
+
+
 if __name__ == "__main__":
     unittest.main()

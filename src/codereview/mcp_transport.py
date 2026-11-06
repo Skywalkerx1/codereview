@@ -210,6 +210,24 @@ class StdioServer:
                     req_id, INVALID_REQUEST,
                     "jsonrpc field must be \"2.0\""))
             return
+        if "id" in message:
+            # P5-05: a request id must be a string or an integer
+            # (JSON-RPC 2.0). Bool (an int subclass — excluded
+            # explicitly), float, null, object and array ids are
+            # invalid requests, answered -32600 with a null id:
+            # the offending id cannot be echoed as an identity.
+            # An ABSENT id is a notification and never reaches
+            # this check.
+            raw_id = message["id"]
+            if isinstance(raw_id, bool) or not isinstance(
+                    raw_id, (str, int)):
+                self._record("invalid_request",
+                             "request id is not a string or "
+                             "an integer")
+                self._send(error_response(
+                    None, INVALID_REQUEST,
+                    "request id must be a string or an integer"))
+                return
         method = message.get("method")
         if not isinstance(method, str) or not method:
             self._record("invalid_request",
