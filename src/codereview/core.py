@@ -535,13 +535,12 @@ def deterministic_scan(patch, test_results=None):
             "title": title, "evidence": redact_secrets(evidence),
             "evidence_quote": redact_secrets(evidence),
             "recommendation": recommendation,
-            # B2 trigger field: a deterministic match's trigger
-            # is the cited line's presence itself — the rule
-            # fires on the change exactly as written.
-            "trigger": ("The cited added line is present in the "
-                        "reviewed diff, so this deterministic "
-                        "rule match fires on the change as "
-                        "written."),
+            # No `trigger` is stamped: deterministic findings
+            # are E0 and exempt from B2's trigger leg (their
+            # evidence is the machine match itself), and a
+            # canned string in the trigger field would
+            # misrepresent the record (house review,
+            # 2026-11-05).
             "confidence": confidence, "sources": ["deterministic"],
             "source_lenses": {"deterministic": ["deterministic"]},
             "consensus": False,
