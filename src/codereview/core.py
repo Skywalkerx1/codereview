@@ -533,6 +533,14 @@ _NAME_CHARS = frozenset(
     "0123456789_.-")
 _VALUE_STOP_CHARS = frozenset(" \t\r\n,'\"`(){}\[]")
 _QUOTE_CHARS = "\"'`"
+# Values that are status markers, not secret material — the
+# evidence/env audit idiom prints NAME=ABSENT, and redacting
+# the marker would destroy the audit's readability (the
+# deterministic scanner's placeholder exemption is the same
+# judgement).
+_NON_SECRET_MARKERS = frozenset({
+    "absent", "present", "none", "null", "nil", "true",
+    "false", "unset", "empty", "redacted", "[redacted]"})
 
 
 def _redact_assignments(text):
@@ -585,7 +593,9 @@ def _redact_assignments(text):
                     and text[stop] not in _QUOTE_CHARS:
                 stop += 1
             if stop - body >= 4 \
-                    and text[stop:stop + len(quote)] == quote:
+                    and text[stop:stop + len(quote)] == quote \
+                    and text[body:stop].strip().lower() \
+                    not in _NON_SECRET_MARKERS:
                 spans.append((start, stop + len(quote),
                               text[start:k] + quote
                               + "[REDACTED]" + quote))
@@ -599,7 +609,9 @@ def _redact_assignments(text):
         # (token = compute_total(...)), not a secret literal —
         # leave the code readable.
         if stop - k >= 4 and (stop >= len(text)
-                              or text[stop] != "("):
+                              or text[stop] != "(") \
+                and text[k:stop].lower() \
+                not in _NON_SECRET_MARKERS:
             spans.append((start, stop,
                           text[start:k] + "[REDACTED]"))
             covered_until = stop
