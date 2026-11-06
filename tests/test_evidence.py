@@ -425,6 +425,43 @@ class ClaimTests(unittest.TestCase):
             self.assertEqual(fh.read(), "x\n")
 
 
+class ClaimedOutcomeReadingTests(unittest.TestCase):
+    """P2-06 — counts and negation are read before the bare
+    word search: "12 passed, 0 failed" is a pass claim, "did
+    not fail" is a pass claim, "0 errors" is a pass claim."""
+
+    def outcome(self, text):
+        result = evidence._claimed_outcome(text)
+        return result[0] if result else None
+
+    def test_counts_with_zero_failures_pass(self):
+        self.assertEqual(self.outcome("12 passed, 0 failed"),
+                         "passed")
+
+    def test_negated_failure_passes(self):
+        self.assertEqual(self.outcome("did not fail"), "passed")
+        self.assertEqual(self.outcome("no failures"), "passed")
+        self.assertEqual(self.outcome("never failed"), "passed")
+
+    def test_zero_errors_is_a_pass_claim(self):
+        self.assertEqual(self.outcome("0 errors"), "passed")
+
+    def test_controls_stay(self):
+        self.assertEqual(self.outcome("3 failed"), "failed")
+        self.assertEqual(self.outcome("all passed"), "passed")
+        self.assertEqual(self.outcome("2 passed, 1 failed"),
+                         "failed")
+        self.assertEqual(self.outcome("5 errors"), "failed")
+        self.assertEqual(self.outcome("(exit 0)"), "passed")
+
+    def test_parse_level_zero_errors_claim_exists(self):
+        claims = evidence.parse_claims(
+            "Ran `make test` — 0 errors\n")
+        self.assertEqual(
+            [(c["command"], c["claimed"]) for c in claims],
+            [("make test", "passed")])
+
+
 class TrailingOutcomePerformanceTests(unittest.TestCase):
     """P2-07 — a labelled line ending in a long separator run
     must parse in linear time (the old separator-run regex

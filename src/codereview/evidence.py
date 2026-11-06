@@ -713,6 +713,18 @@ _FAIL_WORD_RE = re.compile(r"\b(failed|fail|failure|error)\b",
 _PASS_WORD_RE = re.compile(
     r"\b(passed|pass|success|succeeded|ok)\b", re.IGNORECASE)
 _TAIL_SEPS = (" — ", " – ", " | ", " (")
+# P2-06: outcome words with counts are read count-first — a
+# bare word search reads "12 passed, 0 failed" as FAILED
+# because "failed" appears at all, and cannot see "0 errors"
+# as the pass claim it is.
+_COUNT_RE = re.compile(
+    r"(\d+)\s+(passed|failed|failures?|errors?)\b", re.IGNORECASE)
+# A negated failure ("did not fail", "no failures", "never
+# failed", "not failed") is a pass claim, never a failure.
+_NEGATED_FAIL_RE = re.compile(
+    r"\b(?:did not|never|not|no)\s+"
+    r"(?:fail|failed|failure|failures|error|errors)\b",
+    re.IGNORECASE)
 # P2-07: the trailing outcome word of a labelled line is found
 # with this end-anchored search; the separator run before it
 # is walked by hand (see parse_claims). The old single regex
@@ -733,6 +745,24 @@ def _claimed_outcome(text):
     if "✗" in text or "✘" in text:
         return "failed", None
     if "✅" in text or "✓" in text:
+        return "passed", None
+    counts = {}
+    for num, word in _COUNT_RE.findall(text):
+        counts[word.lower()] = counts.get(word.lower(), 0) + int(num)
+    if counts:
+        bad = sum(counts.get(w, 0) for w in
+                  ("failed", "failure", "failures",
+                   "error", "errors"))
+        if bad > 0:
+            return "failed", None
+        if counts.get("passed", 0) > 0 or any(
+                w in counts for w in
+                ("failed", "failure", "failures",
+                 "error", "errors")):
+            # Reached only with bad == 0: some tests passed, or
+            # a failure/error count is explicitly zero.
+            return "passed", None
+    if _NEGATED_FAIL_RE.search(text):
         return "passed", None
     if _FAIL_WORD_RE.search(text):
         return "failed", None
