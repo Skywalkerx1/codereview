@@ -163,6 +163,46 @@ class AssessPanelTests(unittest.TestCase):
         self.assertIsNone(out["builder_kept_reason"])
 
 
+class FamilyNormalisationTests(unittest.TestCase):
+    """P2-03 — family tags are operator-typed: case and
+    surrounding whitespace must not split one family into two,
+    for counting or for builder exclusion."""
+
+    def test_case_variants_count_as_one_family(self):
+        self.assertEqual(
+            diversity.known_families(
+                {"a": "OpenAI", "b": "openai"}),
+            ["openai"])
+        out = diversity.assess_panel(
+            {"a": "OpenAI", "b": "openai"}, min_families=2)
+        self.assertEqual(out["families"], ["openai"])
+        self.assertTrue(out["violation"])
+
+    def test_whitespace_variants_count_as_one_family(self):
+        out = diversity.assess_panel(
+            {"a": "openai ", "b": "openai"}, min_families=2)
+        self.assertEqual(out["families"], ["openai"])
+        self.assertTrue(out["violation"])
+
+    def test_unknown_stays_uncounted_in_any_case(self):
+        self.assertEqual(
+            diversity.known_families(
+                {"a": "Unknown", "b": "UNKNOWN"}),
+            [])
+
+    def test_builder_exclusion_matches_case_insensitively(self):
+        out = diversity.assess_panel(
+            {"a": "openai", "b": "google", "c": "anthropic"},
+            min_families=2, builder_family="OpenAI",
+            exclude_builder=True)
+        self.assertTrue(out["builder_excluded"])
+        self.assertEqual(out["excluded_seats"], ["a"])
+        self.assertIsNone(out["builder_kept_reason"])
+        # The record keeps the builder family as given.
+        self.assertEqual(out["builder_family"], "OpenAI")
+        self.assertEqual(out["families"], ["anthropic", "google"])
+
+
 class PolicyConfigTests(unittest.TestCase):
     def test_full_table_loads(self):
         with tempfile.TemporaryDirectory() as tmp:

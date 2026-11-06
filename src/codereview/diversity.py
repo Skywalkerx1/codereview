@@ -63,11 +63,21 @@ from __future__ import annotations
 UNKNOWN_FAMILY = "unknown"
 
 
+def _norm_family(fam):
+    """P2-03: family tags are operator-typed and compared
+    case-insensitively — 'OpenAI', 'openai' and ' openai ' are
+    the one family. Normalisation lives ONLY at this boundary:
+    counting and exclusion compare normalised forms, and the
+    tags stored anywhere else are never rewritten."""
+    return str(fam).strip().casefold() if fam else ""
+
+
 def known_families(seat_families):
     """The distinct KNOWN vendor families in a {seat: family}
     mapping, sorted. 'unknown'/empty tags never count — a panel
     of untagged seats has zero provable diversity."""
-    return sorted({fam for fam in seat_families.values()
+    return sorted({fam for fam in
+                   (_norm_family(f) for f in seat_families.values())
                    if fam and fam != UNKNOWN_FAMILY})
 
 
@@ -110,21 +120,26 @@ def assess_panel(seat_families, *, min_families=0,
       detail           the one-line verdict, used verbatim in
                        the policy violation when there is one
     """
-    seats = dict(seat_families)
+    # P2-03: comparisons run on normalised family tags (see
+    # _norm_family); `bf` keeps the as-given form for the record.
+    seats = {name: _norm_family(fam)
+             for name, fam in seat_families.items()}
     families_before = known_families(seats)
     excluded = []
     kept_reason = None
     bf = str(builder_family).strip() if builder_family else None
+    bf_norm = _norm_family(builder_family)
     if exclude_builder:
-        if not bf or bf == UNKNOWN_FAMILY:
+        if not bf_norm or bf_norm == UNKNOWN_FAMILY:
             kept_reason = ("builder family unknown — exclusion "
                            "cannot apply")
         else:
             builder_seats = sorted(
-                name for name, fam in seats.items() if fam == bf)
+                name for name, fam in seats.items()
+                if fam == bf_norm)
             if builder_seats:
                 rest = {name: fam for name, fam in seats.items()
-                        if fam != bf}
+                        if fam != bf_norm}
                 if rest and len(known_families(rest)) \
                         >= min_families:
                     excluded = builder_seats
