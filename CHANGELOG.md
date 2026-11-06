@@ -1,5 +1,84 @@
 # Changelog
 
+## Unreleased — 0.13.0.dev0 (external Phase 3 test fixes)
+
+Fixes from the external tester's Phase 3 (security) report
+(2026-11-06), each independently verified against master
+before landing:
+
+- **P3-01 — policy provenance is observable (observability
+  only).** The run record's policy section carries an
+  `origin` (`discovered-in-repo` / `explicit` / `none`),
+  the CLI warns on stderr when a repo-discovered policy is
+  applied, and a change that itself adds or modifies
+  `.codereview.toml` / `AGENTS.md` is flagged in the
+  record's `policy_self_modification` list (from patch
+  sections, plus a git-status check for the untracked-
+  policy case in working-tree mode). Which policy keys
+  apply, and whether hooks run, are UNCHANGED — restricting
+  a discovered policy's authority awaits an owner decision.
+- **P3-02 — the deterministic scanner is no longer cubic.**
+  Every unbounded gap in the `sql-string-build` rule is
+  bounded to 200 chars and a single added line is scanned
+  to at most 16,384 chars; the tester's 18 KB pathological
+  line went from ~31 s to ~0.1 s, with legitimate SQL
+  string-build findings unchanged.
+- **P3-03 — redaction covers the token formats it meets.**
+  PEM blocks (whole block), AWS AKIA/ASIA ids, GitHub
+  ghp_/github_pat_, OpenAI/Anthropic sk- shapes, Stripe
+  live/test keys, Slack xox tokens, Google API keys, JWTs,
+  URL credentials, `Authorization: Basic`, and keyword
+  assignments in unquoted, quoted-key, JSON and
+  string-literal-value forms (value floor lowered to 4).
+  The scanner flags the same provider prefixes. Redaction
+  remains pattern-based best-effort (the README now says
+  so); generically encoded forms (base64 / hex /
+  URL-encoded / line-wrapped copies of a key) are a
+  documented residual.
+- **P3-04 — the gate process makes itself non-dumpable on
+  Linux** (prctl PR_SET_DUMPABLE), at CLI start, at MCP
+  server start, and lazily in the evidence executor and
+  the discovery probe — an env-only sandbox child can no
+  longer read the gate's environment out of
+  /proc/<pid>/environ.
+- **P3-05 — a deeply nested MCP frame no longer kills the
+  server**: RecursionError at parse time is answered
+  -32700, recorded in the errors ledger, and serving
+  continues.
+- **P3-06 — sandbox runs kill their process group on the
+  normal exit path too**, not only on timeout: a
+  backgrounded child with redirected stdio no longer
+  survives a passed evidence run. (The notifier runner was
+  checked and left alone: it does not start a session, so
+  no group exists to kill.)
+- **P3-07 — the discovery `--version` probe is capped**
+  (64 KB retained per stream, child killed past the cap)
+  and honours its never-raises contract end to end.
+- **P3-08 — herdr detection fails closed on malformed CLI
+  output**: null, non-object and deeply nested JSON all go
+  inert with the reason recorded, never an exception.
+- **P3-09 — a named repo must exist.** An explicitly empty
+  or nonexistent/non-directory `--repo` is a clear exit-2
+  error in both patch and git modes (patch mode previously
+  accepted it and silently skipped policy, AGENTS.md and
+  evidence context); the MCP run_gate applies the same
+  validation.
+- **P3-10 — the MCP transport enforces the protocol it
+  speaks**: frames whose `jsonrpc` field is absent or not
+  "2.0" get -32600 (notifications keep their no-response
+  semantics), non-finite ids are answered as null, and
+  responses are serialised with allow_nan=False.
+- **P3-11 — one shared containment helper**: `_is_within`
+  lives in core and is used by the CLI loaders, the
+  file-context collector and the AGENTS.md collector
+  (previously two sites called commonpath directly, one
+  without the fail-closed ValueError handling).
+- **P3-12 — notifier summaries are sanitised at the single
+  chokepoint** argv and the record share: control/escape
+  bytes are stripped (ANSI/OSC sequences lose their bytes)
+  and the summary is capped at 500 chars with an ellipsis
+  marker.
+
 ## Unreleased — 0.13.0.dev0 (external Phase 2 test fixes)
 
 Fixes from the external tester's Phase 2 report (2026-11-06),
