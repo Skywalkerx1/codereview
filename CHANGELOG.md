@@ -1,5 +1,39 @@
 # Changelog
 
+## Unreleased — 0.13.0.dev0 (external Phase 0–1 test fixes)
+
+Version bumped to 0.13.0.dev0 (pyproject.toml and
+core.VERSION, kept identical) for the fixes from the
+external tester's Phase 0–1 report (2026-11-06):
+
+- **D-001 — deterministic records.** run_review's job
+  executor folded reviewer results in completion order, so
+  reviewer_reports order, merged findings' sources order and
+  the markdown render varied run to run for identical inputs.
+  Results are now collected and folded in submission order
+  (the run_verification pattern); gate semantics unchanged.
+- **D-003 — self-testing sdist.** MANIFEST.in now ships the
+  full tests tree (fixtures included), probes/, bench/corpus/,
+  examples/ and the top-level CHANGELOG.md, precedents.json,
+  fixtures-manifest.json and THREAT-MODEL.md, so an unpacked
+  sdist can run its own suite. bench/ beyond the corpus —
+  registered run material — stays out.
+- **D-004 — `--version`.** The CLI answers `--version` with
+  the package version and exit 0 (both entry points are the
+  same main()).
+- **D-005 — subcommand `--help`.** `policy --help`,
+  `bench --help` and `mcp --help` exited 2 with a bare usage
+  line; all fifteen subcommands' `--help` now prints real
+  help and exits 0.
+- **D-007 — environment-dependent tests skip cleanly.** The
+  three test files needing the swarm's llm_chain module skip
+  with a stated reason when it is not importable, instead of
+  erroring at import.
+- **Flake fix.** The notify/risk "never changes the outcome"
+  comparisons now also exclude the report's top-level
+  duration_ms, which intermittently failed them on timing
+  alone.
+
 ## Unreleased — verdict record schema v1.0.0
 
 The run record is now a formal, versioned contract
