@@ -1,5 +1,61 @@
 # Changelog
 
+## Unreleased — 0.13.0.dev0 (external Phase 4 test fixes)
+
+Fixes from the external tester's Phase 4 report (2026-11-06 —
+provider failure totality), each independently verified
+against master before landing:
+
+- **Provider transport — quota, deadlines, garbage (P4-01,
+  P4-02, P4-03, P4-04, P4-05).** API error responses now read
+  their bodies (bounded excerpt), so a 429 whose body names a
+  quota classifies `quota` on the first attempt instead of
+  burning three rate-limit retries; `Retry-After` (seconds or
+  HTTP-date) floors the retry delay, capped at 120s. Every
+  API call carries an overall deadline driven by the
+  operator's `--timeout` (a trickling response can no longer
+  pin a seat forever) and a 16 MiB streamed response cap.
+  Transport-level garbage — malformed JSON, an HTML 200,
+  non-UTF-8 bytes, a truncated body — surfaces as a transient
+  `ProviderError` and is retried, never again mistaken for a
+  model-output parse failure. Empty-content responses carry
+  `kind="empty"` end to end, so the review retry layer and
+  the benchmark's generation seats treat them as the content
+  class they are (re-draw) instead of `unknown`/exhausted.
+- **Seat-state anchoring (P4-06).** Vendor failure patterns
+  now count only on lines where the CLI speaks in its own
+  unquoted voice: a benign warning quoting a component's
+  state (`warning: MCP server 'docs' not logged in;
+  continuing`) no longer early-terminates a healthy seat as
+  `blocked:auth`, and a crashed run whose stdout quotes
+  failure text from a reviewed diff no longer classifies
+  `blocked:auth`. The verbatim vendor lines — including
+  timestamped logger-prefixed captures — still classify, and
+  Claude's failure-as-result stdout channel is preserved.
+- **Herdr watch backoff (P4-07).** Consecutive pane-get
+  failures in the hosted watch back off exponentially
+  (0.05s → 2s cap, reset on success) instead of spawning
+  herdr ~13 times a second; a bounded streak of 20 with
+  reconciliation still proving the session healthy ends the
+  seat with the recorded herdr-unreachable outcome.
+- **Benchmark durability (P4-08, P4-09).** A torn final JSONL
+  line in the generation driver's records is skipped on
+  resume (corruption anywhere else still raises). Seat
+  metering is journaled at call time
+  (`events-attempt-N.jsonl`) and merged into the record fold
+  on resume, so a kill between the cache write and the fold
+  no longer understates a case's attempts and tokens.
+- **Future-dated waivers (P4-10).** A waiver dated more than
+  one day in the future is now a `waivers.max_age_days`
+  violation — it previously passed the age check trivially
+  (negative age) and waived findings forever. One day of
+  tolerance absorbs timezone skew from date-only parsing.
+- **Single-family panel label (P4-11).** A PASS from a
+  multi-seat panel whose serving seats all share one known
+  model family now carries "single-family panel — no
+  independent review" in its gate reasons, mirroring the
+  solo-panel label. No verdict change.
+
 ## Unreleased — 0.13.0.dev0 (external Phase 3 test fixes)
 
 Fixes from the external tester's Phase 3 (security) report
