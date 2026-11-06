@@ -7,5 +7,36 @@
   "license": "MIT (original to this repository)",
   "expected": [],
   "stratum": "expanded-clean",
-  "false_flag_note": "A reviewer may flag raising mid-stream as wasteful, or the manual chunk loop as reinventing response.content. The loop is the point: the body is streamed and the running total is checked per chunk, so an oversized or endless body is aborted after at most one chunk past the cap instead of being buffered whole in memory. The response is closed by the context manager on every path, including the abort path."
+  "false_flag_note": "A reviewer may flag raising mid-stream as wasteful, or the manual chunk loop as reinventing response.content. The loop is the point: the body is streamed and the running total is checked per chunk, so an oversized or endless body is aborted after at most one chunk past the cap instead of being buffered whole in memory. The response is closed by the context manager on every path, including the abort path.",
+  "label_amendments": [
+    {
+      "date": "2026-11-05",
+      "kind": "label_amendment",
+      "original_label": {
+        "category": "clean",
+        "expected": []
+      },
+      "finding_id": "97d5edda477f",
+      "finding_title": "Function now crashes on any non-UTF-8 response body",
+      "finding_category": "correctness",
+      "finding_severity": "major",
+      "finding_sources": [
+        "openai"
+      ],
+      "adjudication": {
+        "analysis": "A1 blind adjudication",
+        "source_files": [
+          "bench/analysis-2026-11-05/a1-verdicts.json",
+          "bench/analysis-2026-11-05/a1-summary.json",
+          "bench/analysis-2026-11-05/SUMMARY.md"
+        ],
+        "final_verdict": "REAL_DEFECT",
+        "final_basis": "probe",
+        "probe_status": "ran",
+        "probe_claim_result": "confirmed",
+        "probe_detail": "fetch_text raised UnicodeDecodeError on ISO-8859-1 body b'caf\\xe9...': 'utf-8' codec can't decode byte 0xe9 in position 3: invalid continuation byte. Probe executed diff code verbatim (requests stubbed)."
+      },
+      "note": "Dated 2026-11-05 label amendment (dev data only; amendment, not a rewrite): this case was originally labelled clean (category \"clean\", expected []) and that original label is preserved unchanged in this file. Blind adjudication A1 (bench/analysis-2026-11-05) finally adjudicated the finding below REAL_DEFECT, with an executable probe confirming the claim where a probe was run, so for dev / policy-design use this case should be read as containing a real defect corresponding to that finding despite its original clean label. The registered attempt-1 result is not altered by this amendment."
+    }
+  ]
 }

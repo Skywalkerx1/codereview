@@ -7,5 +7,36 @@
   "license": "MIT (original to this repository)",
   "expected": [],
   "stratum": "expanded-clean",
-  "false_flag_note": "A reviewer may flag cents / 100 as float money math. No arithmetic is done in floats: amounts are stored and validated as safe-integer cents (non-integers and values beyond Number.MAX_SAFE_INTEGER are rejected), and the division happens exactly once, at the display boundary, as the input Intl.NumberFormat requires. Locale and currency formatting \u2014 grouping, symbol placement, fraction digits \u2014 is delegated to Intl instead of hand-rolled string code."
+  "false_flag_note": "A reviewer may flag cents / 100 as float money math. No arithmetic is done in floats: amounts are stored and validated as safe-integer cents (non-integers and values beyond Number.MAX_SAFE_INTEGER are rejected), and the division happens exactly once, at the display boundary, as the input Intl.NumberFormat requires. Locale and currency formatting — grouping, symbol placement, fraction digits — is delegated to Intl instead of hand-rolled string code.",
+  "label_amendments": [
+    {
+      "date": "2026-11-05",
+      "kind": "label_amendment",
+      "original_label": {
+        "category": "clean",
+        "expected": []
+      },
+      "finding_id": "ec77bb5d45e2",
+      "finding_title": "Fixed /100 divisor is wrong for currencies whose minor unit is not 1/100",
+      "finding_category": "correctness",
+      "finding_severity": "major",
+      "finding_sources": [
+        "deepseek"
+      ],
+      "adjudication": {
+        "analysis": "A1 blind adjudication",
+        "source_files": [
+          "bench/analysis-2026-11-05/a1-verdicts.json",
+          "bench/analysis-2026-11-05/a1-summary.json",
+          "bench/analysis-2026-11-05/SUMMARY.md"
+        ],
+        "final_verdict": "REAL_DEFECT",
+        "final_basis": "majority",
+        "probe_status": "not_applicable",
+        "probe_claim_result": null,
+        "probe_detail": "No executable probe was specified for this finding (claim not a concrete input->crash/wrong-output claim)."
+      },
+      "note": "Dated 2026-11-05 label amendment (dev data only; amendment, not a rewrite): this case was originally labelled clean (category \"clean\", expected []) and that original label is preserved unchanged in this file. Blind adjudication A1 (bench/analysis-2026-11-05) finally adjudicated the finding below REAL_DEFECT, so for dev / policy-design use this case should be read as containing a real defect corresponding to that finding despite its original clean label. The registered attempt-1 result is not altered by this amendment."
+    }
+  ]
 }

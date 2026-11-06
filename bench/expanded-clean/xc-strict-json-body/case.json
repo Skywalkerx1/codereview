@@ -7,5 +7,36 @@
   "license": "MIT (original to this repository)",
   "expected": [],
   "stratum": "expanded-clean",
-  "false_flag_note": "A reviewer may flag the settled flag and req.destroy() as clumsy, or the empty-body shortcut as lax. The parser fails closed at each step: a non-JSON content type is rejected before any bytes are read, chunk lengths are Buffer byte counts (not string lengths, so multi-byte characters cannot sneak past the cap), exceeding the cap answers 413 and destroys the socket so the client cannot keep streaming, the settled flag makes the data/end/error handlers mutually exclusive after any terminal outcome, malformed JSON is a 400 rather than a thrown 500, and an empty body maps to {} only because the routes behind this parser treat it as 'no fields'."
+  "false_flag_note": "A reviewer may flag the settled flag and req.destroy() as clumsy, or the empty-body shortcut as lax. The parser fails closed at each step: a non-JSON content type is rejected before any bytes are read, chunk lengths are Buffer byte counts (not string lengths, so multi-byte characters cannot sneak past the cap), exceeding the cap answers 413 and destroys the socket so the client cannot keep streaming, the settled flag makes the data/end/error handlers mutually exclusive after any terminal outcome, malformed JSON is a 400 rather than a thrown 500, and an empty body maps to {} only because the routes behind this parser treat it as 'no fields'.",
+  "label_amendments": [
+    {
+      "date": "2026-11-05",
+      "kind": "label_amendment",
+      "original_label": {
+        "category": "clean",
+        "expected": []
+      },
+      "finding_id": "a47ac7c70e01",
+      "finding_title": "req.destroy() right after 413 can RST the socket and drop the response",
+      "finding_category": "reliability",
+      "finding_severity": "major",
+      "finding_sources": [
+        "deepseek"
+      ],
+      "adjudication": {
+        "analysis": "A1 blind adjudication",
+        "source_files": [
+          "bench/analysis-2026-11-05/a1-verdicts.json",
+          "bench/analysis-2026-11-05/a1-summary.json",
+          "bench/analysis-2026-11-05/SUMMARY.md"
+        ],
+        "final_verdict": "REAL_DEFECT",
+        "final_basis": "majority",
+        "probe_status": "not_applicable",
+        "probe_claim_result": null,
+        "probe_detail": "No executable probe was specified for this finding (claim not a concrete input->crash/wrong-output claim)."
+      },
+      "note": "Dated 2026-11-05 label amendment (dev data only; amendment, not a rewrite): this case was originally labelled clean (category \"clean\", expected []) and that original label is preserved unchanged in this file. Blind adjudication A1 (bench/analysis-2026-11-05) finally adjudicated the finding below REAL_DEFECT, so for dev / policy-design use this case should be read as containing a real defect corresponding to that finding despite its original clean label. The registered attempt-1 result is not altered by this amendment."
+    }
+  ]
 }

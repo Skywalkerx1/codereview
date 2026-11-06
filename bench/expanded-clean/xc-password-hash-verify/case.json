@@ -7,5 +7,65 @@
   "license": "MIT (original to this repository)",
   "expected": [],
   "stratum": "expanded-clean",
-  "false_flag_note": "A reviewer may flag verifying a dummy hash for unknown users as wasted work, or returning the same null for every failure as hiding errors. Both are deliberate anti-enumeration measures: password_verify always runs (against a random per-process dummy hash when the account does not exist) so response timing does not reveal which emails are registered, and every failure mode collapses to the same null so the caller can only render one generic 'invalid credentials' message. Registration enforces a minimum length and stores only the password_hash digest, and a successful login transparently upgrades the stored hash when the algorithm parameters have moved on."
+  "false_flag_note": "A reviewer may flag verifying a dummy hash for unknown users as wasted work, or returning the same null for every failure as hiding errors. Both are deliberate anti-enumeration measures: password_verify always runs (against a random per-process dummy hash when the account does not exist) so response timing does not reveal which emails are registered, and every failure mode collapses to the same null so the caller can only render one generic 'invalid credentials' message. Registration enforces a minimum length and stores only the password_hash digest, and a successful login transparently upgrades the stored hash when the algorithm parameters have moved on.",
+  "label_amendments": [
+    {
+      "date": "2026-11-05",
+      "kind": "label_amendment",
+      "original_label": {
+        "category": "clean",
+        "expected": []
+      },
+      "finding_id": "3ab890572a65",
+      "finding_title": "INSERT failure is ignored; lastInsertId returns a bogus id under default PDO error mode",
+      "finding_category": "correctness",
+      "finding_severity": "major",
+      "finding_sources": [
+        "deepseek"
+      ],
+      "adjudication": {
+        "analysis": "A1 blind adjudication",
+        "source_files": [
+          "bench/analysis-2026-11-05/a1-verdicts.json",
+          "bench/analysis-2026-11-05/a1-summary.json",
+          "bench/analysis-2026-11-05/SUMMARY.md"
+        ],
+        "final_verdict": "REAL_DEFECT",
+        "final_basis": "majority",
+        "probe_status": "not_applicable",
+        "probe_claim_result": null,
+        "probe_detail": "No executable probe was specified for this finding (claim not a concrete input->crash/wrong-output claim)."
+      },
+      "note": "Dated 2026-11-05 label amendment (dev data only; amendment, not a rewrite): this case was originally labelled clean (category \"clean\", expected []) and that original label is preserved unchanged in this file. Blind adjudication A1 (bench/analysis-2026-11-05) finally adjudicated the finding below REAL_DEFECT, so for dev / policy-design use this case should be read as containing a real defect corresponding to that finding despite its original clean label. The registered attempt-1 result is not altered by this amendment."
+    },
+    {
+      "date": "2026-11-05",
+      "kind": "label_amendment",
+      "original_label": {
+        "category": "clean",
+        "expected": []
+      },
+      "finding_id": "754267d9b5f6",
+      "finding_title": "Rehash UPDATE has no old-hash guard and can silently revert a concurrent password change",
+      "finding_category": "security",
+      "finding_severity": "major",
+      "finding_sources": [
+        "deepseek"
+      ],
+      "adjudication": {
+        "analysis": "A1 blind adjudication",
+        "source_files": [
+          "bench/analysis-2026-11-05/a1-verdicts.json",
+          "bench/analysis-2026-11-05/a1-summary.json",
+          "bench/analysis-2026-11-05/SUMMARY.md"
+        ],
+        "final_verdict": "REAL_DEFECT",
+        "final_basis": "majority",
+        "probe_status": "not_applicable",
+        "probe_claim_result": null,
+        "probe_detail": "No executable probe was specified for this finding (claim not a concrete input->crash/wrong-output claim)."
+      },
+      "note": "Dated 2026-11-05 label amendment (dev data only; amendment, not a rewrite): this case was originally labelled clean (category \"clean\", expected []) and that original label is preserved unchanged in this file. Blind adjudication A1 (bench/analysis-2026-11-05) finally adjudicated the finding below REAL_DEFECT, so for dev / policy-design use this case should be read as containing a real defect corresponding to that finding despite its original clean label. The registered attempt-1 result is not altered by this amendment."
+    }
+  ]
 }
