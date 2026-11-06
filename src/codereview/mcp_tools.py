@@ -154,18 +154,32 @@ def _finding_summary(finding):
 def _verdict_payload(record, record_path):
     """The verdict shape both tools answer with: the gate,
     its reasons, the findings (summarised — the full record
-    stays on disk at record_path), and severity counts."""
+    stays on disk at record_path), and severity counts.
+
+    Policy visibility (P3-01 follow-up): the payload also
+    carries the record's policy origin and self-modification
+    flag. The CLI's stderr warning is captured and discarded
+    on a successful run_gate, so without these fields an MCP
+    client could not tell that the verdict was produced
+    under a policy discovered in the reviewed repo, or that
+    the change touched the policy file itself. Both keys are
+    always present (null / [] when the run had no policy
+    section) so clients can rely on the shape."""
     findings = [_finding_summary(f)
                 for f in record.get("findings") or []]
     by_severity = {}
     for finding in findings:
         sev = finding["severity"] or "unknown"
         by_severity[sev] = by_severity.get(sev, 0) + 1
+    policy = record.get("policy") or {}
     return {
         "gate": record.get("gate"),
         "gate_reasons": record.get("gate_reasons") or [],
         "mode": record.get("mode"),
         "degraded": bool(record.get("degraded")),
+        "policy_origin": policy.get("origin"),
+        "policy_self_modification":
+            record.get("policy_self_modification") or [],
         "record_path": record_path,
         "findings": findings,
         "counts": {

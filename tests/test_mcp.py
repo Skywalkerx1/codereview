@@ -234,6 +234,56 @@ class RunGateTests(unittest.TestCase):
         self.assertTrue(os.path.isfile(payload["report_path"]))
         self.assertEqual(payload["counts"]["total"], 0)
 
+    def test_run_gate_payload_shows_discovered_policy(self):
+        # P3-01 follow-up: run_gate captures and discards the
+        # CLI's stderr on success, so the policy origin must
+        # travel in the payload — an MCP client must be able
+        # to tell the verdict was produced under a policy
+        # discovered in the reviewed repo.
+        with open(os.path.join(self.repo, ".codereview.toml"),
+                  "w", encoding="utf-8") as fh:
+            fh.write('[gate]\nprofile = "strict"\n')
+        result = self._call(self._tools(), "run_gate", {
+            "repo": self.repo, "patch": PATCH, "out": self.out})
+        self.assertFalse(result["isError"])
+        payload = result["structuredContent"]
+        self.assertEqual(payload["policy_origin"],
+                         "discovered-in-repo")
+        self.assertEqual(payload["policy_self_modification"],
+                         [])
+
+    def test_run_gate_payload_shows_self_modification(self):
+        patch = (
+            "diff --git a/.codereview.toml "
+            "b/.codereview.toml\n"
+            "--- a/.codereview.toml\n"
+            "+++ b/.codereview.toml\n"
+            "@@ -0,0 +1,1 @@\n"
+            "+[gate]\n")
+        result = self._call(self._tools(), "run_gate", {
+            "repo": self.repo, "patch": patch, "out": self.out})
+        self.assertFalse(result["isError"])
+        payload = result["structuredContent"]
+        self.assertEqual(payload["policy_self_modification"],
+                         [".codereview.toml"])
+
+    def test_run_gate_payload_no_policy_shape_is_stable(self):
+        result = self._call(self._tools(), "run_gate", {
+            "repo": self.repo, "patch": PATCH, "out": self.out})
+        self.assertFalse(result["isError"])
+        payload = result["structuredContent"]
+        self.assertIn("policy_origin", payload)
+        self.assertIsNone(payload["policy_origin"])
+        self.assertEqual(payload["policy_self_modification"],
+                         [])
+        # get_verdict answers with the same shape.
+        by_file = self._call(self._tools(), "get_verdict", {
+            "record": payload["record_path"],
+            "repo": self.repo})["structuredContent"]
+        self.assertIsNone(by_file["policy_origin"])
+        self.assertEqual(by_file["policy_self_modification"],
+                         [])
+
     def test_mcp_verdict_equals_cli_verdict(self):
         def seat(prompt):
             if "USERS[name] = True" in prompt:
