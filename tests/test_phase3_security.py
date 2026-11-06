@@ -598,5 +598,47 @@ class DiscoveryProbeCapTests(unittest.TestCase):
                          "claude 1.2.3")
 
 
+class HerdrMalformedOutputTests(unittest.TestCase):
+    """P3-08: herdrhost._cli_json caught only ValueError and
+    returned non-dict documents as-is; snapshot() then died
+    with AttributeError (null / list) or RecursionError
+    (deep nesting) instead of detect() going inert."""
+
+    def _detect(self, snap_out):
+        from codereview import herdrhost
+
+        def run_fn(argv, _timeout):
+            if "--version" in argv:
+                return 0, "herdr 0.9.5\n", ""
+            if "schema" in argv:
+                return 0, json.dumps({
+                    "methods": list(herdrhost.REQUIRED_METHODS),
+                    "events": list(herdrhost.REQUIRED_EVENTS)}), ""
+            return 0, snap_out, ""
+
+        return herdrhost.detect(
+            environ={}, which_fn=lambda _n: "/bin/herdr",
+            run_fn=run_fn)
+
+    def test_malformed_snapshots_go_inert(self):
+        for label, snap in [("null", "null"),
+                            ("array", "[1,2,3]"),
+                            ("deep-nested", "[" * 100000)]:
+            with self.subTest(shape=label):
+                plan = self._detect(snap)
+                self.assertFalse(plan["active"])
+                self.assertTrue(plan["reason"])
+
+    def test_error_object_still_goes_inert(self):
+        plan = self._detect('{"error":"boom"}')
+        self.assertFalse(plan["active"])
+        self.assertIn("boom", plan["reason"])
+
+    def test_valid_snapshot_still_detects(self):
+        plan = self._detect('{"snapshot":{"workspaces":[]}}')
+        self.assertTrue(plan["active"])
+        self.assertIsNotNone(plan["host"])
+
+
 if __name__ == "__main__":
     unittest.main()

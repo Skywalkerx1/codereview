@@ -150,7 +150,7 @@ def schema_names(schema_text):
     reorganises its sections still feature-detects)."""
     try:
         doc = json.loads(schema_text)
-    except (ValueError, TypeError):
+    except (ValueError, TypeError, RecursionError):
         return set()
     names = set()
     stack = [doc]
@@ -208,19 +208,31 @@ class HerdrHost:
         out = self._cli(args, timeout=timeout)
         try:
             doc = json.loads(out)
-        except ValueError as exc:
+        except (ValueError, RecursionError) as exc:
+            # RecursionError: output nested past the
+            # interpreter limit is unparseable for our
+            # purposes (P3-08), not a crash in the caller.
             raise HerdrError(
                 f"herdr {' '.join(args[:2])} returned "
                 f"unparseable output: {exc}") from exc
-        if isinstance(doc, dict) and "error" in doc:
+        if not isinstance(doc, dict):
+            # Every consumer of this helper calls .get on the
+            # result; a bare list/null/scalar is a malformed
+            # envelope and must fail as HerdrError (which
+            # detect() turns inert), never as AttributeError
+            # in snapshot()/create_workspace()/pane_get().
+            raise HerdrError(
+                f"herdr {' '.join(args[:2])} returned a "
+                f"non-object document "
+                f"({type(doc).__name__})")
+        if "error" in doc:
             raise HerdrError(
                 f"herdr {' '.join(args[:2])} reported "
                 f"{str(doc['error'])[:300]}")
         # CLI responses are envelopes ({"id":..., "result":{...}});
         # accept a bare payload too, so a wrapper that prints the
         # result directly still binds.
-        if isinstance(doc, dict) and isinstance(
-                doc.get("result"), dict):
+        if isinstance(doc.get("result"), dict):
             return doc["result"]
         return doc
 
