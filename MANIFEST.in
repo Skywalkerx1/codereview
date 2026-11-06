@@ -4,3 +4,16 @@
 # sdist as well as from a clone.
 graft herdr-plugin-codereview
 graft skills
+# D-003 (external Phase 0–1 report, 2026-11-06): the sdist
+# must be able to run its own test suite. Ship everything the
+# suite reads: the full tests tree (fixtures included), the
+# probe definitions, the public benchmark corpus, the examples,
+# and the top-level data/docs files tests and tooling load.
+# bench/ as a whole is NOT grafted — only bench/corpus; the
+# registered run material (sealed sets, generation caches,
+# confirmation records) stays out of the distribution.
+graft tests
+graft probes
+graft bench/corpus
+graft examples
+include CHANGELOG.md precedents.json fixtures-manifest.json THREAT-MODEL.md
