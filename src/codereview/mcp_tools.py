@@ -39,7 +39,7 @@ import os
 import re
 import tempfile
 
-from . import __version__
+from . import __version__, hardening
 from .mcp_transport import (INVALID_PARAMS, METHOD_NOT_FOUND,
                             JsonRpcError, StdioServer)
 
@@ -393,6 +393,10 @@ def serve_stdio(tools=None, stdin=None, stdout=None, log=None,
     """Assemble the server (transport + tools) and serve until
     EOF. Returns the StdioServer so callers (and tests) can
     inspect its error ledger."""
+    # P3-04: the server process holds the operator's
+    # environment (provider keys) and spawns gate runs; make
+    # it non-dumpable before serving.
+    hardening.make_non_dumpable()
     tools = tools if tools is not None else GateTools()
     kwargs = {}
     if max_frame_bytes is not None:

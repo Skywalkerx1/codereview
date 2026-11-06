@@ -422,5 +422,42 @@ class RedactionCoverageTests(unittest.TestCase):
                               [f["rule"] for f in findings])
 
 
+@unittest.skipUnless(sys.platform.startswith("linux"),
+                     "PR_SET_DUMPABLE / /proc semantics are "
+                     "Linux-only")
+class ParentEnvironHardeningTests(unittest.TestCase):
+    """P3-04: in env-only sandbox mode the child's own env is
+    allow-listed, but /proc/$PPID/environ exposed the gate
+    process's full environment to the sandboxed command."""
+
+    def test_make_non_dumpable_idempotent(self):
+        from codereview import hardening
+        self.assertTrue(hardening.make_non_dumpable())
+        self.assertTrue(hardening.make_non_dumpable())
+
+    def test_env_only_child_cannot_read_parent_environ(self):
+        from unittest import mock
+
+        from codereview import evidence as ev
+        sentinel = "CODEREVIEW_P3_SENTINEL"
+        cfg = {"commands": [{
+            "name": "c", "timeout": 20,
+            "command":
+                'echo "count=$(tr "\\0" "\\n" '
+                '< /proc/$PPID/environ 2>/dev/null '
+                f'| grep -c {sentinel})"'}]}
+        with mock.patch.dict(os.environ,
+                             {sentinel: "s3cr3t-value"}):
+            with mock.patch.object(ev, "_UNSHARE_OK", False):
+                with tempfile.TemporaryDirectory() as d:
+                    with open(os.path.join(d, "a"),
+                              "w") as fh:
+                        fh.write("x")
+                    item = ev.collect(cfg, d)["items"][0]
+        self.assertEqual(item["status"], "passed")
+        self.assertIn("count=0", item["output_tail"])
+        self.assertNotIn("s3cr3t-value", item["output_tail"])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -48,6 +48,8 @@ from __future__ import annotations
 import shutil
 import subprocess
 
+from . import hardening
+
 PROBE_TIMEOUT = 5
 
 # The instruction the shipped example wrapper passes to Claude
@@ -156,6 +158,10 @@ def default_probe(path):
     raises — a binary that cannot even answer --version is a
     probe failure with the reason attached, not an exception in
     the wizard."""
+    # P3-04 backstop: the probed binary is a direct child of
+    # this process (same /proc/$PPID/environ exposure as the
+    # evidence sandbox's env-only mode).
+    hardening.make_non_dumpable()
     try:
         proc = subprocess.run(
             [path, "--version"], capture_output=True, text=True,

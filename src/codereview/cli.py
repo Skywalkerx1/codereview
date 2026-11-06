@@ -41,6 +41,7 @@ from . import bench as bench_mod
 from . import claims as claims_mod
 from . import core
 from . import disputes as disputes_mod
+from . import hardening
 from . import herdrhost
 from . import hooks as hooks_mod
 from . import notify as notify_mod
@@ -1795,6 +1796,11 @@ def _seat_progress(event):
 
 def main(argv=None, providers_override=None, seat_meta_override=None,
          fallbacks_override=None):
+    # P3-04: the gate process holds provider keys in its
+    # environment and runs untrusted commands (evidence,
+    # probes, agent seats); make it non-dumpable so a child
+    # cannot read that environment back via /proc/$PPID.
+    hardening.make_non_dumpable()
     if argv is None:
         argv = sys.argv[1:]
     if argv and argv[0] == "setup":

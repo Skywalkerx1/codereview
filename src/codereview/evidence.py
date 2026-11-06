@@ -120,6 +120,7 @@ import tempfile
 import threading
 import time
 
+from . import hardening
 from .core import _now_iso, redact_secrets
 
 SCHEMA = "codereview.evidence/1"
@@ -378,6 +379,12 @@ def _execute(argv, cwd, timeout, env, allow_network,
     exited AND both pipes reach EOF, bounded by the timeout —
     a grandchild that inherits a pipe and holds it open past
     the deadline is a timeout, exactly as before."""
+    # P3-04 backstop: the child below is a direct child of
+    # this process in env-only mode and could read the gate's
+    # environment from /proc/$PPID/environ; the CLI/MCP entry
+    # points harden at start, this lazy call covers library
+    # hosts that never went through them.
+    hardening.make_non_dumpable()
     network_mode = "allowed" if allow_network else "env-only"
     run_argv = list(argv)
     if not allow_network and _unshare_ok():
