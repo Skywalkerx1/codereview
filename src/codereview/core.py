@@ -3069,7 +3069,15 @@ def merge_findings(findings):
                 # a probe confirmation, and a validated
                 # cross-family confirmation from any of its
                 # sources — the profile pass reads all three.
-                if f.get("trigger") and not m.get("trigger"):
+                # The trigger kept is a CONCRETE one when any
+                # source states one: a vague first trigger
+                # must not cap a corroborated finding whose
+                # other source stated the trigger properly
+                # (house review, 2026-11-05).
+                if f.get("trigger") and (
+                        not m.get("trigger")
+                        or (not _trigger_concrete(m["trigger"])
+                            and _trigger_concrete(f["trigger"]))):
                     m["trigger"] = f["trigger"]
                 if f.get("probe_confirmed"):
                     m["probe_confirmed"] = True

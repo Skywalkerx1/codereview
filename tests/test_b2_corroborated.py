@@ -77,6 +77,11 @@ class CorroboratedPureTests(unittest.TestCase):
         self.assertEqual(dem["rule"], "B2")
         self.assertEqual(dem["basis"], "unverified_single_source")
         self.assertEqual(len(demotions), 1)
+        # The demotion RECORD (gate_profile.demotions) carries
+        # the basis too — the gate-reason summary renders from
+        # it (house-review dispute, 2026-11-05).
+        self.assertEqual(demotions[0]["basis"],
+                         "unverified_single_source")
 
     def test_e3_confirmed_with_valid_quote_promotes_to_e1(self):
         f = merged_finding(source_lenses={"seat-a": ["correctness"]})
@@ -335,6 +340,24 @@ class CorroboratedRunTests(unittest.TestCase):
     def test_unknown_profile_still_a_loud_error(self):
         with self.assertRaises(ValueError):
             self.review("confirm", gate_profile="quiet")
+
+
+class MergeTriggerTests(unittest.TestCase):
+    def test_merge_prefers_a_concrete_trigger(self):
+        # House review 2026-11-05: first-source-wins kept a
+        # vague trigger and would cap a corroborated finding
+        # whose other source stated the trigger properly.
+        vague = merged_finding(sources=("seat-a",),
+                               trigger="might break")
+        concrete = merged_finding(sources=("seat-b",),
+                                  trigger=TRIGGER)
+        merged = core.merge_findings([vague, concrete])
+        self.assertEqual(len(merged), 1)
+        self.assertEqual(merged[0]["trigger"], TRIGGER)
+        applied, _ = core._apply_gate_profile(
+            merged, "corroborated", family_by_source=FAM)
+        self.assertEqual(applied[0]["severity"], "major")
+        self.assertEqual(applied[0]["evidence_class"], "E1")
 
 
 class PromptAndPolicyTests(unittest.TestCase):
