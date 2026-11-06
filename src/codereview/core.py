@@ -4425,11 +4425,29 @@ def run_review(patch, providers, context="", test_results=None,
                 max_workers=max(2, min(6, len(job_list) or 1))) as ex:
             futs = {ex.submit(_review_job, fn, prompt, sleep,
                               seat=name, progress=progress):
-                    (name, lens, fn, prompt, bi, batch)
-                    for name, lens, fn, prompt, bi, batch in job_list}
+                    idx
+                    for idx, (name, lens, fn, prompt, bi, batch)
+                    in enumerate(job_list)}
+            # D-001 determinism: collect every result first,
+            # then fold them into the shared accumulators in
+            # SUBMISSION (task) order — the collect-then-order
+            # pattern run_verification uses. Folding in
+            # as_completed order made reviewer_reports order,
+            # all_findings encounter order (and with it each
+            # merged finding's sources order) and the markdown
+            # render vary run to run for identical inputs; the
+            # gate verdict never depended on that order, but
+            # the record did. Fallback runs now happen in the
+            # ordered fold below, after the stage's primaries
+            # have all completed, instead of interleaved with
+            # them — the fallback's inputs and record are
+            # unchanged.
+            results = {}
             for fut in concurrent.futures.as_completed(futs):
-                name, lens, fn, prompt, bi, batch = futs[fut]
-                res = fut.result()
+                results[futs[fut]] = fut.result()
+            for idx, (name, lens, fn, prompt, bi,
+                      batch) in enumerate(job_list):
+                res = results[idx]
                 serving_name, serving_fn = name, fn
                 rec = {"provider": name, "lens": lens,
                        "batch": bi + 1, "status": "error",
