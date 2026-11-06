@@ -260,6 +260,13 @@ class GenerationSeat:
         self.now_iso = now_iso or core._now_iso
         self.rng = rng or random.random
         self.events = []
+        # Durable metering sink (P4-09): when run_generation
+        # wires it, every non-cached event is appended to the
+        # run's event journal AS IT HAPPENS, so a kill between
+        # the cache write and the case's record fold cannot
+        # make real spend vanish from the resumed records.
+        # None (direct seat use) = in-memory events only.
+        self.event_journal = None
         self._keys = {}  # prompt_hash -> per-key budget state
         # Per-case deadline (absolute, on this seat's clock),
         # stamped by run_generation for the duration of one
@@ -294,6 +301,18 @@ class GenerationSeat:
         if http_status is not None:
             ev["http_status"] = http_status
         self.events.append(ev)
+        if self.event_journal is not None and not cached:
+            # Cache hits are replays — derivable on resume, and
+            # journaling them would double-count their tokens
+            # against the real call they replay. A journal
+            # failure is swallowed: durability here is
+            # best-effort by design and must never break the
+            # call whose metering it records (the in-memory
+            # fold still runs for this pass).
+            try:
+                self.event_journal(dict(ev))
+            except Exception:  # noqa: BLE001
+                pass
         return ev
 
     def _backoff(self, attempt):
@@ -617,11 +636,53 @@ def _read_jsonl(path):
     rows = []
     if os.path.isfile(path):
         with open(path, encoding="utf-8") as fh:
-            for line in fh:
-                line = line.strip()
-                if line:
-                    rows.append(json.loads(line))
+            lines = [line.strip() for line in fh if line.strip()]
+        for i, line in enumerate(lines):
+            try:
+                rows.append(json.loads(line))
+            except json.JSONDecodeError:
+                # A torn FINAL line (P4-08) is the signature of
+                # a write interrupted by a kill, ENOSPC or power
+                # loss: the row was never completed, and the
+                # resume that re-serves its work writes the row
+                # again — skipping it loses nothing. A corrupt
+                # line anywhere else is real damage to a
+                # completed row and still raises.
+                if i == len(lines) - 1:
+                    break
+                raise
     return rows
+
+
+def _merge_journal_events(prior, current):
+    """Fold one case's journaled events from earlier passes
+    into this pass's events for the record fold (P4-09).
+
+    A journaled real call (outcome "ok") replaces this pass's
+    cache replay of the same call: the replay event is dropped
+    one-for-one against journaled real calls for the same
+    (seat, prompt_hash), so the fold counts the spend exactly
+    as the uninterrupted run did — attempts and fresh tokens
+    from the journal, cache replays beyond the journaled calls
+    still counted as cached. Journaled failures fold in too:
+    the case's record accounts for every pass that worked on
+    it, exactly as one long run would."""
+    if not prior:
+        return list(current)
+    real = {}
+    for e in prior:
+        if e.get("outcome") == "ok":
+            key = (e.get("seat"), e.get("prompt_hash"))
+            real[key] = real.get(key, 0) + 1
+    merged = list(prior)
+    for e in current:
+        if e.get("cached") or e.get("outcome") == "cache_hit":
+            key = (e.get("seat"), e.get("prompt_hash"))
+            if real.get(key):
+                real[key] -= 1
+                continue
+        merged.append(e)
+    return merged
 
 
 def run_generation(cases, seats, seat_lenses, *, cache_dir,
@@ -657,6 +718,13 @@ def run_generation(cases, seats, seat_lenses, *, cache_dir,
     once the case is complete. A config hash mismatch with the
     existing manifest is a hard error — records from a different
     panel are never mixed into a run.
+
+    Metering durability (P4-09): every non-cached seat event is
+    appended to the run's event journal (events-attempt-N.jsonl)
+    at call time; on resume the fold merges a case's journaled
+    events with the new pass's, so spend from a pass killed
+    between the cache write and the record fold is still
+    accounted (see _merge_journal_events).
     """
     os.makedirs(out_dir, exist_ok=True)
     cache = ResponseCache(cache_dir)
@@ -684,6 +752,11 @@ def run_generation(cases, seats, seat_lenses, *, cache_dir,
     gen_path = os.path.join(
         out_dir, f"generation-attempt-{attempt}.jsonl")
     att_path = os.path.join(out_dir, f"attempt-{attempt}.jsonl")
+    # The event journal (P4-09): every non-cached seat event,
+    # appended at call time with its case id — the durable
+    # metering the record fold merges on resume.
+    journal_path = os.path.join(
+        out_dir, f"events-attempt-{attempt}.jsonl")
     man_path = os.path.join(
         out_dir, f"generation-manifest-attempt-{attempt}.json")
     if os.path.isfile(man_path):
@@ -716,9 +789,22 @@ def run_generation(cases, seats, seat_lenses, *, cache_dir,
     prior_valid = {(r["case_id"], r["seat"], r["lens"])
                    for r in prior if r["status"] == "valid"}
     att_done = {r["case_id"] for r in _read_jsonl(att_path)}
+    prior_journal = {}
+    for ev in _read_jsonl(journal_path):
+        prior_journal.setdefault(ev.get("case_id"),
+                                 []).append(ev)
 
     gen_fh = open(gen_path, "a", encoding="utf-8")
     att_fh = open(att_path, "a", encoding="utf-8")
+    journal_fh = open(journal_path, "a", encoding="utf-8")
+    journal_case = {"id": None}
+
+    def _journal_sink(ev):
+        row = dict(ev)
+        row["case_id"] = journal_case["id"]
+        journal_fh.write(json.dumps(row) + "\n")
+        journal_fh.flush()
+        os.fsync(journal_fh.fileno())
     summary = {"complete": [], "incomplete": {},
                "shadow_cost_usd": 0.0, "tokens_in": 0,
                "tokens_out": 0}
@@ -727,11 +813,13 @@ def run_generation(cases, seats, seat_lenses, *, cache_dir,
             context = (f"[bench-case: {case['id']}]\n"
                        f"{case['title']}\n"
                        f"{case.get('context') or ''}").strip()
+            journal_case["id"] = case["id"]
             for seat in seats.values():
                 seat.events = []
                 # Per-case budget: stamp the deadline on the
                 # seat's own clock for this case's calls.
                 seat.case_deadline = seat.clock() + case_budget_s
+                seat.event_journal = _journal_sink
             started = time.monotonic()
             try:
                 report = core.run_review(
@@ -743,10 +831,13 @@ def run_generation(cases, seats, seat_lenses, *, cache_dir,
             finally:
                 for seat in seats.values():
                     seat.case_deadline = None
+                    seat.event_journal = None
             duration_ms = int(
                 (time.monotonic() - started) * 1000)
-            events = [e for seat in seats.values()
-                      for e in seat.events]
+            events = _merge_journal_events(
+                prior_journal.get(case["id"], []),
+                [e for seat in seats.values()
+                 for e in seat.events])
             records = []
             for seat_name, lenses in binding.items():
                 seat = seats.get(seat_name)
@@ -816,6 +907,7 @@ def run_generation(cases, seats, seat_lenses, *, cache_dir,
     finally:
         gen_fh.close()
         att_fh.close()
+        journal_fh.close()
     manifest["summary"] = {
         "complete_cases": len(summary["complete"]),
         "incomplete_cases": summary["incomplete"],
@@ -832,5 +924,6 @@ def run_generation(cases, seats, seat_lenses, *, cache_dir,
         json.dump(manifest, fh, indent=1)
     summary["generation_records"] = gen_path
     summary["attempt_records"] = att_path
+    summary["event_journal"] = journal_path
     summary["manifest"] = man_path
     return summary

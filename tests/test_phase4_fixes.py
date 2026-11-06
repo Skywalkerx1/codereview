@@ -619,5 +619,162 @@ class HerdrWatchBackoffTests(unittest.TestCase):
         self.assertGreaterEqual(host.get_calls, 3)
 
 
+USAGE = {"prompt_tokens": 100, "completion_tokens": 50}
+BINDING = {"a": ["correctness"], "b": ["operations"]}
+
+
+def _gen_case(i=0):
+    return {"id": f"c{i}", "split": "public", "category": "logic",
+            "title": f"case {i}", "context": "",
+            "diff": "diff --git a/a.py b/a.py\n--- a/a.py\n"
+                    "+++ b/a.py\n@@ -1,1 +1,2 @@\n x=1\n+y=2\n",
+            "expected": {}}
+
+
+def _gen_seat(name):
+    return gen.GenerationSeat(
+        name, "m", lambda p: (GOOD_JSON, USAGE),
+        sleep=lambda _s: None, rng=lambda: 0.5)
+
+
+def _run_gen(out, cache_dir, cases):
+    seats = {n: _gen_seat(n) for n in ("a", "b")}
+    return gen.run_generation(
+        cases, seats, BINDING, cache_dir=cache_dir, out_dir=out,
+        config_name="testcfg", config_sha256="sha-x",
+        gate_profile="balanced", log=lambda _m: None)
+
+
+def _gen_records(out):
+    path = os.path.join(out, "generation-attempt-1.jsonl")
+    with open(path, encoding="utf-8") as fh:
+        return [json.loads(l) for l in fh if l.strip()]
+
+
+class TornJsonlTests(unittest.TestCase):
+    """P4-08: a torn final JSONL line is tolerated; corruption
+    anywhere else still raises."""
+
+    def _path(self, tmp, text):
+        path = os.path.join(tmp, "x.jsonl")
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(text)
+        return path
+
+    def test_torn_final_line_is_skipped(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = self._path(
+                tmp, '{"a": 1}\n{"a": 2}\n{"case_id": "c9", "se')
+            self.assertEqual(gen._read_jsonl(path),
+                             [{"a": 1}, {"a": 2}])
+
+    def test_corrupt_middle_line_still_raises(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = self._path(
+                tmp, '{"a": 1}\nnot json\n{"a": 2}\n')
+            with self.assertRaises(json.JSONDecodeError):
+                gen._read_jsonl(path)
+
+    def test_clean_missing_and_empty_files(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(
+                gen._read_jsonl(os.path.join(tmp, "nope")), [])
+            path = self._path(tmp, "")
+            self.assertEqual(gen._read_jsonl(path), [])
+
+    def test_resume_completes_with_torn_lines(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = os.path.join(tmp, "out")
+            cache_dir = os.path.join(tmp, "cache")
+            cases = [_gen_case(0)]
+            summary = _run_gen(out, cache_dir, cases)
+            self.assertEqual(summary["complete"], ["c0"])
+            for name in ("generation-attempt-1.jsonl",
+                         "attempt-1.jsonl",
+                         "events-attempt-1.jsonl"):
+                with open(os.path.join(out, name), "a",
+                          encoding="utf-8") as fh:
+                    fh.write('{"case_id": "c9", "seat": "a", "le')
+            summary = _run_gen(out, cache_dir, cases)
+            self.assertEqual(summary["complete"], ["c0"])
+
+
+class MeteringJournalTests(unittest.TestCase):
+    """P4-09: metering is durable at call time; a kill between
+    the cache write and the record fold no longer understates
+    attempts/tokens on resume."""
+
+    def test_seat_journals_events_at_call_time(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            journaled = []
+            s = gen.GenerationSeat(
+                "a", "m", lambda p: (GOOD_JSON, USAGE),
+                cache=gen.ResponseCache(os.path.join(tmp, "cache")),
+                sleep=lambda _s: None, rng=lambda: 0.5)
+            s.event_journal = journaled.append
+            self.assertEqual(s("p"), GOOD_JSON)
+            # The ok event reached the journal synchronously —
+            # no fold exists at seat level, so this is call time.
+            self.assertEqual([e["outcome"] for e in journaled],
+                             ["ok"])
+            self.assertEqual(journaled[0]["tokens_in"], 100)
+            # A cache hit is a replay: not journaled.
+            self.assertEqual(s("p"), GOOD_JSON)
+            self.assertEqual(len(journaled), 1)
+
+    def test_merge_dedupes_replays_against_journaled_calls(self):
+        prior = [{"seat": "a", "prompt_hash": "X",
+                  "outcome": "ok", "tokens_in": 100,
+                  "tokens_out": 50, "cached": False}]
+        hit = {"seat": "a", "prompt_hash": "X",
+               "outcome": "cache_hit", "tokens_in": 100,
+               "tokens_out": 50, "cached": True}
+        merged = gen._merge_journal_events(
+            prior, [dict(hit), dict(hit)])
+        # One replay is the journaled call itself (dropped);
+        # the second is a genuine replay (kept as cached).
+        self.assertEqual([e["outcome"] for e in merged],
+                         ["ok", "cache_hit"])
+        self.assertEqual(gen._merge_journal_events([], [hit]),
+                         [hit])
+
+    def test_kill_window_resume_keeps_metering(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = os.path.join(tmp, "out")
+            cache_dir = os.path.join(tmp, "cache")
+            cases = [_gen_case(0)]
+            summary = _run_gen(out, cache_dir, cases)
+            self.assertEqual(summary["complete"], ["c0"])
+            clean = {(r["seat"], r["lens"]): r
+                     for r in _gen_records(out)}
+            for key in (("a", "correctness"), ("b", "operations")):
+                self.assertEqual(clean[key]["attempts"], 1)
+                self.assertEqual(clean[key]["tokens_in"], 100)
+                self.assertEqual(clean[key]["tokens_cached"], 0)
+            # Simulate the kill window: the cache and the
+            # journal survived; the folded records never landed.
+            for name in ("generation-attempt-1.jsonl",
+                         "attempt-1.jsonl"):
+                with open(os.path.join(out, name), "w",
+                          encoding="utf-8"):
+                    pass
+            summary = _run_gen(out, cache_dir, cases)
+            self.assertEqual(summary["complete"], ["c0"])
+            resumed = {(r["seat"], r["lens"]): r
+                       for r in _gen_records(out)}
+            for key in (("a", "correctness"), ("b", "operations")):
+                self.assertEqual(resumed[key]["attempts"], 1)
+                self.assertEqual(resumed[key]["tokens_in"], 100)
+                self.assertEqual(resumed[key]["tokens_out"], 50)
+                self.assertEqual(resumed[key]["tokens_cached"], 0)
+            # A further resume rewrites nothing and the record
+            # on disk is unchanged (no double count).
+            summary = _run_gen(out, cache_dir, cases)
+            self.assertEqual(summary["complete"], ["c0"])
+            again = {(r["seat"], r["lens"]): r
+                     for r in _gen_records(out)}
+            self.assertEqual(again, resumed)
+
+
 if __name__ == "__main__":
     unittest.main()
