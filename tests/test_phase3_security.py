@@ -459,5 +459,41 @@ class ParentEnvironHardeningTests(unittest.TestCase):
         self.assertNotIn("s3cr3t-value", item["output_tail"])
 
 
+class McpNestedFrameTests(unittest.TestCase):
+    """P3-05: a JSON frame nested deeper than the interpreter
+    limit raised RecursionError out of json.loads, killing
+    serve_forever with no PARSE_ERROR and no ledger entry."""
+
+    def test_deeply_nested_frame_gets_parse_error(self):
+        from codereview import mcp_tools, mcp_transport
+
+        def good(_prompt):
+            return PASS_VERDICT
+
+        depth = 50000
+        raw = (b'{"jsonrpc":"2.0","method":"ping","id":1,'
+               b'"params":' + b"[" * depth + b"]" * depth
+               + b"}\n")
+        valid = (b'{"jsonrpc":"2.0","method":"ping",'
+                 b'"id":"after"}\n')
+        stdin = io.BytesIO(raw + valid)
+        stdout = io.BytesIO()
+        logs = []
+        tools = mcp_tools.GateTools(
+            providers_override={"a": good})
+        server = mcp_tools.serve_stdio(
+            tools, stdin=stdin, stdout=stdout,
+            log=logs.append)
+        out = [json.loads(line) for line in
+               stdout.getvalue().decode().splitlines()
+               if line.strip()]
+        self.assertEqual(out[0]["error"]["code"],
+                         mcp_transport.PARSE_ERROR)
+        self.assertIsNone(out[0]["id"])
+        self.assertEqual(out[1]["id"], "after")
+        self.assertIn("parse_error",
+                      [e["kind"] for e in server.errors])
+
+
 if __name__ == "__main__":
     unittest.main()

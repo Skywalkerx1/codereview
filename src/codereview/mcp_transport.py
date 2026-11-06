@@ -152,7 +152,12 @@ class StdioServer:
                 continue
             try:
                 message = json.loads(raw.decode("utf-8"))
-            except (UnicodeDecodeError, ValueError) as exc:
+            except (UnicodeDecodeError, ValueError,
+                    RecursionError) as exc:
+                # RecursionError: a frame nested deeper than
+                # the interpreter's limit is a parse failure
+                # like any other (P3-05) — it must not kill
+                # the loop or skip the ledger.
                 self._record("parse_error", exc)
                 self._send(error_response(
                     None, PARSE_ERROR, f"parse error: {exc}"))
