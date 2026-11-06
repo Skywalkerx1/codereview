@@ -1,0 +1,668 @@
+{
+ "analysis": "A4 seat-level emission + agreement",
+ "notes": "Merged findings at BASE severity. any-source = seat in sources; sole-source = sources == [seat]. Agreement share (X,Y) = blocking findings with both X and Y in sources / blocking findings with X in sources; diagonal 1.0.",
+ "defect_cases": {
+  "attempt_a5": {
+   "cases": 7,
+   "merged_findings_base_total": 28,
+   "seats": {
+    "deepseek": {
+     "any_source": {
+      "major_only": 2,
+      "blocking": 8
+     },
+     "sole_source": {
+      "major_only": 2,
+      "blocking": 7
+     },
+     "majors_per_case": 0.2857142857142857
+    },
+    "openai": {
+     "any_source": {
+      "major_only": 4,
+      "blocking": 9
+     },
+     "sole_source": {
+      "major_only": 4,
+      "blocking": 7
+     },
+     "majors_per_case": 0.5714285714285714
+    },
+    "nvidia": {
+     "any_source": {
+      "major_only": 5,
+      "blocking": 8
+     },
+     "sole_source": {
+      "major_only": 5,
+      "blocking": 6
+     },
+     "majors_per_case": 0.7142857142857143
+    },
+    "deterministic": {
+     "any_source": {
+      "major_only": 1,
+      "blocking": 3
+     },
+     "sole_source": {
+      "major_only": 1,
+      "blocking": 2
+     },
+     "majors_per_case": 0.14285714285714285
+    }
+   },
+   "agreement_blocking_base": {
+    "seat_blocking_totals": {
+     "deepseek": 8,
+     "openai": 9,
+     "nvidia": 8,
+     "deterministic": 3
+    },
+    "intersection_counts": {
+     "deepseek": {
+      "deepseek": 8,
+      "openai": 1,
+      "nvidia": 0,
+      "deterministic": 0
+     },
+     "openai": {
+      "deepseek": 1,
+      "openai": 9,
+      "nvidia": 1,
+      "deterministic": 0
+     },
+     "nvidia": {
+      "deepseek": 0,
+      "openai": 1,
+      "nvidia": 8,
+      "deterministic": 1
+     },
+     "deterministic": {
+      "deepseek": 0,
+      "openai": 0,
+      "nvidia": 1,
+      "deterministic": 3
+     }
+    },
+    "share_of_row_seat": {
+     "deepseek": {
+      "deepseek": 1.0,
+      "openai": 0.125,
+      "nvidia": 0.0,
+      "deterministic": 0.0
+     },
+     "openai": {
+      "deepseek": 0.1111111111111111,
+      "openai": 1.0,
+      "nvidia": 0.1111111111111111,
+      "deterministic": 0.0
+     },
+     "nvidia": {
+      "deepseek": 0.0,
+      "openai": 0.125,
+      "nvidia": 1.0,
+      "deterministic": 0.125
+     },
+     "deterministic": {
+      "deepseek": 0.0,
+      "openai": 0.0,
+      "nvidia": 0.3333333333333333,
+      "deterministic": 1.0
+     }
+    }
+   }
+  },
+  "public": {
+   "cases": 22,
+   "merged_findings_base_total": 107,
+   "seats": {
+    "deepseek": {
+     "any_source": {
+      "major_only": 16,
+      "blocking": 32
+     },
+     "sole_source": {
+      "major_only": 16,
+      "blocking": 31
+     },
+     "majors_per_case": 0.7272727272727273
+    },
+    "openai": {
+     "any_source": {
+      "major_only": 16,
+      "blocking": 26
+     },
+     "sole_source": {
+      "major_only": 14,
+      "blocking": 22
+     },
+     "majors_per_case": 0.7272727272727273
+    },
+    "nvidia": {
+     "any_source": {
+      "major_only": 19,
+      "blocking": 24
+     },
+     "sole_source": {
+      "major_only": 17,
+      "blocking": 20
+     },
+     "majors_per_case": 0.8636363636363636
+    },
+    "deterministic": {
+     "any_source": {
+      "major_only": 5,
+      "blocking": 9
+     },
+     "sole_source": {
+      "major_only": 5,
+      "blocking": 9
+     },
+     "majors_per_case": 0.22727272727272727
+    }
+   },
+   "agreement_blocking_base": {
+    "seat_blocking_totals": {
+     "deepseek": 32,
+     "openai": 26,
+     "nvidia": 24,
+     "deterministic": 9
+    },
+    "intersection_counts": {
+     "deepseek": {
+      "deepseek": 32,
+      "openai": 1,
+      "nvidia": 1,
+      "deterministic": 0
+     },
+     "openai": {
+      "deepseek": 1,
+      "openai": 26,
+      "nvidia": 4,
+      "deterministic": 0
+     },
+     "nvidia": {
+      "deepseek": 1,
+      "openai": 4,
+      "nvidia": 24,
+      "deterministic": 0
+     },
+     "deterministic": {
+      "deepseek": 0,
+      "openai": 0,
+      "nvidia": 0,
+      "deterministic": 9
+     }
+    },
+    "share_of_row_seat": {
+     "deepseek": {
+      "deepseek": 1.0,
+      "openai": 0.03125,
+      "nvidia": 0.03125,
+      "deterministic": 0.0
+     },
+     "openai": {
+      "deepseek": 0.038461538461538464,
+      "openai": 1.0,
+      "nvidia": 0.15384615384615385,
+      "deterministic": 0.0
+     },
+     "nvidia": {
+      "deepseek": 0.041666666666666664,
+      "openai": 0.16666666666666666,
+      "nvidia": 1.0,
+      "deterministic": 0.0
+     },
+     "deterministic": {
+      "deepseek": 0.0,
+      "openai": 0.0,
+      "nvidia": 0.0,
+      "deterministic": 1.0
+     }
+    }
+   }
+  },
+  "combined": {
+   "cases": 29,
+   "merged_findings_base_total": 135,
+   "seats": {
+    "deepseek": {
+     "any_source": {
+      "major_only": 18,
+      "blocking": 40
+     },
+     "sole_source": {
+      "major_only": 18,
+      "blocking": 38
+     },
+     "majors_per_case": 0.6206896551724138
+    },
+    "openai": {
+     "any_source": {
+      "major_only": 20,
+      "blocking": 35
+     },
+     "sole_source": {
+      "major_only": 18,
+      "blocking": 29
+     },
+     "majors_per_case": 0.6896551724137931
+    },
+    "nvidia": {
+     "any_source": {
+      "major_only": 24,
+      "blocking": 32
+     },
+     "sole_source": {
+      "major_only": 22,
+      "blocking": 26
+     },
+     "majors_per_case": 0.8275862068965517
+    },
+    "deterministic": {
+     "any_source": {
+      "major_only": 6,
+      "blocking": 12
+     },
+     "sole_source": {
+      "major_only": 6,
+      "blocking": 11
+     },
+     "majors_per_case": 0.20689655172413793
+    }
+   },
+   "agreement_blocking_base": {
+    "seat_blocking_totals": {
+     "deepseek": 40,
+     "openai": 35,
+     "nvidia": 32,
+     "deterministic": 12
+    },
+    "intersection_counts": {
+     "deepseek": {
+      "deepseek": 40,
+      "openai": 2,
+      "nvidia": 1,
+      "deterministic": 0
+     },
+     "openai": {
+      "deepseek": 2,
+      "openai": 35,
+      "nvidia": 5,
+      "deterministic": 0
+     },
+     "nvidia": {
+      "deepseek": 1,
+      "openai": 5,
+      "nvidia": 32,
+      "deterministic": 1
+     },
+     "deterministic": {
+      "deepseek": 0,
+      "openai": 0,
+      "nvidia": 1,
+      "deterministic": 12
+     }
+    },
+    "share_of_row_seat": {
+     "deepseek": {
+      "deepseek": 1.0,
+      "openai": 0.05,
+      "nvidia": 0.025,
+      "deterministic": 0.0
+     },
+     "openai": {
+      "deepseek": 0.05714285714285714,
+      "openai": 1.0,
+      "nvidia": 0.14285714285714285,
+      "deterministic": 0.0
+     },
+     "nvidia": {
+      "deepseek": 0.03125,
+      "openai": 0.15625,
+      "nvidia": 1.0,
+      "deterministic": 0.03125
+     },
+     "deterministic": {
+      "deepseek": 0.0,
+      "openai": 0.0,
+      "nvidia": 0.08333333333333333,
+      "deterministic": 1.0
+     }
+    }
+   }
+  }
+ },
+ "clean_cases": {
+  "attempt_expanded": {
+   "cases": 34,
+   "merged_findings_base_total": 235,
+   "seats": {
+    "deepseek": {
+     "any_source": {
+      "major_only": 21,
+      "blocking": 21
+     },
+     "sole_source": {
+      "major_only": 20,
+      "blocking": 20
+     },
+     "majors_per_case": 0.6176470588235294
+    },
+    "openai": {
+     "any_source": {
+      "major_only": 12,
+      "blocking": 12
+     },
+     "sole_source": {
+      "major_only": 11,
+      "blocking": 11
+     },
+     "majors_per_case": 0.35294117647058826
+    },
+    "nvidia": {
+     "any_source": {
+      "major_only": 42,
+      "blocking": 44
+     },
+     "sole_source": {
+      "major_only": 42,
+      "blocking": 44
+     },
+     "majors_per_case": 1.2352941176470589
+    },
+    "deterministic": {
+     "any_source": {
+      "major_only": 1,
+      "blocking": 1
+     },
+     "sole_source": {
+      "major_only": 1,
+      "blocking": 1
+     },
+     "majors_per_case": 0.029411764705882353
+    }
+   },
+   "agreement_blocking_base": {
+    "seat_blocking_totals": {
+     "deepseek": 21,
+     "openai": 12,
+     "nvidia": 44,
+     "deterministic": 1
+    },
+    "intersection_counts": {
+     "deepseek": {
+      "deepseek": 21,
+      "openai": 1,
+      "nvidia": 0,
+      "deterministic": 0
+     },
+     "openai": {
+      "deepseek": 1,
+      "openai": 12,
+      "nvidia": 0,
+      "deterministic": 0
+     },
+     "nvidia": {
+      "deepseek": 0,
+      "openai": 0,
+      "nvidia": 44,
+      "deterministic": 0
+     },
+     "deterministic": {
+      "deepseek": 0,
+      "openai": 0,
+      "nvidia": 0,
+      "deterministic": 1
+     }
+    },
+    "share_of_row_seat": {
+     "deepseek": {
+      "deepseek": 1.0,
+      "openai": 0.047619047619047616,
+      "nvidia": 0.0,
+      "deterministic": 0.0
+     },
+     "openai": {
+      "deepseek": 0.08333333333333333,
+      "openai": 1.0,
+      "nvidia": 0.0,
+      "deterministic": 0.0
+     },
+     "nvidia": {
+      "deepseek": 0.0,
+      "openai": 0.0,
+      "nvidia": 1.0,
+      "deterministic": 0.0
+     },
+     "deterministic": {
+      "deepseek": 0.0,
+      "openai": 0.0,
+      "nvidia": 0.0,
+      "deterministic": 1.0
+     }
+    }
+   }
+  },
+  "public": {
+   "cases": 5,
+   "merged_findings_base_total": 8,
+   "seats": {
+    "deepseek": {
+     "any_source": {
+      "major_only": 0,
+      "blocking": 0
+     },
+     "sole_source": {
+      "major_only": 0,
+      "blocking": 0
+     },
+     "majors_per_case": 0.0
+    },
+    "openai": {
+     "any_source": {
+      "major_only": 1,
+      "blocking": 1
+     },
+     "sole_source": {
+      "major_only": 1,
+      "blocking": 1
+     },
+     "majors_per_case": 0.2
+    },
+    "nvidia": {
+     "any_source": {
+      "major_only": 3,
+      "blocking": 3
+     },
+     "sole_source": {
+      "major_only": 3,
+      "blocking": 3
+     },
+     "majors_per_case": 0.6
+    },
+    "deterministic": {
+     "any_source": {
+      "major_only": 0,
+      "blocking": 0
+     },
+     "sole_source": {
+      "major_only": 0,
+      "blocking": 0
+     },
+     "majors_per_case": 0.0
+    }
+   },
+   "agreement_blocking_base": {
+    "seat_blocking_totals": {
+     "deepseek": 0,
+     "openai": 1,
+     "nvidia": 3,
+     "deterministic": 0
+    },
+    "intersection_counts": {
+     "deepseek": {
+      "deepseek": 0,
+      "openai": 0,
+      "nvidia": 0,
+      "deterministic": 0
+     },
+     "openai": {
+      "deepseek": 0,
+      "openai": 1,
+      "nvidia": 0,
+      "deterministic": 0
+     },
+     "nvidia": {
+      "deepseek": 0,
+      "openai": 0,
+      "nvidia": 3,
+      "deterministic": 0
+     },
+     "deterministic": {
+      "deepseek": 0,
+      "openai": 0,
+      "nvidia": 0,
+      "deterministic": 0
+     }
+    },
+    "share_of_row_seat": {
+     "deepseek": {
+      "deepseek": 1.0,
+      "openai": null,
+      "nvidia": null,
+      "deterministic": null
+     },
+     "openai": {
+      "deepseek": 0.0,
+      "openai": 1.0,
+      "nvidia": 0.0,
+      "deterministic": 0.0
+     },
+     "nvidia": {
+      "deepseek": 0.0,
+      "openai": 0.0,
+      "nvidia": 1.0,
+      "deterministic": 0.0
+     },
+     "deterministic": {
+      "deepseek": null,
+      "openai": null,
+      "nvidia": null,
+      "deterministic": 1.0
+     }
+    }
+   }
+  },
+  "combined": {
+   "cases": 39,
+   "merged_findings_base_total": 243,
+   "seats": {
+    "deepseek": {
+     "any_source": {
+      "major_only": 21,
+      "blocking": 21
+     },
+     "sole_source": {
+      "major_only": 20,
+      "blocking": 20
+     },
+     "majors_per_case": 0.5384615384615384
+    },
+    "openai": {
+     "any_source": {
+      "major_only": 13,
+      "blocking": 13
+     },
+     "sole_source": {
+      "major_only": 12,
+      "blocking": 12
+     },
+     "majors_per_case": 0.3333333333333333
+    },
+    "nvidia": {
+     "any_source": {
+      "major_only": 45,
+      "blocking": 47
+     },
+     "sole_source": {
+      "major_only": 45,
+      "blocking": 47
+     },
+     "majors_per_case": 1.1538461538461537
+    },
+    "deterministic": {
+     "any_source": {
+      "major_only": 1,
+      "blocking": 1
+     },
+     "sole_source": {
+      "major_only": 1,
+      "blocking": 1
+     },
+     "majors_per_case": 0.02564102564102564
+    }
+   },
+   "agreement_blocking_base": {
+    "seat_blocking_totals": {
+     "deepseek": 21,
+     "openai": 13,
+     "nvidia": 47,
+     "deterministic": 1
+    },
+    "intersection_counts": {
+     "deepseek": {
+      "deepseek": 21,
+      "openai": 1,
+      "nvidia": 0,
+      "deterministic": 0
+     },
+     "openai": {
+      "deepseek": 1,
+      "openai": 13,
+      "nvidia": 0,
+      "deterministic": 0
+     },
+     "nvidia": {
+      "deepseek": 0,
+      "openai": 0,
+      "nvidia": 47,
+      "deterministic": 0
+     },
+     "deterministic": {
+      "deepseek": 0,
+      "openai": 0,
+      "nvidia": 0,
+      "deterministic": 1
+     }
+    },
+    "share_of_row_seat": {
+     "deepseek": {
+      "deepseek": 1.0,
+      "openai": 0.047619047619047616,
+      "nvidia": 0.0,
+      "deterministic": 0.0
+     },
+     "openai": {
+      "deepseek": 0.07692307692307693,
+      "openai": 1.0,
+      "nvidia": 0.0,
+      "deterministic": 0.0
+     },
+     "nvidia": {
+      "deepseek": 0.0,
+      "openai": 0.0,
+      "nvidia": 1.0,
+      "deterministic": 0.0
+     },
+     "deterministic": {
+      "deepseek": 0.0,
+      "openai": 0.0,
+      "nvidia": 0.0,
+      "deterministic": 1.0
+     }
+    }
+   }
+  }
+ }
+}

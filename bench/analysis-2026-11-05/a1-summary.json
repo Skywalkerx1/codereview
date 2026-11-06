@@ -1,0 +1,221 @@
+{
+ "counts": {
+  "REAL_DEFECT": 18,
+  "HARDENING_ONLY": 6,
+  "FALSE_POSITIVE": 7,
+  "NO_MAJORITY": 2
+ },
+ "total_findings": 33,
+ "probe_overrides": 3,
+ "probe_applied": 5,
+ "material_real_share_flag": true,
+ "real_defect_share": 0.5455,
+ "provider_notes": {
+  "openai": "healthy (health probe ok); models gpt-5.4 (primary) and gpt-4.1 (Gemini substitute, second model from the non-raiser OpenAI family).",
+  "deepseek": "healthy (health probes ok for deepseek-reasoner and deepseek-chat); primary deepseek-reasoner with deepseek-chat fallback, deepseek-chat also serves as the Gemini substitute (distinct model from the primary vote).",
+  "nvidia": "healthy for nvidia/nemotron-3.5-lightning-30b-a3b on the minimal probe; on full packets it intermittently returned empty/unparseable output and was retried once at max-tokens 4000 per the task rule, with residual invalid votes recorded as such. nvidia/nemotron-3-super-120b-a12b returned 404 (not entitled) on probe and was not used.",
+  "gemini": "UNAVAILABLE: swarm call_gemini returned HTTP 429 (quota) on the first health probe; treated as a hard stop per instructions and never retried. Substitute first tried was z-ai/glm-5.3-flash via the NVIDIA NIM endpoint (healthy on a minimal probe) but on the first full packet it returned empty content and its 4000-token retry stalled >4 min, so per-finding substitution uses a second model from another non-raiser family instead: OpenAI gpt-4.1 for deepseek-raised findings, DeepSeek deepseek-chat for openai-raised findings. The dual-raised finding keeps the two-NVIDIA-model panel.",
+  "dual_raised_e62292af7bb4": "Reduced independence: raisers were deepseek+openai, Gemini unavailable, so the panel is three NVIDIA-endpoint models (nemotron-3.5-lightning-30b-a3b, glm-5.3-flash, muse-glimmer-30b). The glm vote was invalid; lightning and glimmer both voted REAL_DEFECT. No independent non-raiser family beyond NVIDIA exists under those constraints.",
+  "run_note": "An exec-service restart wiped /tmp mid-run, destroying the first run's progress after 4 findings; the batch was restarted with progress persisted in the workspace. All 33 findings in these outputs come from the restarted run."
+ },
+ "per-finding": [
+  {
+   "case_id": "xc-atomic-state-writer",
+   "finding_id": "ef6310d2eb7d",
+   "final_verdict": "HARDENING_ONLY",
+   "final_basis": "majority"
+  },
+  {
+   "case_id": "xc-batch-delete-guarded",
+   "finding_id": "283fc809be33",
+   "final_verdict": "REAL_DEFECT",
+   "final_basis": "majority"
+  },
+  {
+   "case_id": "xc-batch-delete-guarded",
+   "finding_id": "74e6745741d2",
+   "final_verdict": "FALSE_POSITIVE",
+   "final_basis": "majority"
+  },
+  {
+   "case_id": "xc-batch-delete-guarded",
+   "finding_id": "962027a4a2e1",
+   "final_verdict": "FALSE_POSITIVE",
+   "final_basis": "majority"
+  },
+  {
+   "case_id": "xc-bigdecimal-invoice",
+   "finding_id": "01645492eb25",
+   "final_verdict": "HARDENING_ONLY",
+   "final_basis": "majority"
+  },
+  {
+   "case_id": "xc-bounded-response-read",
+   "finding_id": "97d5edda477f",
+   "final_verdict": "REAL_DEFECT",
+   "final_basis": "probe"
+  },
+  {
+   "case_id": "xc-circuit-breaker",
+   "finding_id": "302216bf7f6f",
+   "final_verdict": "REAL_DEFECT",
+   "final_basis": "majority"
+  },
+  {
+   "case_id": "xc-circuit-breaker",
+   "finding_id": "b8db7962a69a",
+   "final_verdict": "REAL_DEFECT",
+   "final_basis": "majority"
+  },
+  {
+   "case_id": "xc-context-http-timeout",
+   "finding_id": "a84e697f2bc9",
+   "final_verdict": "REAL_DEFECT",
+   "final_basis": "majority"
+  },
+  {
+   "case_id": "xc-context-http-timeout",
+   "finding_id": "ed80471a5853",
+   "final_verdict": "NO_MAJORITY",
+   "final_basis": "no_majority"
+  },
+  {
+   "case_id": "xc-csrf-token-check",
+   "finding_id": "0c3880878082",
+   "final_verdict": "HARDENING_ONLY",
+   "final_basis": "majority"
+  },
+  {
+   "case_id": "xc-csrf-token-check",
+   "finding_id": "ff80aa6cb2cd",
+   "final_verdict": "FALSE_POSITIVE",
+   "final_basis": "majority"
+  },
+  {
+   "case_id": "xc-deadletter-worker",
+   "finding_id": "1f6438dc11b6",
+   "final_verdict": "HARDENING_ONLY",
+   "final_basis": "majority"
+  },
+  {
+   "case_id": "xc-deadletter-worker",
+   "finding_id": "4bcd9e50bcdd",
+   "final_verdict": "REAL_DEFECT",
+   "final_basis": "majority"
+  },
+  {
+   "case_id": "xc-decimal-money",
+   "finding_id": "4825814c1e37",
+   "final_verdict": "REAL_DEFECT",
+   "final_basis": "probe"
+  },
+  {
+   "case_id": "xc-fetch-timeout-abort",
+   "finding_id": "e62292af7bb4",
+   "final_verdict": "REAL_DEFECT",
+   "final_basis": "majority"
+  },
+  {
+   "case_id": "xc-graceful-http-shutdown",
+   "finding_id": "fa7589b5e02e",
+   "final_verdict": "FALSE_POSITIVE",
+   "final_basis": "majority"
+  },
+  {
+   "case_id": "xc-graceful-shutdown",
+   "finding_id": "95e4511d76af",
+   "final_verdict": "FALSE_POSITIVE",
+   "final_basis": "majority"
+  },
+  {
+   "case_id": "xc-guarded-migration",
+   "finding_id": "0621e57700e4",
+   "final_verdict": "FALSE_POSITIVE",
+   "final_basis": "majority"
+  },
+  {
+   "case_id": "xc-guarded-migration",
+   "finding_id": "d0c6b71b9028",
+   "final_verdict": "REAL_DEFECT",
+   "final_basis": "majority"
+  },
+  {
+   "case_id": "xc-health-guard-selfcheck",
+   "finding_id": "f5867856cba4",
+   "final_verdict": "FALSE_POSITIVE",
+   "final_basis": "majority"
+  },
+  {
+   "case_id": "xc-idempotency-keys",
+   "finding_id": "12bef37f9dfb",
+   "final_verdict": "REAL_DEFECT",
+   "final_basis": "probe"
+  },
+  {
+   "case_id": "xc-idempotency-keys",
+   "finding_id": "f459ae664faa",
+   "final_verdict": "NO_MAJORITY",
+   "final_basis": "no_majority"
+  },
+  {
+   "case_id": "xc-intl-currency-format",
+   "finding_id": "ec77bb5d45e2",
+   "final_verdict": "REAL_DEFECT",
+   "final_basis": "majority"
+  },
+  {
+   "case_id": "xc-jdbc-prepared",
+   "finding_id": "1783c93b4f71",
+   "final_verdict": "REAL_DEFECT",
+   "final_basis": "majority"
+  },
+  {
+   "case_id": "xc-password-hash-verify",
+   "finding_id": "3ab890572a65",
+   "final_verdict": "REAL_DEFECT",
+   "final_basis": "majority"
+  },
+  {
+   "case_id": "xc-password-hash-verify",
+   "finding_id": "754267d9b5f6",
+   "final_verdict": "REAL_DEFECT",
+   "final_basis": "majority"
+  },
+  {
+   "case_id": "xc-ssrf-allowlist-fetch",
+   "finding_id": "cdf70be39663",
+   "final_verdict": "REAL_DEFECT",
+   "final_basis": "majority"
+  },
+  {
+   "case_id": "xc-ssrf-allowlist-fetch",
+   "finding_id": "d4c349fafdc2",
+   "final_verdict": "HARDENING_ONLY",
+   "final_basis": "majority"
+  },
+  {
+   "case_id": "xc-strict-json-body",
+   "finding_id": "a47ac7c70e01",
+   "final_verdict": "REAL_DEFECT",
+   "final_basis": "majority"
+  },
+  {
+   "case_id": "xc-timeout-http-fetch",
+   "finding_id": "958682359efb",
+   "final_verdict": "HARDENING_ONLY",
+   "final_basis": "majority"
+  },
+  {
+   "case_id": "xc-tz-aware-scheduling",
+   "finding_id": "498b7807446e",
+   "final_verdict": "REAL_DEFECT",
+   "final_basis": "probe"
+  },
+  {
+   "case_id": "xc-tz-aware-scheduling",
+   "finding_id": "d2826f58c92e",
+   "final_verdict": "REAL_DEFECT",
+   "final_basis": "probe"
+  }
+ ]
+}

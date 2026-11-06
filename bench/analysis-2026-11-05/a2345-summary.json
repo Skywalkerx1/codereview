@@ -1,0 +1,80 @@
+{
+ "analysis": "B2 Step-1 A2-A5 headline summary (2026-11-05)",
+ "sanity_checks": {
+  "R0_expanded_clean_blocked": "32/34",
+  "R0_expanded_clean_expected_32/34": true,
+  "R0_a5_recall": 1.0,
+  "R0_a5_recall_is_1.000": true,
+  "R0_public_recall_original_labels": 1.0,
+  "R0_public_recall_is_1.000": true,
+  "R1_expanded_clean_blocked": "22/34",
+  "R1_expanded_clean_expected_22/34": true,
+  "R1_a5_recall": 1.0,
+  "R1_a5_recall_is_1.000": true
+ },
+ "sanity_checks_all_pass": true,
+ "A2": {
+  "combined_pct_TP_blocking_E01": 0.16129032258064516,
+  "combined_pct_defects_surviving": 0.16129032258064516,
+  "combined_pct_cases_ALL_BLOCKING_TP_E01": 0.13793103448275862
+ },
+ "A3": {
+  "R0": {
+   "combined_recall": 1.0,
+   "combined_precision": 0.7560975609756098,
+   "combined_clean_rate": 0.8717948717948718,
+   "J_combined": 0.1282051282051282,
+   "shortlist_combined_pass": false
+  },
+  "R1": {
+   "combined_recall": 1.0,
+   "combined_precision": 0.9393939393939394,
+   "combined_clean_rate": 0.5897435897435898,
+   "J_combined": 0.41025641025641024,
+   "shortlist_combined_pass": false
+  },
+  "R2": {
+   "combined_recall": 1.0,
+   "combined_precision": 1.0,
+   "combined_clean_rate": 0.05128205128205128,
+   "J_combined": 0.9487179487179487,
+   "shortlist_combined_pass": true
+  },
+  "R3": {
+   "combined_recall": 1.0,
+   "combined_precision": 1.0,
+   "combined_clean_rate": 0.05128205128205128,
+   "J_combined": 0.9487179487179487,
+   "shortlist_combined_pass": true
+  }
+ },
+ "A3_R4": {
+  "status": "not evaluable offline — pilot item",
+  "reason": "Findings carry evidence_quote but no trigger field: 0 of 387 findings across both record files carry a 'trigger' key (keys containing 'trigger': []). No deterministic trigger representation exists to evaluate.",
+  "trigger_field_findings": 0
+ },
+ "A4_headline": {
+  "clean_combined_majors_per_case": {
+   "deepseek": 0.5384615384615384,
+   "openai": 0.3333333333333333,
+   "nvidia": 1.1538461538461537,
+   "deterministic": 0.02564102564102564
+  },
+  "defect_combined_majors_per_case": {
+   "deepseek": 0.6206896551724138,
+   "openai": 0.6896551724137931,
+   "nvidia": 0.8275862068965517,
+   "deterministic": 0.20689655172413793
+  }
+ },
+ "A5": {
+  "scope_i_pct_executable": 0.45454545454545453,
+  "scope_ii_pct_executable": 0.8571428571428571,
+  "combined_pct_executable": 0.7608695652173914,
+  "combined_counts": {
+   "n": 138,
+   "executable": 105,
+   "pct_executable": 0.7608695652173914
+  }
+ }
+}

@@ -1,0 +1,245 @@
+{
+ "track": "A6 — pipeline audit, Baseline v2 confirmation attempt 1",
+ "repo_commit": "c9568eb8e690c4bfff4427be32087839e1150316",
+ "call_chain": {
+  "launcher": "bench/generation-v2/run_registered_confirmation.py:162-166 (mode=run) and :116-122 (smoke) call gen.run_generation(cases, build_seats(), BINDING, cache_dir, out_dir, config_name, config_sha256, attempt=1, fallbacks={'correctness':'openai'}, gate_profile='balanced', allow_major=cfg['allow_major'], strict=cfg['strict'], seat_meta=cfg['seat_meta'] or None)",
+  "config_values": "bench/configs/panel-baseline-2026-11-04.json contains only name/providers/seat_meta/cost_per_call_usd; codereview.bench.load_config therefore defaults allow_major=False, strict=False. seat_meta = {openai:{family:openai,tier:paid}, nvidia:{family:nvidia,tier:free}, deepseek:{family:deepseek,tier:paid}, gemini:{...} (gemini never seated)}",
+  "binding": "seat_lenses (EXPLICIT, Addendum A item 9) BINDING={openai:[correctness], nvidia:[operations], deepseek:[correctness]} — passed positionally to run_generation and forwarded as seat_lenses=binding",
+  "generation_to_core": "bench/generation.py:728-733 run_generation calls core.run_review(case['diff'], dict(seats), context=context, allow_major=allow_major, strict=strict, seat_meta=seat_meta or None, seat_lenses=binding, fallbacks=fb or None, gate_profile=gate_profile) — fb is {lens:(seat_name, GenerationSeat)} resolved/validated against the panel at generation.py run_generation",
+  "not_passed_to_run_review": [
+   "policy",
+   "waivers",
+   "precedents",
+   "evidence",
+   "probe_fn",
+   "tech_lead",
+   "tech_lead_timeout",
+   "tech_lead_shadow",
+   "tech_lead_shadow_seat",
+   "file_context",
+   "agents_context",
+   "fixture_scope",
+   "test_results",
+   "lens_seats",
+   "record_extra",
+   "private",
+   "sleep",
+   "progress",
+   "notify",
+   "builder_family",
+   "max_patch_chars (default 80000 used)"
+  ],
+  "context_argument": "generation.py builds context='[bench-case: <id>]\\n<title>\\n<case context>' per case and passes it as run_review's context — a data argument, not a prompt template"
+ },
+ "record_census": {
+  "source": "bench/generation-v2/attempt-1.jsonl (43 records = complete cases only) + bench/generation-v2/generation-manifest-attempt-1.json + bench/generation-v2/scoring-output.json + bench/generation-v2/RESULTS-2026-11-05.md",
+  "attempt_records": 43,
+  "registered_universe_cases": 44,
+  "unscored_case": "xc-redacted-logging (nvidia content failure; inside Addendum A cap of 2; counted BLOCKED in the pessimistic view)",
+  "reviewer_reports_in_attempt_records": 129,
+  "reviewer_reports_note": "129 = 43 complete cases x 3 seats, all status='ok'. The '132 seat jobs' figure is the full 44-case generation universe in the manifest/RESULTS (131 valid + 1 unscored-infra); it is NOT the count inside attempt-1.jsonl.",
+  "findings_in_attempt_records": 272,
+  "finding_field_census": {
+   "grounding": {
+    "grounded": 263,
+    "reground_confirmed": 9,
+    "unresolved": 0,
+    "withdrawn": 0
+   },
+   "cross_family": {
+    "confirmed": 29,
+    "tech_lead_sustained": 25,
+    "unresolved": 5,
+    "multi_family": 3,
+    "absent": 210
+   },
+   "profile_demotion": 54,
+   "dispute": 25,
+   "adjudication": 25,
+   "reground_seat": 9,
+   "line_basis": 157,
+   "platform_scope": 0,
+   "archived_text": 0
+  },
+  "gate_profile_all_records": {
+   "profile": "balanced",
+   "source": "argument",
+   "total_demotions": 54
+  },
+  "gates": {
+   "blocked": 30,
+   "pass": 13,
+   "inconclusive": 0
+  },
+  "degraded": "false on all 43; degraded_causes=[] on all 43",
+  "persistence_gap": "bench/generation.py:569-600 to_attempt_record persists ONLY schema/run/attempt/config(+sha)/seat_lenses/case_id/split/category/created_at/gate/degraded/degraded_causes/gate_profile/duration_ms/calls/cost_usd/patch_sha256/findings/reviewer_reports. It DROPS the full report's gate_reasons, coverage, withdrawn_findings, disputed_findings, refutation_weak_findings, adjudicated_refuted_findings, escalated_findings, standing_findings, out_of_scope_findings, archived_text_findings/archived_exclusions, fixture_findings/fixture_scope, precedent_*, policy, risk, tiering, evidence, diversity, shadow_reason_checks, shadow_trace_gate, shadow_adjudications, tech_lead_substitutions/assertion_failures, open_disputes, file_context, agents_context, notifications. Findings that a stage moved OUT of report['findings'] are therefore invisible in attempt-1.jsonl except where the stage also left a field on a surviving finding (dispute/adjudication on Tech-Lead-sustained findings). reviewer_report_entry additionally drops family/tier from reviewer_reports (family survives on findings via dispute/adjudication)."
+ },
+ "stages": [
+  {
+   "name": "Gate-profile resolution (explicit argument wins over policy/default)",
+   "location": "src/codereview/core.py:3766-3779 (run_review); def run_review core.py:3521",
+   "status": "RAN",
+   "evidence": "run_registered_confirmation.py:162-166 and :116-122 pass gate_profile='balanced' to gen.run_generation; bench/generation.py:728-733 forwards gate_profile=gate_profile to core.run_review. All 43 attempt-1 records carry gate_profile={profile:'balanced', source:'argument'}."
+  },
+  {
+   "name": "Deterministic pre-scan — deterministic_scan (secret/injection/data-loss/alert-guard rules on added lines)",
+   "location": "src/codereview/core.py:517 (def deterministic_scan); call core.py:3782 in run_review",
+   "status": "RAN",
+   "evidence": "Unconditional call. Attempt records: 4 merged findings include source 'deterministic' (3 deterministic-only + 1 deterministic+nvidia; e.g. DROP TABLE blocker, AWS-access-key blocker, 2x SQL-string-build major), all grounding='grounded'. Caveat: test_results was NOT passed by generation.py (defaults []), so the scan's test-failure rule was inert — no test commands were measured."
+  },
+  {
+   "name": "Archived-section exclusion before batching (§5.4 span exclusion: review-*/ , gate-attempts.*)",
+   "location": "src/codereview/core.py:298 (def _archived_rule); exclusion core.py:3799-3809",
+   "status": "RAN_ONLY_CONDITIONALLY",
+   "evidence": "Code runs unconditionally over every section, but an exclusion fires only when _archived_rule matches. Bench case diffs cite ordinary product paths (app/*, billing/*, src/*, db/* …) — no review-*/gate-attempts.* paths — so no exclusion is expected and none is visible. Knock-on archived-text classification (below) therefore never triggered."
+  },
+  {
+   "name": "Seat calls + product repair (_review_job / _call_and_parse) (+ per-lens fallback serving)",
+   "location": "src/codereview/core.py:3166 (def _review_job), :2900 (def _call_and_parse, repair inside); executor _run_jobs core.py:4014, stage execution core.py:4205-4235; fallback branch core.py:4053-4115",
+   "status": "RAN",
+   "evidence": "generation.py:728-733 passes dict(seats) (GenerationSeat wrappers), seat_lenses=binding {openai:[correctness], nvidia:[operations], deepseek:[correctness]}, fallbacks=fb (converted from {'correctness':'openai'} at generation.py run_generation), allow_major=False and strict=False (bench config panel-baseline-2026-11-04.json has neither key; bench load_config defaults both to False), seat_meta=cfg['seat_meta'] (families openai/nvidia/deepseek). Attempt records: 129 reviewer_reports over 43 complete cases, 3/case, all status='ok'. Generation manifest/RESULTS claim 132 seat jobs for the full 44-case universe (131 valid; nvidia xc-redacted-logging unscored-infra) — the 43-record attempt file holds only complete cases, hence 129, not 132. Fallback machinery was WIRED (correctness->openai) but no reviewer_report in attempt-1 carries fallback_for: RESULTS §'Seat binding as served' states no fallback-served records in the final generation — fallback serving RAN_ONLY_CONDITIONALLY and did not fire in the banked result."
+  },
+  {
+   "name": "Grounding validation of every model finding (§2b first pass: evidence_quote must appear in the batch text shown)",
+   "location": "src/codereview/core.py:803 (def _quote_grounded); validation in _run_jobs core.py:4121-4135",
+   "status": "RAN",
+   "evidence": "Unconditional per finding in the seat executor: nf['grounding']='grounded'|'ungrounded', ungrounded collected for re-ground. Persisted merged findings (272): grounding='grounded' 263, 'reground_confirmed' 9, 'unresolved' 0, 'withdrawn' 0."
+  },
+  {
+   "name": "Re-ground pass (§2b) — raising seat first, then a different-family seat; confirm with valid quote or withdraw",
+   "location": "src/codereview/core.py:1075 (def _reground_call); pass core.py:4260-4305",
+   "status": "RAN_ONLY_CONDITIONALLY",
+   "evidence": "Gated on `if ungrounded:` — and it demonstrably fired: 9/272 persisted findings carry grounding='reground_confirmed' AND reground_seat (openai 5, nvidia 2, deepseek 2). Withdrawals, if any, are NOT countable from attempt-1.jsonl: withdrawn findings are removed from all_findings before merge (core.py:4298-4301) and to_attempt_record (bench/generation.py:569-600) persists only report['findings'], never report['withdrawn_findings']."
+  },
+  {
+   "name": "Coverage accounting (§2a) + degraded labelling",
+   "location": "src/codereview/core.py:4307-4347",
+   "status": "RAN",
+   "evidence": "Unconditional after the seat stage. Indirect record evidence only (coverage section is dropped by to_attempt_record): all 43 attempt records have degraded=false and degraded_causes=[] — no 'coverage incomplete' degradation was recorded on any scored case."
+  },
+  {
+   "name": "merge_findings (cross-seat merge; worst severity / highest confidence kept; grounding strongest-wins)",
+   "location": "src/codereview/core.py:2662 (def merge_findings); call core.py:4348",
+   "status": "RAN",
+   "evidence": "Unconditional. Persisted findings include multi-source merges (sources [deepseek,openai] x2, [nvidia,openai] x1, [deterministic,nvidia] x1; consensus flags present on all 272); scorer reported 12 duplicates removed on the holdout precision calculation (scoring-output.json)."
+  },
+  {
+   "name": "Line basis (§5.6) — _apply_line_basis (blob vs diff numbering, only where the patch proves it)",
+   "location": "src/codereview/core.py:607 (def _apply_line_basis); call core.py:4351",
+   "status": "RAN",
+   "evidence": "Unconditional. 157/272 persisted findings carry line_basis ('blob' 154, 'diff' 3); the other 115 are unlabelled by design (citation matches both numberings or neither — function leaves it unset rather than guessing)."
+  },
+  {
+   "name": "Gate profile B1 — _apply_gate_profile (Policy B1 demotion)",
+   "location": "src/codereview/core.py:2587 (def _apply_gate_profile); call core.py:4359-4360",
+   "status": "RAN",
+   "evidence": "Ran with effective profile 'balanced' (source 'argument' on all 43 records). 54 demotions in total: gate_profile.demotions sums to 54 across the 43 records and exactly 54 persisted findings carry profile_demotion {rule:'B1', from major 51 / blocker 3, to:'minor'}. Runs BEFORE cross-family: 0 of the 54 demoted findings carry cross_family — demoted findings never enter the blocking set or consume confirmation machinery."
+  },
+  {
+   "name": "Archived-text classification (§5.4) — _split_archived_text",
+   "location": "src/codereview/core.py:316 (def _split_archived_text); call core.py:4366-4371",
+   "status": "DID_NOT_RUN",
+   "evidence": "Gated on `if archived_sections:` — the pre-batching exclusion produced no archived sections for these bench diffs (see that stage), so the classification body never executed. No finding carries archived_text (census: 0)."
+  },
+  {
+   "name": "Fixture classification (declared fixture scope -> fixture_findings, non-blocking)",
+   "location": "src/codereview/core.py:4373-4446 (`if fixture_scope:` block)",
+   "status": "DID_NOT_RUN",
+   "evidence": "fixture_scope is a run_review parameter (core.py:3524, default None). Neither run_registered_confirmation.py nor generation.run_generation passes it (generation.py:728-733 argument list is exhaustive), so it was None and the block was skipped. No fixture_scope/fixture_findings section can exist in the underlying reports (and to_attempt_record would drop it anyway)."
+  },
+  {
+   "name": "Precedent classification (§2e) — attach_function_keys + apply_precedents -> standing_findings",
+   "location": "src/codereview/core.py:2371 (def apply_precedents), :2226 (def attach_function_keys); call core.py:4454-4465 (`if precedents:`)",
+   "status": "DID_NOT_RUN",
+   "evidence": "precedents is a run_review parameter (core.py:3525, default None) and is not passed anywhere in the confirmation chain, so the block was skipped. (12 persisted findings carry precedent_eligible='sustain_refutation'/'rubric_downgrade' set by the Tech Lead branch — that is an eligibility MARK for a future store, not precedent classification; _precedent_candidate(f, precedents=None) returns no candidate.)"
+  },
+  {
+   "name": "Platform-scope labelling (§5c) — _platform_scope (unsupported-platform-only findings leave the blocking set, preserved as out_of_scope_findings)",
+   "location": "src/codereview/core.py:2017 (def _platform_scope); loop core.py:4467-4485",
+   "status": "RAN",
+   "evidence": "The loop runs unconditionally over every merged finding (no argument gates it). It classified NONE in this run: 0/272 persisted findings carry platform_scope — no finding met the conservative Windows-only/no-supported-impact test."
+  },
+  {
+   "name": "Cross-family confirmation (§2c) — _xconfirm_call to a served seat of a different vendor family",
+   "location": "src/codereview/core.py:1098 (def _xconfirm_call); loop core.py:4486-4576 (per-finding dispatch :4540-4576)",
+   "status": "RAN_ONLY_CONDITIONALLY",
+   "evidence": "Only single-family, blocking-severity (blocker/major, post-B1, allow_major=False) findings with a non-deterministic source are eligible. Persisted: 62/272 findings carry cross_family — confirmed 29, tech_lead_sustained 25, unresolved 5, multi_family 3; unknown_family/unavailable/refuted/refuted_weak/tech_lead_refuted/tech_lead_escalated 0 in report['findings']. Of 53 post-B1 blocking findings, 50 carry cross_family; the 3 without are deterministic-only (sources removed at core.py:4550-4555 branch -> kept unlabelled). All 54 B1-demoted findings skip it (previous stage). multi_family findings are labelled without a call; 'unresolved' means the check ran and did not refute (call failed or refutation quote invalid) and the finding stood."
+  },
+  {
+   "name": "Dispute adequacy grading (§5a.1) + shadow reason-check / trace-gate evaluation",
+   "location": "src/codereview/core.py:1171 (def _refutation_weak), :1246 (def _reason_check), :1279 (def _trace_gate_shadow); grading at core.py:4583-4613 (inside the refuted branch)",
+   "status": "RAN_ONLY_CONDITIONALLY",
+   "evidence": "Fires only on a cross-family refutation with a validating quote. 25 persisted findings carry dispute{...}: adequacy weak 23 / strong 2, and every dispute dict contains reason_check{status,cited,found,missing} and trace_gate_shadow{applies,would_downgrade,...} — both shadow evaluations demonstrably ran for all 25 (they change nothing by design; their top-level report lists shadow_reason_checks/shadow_trace_gate are dropped by to_attempt_record, but the per-finding copies persist)."
+  },
+  {
+   "name": "Tech Lead SHADOW adjudication — shadow_adjudicate (Epic/§3.3 shadow, non-binding)",
+   "location": "src/codereview/core.py:1754 (def shadow_adjudicate); call core.py:4615-4679 (`if tech_lead_shadow:`)",
+   "status": "DID_NOT_RUN",
+   "evidence": "tech_lead_shadow is a run_review parameter (core.py:3529, default False) not passed in the confirmation chain, so it stayed False. No persisted finding carries tech_lead_shadow and no shadow_adjudications section is produced (distinct from the dispute's reason_check/trace_gate_shadow shadow evaluations above, which did run)."
+  },
+  {
+   "name": "Tech Lead adjudication (binding) — _select_tech_lead + _tech_lead_call (sustain_finding / sustain_refutation / escalate; rubric downgrade only)",
+   "location": "src/codereview/core.py:1458 (def _select_tech_lead), :1372 (def _tech_lead_call); selection core.py:4680-4682, call core.py:4731-4733 and post-probe :4785-4788",
+   "status": "RAN_ONLY_CONDITIONALLY",
+   "evidence": "Fires only for disputed/refutation-weak findings (the 25 refuted above). No designated seat was passed (tech_lead=None, core.py:3525 default; absent from generation.py:728-733) — selection auto-picked an independent served seat whose family was neither raiser nor refuter. Records prove it ran: 25 findings carry adjudication{role:'tech_lead', seat:'deepseek', family:'deepseek', tier:'paid', decision:'sustain_finding' x25, probe_rounds:0}; 12 of the 25 also carry severity_before_adjudication (Tech Lead rubric downgrade applied). 0 sustained-refutation / escalated outcomes appear in report['findings'] (such findings would in any case leave report['findings'] for adjudicated_refuted_findings/escalated_findings/disputed_findings, which to_attempt_record drops — but adjudication decisions on the 25 persisted disputes are uniformly sustain_finding, which is the branch that returns the finding to the gate list)."
+  },
+  {
+   "name": "Builder-probe rounds inside Tech Lead adjudication — probe_fn(finding, probe_request)",
+   "location": "src/codereview/core.py:4736-4790 (probe loop, MAX_PROBE_ROUNDS=1 at core.py:1132)",
+   "status": "DID_NOT_RUN",
+   "evidence": "probe_fn is a run_review parameter (core.py:3525, default None) not passed in the confirmation chain. Code at core.py:4749-4763: a needs_probe decision with probe_fn=None is converted to escalate. Records corroborate non-use: all 25 adjudications have probe_rounds=0 and decision='sustain_finding' (no needs_probe decision ever arose, and no probe channel existed had one arisen)."
+  },
+  {
+   "name": "Gate computation — _gate + lens-coverage and human-decision PASS->INCONCLUSIVE adjustments",
+   "location": "src/codereview/core.py:3434 (def _gate); call core.py:4866-4869; adjustments core.py:4971-5027 (lens coverage, then disputed/weak/escalated/unresolved-grounding flip)",
+   "status": "RAN",
+   "evidence": "Unconditional, computed on post-B1, post-classification, post-adjudication merged findings with allow_major=False, strict=False. Attempt records: gate blocked 30, pass 13, inconclusive 0; degraded=false on all 43. The PASS->INCONCLUSIVE adjustments were evaluated but did not fire on any scored case (0 inconclusive; 0 findings with grounding='unresolved'; no standing disputed/weak/escalated findings were returned to the gate list)."
+  },
+  {
+   "name": "Project policy evaluation (Epic B) — policy_mod.evaluate_policy (.codereview.toml), incl. diversity rule entry",
+   "location": "src/codereview/core.py:5028-5086 (`if policy is not None:`)",
+   "status": "DID_NOT_RUN",
+   "evidence": "policy (core.py:3528, default None) and waivers are not passed anywhere in the confirmation chain (run_registered_confirmation.py -> generation.py:728-733). Hence no policy section, no blocking/advisory policy violations, and no [gate] profile from a policy file — gate_profile.source='argument' on every record confirms the profile did not come from a policy file."
+  },
+  {
+   "name": "Risk score (Epic E1) / tiered panels + escalation (Epic E2/E4) / panel diversity (Epic E3)",
+   "location": "src/codereview/core.py:3820-3840 (diversity, gated on policy_config(policy)), :3912-3965 (tiering plan, `if policy is not None:`), :5087-5102 (risk, `if policy is not None:`)",
+   "status": "DID_NOT_RUN",
+   "evidence": "Every one of these is gated on a loaded policy; policy was None (diversity_mod.policy_config(None) returns None, verified). Execution therefore took the single-stage, full-panel path: stage_job_lists=[jobs] and no tiering/risk/diversity section can exist in the underlying reports."
+  },
+  {
+   "name": "Evidence gate rule (Epic C, C3) — evidence.gate_effect (required evidence failed/missing blocks; unavailable makes PASS inconclusive)",
+   "location": "src/codereview/core.py:5103-5128 (`if evidence is not None:`); high-tier missing-evidence consequence core.py:5129-5144 (also requires tiering_plan)",
+   "status": "DID_NOT_RUN",
+   "evidence": "evidence (core.py:3528, default None) is not passed in the confirmation chain, so the C3 rule never evaluated and no evidence record was stored. The tiering high-band missing-evidence block also could not fire (tiering_plan is None)."
+  },
+  {
+   "name": "Attention notifications (Epic L4) / progress stream / seat-state live stream beyond persisted summaries",
+   "location": "src/codereview/core.py:3477 (def _notify_progress), :3505 (def _notify_verdict); notify/progress params core.py:3530-3531",
+   "status": "DID_NOT_RUN",
+   "evidence": "notify=None and progress=None were in effect (not passed; core's own docstring states 'the bench never passes it'). Persisted reviewer_reports do carry the K2 seat_state summaries (presence-copied by reviewer_report_entry), but no notifications section or live stream existed."
+  }
+ ],
+ "expert_three": {
+  "re_ground_pass": "RAN (conditionally, on ungrounded findings) and demonstrably fired: 9 findings reground_confirmed with reground_seat set. See stages[5] (index for re-ground) / grounding validation stage.",
+  "cross_family_confirmation": "RAN (conditionally, on single-family blocking findings post-B1) and demonstrably fired: 62 findings carry cross_family, incl. 29 confirmed and 5 unresolved; a further 25 refutations proceeded into dispute+Tech Lead (cross_family='tech_lead_sustained').",
+  "grounding_demotion": "THERE IS NO GROUNDING DEMOTION STAGE. No stage in run_review demotes a severity or removes a finding merely because grounding failed. Precisely: (1) initial grounding failure only MARKS the finding grounding='ungrounded' and queues it for re-ground (core.py:4121-4135) — severity and gate eligibility unchanged at that point; (2) in re-ground, a finding leaves the gate list ONLY if a seat itself answers 'withdrawn' in _reground_call (core.py:1075-1097, applied core.py:4293-4301) — a model withdrawal with a stated reason, preserved in the full report's withdrawn_findings (a list to_attempt_record drops, so any withdrawals in attempt 1 are uncountable from attempt-1.jsonl); a 'confirmed' answer with a quote validating against the region restores it as grounding='reground_confirmed' with the new quote; (3) if re-ground is UNRESOLVED, the finding STAYS in merged at its original severity and still blocks if blocking-severity — grounding failure does not demote it — and separately, if the computed gate would otherwise be PASS, unresolved grounding flips it to INCONCLUSIVE with a 'human must decide' reason (core.py:4882-4889 reasons; :4998-5013 flip). In attempt 1 that flip never fired: 0 findings with grounding='unresolved' in the persisted records and 0 inconclusive gates. The only severity demotion in the path is Policy B1 (_apply_gate_profile), which is lens-attribution-based (solely-operations, uncorroborated), NOT grounding-based."
+ },
+ "seat_prompts": "The bench path uses the PRODUCT'S OWN prompt construction, not bench-specific prompts. run_review builds every seat prompt from core's _REVIEW_PROMPT (core.py prompt construction in job building, :3981-3986, formatted with LENSES[lens], the caller context, test summary and the batch), the re-ground prompt from core's _REGROUND_PROMPT via _reground_call, the cross-family prompt from core's _XCONFIRM_PROMPT via _xconfirm_call, and the Tech Lead prompt inside core's _tech_lead_call. Bench-specific elements are only: (a) the GenerationSeat transport wrapper (record/replay cache, retry budgets, shadow cost) that run_review calls as an ordinary provider callable, (b) transports/params from bench/scripts/run_generation_v2.py build_transport/PARAMS, and (c) the per-case context string ('[bench-case: id] + title + case context'). file_context and agents_context were NOT passed, so no _FILE_CONTEXT_HEADER/_AGENTS_CONTEXT_HEADER suffix was appended — prompts were the pre-D1/pre-L1 byte construction core's docstring says bench/registered runs rely on.",
+ "bottom_line": "Not raw panel + B1 alone, and not the full product gate either: attempt 1 measured the full in-core adjudication pipeline that needs no external inputs — deterministic scan, product seat calls/repair, grounding validation + re-ground (§2b), coverage, merge, line basis, Policy B1 (_apply_gate_profile), platform-scope labelling, cross-family confirmation (§2c), dispute adequacy grading and binding Tech Lead adjudication — all demonstrably exercised in the records (54 B1 demotions, 9 re-ground confirmations, 62 cross_family labels, 25 disputes all Tech-Lead-sustained) — while every stage that needs a caller-supplied input was absent because the confirmation chain passes none of them: project policy (.codereview.toml, Epic B) and with it risk/tiering/diversity (Epics E1-E4), the Epic C evidence rule, precedents (§2e), fixture scope, a designated tech_lead, probe_fn, tech-lead shadow, file_context (D1), agents_context (L1), test_results, waivers and notifications.",
+ "not_measured": [
+  "Project policy file evaluation (Epic B): policy=None — no .codereview.toml rules applied, no policy violations (blocking or advisory), no policy-sourced gate profile, no waivers honoured (waivers also not passed).",
+  "Epic C evidence rule: evidence=None — no evidence runner record was collected or judged; required-evidence failed/missing -> BLOCKED and unavailable -> INCONCLUSIVE consequences were never evaluated.",
+  "Precedents (§2e): precedents=None — no standing-finding classification against a precedent store, no attach_function_keys/apply_precedents, no precedent candidates persisted (precedent_eligible marks on 12 findings are inert without a store).",
+  "Fixture scope classification: fixture_scope=None — no manifest-declared fixture findings were separated; any fixture-shaped content in a case diff was judged as product code.",
+  "Designated Tech Lead: tech_lead=None — adjudication used core's auto-selection of an independent served seat (all 25 by deepseek); a user-designated seat, its rejection/substitution path, and tech_lead_timeout override were not measured.",
+  "Builder-probe channel: probe_fn=None — no probe round was (or could be) run; a needs_probe Tech Lead decision would have escalated instead of probing (all 25 actual decisions were sustain_finding with probe_rounds=0, so the gap did not bite in this attempt).",
+  "Tech Lead shadow adjudication: tech_lead_shadow=False (default) — shadow_adjudicate never ran (the dispute-embedded reason_check/trace_gate_shadow shadow evaluations did run; they are a different, unconditional mechanism).",
+  "file_context (acceptance D1): not passed — reviewers judged the diff alone, with no post-change file contents attached; this is precisely the diff-only configuration whose false 'undefined symbol' risk D1 was built to mitigate in real product runs.",
+  "agents_context (Epic L1): not passed — no AGENTS.md guidance (incl. any '## Code Review Rules') was ingested into prompts.",
+  "Risk score / tiered panels / escalation (Epics E1/E2/E4) and panel diversity (Epic E3): all policy-gated, policy=None — the run was always the single-stage full panel; reduced-panel, escalation-trigger and builder-family-exclusion behaviour were not measured.",
+  "Test results: test_results not passed ([]) — deterministic_scan's test-failure blocker and the prompt's test-results section reflect 'no test commands were run' for every case.",
+  "Lens pinning via lens_seats, record_extra, private attestation, progress/notify (Epic L4): none passed (lens_seats is in any case superseded by the explicit seat_lenses binding).",
+  "Fallback serving as an outcome: the correctness->openai fallback was declared and wired, but no banked record was fallback-served, so fallback-served gate behaviour is unmeasured by the scored records (generation-phase unscored/content-failed jobs are a separate, generation-record matter)."
+ ]
+}

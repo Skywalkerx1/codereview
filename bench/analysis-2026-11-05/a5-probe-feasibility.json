@@ -1,0 +1,1245 @@
+{
+ "analysis": "A5 probe feasibility",
+ "classifier": "HEURISTIC AUDIT — transparent rule-based classifier over title+evidence text (analysis_sweep.py EXEC_PATTERNS, first match wins). Not a ground-truth judgement: it estimates what share of blocking claims assert a concrete, falsifiable behaviour a probe could test.",
+ "scope_i_expanded_clean_blocking_recorded": {
+  "n": 33,
+  "executable": 15,
+  "pct_executable": 0.45454545454545453
+ },
+ "scope_ii_defect_cases_blocking_recorded": {
+  "n": 105,
+  "executable": 90,
+  "pct_executable": 0.8571428571428571
+ },
+ "combined": {
+  "n": 138,
+  "executable": 105,
+  "pct_executable": 0.7608695652173914
+ },
+ "examples": {
+  "executable": [
+   {
+    "case_id": "xc-batch-delete-guarded",
+    "finding_id": "74e6745741d2",
+    "title": "for/else raises failure after a complete, committed cleanup and discards the deleted count",
+    "basis": "crash_or_exception",
+    "scope": "i_expanded_clean_blocking"
+   },
+   {
+    "case_id": "xc-bigdecimal-invoice",
+    "finding_id": "01645492eb25",
+    "title": "Tax calculation accepts null or negative rates, causing crashes or invalid negative totals",
+    "basis": "crash_or_exception",
+    "scope": "i_expanded_clean_blocking"
+   },
+   {
+    "case_id": "xc-bounded-response-read",
+    "finding_id": "97d5edda477f",
+    "title": "Function now crashes on any non-UTF-8 response body",
+    "basis": "crash_or_exception",
+    "scope": "i_expanded_clean_blocking"
+   },
+   {
+    "case_id": "xc-context-http-timeout",
+    "finding_id": "a84e697f2bc9",
+    "title": "Response body is silently truncated at 1 MiB and returned as success",
+    "basis": "wrong_concrete_value",
+    "scope": "i_expanded_clean_blocking"
+   },
+   {
+    "case_id": "xc-context-http-timeout",
+    "finding_id": "ed80471a5853",
+    "title": "Responses larger than 1 MiB are silently truncated and reported as success",
+    "basis": "wrong_concrete_value",
+    "scope": "i_expanded_clean_blocking"
+   },
+   {
+    "case_id": "xc-csrf-token-check",
+    "finding_id": "0c3880878082",
+    "title": "Global CSRF enforcement blocks every mutating route when session middleware is absent or ordered later",
+    "basis": "blocks_all_requests",
+    "scope": "i_expanded_clean_blocking"
+   },
+   {
+    "case_id": "xc-deadletter-worker",
+    "finding_id": "1f6438dc11b6",
+    "title": "Dead-letter send is not idempotent-safe and can create duplicate DLQ entries on ack failure",
+    "basis": "crash_or_exception",
+    "scope": "i_expanded_clean_blocking"
+   },
+   {
+    "case_id": "xc-decimal-money",
+    "finding_id": "4825814c1e37",
+    "title": "Unit price rounded to cents before multiplying by quantity",
+    "basis": "wrong_concrete_value",
+    "scope": "i_expanded_clean_blocking"
+   }
+  ],
+  "not_executable": [
+   {
+    "case_id": "xc-atomic-state-writer",
+    "finding_id": "ef6310d2eb7d",
+    "title": "State file permissions are widened to process defaults instead of preserving the existing file mode",
+    "basis": "vague_or_advisory",
+    "scope": "i_expanded_clean_blocking"
+   },
+   {
+    "case_id": "xc-batch-delete-guarded",
+    "finding_id": "283fc809be33",
+    "title": "DELETE statement uses sqlite-style placeholder despite MySQL-specific SQL",
+    "basis": "style_maintainability_docs",
+    "scope": "i_expanded_clean_blocking"
+   },
+   {
+    "case_id": "xc-batch-delete-guarded",
+    "finding_id": "962027a4a2e1",
+    "title": "SQL statement built by string formatting/concatenation",
+    "basis": "style_maintainability_docs",
+    "scope": "i_expanded_clean_blocking"
+   },
+   {
+    "case_id": "xc-circuit-breaker",
+    "finding_id": "302216bf7f6f",
+    "title": "Stale success unconditionally re-closes a circuit opened by another thread",
+    "basis": "vague_or_advisory",
+    "scope": "i_expanded_clean_blocking"
+   },
+   {
+    "case_id": "xc-circuit-breaker",
+    "finding_id": "b8db7962a69a",
+    "title": "Successful closed-state call can incorrectly reset an already-open breaker under concurrency",
+    "basis": "vague_or_advisory",
+    "scope": "i_expanded_clean_blocking"
+   },
+   {
+    "case_id": "xc-csrf-token-check",
+    "finding_id": "ff80aa6cb2cd",
+    "title": "csrfProtection is mounted but nothing in this module creates req.session or a csrfToken, so all mutating requests 403",
+    "basis": "vague_or_advisory",
+    "scope": "i_expanded_clean_blocking"
+   },
+   {
+    "case_id": "xc-deadletter-worker",
+    "finding_id": "4bcd9e50bcdd",
+    "title": "Retry counting relies on broker-updated delivery_count; can loop forever instead of dead-lettering",
+    "basis": "vague_or_advisory",
+    "scope": "i_expanded_clean_blocking"
+   },
+   {
+    "case_id": "xc-graceful-http-shutdown",
+    "finding_id": "fa7589b5e02e",
+    "title": "Draining flag is set and Shutdown is called with no gap, so the health flip is never observable by balancers",
+    "basis": "style_maintainability_docs",
+    "scope": "i_expanded_clean_blocking"
+   }
+  ]
+ },
+ "scope_i_rows": [
+  {
+   "case_id": "xc-atomic-state-writer",
+   "finding_id": "ef6310d2eb7d",
+   "title": "State file permissions are widened to process defaults instead of preserving the existing file mode",
+   "severity_recorded": "major",
+   "executable": false,
+   "basis": "vague_or_advisory"
+  },
+  {
+   "case_id": "xc-batch-delete-guarded",
+   "finding_id": "283fc809be33",
+   "title": "DELETE statement uses sqlite-style placeholder despite MySQL-specific SQL",
+   "severity_recorded": "major",
+   "executable": false,
+   "basis": "style_maintainability_docs"
+  },
+  {
+   "case_id": "xc-batch-delete-guarded",
+   "finding_id": "962027a4a2e1",
+   "title": "SQL statement built by string formatting/concatenation",
+   "severity_recorded": "major",
+   "executable": false,
+   "basis": "style_maintainability_docs"
+  },
+  {
+   "case_id": "xc-batch-delete-guarded",
+   "finding_id": "74e6745741d2",
+   "title": "for/else raises failure after a complete, committed cleanup and discards the deleted count",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "crash_or_exception"
+  },
+  {
+   "case_id": "xc-bigdecimal-invoice",
+   "finding_id": "01645492eb25",
+   "title": "Tax calculation accepts null or negative rates, causing crashes or invalid negative totals",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "crash_or_exception"
+  },
+  {
+   "case_id": "xc-bounded-response-read",
+   "finding_id": "97d5edda477f",
+   "title": "Function now crashes on any non-UTF-8 response body",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "crash_or_exception"
+  },
+  {
+   "case_id": "xc-circuit-breaker",
+   "finding_id": "302216bf7f6f",
+   "title": "Stale success unconditionally re-closes a circuit opened by another thread",
+   "severity_recorded": "major",
+   "executable": false,
+   "basis": "vague_or_advisory"
+  },
+  {
+   "case_id": "xc-circuit-breaker",
+   "finding_id": "b8db7962a69a",
+   "title": "Successful closed-state call can incorrectly reset an already-open breaker under concurrency",
+   "severity_recorded": "major",
+   "executable": false,
+   "basis": "vague_or_advisory"
+  },
+  {
+   "case_id": "xc-context-http-timeout",
+   "finding_id": "a84e697f2bc9",
+   "title": "Response body is silently truncated at 1 MiB and returned as success",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "wrong_concrete_value"
+  },
+  {
+   "case_id": "xc-context-http-timeout",
+   "finding_id": "ed80471a5853",
+   "title": "Responses larger than 1 MiB are silently truncated and reported as success",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "wrong_concrete_value"
+  },
+  {
+   "case_id": "xc-csrf-token-check",
+   "finding_id": "0c3880878082",
+   "title": "Global CSRF enforcement blocks every mutating route when session middleware is absent or ordered later",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "blocks_all_requests"
+  },
+  {
+   "case_id": "xc-csrf-token-check",
+   "finding_id": "ff80aa6cb2cd",
+   "title": "csrfProtection is mounted but nothing in this module creates req.session or a csrfToken, so all mutating requests 403",
+   "severity_recorded": "major",
+   "executable": false,
+   "basis": "vague_or_advisory"
+  },
+  {
+   "case_id": "xc-deadletter-worker",
+   "finding_id": "1f6438dc11b6",
+   "title": "Dead-letter send is not idempotent-safe and can create duplicate DLQ entries on ack failure",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "crash_or_exception"
+  },
+  {
+   "case_id": "xc-deadletter-worker",
+   "finding_id": "4bcd9e50bcdd",
+   "title": "Retry counting relies on broker-updated delivery_count; can loop forever instead of dead-lettering",
+   "severity_recorded": "major",
+   "executable": false,
+   "basis": "vague_or_advisory"
+  },
+  {
+   "case_id": "xc-decimal-money",
+   "finding_id": "4825814c1e37",
+   "title": "Unit price rounded to cents before multiplying by quantity",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "wrong_concrete_value"
+  },
+  {
+   "case_id": "xc-fetch-timeout-abort",
+   "finding_id": "e62292af7bb4",
+   "title": "Caller-supplied AbortSignal is silently discarded, breaking external cancellation",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "error_swallowed"
+  },
+  {
+   "case_id": "xc-graceful-http-shutdown",
+   "finding_id": "fa7589b5e02e",
+   "title": "Draining flag is set and Shutdown is called with no gap, so the health flip is never observable by balancers",
+   "severity_recorded": "major",
+   "executable": false,
+   "basis": "style_maintainability_docs"
+  },
+  {
+   "case_id": "xc-graceful-shutdown",
+   "finding_id": "95e4511d76af",
+   "title": "Signal handlers installed but never restored; SIGTERM ignored after shutdown",
+   "severity_recorded": "major",
+   "executable": false,
+   "basis": "vague_or_advisory"
+  },
+  {
+   "case_id": "xc-guarded-migration",
+   "finding_id": "d0c6b71b9028",
+   "title": "Exclusive locks from DDL held for the whole backfill, defeating the batching claim",
+   "severity_recorded": "major",
+   "executable": false,
+   "basis": "style_maintainability_docs"
+  },
+  {
+   "case_id": "xc-guarded-migration",
+   "finding_id": "0621e57700e4",
+   "title": "Loop has no cursor, so every batch re-scans already-backfilled rows (quadratic work)",
+   "severity_recorded": "major",
+   "executable": false,
+   "basis": "style_maintainability_docs"
+  },
+  {
+   "case_id": "xc-health-guard-selfcheck",
+   "finding_id": "f5867856cba4",
+   "title": "requests timeout bounds each socket op, not the probe: /healthz can hang indefinitely",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "hang_or_timeout"
+  },
+  {
+   "case_id": "xc-idempotency-keys",
+   "finding_id": "12bef37f9dfb",
+   "title": "None sentinel conflates with a falsy stored receipt, enabling a second charge",
+   "severity_recorded": "major",
+   "executable": false,
+   "basis": "vague_or_advisory"
+  },
+  {
+   "case_id": "xc-idempotency-keys",
+   "finding_id": "f459ae664faa",
+   "title": "Reused key with a different amount/currency silently returns the old receipt",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "money_or_quantity_dropped"
+  },
+  {
+   "case_id": "xc-intl-currency-format",
+   "finding_id": "ec77bb5d45e2",
+   "title": "Fixed /100 divisor is wrong for currencies whose minor unit is not 1/100",
+   "severity_recorded": "major",
+   "executable": false,
+   "basis": "vague_or_advisory"
+  },
+  {
+   "case_id": "xc-jdbc-prepared",
+   "finding_id": "1783c93b4f71",
+   "title": "Optional.of throws NPE when the email column is NULL",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "crash_or_exception"
+  },
+  {
+   "case_id": "xc-password-hash-verify",
+   "finding_id": "3ab890572a65",
+   "title": "INSERT failure is ignored; lastInsertId returns a bogus id under default PDO error mode",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "crash_or_exception"
+  },
+  {
+   "case_id": "xc-password-hash-verify",
+   "finding_id": "754267d9b5f6",
+   "title": "Rehash UPDATE has no old-hash guard and can silently revert a concurrent password change",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "race_concrete_outcome"
+  },
+  {
+   "case_id": "xc-ssrf-allowlist-fetch",
+   "finding_id": "d4c349fafdc2",
+   "title": "DNS rebinding remains possible because validation and the actual connection use separate resolutions",
+   "severity_recorded": "major",
+   "executable": false,
+   "basis": "vague_or_advisory"
+  },
+  {
+   "case_id": "xc-ssrf-allowlist-fetch",
+   "finding_id": "cdf70be39663",
+   "title": "DNS validated by a separate lookup than the one requests connects with (rebinding / TOCTOU)",
+   "severity_recorded": "major",
+   "executable": false,
+   "basis": "vague_or_advisory"
+  },
+  {
+   "case_id": "xc-strict-json-body",
+   "finding_id": "a47ac7c70e01",
+   "title": "req.destroy() right after 413 can RST the socket and drop the response",
+   "severity_recorded": "major",
+   "executable": false,
+   "basis": "vague_or_advisory"
+  },
+  {
+   "case_id": "xc-timeout-http-fetch",
+   "finding_id": "958682359efb",
+   "title": "Retries omit common transient SSL and connection-refused errors, so bounded retry is not actually applied on many HTTPS failures",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "unauthorized_access_or_bypass"
+  },
+  {
+   "case_id": "xc-tz-aware-scheduling",
+   "finding_id": "d2826f58c92e",
+   "title": "Fall-back hour: candidate (fold=0) compared by wall clock can yield an instant earlier than `after`",
+   "severity_recorded": "major",
+   "executable": false,
+   "basis": "vague_or_advisory"
+  },
+  {
+   "case_id": "xc-tz-aware-scheduling",
+   "finding_id": "498b7807446e",
+   "title": "Nonexistent local times are accepted and converted to the wrong UTC instant across DST gaps",
+   "severity_recorded": "major",
+   "executable": false,
+   "basis": "vague_or_advisory"
+  }
+ ],
+ "scope_ii_rows": [
+  {
+   "case_id": "auth-admin-or-true",
+   "finding_id": "585e354a9fd5",
+   "title": "Admin access check is bypassed unconditionally",
+   "severity_recorded": "blocker",
+   "executable": true,
+   "basis": "crash_or_exception"
+  },
+  {
+   "case_id": "auth-admin-or-true",
+   "finding_id": "81b2891b6564",
+   "title": "Admin gate disabled by 'or True' — authentication/authorization bypass on admin_panel",
+   "severity_recorded": "blocker",
+   "executable": true,
+   "basis": "crash_or_exception"
+  },
+  {
+   "case_id": "drop-table-migration",
+   "finding_id": "66e9288743c6",
+   "title": "DROP TABLE in added code",
+   "severity_recorded": "blocker",
+   "executable": true,
+   "basis": "data_loss_or_destructive"
+  },
+  {
+   "case_id": "drop-table-migration",
+   "finding_id": "7eb48a44de8f",
+   "title": "Existing unconditional index drop still blocks the migration when the index is absent",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "crash_or_exception"
+  },
+  {
+   "case_id": "drop-table-migration",
+   "finding_id": "12da232a85f9",
+   "title": "Irreversible table drop with no backup or downgrade path",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "data_loss_or_destructive"
+  },
+  {
+   "case_id": "drop-table-migration",
+   "finding_id": "de9a549f51f8",
+   "title": "Unconditional table drop makes the migration fail on already-cleaned or partially migrated databases",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "crash_or_exception"
+  },
+  {
+   "case_id": "payment-refund-partial",
+   "finding_id": "874f301e1d08",
+   "title": "Partial refund path now refunds the full order total",
+   "severity_recorded": "blocker",
+   "executable": true,
+   "basis": "unauthorized_access_or_bypass"
+  },
+  {
+   "case_id": "payment-refund-partial",
+   "finding_id": "4b24e161f92d",
+   "title": "Partial refund pays out full order total instead of approved amount",
+   "severity_recorded": "blocker",
+   "executable": true,
+   "basis": "money_or_quantity_dropped"
+  },
+  {
+   "case_id": "race-check-then-act",
+   "finding_id": "32819f270e2d",
+   "title": "Non-atomic check-then-open race in claim_path",
+   "severity_recorded": "blocker",
+   "executable": true,
+   "basis": "race_concrete_outcome"
+  },
+  {
+   "case_id": "race-check-then-act",
+   "finding_id": "9b7858a86d2a",
+   "title": "Check-then-open race can overwrite a file created by another caller",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "race_concrete_outcome"
+  },
+  {
+   "case_id": "race-check-then-act",
+   "finding_id": "3c517559b1ee",
+   "title": "Dangling symlink bypasses the existence guard",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "unauthorized_access_or_bypass"
+  },
+  {
+   "case_id": "race-check-then-act",
+   "finding_id": "21be8315871f",
+   "title": "Using write mode allows truncation instead of preserving existing content",
+   "severity_recorded": "major",
+   "executable": false,
+   "basis": "vague_or_advisory"
+  },
+  {
+   "case_id": "secret-aws-key",
+   "finding_id": "accdc121459d",
+   "title": "AWS access key id in added code",
+   "severity_recorded": "blocker",
+   "executable": true,
+   "basis": "secret_or_debug_artifact"
+  },
+  {
+   "case_id": "secret-aws-key",
+   "finding_id": "9fe8a3391756",
+   "title": "Hardcoded AWS access key committed to source",
+   "severity_recorded": "blocker",
+   "executable": true,
+   "basis": "leak_or_exposure"
+  },
+  {
+   "case_id": "sql-injection-concat",
+   "finding_id": "468814b1ec67",
+   "title": "SQL injection: search term concatenated into query text instead of bound as a parameter",
+   "severity_recorded": "blocker",
+   "executable": true,
+   "basis": "injection_or_traversal"
+  },
+  {
+   "case_id": "sql-injection-concat",
+   "finding_id": "2938c8f22f7a",
+   "title": "Untrusted search term is concatenated into SQL, enabling injection",
+   "severity_recorded": "blocker",
+   "executable": true,
+   "basis": "injection_or_traversal"
+  },
+  {
+   "case_id": "sql-injection-concat",
+   "finding_id": "7b3a97296780",
+   "title": "SQL statement built by string formatting/concatenation",
+   "severity_recorded": "major",
+   "executable": false,
+   "basis": "style_maintainability_docs"
+  },
+  {
+   "case_id": "xss-innerhtml",
+   "finding_id": "78114c64e597",
+   "title": "Stored XSS: untrusted comment.body assigned to innerHTML",
+   "severity_recorded": "blocker",
+   "executable": true,
+   "basis": "injection_or_traversal"
+  },
+  {
+   "case_id": "xss-innerhtml",
+   "finding_id": "3c5c433afb21",
+   "title": "XSS via innerHTML on user-controlled comment body",
+   "severity_recorded": "blocker",
+   "executable": true,
+   "basis": "injection_or_traversal"
+  },
+  {
+   "case_id": "auth-check-removed",
+   "finding_id": "982e3dd929f6",
+   "title": "Delete-user handler no longer enforces delete permission before destructive action",
+   "severity_recorded": "blocker",
+   "executable": true,
+   "basis": "unauthorized_access_or_bypass"
+  },
+  {
+   "case_id": "auth-check-removed",
+   "finding_id": "5698060fcbcb",
+   "title": "Permission check removed from delete_user: unauthenticated/unauthorized user deletion",
+   "severity_recorded": "blocker",
+   "executable": true,
+   "basis": "crash_or_exception"
+  },
+  {
+   "case_id": "auth-check-removed",
+   "finding_id": "30f936c26279",
+   "title": "Permission check removed from delete_user handler",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "unauthorized_access_or_bypass"
+  },
+  {
+   "case_id": "command-injection-shell",
+   "finding_id": "2e4b78f179e3",
+   "title": "Host argument interpolated into a shell command (command injection)",
+   "severity_recorded": "blocker",
+   "executable": true,
+   "basis": "injection_or_traversal"
+  },
+  {
+   "case_id": "command-injection-shell",
+   "finding_id": "7e28d374ac54",
+   "title": "User-controlled host is still concatenated into a shell command",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "injection_or_traversal"
+  },
+  {
+   "case_id": "command-injection-shell",
+   "finding_id": "f2df64e374c6",
+   "title": "Command injection via unsanitized host input in ping",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "injection_or_traversal"
+  },
+  {
+   "case_id": "command-injection-shell",
+   "finding_id": "58077c45ca0a",
+   "title": "Return contract changed from output string to exit status int",
+   "severity_recorded": "major",
+   "executable": false,
+   "basis": "vague_or_advisory"
+  },
+  {
+   "case_id": "command-injection-shell",
+   "finding_id": "d796a8560aec",
+   "title": "Shell execution in added code",
+   "severity_recorded": "major",
+   "executable": false,
+   "basis": "vague_or_advisory"
+  },
+  {
+   "case_id": "command-injection-shell",
+   "finding_id": "8683e942e91f",
+   "title": "ping now returns an exit status instead of the ping output",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "unauthorized_access_or_bypass"
+  },
+  {
+   "case_id": "debug-breakpoint",
+   "finding_id": "5726e93eb570",
+   "title": "Leftover breakpoint() on the build_report hot path hangs or crashes non-interactive callers",
+   "severity_recorded": "blocker",
+   "executable": true,
+   "basis": "crash_or_exception"
+  },
+  {
+   "case_id": "debug-breakpoint",
+   "finding_id": "3153cdf6172d",
+   "title": "Unconditional breakpoint in report builder",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "secret_or_debug_artifact"
+  },
+  {
+   "case_id": "delete-no-where",
+   "finding_id": "9252005f7cc5",
+   "title": "Session cleanup now deletes every session instead of only expired ones",
+   "severity_recorded": "blocker",
+   "executable": true,
+   "basis": "data_loss_or_destructive"
+  },
+  {
+   "case_id": "delete-no-where",
+   "finding_id": "4d6d47e1b789",
+   "title": "Unfiltered DELETE wipes entire sessions table",
+   "severity_recorded": "blocker",
+   "executable": true,
+   "basis": "unauthorized_access_or_bypass"
+  },
+  {
+   "case_id": "delete-no-where",
+   "finding_id": "5ba0ef9ecf4f",
+   "title": "DELETE without a WHERE clause",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "data_loss_or_destructive"
+  },
+  {
+   "case_id": "delete-no-where",
+   "finding_id": "1dd04f0c5efb",
+   "title": "Unconditional session deletion bypasses expiration filter",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "unauthorized_access_or_bypass"
+  },
+  {
+   "case_id": "disabled-test",
+   "finding_id": "f8b6c4f21a56",
+   "title": "Billing cents-conversion test is unconditionally skipped, removing protection against incorrect charge amounts",
+   "severity_recorded": "major",
+   "executable": false,
+   "basis": "vague_or_advisory"
+  },
+  {
+   "case_id": "disabled-test",
+   "finding_id": "2dce2249e2b9",
+   "title": "Charge test silenced instead of fixed",
+   "severity_recorded": "major",
+   "executable": false,
+   "basis": "vague_or_advisory"
+  },
+  {
+   "case_id": "disabled-test",
+   "finding_id": "146fbbef884f",
+   "title": "Unconditional skip removes the only cents-conversion guard on a deterministic test",
+   "severity_recorded": "major",
+   "executable": false,
+   "basis": "missing_test_or_coverage"
+  },
+  {
+   "case_id": "error-swallow-bare-except",
+   "finding_id": "77806a888b6c",
+   "title": "Commit failure swallowed; caller sees success for a write that was never persisted",
+   "severity_recorded": "blocker",
+   "executable": true,
+   "basis": "crash_or_exception"
+  },
+  {
+   "case_id": "error-swallow-bare-except",
+   "finding_id": "fb60d67c5849",
+   "title": "Bare except also catches BaseException (KeyboardInterrupt/SystemExit)",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "crash_or_exception"
+  },
+  {
+   "case_id": "error-swallow-bare-except",
+   "finding_id": "5b3ed4fed708",
+   "title": "Bare except swallows commit failures",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "error_swallowed"
+  },
+  {
+   "case_id": "error-swallow-bare-except",
+   "finding_id": "6e3645c48c91",
+   "title": "Commit failures are swallowed and post_entry still returns success",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "error_swallowed"
+  },
+  {
+   "case_id": "eval-user-input",
+   "finding_id": "604ef49d36f6",
+   "title": "Direct eval of request expression enables arbitrary code execution",
+   "severity_recorded": "blocker",
+   "executable": true,
+   "basis": "injection_or_traversal"
+  },
+  {
+   "case_id": "eval-user-input",
+   "finding_id": "f4f5e13e733a",
+   "title": "eval() on user-supplied expression is arbitrary code execution",
+   "severity_recorded": "blocker",
+   "executable": true,
+   "basis": "injection_or_traversal"
+  },
+  {
+   "case_id": "eval-user-input",
+   "finding_id": "a0a30177d813",
+   "title": "eval/exec call in added code",
+   "severity_recorded": "blocker",
+   "executable": false,
+   "basis": "vague_or_advisory"
+  },
+  {
+   "case_id": "eval-user-input",
+   "finding_id": "88131b286537",
+   "title": "eval() used instead of safe parser, enabling code execution",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "injection_or_traversal"
+  },
+  {
+   "case_id": "float-money-total",
+   "finding_id": "71f32156ca41",
+   "title": "Float accumulation loses precision for monetary values",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "wrong_concrete_value"
+  },
+  {
+   "case_id": "float-money-total",
+   "finding_id": "276d36a411d6",
+   "title": "Function return type changes from Decimal to float, breaking callers that expect Decimal semantics",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "wrong_concrete_value"
+  },
+  {
+   "case_id": "float-money-total",
+   "finding_id": "387138002232",
+   "title": "Invoice totals now accumulate in float, causing incorrect money totals",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "wrong_concrete_value"
+  },
+  {
+   "case_id": "float-money-total",
+   "finding_id": "68858bbfa477",
+   "title": "Money total accumulated in binary float loses precision",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "wrong_concrete_value"
+  },
+  {
+   "case_id": "float-money-total",
+   "finding_id": "22aa11f68abe",
+   "title": "Return type contract silently changes from Decimal to float",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "crash_or_exception"
+  },
+  {
+   "case_id": "http-no-timeout",
+   "finding_id": "0f1d142f64e8",
+   "title": "Feed polling can now block indefinitely on slow or stalled HTTP responses",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "hang_or_timeout"
+  },
+  {
+   "case_id": "http-no-timeout",
+   "finding_id": "ef68db343c58",
+   "title": "HTTP request lacks timeout, risking indefinite hang",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "hang_or_timeout"
+  },
+  {
+   "case_id": "http-no-timeout",
+   "finding_id": "7e3b61b3824c",
+   "title": "requests.get called with no timeout — poller can hang forever",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "hang_or_timeout"
+  },
+  {
+   "case_id": "off-by-one-pagination",
+   "finding_id": "1a9214d0596e",
+   "title": "Pagination loop stops one page early, silently dropping the last page's items",
+   "severity_recorded": "blocker",
+   "executable": true,
+   "basis": "wrong_concrete_value"
+  },
+  {
+   "case_id": "off-by-one-pagination",
+   "finding_id": "ec68f558df7a",
+   "title": "Loop now skips the final page and returns incomplete results",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "wrong_concrete_value"
+  },
+  {
+   "case_id": "off-by-one-pagination",
+   "finding_id": "c0c4e0195242",
+   "title": "Off-by-one error in pagination loop",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "wrong_concrete_value"
+  },
+  {
+   "case_id": "path-traversal-upload",
+   "finding_id": "de138878663e",
+   "title": "Path traversal: unsanitized name written outside UPLOAD_DIR",
+   "severity_recorded": "blocker",
+   "executable": true,
+   "basis": "injection_or_traversal"
+  },
+  {
+   "case_id": "path-traversal-upload",
+   "finding_id": "b45e005aeb1a",
+   "title": "Unsanitized upload name allows writing files outside the upload directory",
+   "severity_recorded": "blocker",
+   "executable": true,
+   "basis": "injection_or_traversal"
+  },
+  {
+   "case_id": "path-traversal-upload",
+   "finding_id": "f94472b30d52",
+   "title": "Absolute file name silently overrides UPLOAD_DIR",
+   "severity_recorded": "major",
+   "executable": false,
+   "basis": "vague_or_advisory"
+  },
+  {
+   "case_id": "path-traversal-upload",
+   "finding_id": "6bed6fe7692d",
+   "title": "Path traversal in save_upload due to removed basename sanitization",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "injection_or_traversal"
+  },
+  {
+   "case_id": "payment-amount-dollars-cents",
+   "finding_id": "103f7384f434",
+   "title": "Cents conversion removed: gateway receives dollars, under-billing 100x",
+   "severity_recorded": "blocker",
+   "executable": true,
+   "basis": "crash_or_exception"
+  },
+  {
+   "case_id": "payment-amount-dollars-cents",
+   "finding_id": "ab40456f49bf",
+   "title": "Checkout now passes dollars to a cents-based gateway",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "money_or_quantity_dropped"
+  },
+  {
+   "case_id": "payment-amount-dollars-cents",
+   "finding_id": "31ee75162c4f",
+   "title": "Missing cents conversion before gateway call",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "money_or_quantity_dropped"
+  },
+  {
+   "case_id": "payment-quantity-dropped",
+   "finding_id": "ca304b423aa3",
+   "title": "Cart.total drops quantity multiplier, under-charging multi-unit items",
+   "severity_recorded": "blocker",
+   "executable": true,
+   "basis": "money_or_quantity_dropped"
+  },
+  {
+   "case_id": "payment-quantity-dropped",
+   "finding_id": "39d3c12a6c43",
+   "title": "Cart total ignores item quantity",
+   "severity_recorded": "major",
+   "executable": false,
+   "basis": "vague_or_advisory"
+  },
+  {
+   "case_id": "plaintext-password-store",
+   "finding_id": "2fa31df62c8f",
+   "title": "Passwords stored in plaintext at signup",
+   "severity_recorded": "blocker",
+   "executable": true,
+   "basis": "leak_or_exposure"
+  },
+  {
+   "case_id": "plaintext-password-store",
+   "finding_id": "0906d07e1ec6",
+   "title": "Plaintext password stored instead of hash",
+   "severity_recorded": "blocker",
+   "executable": true,
+   "basis": "leak_or_exposure"
+  },
+  {
+   "case_id": "plaintext-password-store",
+   "finding_id": "83b7fb31fe41",
+   "title": "Signup now stores submitted password in plaintext",
+   "severity_recorded": "blocker",
+   "executable": true,
+   "basis": "leak_or_exposure"
+  },
+  {
+   "case_id": "plaintext-password-store",
+   "finding_id": "e832004fccfb",
+   "title": "Attribute rename breaks existing password verification path",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "leak_or_exposure"
+  },
+  {
+   "case_id": "plaintext-password-store",
+   "finding_id": "5a3d8d7591af",
+   "title": "Signup no longer populates the password hash field expected by existing auth flows",
+   "severity_recorded": "major",
+   "executable": false,
+   "basis": "vague_or_advisory"
+  },
+  {
+   "case_id": "race-counter-increment",
+   "finding_id": "798a799a9c17",
+   "title": "Click counter loses updates under concurrent calls",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "race_concrete_outcome"
+  },
+  {
+   "case_id": "race-counter-increment",
+   "finding_id": "796c25112516",
+   "title": "Non-atomic read-modify-write loses concurrent click increments",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "race_concrete_outcome"
+  },
+  {
+   "case_id": "race-counter-increment",
+   "finding_id": "a131f1d2cecb",
+   "title": "Race condition in record_click due to unbounded read-modify-write",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "unbounded_resource"
+  },
+  {
+   "case_id": "real-buggy-alert-flood",
+   "finding_id": "f8e6bedc011e",
+   "title": "Hardcoded SMTP password in source",
+   "severity_recorded": "blocker",
+   "executable": true,
+   "basis": "secret_or_debug_artifact"
+  },
+  {
+   "case_id": "real-buggy-alert-flood",
+   "finding_id": "e4eafb5f84d9",
+   "title": "Possible hardcoded secret in added code",
+   "severity_recorded": "blocker",
+   "executable": true,
+   "basis": "secret_or_debug_artifact"
+  },
+  {
+   "case_id": "real-buggy-alert-flood",
+   "finding_id": "f3188c01e8d4",
+   "title": "Alert flood: one mail per violation, repeated on every run",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "unbounded_resource"
+  },
+  {
+   "case_id": "real-buggy-alert-flood",
+   "finding_id": "47ec8baa9b20",
+   "title": "Alert flooding without dedup or cooldown",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "unbounded_resource"
+  },
+  {
+   "case_id": "real-buggy-alert-flood",
+   "finding_id": "aa6f59ae3e62",
+   "title": "DELETE statement built by f-string interpolation of a DB value",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "crash_or_exception"
+  },
+  {
+   "case_id": "real-buggy-alert-flood",
+   "finding_id": "8ac7b7710fb3",
+   "title": "Health check now deletes jobs for every violation without any guard",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "data_loss_or_destructive"
+  },
+  {
+   "case_id": "real-buggy-alert-flood",
+   "finding_id": "e7ef7266eae3",
+   "title": "Notification/alert added with no dedup, cooldown, or state guard visible in the change",
+   "severity_recorded": "major",
+   "executable": false,
+   "basis": "vague_or_advisory"
+  },
+  {
+   "case_id": "real-buggy-alert-flood",
+   "finding_id": "11925c8cee15",
+   "title": "Per-violation email sending creates a reachable alert flood regression",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "unbounded_resource"
+  },
+  {
+   "case_id": "real-buggy-alert-flood",
+   "finding_id": "ab3901340bea",
+   "title": "SQL statement built by string formatting/concatenation",
+   "severity_recorded": "major",
+   "executable": false,
+   "basis": "style_maintainability_docs"
+  },
+  {
+   "case_id": "real-buggy-alert-flood",
+   "finding_id": "4916541fcfc7",
+   "title": "Unbounded DELETE per violation with no safeguard",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "unbounded_resource"
+  },
+  {
+   "case_id": "real-buggy-alert-flood",
+   "finding_id": "77dd29a21525",
+   "title": "Unconditional row deletion with no transaction, filter, or acknowledgement",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "data_loss_or_destructive"
+  },
+  {
+   "case_id": "secret-hardcoded-api-key",
+   "finding_id": "d720f08d41dc",
+   "title": "Hardcoded API key committed to source control",
+   "severity_recorded": "blocker",
+   "executable": true,
+   "basis": "secret_or_debug_artifact"
+  },
+  {
+   "case_id": "secret-hardcoded-api-key",
+   "finding_id": "96a51c4722a7",
+   "title": "Hardcoded API key in config file",
+   "severity_recorded": "blocker",
+   "executable": true,
+   "basis": "secret_or_debug_artifact"
+  },
+  {
+   "case_id": "secret-hardcoded-api-key",
+   "finding_id": "26fc3c076ede",
+   "title": "Possible hardcoded secret in added code",
+   "severity_recorded": "blocker",
+   "executable": true,
+   "basis": "secret_or_debug_artifact"
+  },
+  {
+   "case_id": "secret-private-key",
+   "finding_id": "8ff89c873519",
+   "title": "Hardcoded private key in source",
+   "severity_recorded": "blocker",
+   "executable": true,
+   "basis": "secret_or_debug_artifact"
+  },
+  {
+   "case_id": "secret-private-key",
+   "finding_id": "b52bd8a01a74",
+   "title": "Private key material in added code",
+   "severity_recorded": "blocker",
+   "executable": true,
+   "basis": "secret_or_debug_artifact"
+  },
+  {
+   "case_id": "secret-private-key",
+   "finding_id": "8dfcbb809f92",
+   "title": "Private key PEM embedded as a source literal cannot be rotated or kept out of VCS",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "leak_or_exposure"
+  },
+  {
+   "case_id": "sensitive-data-logging",
+   "finding_id": "36cad5246699",
+   "title": "Plaintext password written to application logs on successful login",
+   "severity_recorded": "blocker",
+   "executable": true,
+   "basis": "leak_or_exposure"
+  },
+  {
+   "case_id": "sensitive-data-logging",
+   "finding_id": "2b3d6cf8fc04",
+   "title": "Successful login path logs plaintext passwords",
+   "severity_recorded": "blocker",
+   "executable": true,
+   "basis": "leak_or_exposure"
+  },
+  {
+   "case_id": "sensitive-data-logging",
+   "finding_id": "f5cdffe9ca03",
+   "title": "Password logged in plaintext",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "leak_or_exposure"
+  },
+  {
+   "case_id": "sql-injection-fstring",
+   "finding_id": "454994d8dedd",
+   "title": "Direct f-string interpolation makes user lookup SQL-injectable",
+   "severity_recorded": "blocker",
+   "executable": true,
+   "basis": "injection_or_traversal"
+  },
+  {
+   "case_id": "sql-injection-fstring",
+   "finding_id": "f79ab00c05be",
+   "title": "SQL injection via f-string in find_by_name",
+   "severity_recorded": "blocker",
+   "executable": true,
+   "basis": "injection_or_traversal"
+  },
+  {
+   "case_id": "sql-injection-fstring",
+   "finding_id": "f055ec4fb87d",
+   "title": "SQL injection via f-string interpolation of user-supplied name",
+   "severity_recorded": "blocker",
+   "executable": true,
+   "basis": "injection_or_traversal"
+  },
+  {
+   "case_id": "sql-injection-fstring",
+   "finding_id": "31bddc208c47",
+   "title": "SQL statement built by string formatting/concatenation",
+   "severity_recorded": "major",
+   "executable": false,
+   "basis": "style_maintainability_docs"
+  },
+  {
+   "case_id": "ssrf-fetch",
+   "finding_id": "b9378815ffbc",
+   "title": "Direct fetch of user-controlled URL enables SSRF",
+   "severity_recorded": "blocker",
+   "executable": true,
+   "basis": "injection_or_traversal"
+  },
+  {
+   "case_id": "ssrf-fetch",
+   "finding_id": "bd7c445778ff",
+   "title": "SSRF: allowlist removed, arbitrary user URL is fetched",
+   "severity_recorded": "blocker",
+   "executable": true,
+   "basis": "unauthorized_access_or_bypass"
+  },
+  {
+   "case_id": "ssrf-fetch",
+   "finding_id": "ab35d1ae7104",
+   "title": "No timeout: a slow or blackholed host hangs the worker",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "hang_or_timeout"
+  },
+  {
+   "case_id": "ssrf-fetch",
+   "finding_id": "ac0f70a08d54",
+   "title": "Unbounded response body read into memory",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "unbounded_resource"
+  },
+  {
+   "case_id": "ssrf-fetch",
+   "finding_id": "d73d395aa120",
+   "title": "Unrestricted URL fetch removes SSRF guard",
+   "severity_recorded": "major",
+   "executable": false,
+   "basis": "vague_or_advisory"
+  },
+  {
+   "case_id": "unbounded-query",
+   "finding_id": "ede7e67b96ae",
+   "title": "Audit endpoint now performs an unbounded full-table read",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "unauthorized_access_or_bypass"
+  },
+  {
+   "case_id": "unbounded-query",
+   "finding_id": "396b5d14aedf",
+   "title": "Unbounded SELECT * query on audit_log",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "unbounded_resource"
+  },
+  {
+   "case_id": "unbounded-query",
+   "finding_id": "5ecdd9a1dcb9",
+   "title": "Unbounded audit query loads whole table into memory",
+   "severity_recorded": "major",
+   "executable": true,
+   "basis": "unbounded_resource"
+  }
+ ]
+}

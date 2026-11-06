@@ -1,0 +1,351 @@
+{
+ "analysis": "A3 rule sweep",
+ "rule_definitions": {
+  "R0": "strict: base severities, everything blocking blocks",
+  "R1": "B1 balanced gate profile (see note)",
+  "R2": "from base: E3 blocking findings demoted to minor; E0/E1 unchanged",
+  "R3": "severities identical to R2 by construction; E3 blocking findings counted as cross-family confirmation candidates",
+  "R4": "deterministic-trigger requirement — not evaluable offline"
+ },
+ "scopes": {
+  "a5": "recall + merged blocking precision over the 9 holdout records (2 clean controls' blocking findings count as U)",
+  "public": "recall + merged blocking precision over the 27 public records (original labels, 24 defects)",
+  "combined_defects": "pooled holdout + public (36 records, 31 labelled defects)",
+  "clean": "expanded_clean 34, public_clean 5, combined_clean 39; blocked = any finding blocking under the rule"
+ },
+ "rules": {
+  "R0": {
+   "a5": {
+    "defects_total": 7,
+    "defects_matched": 7,
+    "recall": 1.0,
+    "supplementary_blocking_recall": 1.0,
+    "supplementary_escaped_defects": 0,
+    "merged_blocking_precision": 0.5833333333333334,
+    "precision_D": 7,
+    "precision_U": 5,
+    "precision_duplicates_removed": 18
+   },
+   "public": {
+    "defects_total": 24,
+    "defects_matched": 24,
+    "recall": 1.0,
+    "supplementary_blocking_recall": 1.0,
+    "supplementary_escaped_defects": 0,
+    "merged_blocking_precision": 0.8275862068965517,
+    "precision_D": 24,
+    "precision_U": 5,
+    "precision_duplicates_removed": 61
+   },
+   "combined_defects": {
+    "defects_total": 31,
+    "defects_matched": 31,
+    "recall": 1.0,
+    "supplementary_blocking_recall": 1.0,
+    "supplementary_escaped_defects": 0,
+    "merged_blocking_precision": 0.7560975609756098,
+    "precision_D": 31,
+    "precision_U": 10,
+    "precision_duplicates_removed": 79
+   },
+   "clean_blocked": {
+    "expanded_clean": {
+     "blocked": 32,
+     "n": 34,
+     "rate": 0.9411764705882353
+    },
+    "public_clean": {
+     "blocked": 2,
+     "n": 5,
+     "rate": 0.4
+    },
+    "combined_clean": {
+     "blocked": 34,
+     "n": 39,
+     "rate": 0.8717948717948718
+    }
+   },
+   "bundles": {
+    "a5": {
+     "recall": 1.0,
+     "clean_rate": 0.9411764705882353,
+     "J": 0.05882352941176472,
+     "shortlist_pass": false
+    },
+    "public": {
+     "recall": 1.0,
+     "clean_rate": 0.4,
+     "J": 0.6,
+     "shortlist_pass": false
+    },
+    "combined": {
+     "recall": 1.0,
+     "clean_rate": 0.8717948717948718,
+     "J": 0.1282051282051282,
+     "shortlist_pass": false
+    }
+   },
+   "shortlist_combined_pass": false
+  },
+  "R1": {
+   "a5": {
+    "defects_total": 7,
+    "defects_matched": 7,
+    "recall": 1.0,
+    "supplementary_blocking_recall": 1.0,
+    "supplementary_escaped_defects": 0,
+    "merged_blocking_precision": 0.875,
+    "precision_D": 7,
+    "precision_U": 1,
+    "precision_duplicates_removed": 12
+   },
+   "public": {
+    "defects_total": 24,
+    "defects_matched": 24,
+    "recall": 1.0,
+    "supplementary_blocking_recall": 1.0,
+    "supplementary_escaped_defects": 0,
+    "merged_blocking_precision": 0.96,
+    "precision_D": 24,
+    "precision_U": 1,
+    "precision_duplicates_removed": 42
+   },
+   "combined_defects": {
+    "defects_total": 31,
+    "defects_matched": 31,
+    "recall": 1.0,
+    "supplementary_blocking_recall": 1.0,
+    "supplementary_escaped_defects": 0,
+    "merged_blocking_precision": 0.9393939393939394,
+    "precision_D": 31,
+    "precision_U": 2,
+    "precision_duplicates_removed": 54
+   },
+   "clean_blocked": {
+    "expanded_clean": {
+     "blocked": 22,
+     "n": 34,
+     "rate": 0.6470588235294118
+    },
+    "public_clean": {
+     "blocked": 1,
+     "n": 5,
+     "rate": 0.2
+    },
+    "combined_clean": {
+     "blocked": 23,
+     "n": 39,
+     "rate": 0.5897435897435898
+    }
+   },
+   "bundles": {
+    "a5": {
+     "recall": 1.0,
+     "clean_rate": 0.6470588235294118,
+     "J": 0.3529411764705882,
+     "shortlist_pass": false
+    },
+    "public": {
+     "recall": 1.0,
+     "clean_rate": 0.2,
+     "J": 0.8,
+     "shortlist_pass": false
+    },
+    "combined": {
+     "recall": 1.0,
+     "clean_rate": 0.5897435897435898,
+     "J": 0.41025641025641024,
+     "shortlist_pass": false
+    }
+   },
+   "shortlist_combined_pass": false,
+   "note": "Public R1 = the live B1 function core._apply_gate_profile applied to stored merged findings after stamping source_lenses from each record's reviewer_reports (provider -> lens) plus deterministic -> [deterministic]; attempt-1 R1 = records as recorded (stored severities/gates ARE B1)."
+  },
+  "R2": {
+   "a5": {
+    "defects_total": 7,
+    "defects_matched": 7,
+    "recall": 1.0,
+    "supplementary_blocking_recall": 0.5714285714285714,
+    "supplementary_escaped_defects": 3,
+    "merged_blocking_precision": 1.0,
+    "precision_D": 4,
+    "precision_U": 0,
+    "precision_duplicates_removed": 1
+   },
+   "public": {
+    "defects_total": 24,
+    "defects_matched": 24,
+    "recall": 1.0,
+    "supplementary_blocking_recall": 0.4583333333333333,
+    "supplementary_escaped_defects": 13,
+    "merged_blocking_precision": 1.0,
+    "precision_D": 11,
+    "precision_U": 0,
+    "precision_duplicates_removed": 2
+   },
+   "combined_defects": {
+    "defects_total": 31,
+    "defects_matched": 31,
+    "recall": 1.0,
+    "supplementary_blocking_recall": 0.4838709677419355,
+    "supplementary_escaped_defects": 16,
+    "merged_blocking_precision": 1.0,
+    "precision_D": 15,
+    "precision_U": 0,
+    "precision_duplicates_removed": 3
+   },
+   "clean_blocked": {
+    "expanded_clean": {
+     "blocked": 2,
+     "n": 34,
+     "rate": 0.058823529411764705
+    },
+    "public_clean": {
+     "blocked": 0,
+     "n": 5,
+     "rate": 0.0
+    },
+    "combined_clean": {
+     "blocked": 2,
+     "n": 39,
+     "rate": 0.05128205128205128
+    }
+   },
+   "bundles": {
+    "a5": {
+     "recall": 1.0,
+     "clean_rate": 0.058823529411764705,
+     "J": 0.9411764705882353,
+     "shortlist_pass": true
+    },
+    "public": {
+     "recall": 1.0,
+     "clean_rate": 0.0,
+     "J": 1.0,
+     "shortlist_pass": true
+    },
+    "combined": {
+     "recall": 1.0,
+     "clean_rate": 0.05128205128205128,
+     "J": 0.9487179487179487,
+     "shortlist_pass": true
+    }
+   },
+   "shortlist_combined_pass": true
+  },
+  "R3": {
+   "a5": {
+    "defects_total": 7,
+    "defects_matched": 7,
+    "recall": 1.0,
+    "supplementary_blocking_recall": 0.5714285714285714,
+    "supplementary_escaped_defects": 3,
+    "merged_blocking_precision": 1.0,
+    "precision_D": 4,
+    "precision_U": 0,
+    "precision_duplicates_removed": 1
+   },
+   "public": {
+    "defects_total": 24,
+    "defects_matched": 24,
+    "recall": 1.0,
+    "supplementary_blocking_recall": 0.4583333333333333,
+    "supplementary_escaped_defects": 13,
+    "merged_blocking_precision": 1.0,
+    "precision_D": 11,
+    "precision_U": 0,
+    "precision_duplicates_removed": 2
+   },
+   "combined_defects": {
+    "defects_total": 31,
+    "defects_matched": 31,
+    "recall": 1.0,
+    "supplementary_blocking_recall": 0.4838709677419355,
+    "supplementary_escaped_defects": 16,
+    "merged_blocking_precision": 1.0,
+    "precision_D": 15,
+    "precision_U": 0,
+    "precision_duplicates_removed": 3
+   },
+   "clean_blocked": {
+    "expanded_clean": {
+     "blocked": 2,
+     "n": 34,
+     "rate": 0.058823529411764705
+    },
+    "public_clean": {
+     "blocked": 0,
+     "n": 5,
+     "rate": 0.0
+    },
+    "combined_clean": {
+     "blocked": 2,
+     "n": 39,
+     "rate": 0.05128205128205128
+    }
+   },
+   "bundles": {
+    "a5": {
+     "recall": 1.0,
+     "clean_rate": 0.058823529411764705,
+     "J": 0.9411764705882353,
+     "shortlist_pass": true
+    },
+    "public": {
+     "recall": 1.0,
+     "clean_rate": 0.0,
+     "J": 1.0,
+     "shortlist_pass": true
+    },
+    "combined": {
+     "recall": 1.0,
+     "clean_rate": 0.05128205128205128,
+     "J": 0.9487179487179487,
+     "shortlist_pass": true
+    }
+   },
+   "shortlist_combined_pass": true,
+   "cross_family_confirmation_candidates": {
+    "a5_holdout_records": {
+     "clean_cases": 5,
+     "defect_cases": 20,
+     "total": 25
+    },
+    "public_records": {
+     "clean_cases": 4,
+     "defect_cases": 73,
+     "total": 77
+    },
+    "expanded_clean_records": {
+     "clean_cases": 75,
+     "defect_cases": 0,
+     "total": 75
+    },
+    "combined_all_records": {
+     "clean_cases": 84,
+     "defect_cases": 93,
+     "total": 177
+    }
+   },
+   "note": "R3 metrics are identical to R2 by construction: cross-family confirmation of E3 majors needs new model calls and is NOT simulated offline. Counts = E3 blocking findings (base severity) R3 would send to confirmation."
+  },
+  "R4": {
+   "status": "not evaluable offline — pilot item",
+   "reason": "Findings carry evidence_quote but no trigger field: 0 of 387 findings across both record files carry a 'trigger' key (keys containing 'trigger': []). No deterministic trigger representation exists to evaluate.",
+   "trigger_field_findings": 0
+  }
+ },
+ "sanity_checks": {
+  "R0_expanded_clean_blocked": "32/34",
+  "R0_expanded_clean_expected_32/34": true,
+  "R0_a5_recall": 1.0,
+  "R0_a5_recall_is_1.000": true,
+  "R0_public_recall_original_labels": 1.0,
+  "R0_public_recall_is_1.000": true,
+  "R1_expanded_clean_blocked": "22/34",
+  "R1_expanded_clean_expected_22/34": true,
+  "R1_a5_recall": 1.0,
+  "R1_a5_recall_is_1.000": true
+ }
+}

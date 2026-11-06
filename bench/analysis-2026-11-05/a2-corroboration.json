@@ -1,0 +1,701 @@
+{
+ "analysis": "A2 corroboration cost",
+ "definitions": {
+  "matching": "score_case greedy algorithm replicated on BASE-severity findings (severity ordering uses base severity; _finding_matches is severity-independent)",
+  "evidence_class": "computed from sources via family map; stored field not trusted",
+  "sets": "a5 = 7 holdout defect cases (7 defects); public = 22 public defect cases (24 original-label defects); combined = 31 defects"
+ },
+ "a5": {
+  "defects_total": 7,
+  "defects_matched": 7,
+  "finding_level": {
+   "all_matched": {
+    "n": 7,
+    "E0": 1,
+    "E1": 2,
+    "E3": 4,
+    "pct_E01": 0.42857142857142855,
+    "pct_E3": 0.5714285714285714
+   },
+   "blocking_only_base": {
+    "n": 7,
+    "E0": 1,
+    "E1": 2,
+    "E3": 4,
+    "pct_E01": 0.42857142857142855,
+    "pct_E3": 0.5714285714285714
+   }
+  },
+  "defect_survival_block_only_E01": {
+   "surviving": 3,
+   "pct_surviving": 0.42857142857142855,
+   "matched_but_nonblocking_TP": 0,
+   "matched_blocking_but_E3": 4,
+   "unmatched": 0,
+   "supplementary_any_match_surviving": 4,
+   "supplementary_any_match_pct": 0.5714285714285714
+  },
+  "case_level": {
+   "defect_cases": 7,
+   "distribution": {
+    "ALL_BLOCKING_TP_E01": 3,
+    "MIXED": 0,
+    "ALL_BLOCKING_TP_E3": 4,
+    "NO_BLOCKING_TP": 0
+   },
+   "pct_ALL_BLOCKING_TP_E01": 0.42857142857142855,
+   "per_case": {
+    "auth-admin-or-true": "ALL_BLOCKING_TP_E3",
+    "drop-table-migration": "ALL_BLOCKING_TP_E01",
+    "payment-refund-partial": "ALL_BLOCKING_TP_E3",
+    "race-check-then-act": "ALL_BLOCKING_TP_E3",
+    "secret-aws-key": "ALL_BLOCKING_TP_E01",
+    "sql-injection-concat": "ALL_BLOCKING_TP_E3",
+    "xss-innerhtml": "ALL_BLOCKING_TP_E01"
+   }
+  },
+  "per_defect": [
+   {
+    "case_id": "auth-admin-or-true",
+    "matched": true,
+    "finding_id": "585e354a9fd5",
+    "evidence_class": "E3",
+    "blocking_base": true,
+    "survives_block_e01": false
+   },
+   {
+    "case_id": "drop-table-migration",
+    "matched": true,
+    "finding_id": "66e9288743c6",
+    "evidence_class": "E0",
+    "blocking_base": true,
+    "survives_block_e01": true
+   },
+   {
+    "case_id": "payment-refund-partial",
+    "matched": true,
+    "finding_id": "874f301e1d08",
+    "evidence_class": "E3",
+    "blocking_base": true,
+    "survives_block_e01": false
+   },
+   {
+    "case_id": "race-check-then-act",
+    "matched": true,
+    "finding_id": "32819f270e2d",
+    "evidence_class": "E3",
+    "blocking_base": true,
+    "survives_block_e01": false
+   },
+   {
+    "case_id": "secret-aws-key",
+    "matched": true,
+    "finding_id": "9fe8a3391756",
+    "evidence_class": "E1",
+    "blocking_base": true,
+    "survives_block_e01": true
+   },
+   {
+    "case_id": "sql-injection-concat",
+    "matched": true,
+    "finding_id": "47e0be2fd00b",
+    "evidence_class": "E3",
+    "blocking_base": true,
+    "survives_block_e01": false
+   },
+   {
+    "case_id": "xss-innerhtml",
+    "matched": true,
+    "finding_id": "3c5c433afb21",
+    "evidence_class": "E1",
+    "blocking_base": true,
+    "survives_block_e01": true
+   }
+  ]
+ },
+ "public": {
+  "defects_total": 24,
+  "defects_matched": 24,
+  "finding_level": {
+   "all_matched": {
+    "n": 24,
+    "E0": 0,
+    "E1": 2,
+    "E3": 22,
+    "pct_E01": 0.08333333333333333,
+    "pct_E3": 0.9166666666666666
+   },
+   "blocking_only_base": {
+    "n": 24,
+    "E0": 0,
+    "E1": 2,
+    "E3": 22,
+    "pct_E01": 0.08333333333333333,
+    "pct_E3": 0.9166666666666666
+   }
+  },
+  "defect_survival_block_only_E01": {
+   "surviving": 2,
+   "pct_surviving": 0.08333333333333333,
+   "matched_but_nonblocking_TP": 0,
+   "matched_blocking_but_E3": 22,
+   "unmatched": 0,
+   "supplementary_any_match_surviving": 11,
+   "supplementary_any_match_pct": 0.4583333333333333
+  },
+  "case_level": {
+   "defect_cases": 22,
+   "distribution": {
+    "ALL_BLOCKING_TP_E01": 1,
+    "MIXED": 1,
+    "ALL_BLOCKING_TP_E3": 20,
+    "NO_BLOCKING_TP": 0
+   },
+   "pct_ALL_BLOCKING_TP_E01": 0.045454545454545456,
+   "per_case": {
+    "auth-check-removed": "ALL_BLOCKING_TP_E3",
+    "command-injection-shell": "ALL_BLOCKING_TP_E3",
+    "debug-breakpoint": "ALL_BLOCKING_TP_E3",
+    "delete-no-where": "ALL_BLOCKING_TP_E3",
+    "disabled-test": "ALL_BLOCKING_TP_E3",
+    "error-swallow-bare-except": "ALL_BLOCKING_TP_E3",
+    "eval-user-input": "ALL_BLOCKING_TP_E3",
+    "float-money-total": "ALL_BLOCKING_TP_E3",
+    "http-no-timeout": "ALL_BLOCKING_TP_E3",
+    "off-by-one-pagination": "ALL_BLOCKING_TP_E3",
+    "path-traversal-upload": "ALL_BLOCKING_TP_E3",
+    "payment-amount-dollars-cents": "ALL_BLOCKING_TP_E3",
+    "payment-quantity-dropped": "ALL_BLOCKING_TP_E3",
+    "plaintext-password-store": "ALL_BLOCKING_TP_E3",
+    "race-counter-increment": "ALL_BLOCKING_TP_E3",
+    "real-buggy-alert-flood": "MIXED",
+    "secret-hardcoded-api-key": "ALL_BLOCKING_TP_E01",
+    "secret-private-key": "ALL_BLOCKING_TP_E3",
+    "sensitive-data-logging": "ALL_BLOCKING_TP_E3",
+    "sql-injection-fstring": "ALL_BLOCKING_TP_E3",
+    "ssrf-fetch": "ALL_BLOCKING_TP_E3",
+    "unbounded-query": "ALL_BLOCKING_TP_E3"
+   }
+  },
+  "per_defect": [
+   {
+    "case_id": "auth-check-removed",
+    "matched": true,
+    "finding_id": "982e3dd929f6",
+    "evidence_class": "E3",
+    "blocking_base": true,
+    "survives_block_e01": false
+   },
+   {
+    "case_id": "command-injection-shell",
+    "matched": true,
+    "finding_id": "2e4b78f179e3",
+    "evidence_class": "E3",
+    "blocking_base": true,
+    "survives_block_e01": false
+   },
+   {
+    "case_id": "debug-breakpoint",
+    "matched": true,
+    "finding_id": "5726e93eb570",
+    "evidence_class": "E3",
+    "blocking_base": true,
+    "survives_block_e01": false
+   },
+   {
+    "case_id": "delete-no-where",
+    "matched": true,
+    "finding_id": "9252005f7cc5",
+    "evidence_class": "E3",
+    "blocking_base": true,
+    "survives_block_e01": false
+   },
+   {
+    "case_id": "disabled-test",
+    "matched": true,
+    "finding_id": "f8b6c4f21a56",
+    "evidence_class": "E3",
+    "blocking_base": true,
+    "survives_block_e01": false
+   },
+   {
+    "case_id": "error-swallow-bare-except",
+    "matched": true,
+    "finding_id": "77806a888b6c",
+    "evidence_class": "E3",
+    "blocking_base": true,
+    "survives_block_e01": false
+   },
+   {
+    "case_id": "eval-user-input",
+    "matched": true,
+    "finding_id": "604ef49d36f6",
+    "evidence_class": "E3",
+    "blocking_base": true,
+    "survives_block_e01": false
+   },
+   {
+    "case_id": "float-money-total",
+    "matched": true,
+    "finding_id": "387138002232",
+    "evidence_class": "E3",
+    "blocking_base": true,
+    "survives_block_e01": false
+   },
+   {
+    "case_id": "http-no-timeout",
+    "matched": true,
+    "finding_id": "0f1d142f64e8",
+    "evidence_class": "E3",
+    "blocking_base": true,
+    "survives_block_e01": false
+   },
+   {
+    "case_id": "off-by-one-pagination",
+    "matched": true,
+    "finding_id": "1a9214d0596e",
+    "evidence_class": "E3",
+    "blocking_base": true,
+    "survives_block_e01": false
+   },
+   {
+    "case_id": "path-traversal-upload",
+    "matched": true,
+    "finding_id": "b45e005aeb1a",
+    "evidence_class": "E3",
+    "blocking_base": true,
+    "survives_block_e01": false
+   },
+   {
+    "case_id": "payment-amount-dollars-cents",
+    "matched": true,
+    "finding_id": "103f7384f434",
+    "evidence_class": "E3",
+    "blocking_base": true,
+    "survives_block_e01": false
+   },
+   {
+    "case_id": "payment-quantity-dropped",
+    "matched": true,
+    "finding_id": "ca304b423aa3",
+    "evidence_class": "E3",
+    "blocking_base": true,
+    "survives_block_e01": false
+   },
+   {
+    "case_id": "plaintext-password-store",
+    "matched": true,
+    "finding_id": "0906d07e1ec6",
+    "evidence_class": "E3",
+    "blocking_base": true,
+    "survives_block_e01": false
+   },
+   {
+    "case_id": "race-counter-increment",
+    "matched": true,
+    "finding_id": "798a799a9c17",
+    "evidence_class": "E3",
+    "blocking_base": true,
+    "survives_block_e01": false
+   },
+   {
+    "case_id": "real-buggy-alert-flood",
+    "matched": true,
+    "finding_id": "8ac7b7710fb3",
+    "evidence_class": "E3",
+    "blocking_base": true,
+    "survives_block_e01": false
+   },
+   {
+    "case_id": "real-buggy-alert-flood",
+    "matched": true,
+    "finding_id": "f8e6bedc011e",
+    "evidence_class": "E1",
+    "blocking_base": true,
+    "survives_block_e01": true
+   },
+   {
+    "case_id": "real-buggy-alert-flood",
+    "matched": true,
+    "finding_id": "4916541fcfc7",
+    "evidence_class": "E3",
+    "blocking_base": true,
+    "survives_block_e01": false
+   },
+   {
+    "case_id": "secret-hardcoded-api-key",
+    "matched": true,
+    "finding_id": "96a51c4722a7",
+    "evidence_class": "E1",
+    "blocking_base": true,
+    "survives_block_e01": true
+   },
+   {
+    "case_id": "secret-private-key",
+    "matched": true,
+    "finding_id": "8ff89c873519",
+    "evidence_class": "E3",
+    "blocking_base": true,
+    "survives_block_e01": false
+   },
+   {
+    "case_id": "sensitive-data-logging",
+    "matched": true,
+    "finding_id": "2b3d6cf8fc04",
+    "evidence_class": "E3",
+    "blocking_base": true,
+    "survives_block_e01": false
+   },
+   {
+    "case_id": "sql-injection-fstring",
+    "matched": true,
+    "finding_id": "f79ab00c05be",
+    "evidence_class": "E3",
+    "blocking_base": true,
+    "survives_block_e01": false
+   },
+   {
+    "case_id": "ssrf-fetch",
+    "matched": true,
+    "finding_id": "b9378815ffbc",
+    "evidence_class": "E3",
+    "blocking_base": true,
+    "survives_block_e01": false
+   },
+   {
+    "case_id": "unbounded-query",
+    "matched": true,
+    "finding_id": "ede7e67b96ae",
+    "evidence_class": "E3",
+    "blocking_base": true,
+    "survives_block_e01": false
+   }
+  ]
+ },
+ "combined": {
+  "defects_total": 31,
+  "defects_matched": 31,
+  "finding_level": {
+   "all_matched": {
+    "n": 31,
+    "E0": 1,
+    "E1": 4,
+    "E3": 26,
+    "pct_E01": 0.16129032258064516,
+    "pct_E3": 0.8387096774193549
+   },
+   "blocking_only_base": {
+    "n": 31,
+    "E0": 1,
+    "E1": 4,
+    "E3": 26,
+    "pct_E01": 0.16129032258064516,
+    "pct_E3": 0.8387096774193549
+   }
+  },
+  "defect_survival_block_only_E01": {
+   "surviving": 5,
+   "pct_surviving": 0.16129032258064516,
+   "matched_but_nonblocking_TP": 0,
+   "matched_blocking_but_E3": 26,
+   "unmatched": 0,
+   "supplementary_any_match_surviving": 15,
+   "supplementary_any_match_pct": 0.4838709677419355
+  },
+  "case_level": {
+   "defect_cases": 29,
+   "distribution": {
+    "ALL_BLOCKING_TP_E01": 4,
+    "MIXED": 1,
+    "ALL_BLOCKING_TP_E3": 24,
+    "NO_BLOCKING_TP": 0
+   },
+   "pct_ALL_BLOCKING_TP_E01": 0.13793103448275862,
+   "per_case": {
+    "auth-admin-or-true": "ALL_BLOCKING_TP_E3",
+    "drop-table-migration": "ALL_BLOCKING_TP_E01",
+    "payment-refund-partial": "ALL_BLOCKING_TP_E3",
+    "race-check-then-act": "ALL_BLOCKING_TP_E3",
+    "secret-aws-key": "ALL_BLOCKING_TP_E01",
+    "sql-injection-concat": "ALL_BLOCKING_TP_E3",
+    "xss-innerhtml": "ALL_BLOCKING_TP_E01",
+    "auth-check-removed": "ALL_BLOCKING_TP_E3",
+    "command-injection-shell": "ALL_BLOCKING_TP_E3",
+    "debug-breakpoint": "ALL_BLOCKING_TP_E3",
+    "delete-no-where": "ALL_BLOCKING_TP_E3",
+    "disabled-test": "ALL_BLOCKING_TP_E3",
+    "error-swallow-bare-except": "ALL_BLOCKING_TP_E3",
+    "eval-user-input": "ALL_BLOCKING_TP_E3",
+    "float-money-total": "ALL_BLOCKING_TP_E3",
+    "http-no-timeout": "ALL_BLOCKING_TP_E3",
+    "off-by-one-pagination": "ALL_BLOCKING_TP_E3",
+    "path-traversal-upload": "ALL_BLOCKING_TP_E3",
+    "payment-amount-dollars-cents": "ALL_BLOCKING_TP_E3",
+    "payment-quantity-dropped": "ALL_BLOCKING_TP_E3",
+    "plaintext-password-store": "ALL_BLOCKING_TP_E3",
+    "race-counter-increment": "ALL_BLOCKING_TP_E3",
+    "real-buggy-alert-flood": "MIXED",
+    "secret-hardcoded-api-key": "ALL_BLOCKING_TP_E01",
+    "secret-private-key": "ALL_BLOCKING_TP_E3",
+    "sensitive-data-logging": "ALL_BLOCKING_TP_E3",
+    "sql-injection-fstring": "ALL_BLOCKING_TP_E3",
+    "ssrf-fetch": "ALL_BLOCKING_TP_E3",
+    "unbounded-query": "ALL_BLOCKING_TP_E3"
+   }
+  },
+  "per_defect": [
+   {
+    "case_id": "auth-admin-or-true",
+    "matched": true,
+    "finding_id": "585e354a9fd5",
+    "evidence_class": "E3",
+    "blocking_base": true,
+    "survives_block_e01": false
+   },
+   {
+    "case_id": "drop-table-migration",
+    "matched": true,
+    "finding_id": "66e9288743c6",
+    "evidence_class": "E0",
+    "blocking_base": true,
+    "survives_block_e01": true
+   },
+   {
+    "case_id": "payment-refund-partial",
+    "matched": true,
+    "finding_id": "874f301e1d08",
+    "evidence_class": "E3",
+    "blocking_base": true,
+    "survives_block_e01": false
+   },
+   {
+    "case_id": "race-check-then-act",
+    "matched": true,
+    "finding_id": "32819f270e2d",
+    "evidence_class": "E3",
+    "blocking_base": true,
+    "survives_block_e01": false
+   },
+   {
+    "case_id": "secret-aws-key",
+    "matched": true,
+    "finding_id": "9fe8a3391756",
+    "evidence_class": "E1",
+    "blocking_base": true,
+    "survives_block_e01": true
+   },
+   {
+    "case_id": "sql-injection-concat",
+    "matched": true,
+    "finding_id": "47e0be2fd00b",
+    "evidence_class": "E3",
+    "blocking_base": true,
+    "survives_block_e01": false
+   },
+   {
+    "case_id": "xss-innerhtml",
+    "matched": true,
+    "finding_id": "3c5c433afb21",
+    "evidence_class": "E1",
+    "blocking_base": true,
+    "survives_block_e01": true
+   },
+   {
+    "case_id": "auth-check-removed",
+    "matched": true,
+    "finding_id": "982e3dd929f6",
+    "evidence_class": "E3",
+    "blocking_base": true,
+    "survives_block_e01": false
+   },
+   {
+    "case_id": "command-injection-shell",
+    "matched": true,
+    "finding_id": "2e4b78f179e3",
+    "evidence_class": "E3",
+    "blocking_base": true,
+    "survives_block_e01": false
+   },
+   {
+    "case_id": "debug-breakpoint",
+    "matched": true,
+    "finding_id": "5726e93eb570",
+    "evidence_class": "E3",
+    "blocking_base": true,
+    "survives_block_e01": false
+   },
+   {
+    "case_id": "delete-no-where",
+    "matched": true,
+    "finding_id": "9252005f7cc5",
+    "evidence_class": "E3",
+    "blocking_base": true,
+    "survives_block_e01": false
+   },
+   {
+    "case_id": "disabled-test",
+    "matched": true,
+    "finding_id": "f8b6c4f21a56",
+    "evidence_class": "E3",
+    "blocking_base": true,
+    "survives_block_e01": false
+   },
+   {
+    "case_id": "error-swallow-bare-except",
+    "matched": true,
+    "finding_id": "77806a888b6c",
+    "evidence_class": "E3",
+    "blocking_base": true,
+    "survives_block_e01": false
+   },
+   {
+    "case_id": "eval-user-input",
+    "matched": true,
+    "finding_id": "604ef49d36f6",
+    "evidence_class": "E3",
+    "blocking_base": true,
+    "survives_block_e01": false
+   },
+   {
+    "case_id": "float-money-total",
+    "matched": true,
+    "finding_id": "387138002232",
+    "evidence_class": "E3",
+    "blocking_base": true,
+    "survives_block_e01": false
+   },
+   {
+    "case_id": "http-no-timeout",
+    "matched": true,
+    "finding_id": "0f1d142f64e8",
+    "evidence_class": "E3",
+    "blocking_base": true,
+    "survives_block_e01": false
+   },
+   {
+    "case_id": "off-by-one-pagination",
+    "matched": true,
+    "finding_id": "1a9214d0596e",
+    "evidence_class": "E3",
+    "blocking_base": true,
+    "survives_block_e01": false
+   },
+   {
+    "case_id": "path-traversal-upload",
+    "matched": true,
+    "finding_id": "b45e005aeb1a",
+    "evidence_class": "E3",
+    "blocking_base": true,
+    "survives_block_e01": false
+   },
+   {
+    "case_id": "payment-amount-dollars-cents",
+    "matched": true,
+    "finding_id": "103f7384f434",
+    "evidence_class": "E3",
+    "blocking_base": true,
+    "survives_block_e01": false
+   },
+   {
+    "case_id": "payment-quantity-dropped",
+    "matched": true,
+    "finding_id": "ca304b423aa3",
+    "evidence_class": "E3",
+    "blocking_base": true,
+    "survives_block_e01": false
+   },
+   {
+    "case_id": "plaintext-password-store",
+    "matched": true,
+    "finding_id": "0906d07e1ec6",
+    "evidence_class": "E3",
+    "blocking_base": true,
+    "survives_block_e01": false
+   },
+   {
+    "case_id": "race-counter-increment",
+    "matched": true,
+    "finding_id": "798a799a9c17",
+    "evidence_class": "E3",
+    "blocking_base": true,
+    "survives_block_e01": false
+   },
+   {
+    "case_id": "real-buggy-alert-flood",
+    "matched": true,
+    "finding_id": "8ac7b7710fb3",
+    "evidence_class": "E3",
+    "blocking_base": true,
+    "survives_block_e01": false
+   },
+   {
+    "case_id": "real-buggy-alert-flood",
+    "matched": true,
+    "finding_id": "f8e6bedc011e",
+    "evidence_class": "E1",
+    "blocking_base": true,
+    "survives_block_e01": true
+   },
+   {
+    "case_id": "real-buggy-alert-flood",
+    "matched": true,
+    "finding_id": "4916541fcfc7",
+    "evidence_class": "E3",
+    "blocking_base": true,
+    "survives_block_e01": false
+   },
+   {
+    "case_id": "secret-hardcoded-api-key",
+    "matched": true,
+    "finding_id": "96a51c4722a7",
+    "evidence_class": "E1",
+    "blocking_base": true,
+    "survives_block_e01": true
+   },
+   {
+    "case_id": "secret-private-key",
+    "matched": true,
+    "finding_id": "8ff89c873519",
+    "evidence_class": "E3",
+    "blocking_base": true,
+    "survives_block_e01": false
+   },
+   {
+    "case_id": "sensitive-data-logging",
+    "matched": true,
+    "finding_id": "2b3d6cf8fc04",
+    "evidence_class": "E3",
+    "blocking_base": true,
+    "survives_block_e01": false
+   },
+   {
+    "case_id": "sql-injection-fstring",
+    "matched": true,
+    "finding_id": "f79ab00c05be",
+    "evidence_class": "E3",
+    "blocking_base": true,
+    "survives_block_e01": false
+   },
+   {
+    "case_id": "ssrf-fetch",
+    "matched": true,
+    "finding_id": "b9378815ffbc",
+    "evidence_class": "E3",
+    "blocking_base": true,
+    "survives_block_e01": false
+   },
+   {
+    "case_id": "unbounded-query",
+    "matched": true,
+    "finding_id": "ede7e67b96ae",
+    "evidence_class": "E3",
+    "blocking_base": true,
+    "survives_block_e01": false
+   }
+  ]
+ },
+ "decision_numbers": {
+  "combined_pct_TP_findings_blocking_E01": 0.16129032258064516,
+  "combined_pct_defects_surviving": 0.16129032258064516
+ }
+}

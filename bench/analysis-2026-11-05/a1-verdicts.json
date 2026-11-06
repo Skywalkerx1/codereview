@@ -1,0 +1,1455 @@
+[
+ {
+  "case_id": "xc-atomic-state-writer",
+  "finding_id": "ef6310d2eb7d",
+  "title": "State file permissions are widened to process defaults instead of preserving the existing file mode",
+  "category": "security",
+  "severity": "major",
+  "sources": [
+   "openai"
+  ],
+  "votes": [
+   {
+    "provider": "deepseek",
+    "model": "deepseek-reasoner",
+    "verdict": "FALSE_POSITIVE",
+    "quote": "    fd, tmp_path = tempfile.mkstemp(",
+    "quote_valid": true,
+    "justification": "tempfile.mkstemp creates the temp file with mode 0600, so os.replace does not widen permissions; it may fail to preserve an existing broader mode, which is not the claimed security widening."
+   },
+   {
+    "provider": "nvidia",
+    "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+    "verdict": "HARDENING_ONLY",
+    "quote": "fd, tmp_path = tempfile.mkstemp(",
+    "quote_valid": true,
+    "justification": "The code's stated behavior concerns atomic writes, not file permission preservation; this is a defense-in-depth hardening suggestion."
+   },
+   {
+    "provider": "deepseek",
+    "model": "deepseek-chat",
+    "verdict": "HARDENING_ONLY",
+    "quote": "    fd, tmp_path = tempfile.mkstemp(",
+    "quote_valid": true,
+    "justification": "mkstemp creates the temp file with mode 0600, so the new file is not widened; os.replace then makes the destination inherit that restrictive mode, which is a permissions-preservation concern but not a violation of the stated atomicity behaviour."
+   }
+  ],
+  "probe": {
+   "status": "not_applicable",
+   "claim_result": null,
+   "detail": "No executable probe was specified for this finding (claim not a concrete input->crash/wrong-output claim)."
+  },
+  "final_verdict": "HARDENING_ONLY",
+  "final_basis": "majority",
+  "panel_note": "gemini_substituted: Gemini returned HTTP 429 (quota) on the health probe and was not retried (hard stop). First substitute tried, z-ai/glm-5.3-flash via NVIDIA NIM, returned empty content and stalled >4 min on the first full packet, so the third vote is a second model from the other non-raiser family (DeepSeek deepseek-chat; primary DeepSeek vote uses deepseek-reasoner), per the task's substitution rule."
+ },
+ {
+  "case_id": "xc-batch-delete-guarded",
+  "finding_id": "283fc809be33",
+  "title": "DELETE statement uses sqlite-style placeholder despite MySQL-specific SQL",
+  "category": "correctness",
+  "severity": "major",
+  "sources": [
+   "openai"
+  ],
+  "votes": [
+   {
+    "provider": "deepseek",
+    "model": "deepseek-chat (fallback from deepseek-reasoner)",
+    "verdict": "REAL_DEFECT",
+    "quote": "            f\"DELETE FROM {table} WHERE {where_sql} LIMIT ?\",",
+    "quote_valid": true,
+    "justification": "The file's own comment declares the MySQL dialect, but MySQL does not support '?' placeholders (it uses %s), so the DELETE will fail at runtime."
+   },
+   {
+    "provider": "nvidia",
+    "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+    "verdict": "FALSE_POSITIVE",
+    "quote": "f\"DELETE FROM {table} WHERE {where_sql} LIMIT ?\",",
+    "quote_valid": true,
+    "justification": "The `?` placeholder is standard DB-API 2.0 syntax and works correctly with MySQL prepared statements; the code's own comment explicitly states it is MySQL-dialect code, so the finding's claim of a correctness violation is unfounded."
+   },
+   {
+    "provider": "deepseek",
+    "model": "deepseek-chat",
+    "verdict": "REAL_DEFECT",
+    "quote": "            f\"DELETE FROM {table} WHERE {where_sql} LIMIT ?\",",
+    "quote_valid": true,
+    "justification": "The file's own comment states this is the MySQL dialect, but MySQL's DB-API drivers (e.g. mysqlclient/PyMySQL) use %s placeholders, not ?, so the DELETE will fail at execution."
+   }
+  ],
+  "probe": {
+   "status": "not_applicable",
+   "claim_result": null,
+   "detail": "No executable probe was specified for this finding (claim not a concrete input->crash/wrong-output claim)."
+  },
+  "final_verdict": "REAL_DEFECT",
+  "final_basis": "majority",
+  "panel_note": "gemini_substituted: Gemini returned HTTP 429 (quota) on the health probe and was not retried (hard stop). First substitute tried, z-ai/glm-5.3-flash via NVIDIA NIM, returned empty content and stalled >4 min on the first full packet, so the third vote is a second model from the other non-raiser family (DeepSeek deepseek-chat; primary DeepSeek vote uses deepseek-reasoner), per the task's substitution rule."
+ },
+ {
+  "case_id": "xc-batch-delete-guarded",
+  "finding_id": "74e6745741d2",
+  "title": "for/else raises failure after a complete, committed cleanup and discards the deleted count",
+  "category": "correctness",
+  "severity": "major",
+  "sources": [
+   "deepseek"
+  ],
+  "votes": [
+   {
+    "provider": "openai",
+    "model": "gpt-5.4",
+    "verdict": "REAL_DEFECT",
+    "quote": "        raise RuntimeError(",
+    "quote_valid": true,
+    "justification": "If every one of MAX_BATCHES iterations deletes exactly batch_size rows, the loop's else raises after all those commits, so a successful bounded cleanup is reported as failure and the deleted count is lost."
+   },
+   {
+    "provider": "nvidia",
+    "model": "nvidia/nemotron-3.5-lightning-30b-a3b (retry max-tokens 4000)",
+    "verdict": "FALSE_POSITIVE",
+    "quote": "        raise RuntimeError(",
+    "quote_valid": true,
+    "justification": "The for/else pattern correctly enforces the stated MAX_BATCHES safety boundary per the documented bounded-delete contract, and no stated behaviour is violated."
+   },
+   {
+    "provider": "openai",
+    "model": "gpt-4.1",
+    "verdict": "FALSE_POSITIVE",
+    "quote": "        raise RuntimeError(",
+    "quote_valid": true,
+    "justification": "The for/else is correctly used to detect if the loop terminated without breaking, i.e., if the batch limit was exceeded, so the error is only raised in the intended overrun case."
+   }
+  ],
+  "probe": {
+   "status": "not_applicable",
+   "claim_result": null,
+   "detail": "No executable probe was specified for this finding (claim not a concrete input->crash/wrong-output claim)."
+  },
+  "final_verdict": "FALSE_POSITIVE",
+  "final_basis": "majority",
+  "panel_note": "gemini_substituted: Gemini returned HTTP 429 (quota) on the health probe and was not retried (hard stop). First substitute tried, z-ai/glm-5.3-flash via NVIDIA NIM, returned empty content and stalled >4 min on the first full packet, so the third vote is a second model from the other non-raiser family (OpenAI gpt-4.1), per the task's substitution rule."
+ },
+ {
+  "case_id": "xc-batch-delete-guarded",
+  "finding_id": "962027a4a2e1",
+  "title": "SQL statement built by string formatting/concatenation",
+  "category": "security",
+  "severity": "major",
+  "sources": [
+   "deterministic"
+  ],
+  "votes": [
+   {
+    "provider": "openai",
+    "model": "gpt-5.4",
+    "verdict": "FALSE_POSITIVE",
+    "quote": "    *where_sql* is a trusted fragment written by the calling code",
+    "quote_valid": true,
+    "justification": "The code explicitly constrains table names via ALLOWED_TABLES and documents where_sql as trusted non-request input, so this formatting is intentional and not a violation of the stated security model."
+   },
+   {
+    "provider": "deepseek",
+    "model": "deepseek-reasoner",
+    "verdict": "FALSE_POSITIVE",
+    "quote": "            f\"SELECT COUNT(*) FROM {table} WHERE {where_sql}\",",
+    "quote_valid": true,
+    "justification": "The table is allowlisted and where_sql is explicitly documented as trusted caller code, with all values bound, so this is not a SQL injection defect."
+   },
+   {
+    "provider": "nvidia",
+    "model": "nvidia/nemotron-3.5-lightning-30b-a3b (retry max-tokens 4000)",
+    "verdict": "FALSE_POSITIVE",
+    "quote": "f\"SELECT COUNT(*) FROM {table} WHERE {where_sql}\"",
+    "quote_valid": true,
+    "justification": "The docstring explicitly states where_sql is a trusted fragment and table is whitelisted, so the interpolation is intentional and safe by design."
+   }
+  ],
+  "probe": {
+   "status": "not_applicable",
+   "claim_result": null,
+   "detail": "No executable probe was specified for this finding (claim not a concrete input->crash/wrong-output claim)."
+  },
+  "final_verdict": "FALSE_POSITIVE",
+  "final_basis": "majority",
+  "panel_note": null
+ },
+ {
+  "case_id": "xc-bigdecimal-invoice",
+  "finding_id": "01645492eb25",
+  "title": "Tax calculation accepts null or negative rates, causing crashes or invalid negative totals",
+  "category": "correctness",
+  "severity": "major",
+  "sources": [
+   "openai"
+  ],
+  "votes": [
+   {
+    "provider": "deepseek",
+    "model": "deepseek-reasoner",
+    "verdict": "HARDENING_ONLY",
+    "quote": "        BigDecimal tax = cents(subtotal.multiply(taxRate));",
+    "quote_valid": true,
+    "justification": "No comment, docstring, or context states taxRate must be non-null/non-negative, so adding validation is defensive hardening rather than a violation of stated behavior."
+   },
+   {
+    "provider": "nvidia",
+    "model": "nvidia/nemotron-3.5-lightning-30b-a3b (retry max-tokens 4000)",
+    "verdict": "HARDENING_ONLY",
+    "quote": "BigDecimal tax = cents(subtotal.multiply(taxRate));",
+    "quote_valid": true,
+    "justification": "The diff contains no stated constraints, docstrings, or security invariants for taxRate, so the code does not violate a documented behaviour."
+   },
+   {
+    "provider": "deepseek",
+    "model": "deepseek-chat",
+    "verdict": "HARDENING_ONLY",
+    "quote": "        BigDecimal tax = cents(subtotal.multiply(taxRate));",
+    "quote_valid": true,
+    "justification": "The diff states no contract requiring taxRate validation; null/negative handling is a defensive improvement, not a violation of stated behaviour."
+   }
+  ],
+  "probe": {
+   "status": "not_run",
+   "claim_result": null,
+   "detail": "No javac/JDK in this sandbox (which javac empty, /usr/lib/jvm absent); cannot compile or execute the diff's Java code, and a reimplementation does not count as an override probe per task rules."
+  },
+  "final_verdict": "HARDENING_ONLY",
+  "final_basis": "majority",
+  "panel_note": "gemini_substituted: Gemini returned HTTP 429 (quota) on the health probe and was not retried (hard stop). First substitute tried, z-ai/glm-5.3-flash via NVIDIA NIM, returned empty content and stalled >4 min on the first full packet, so the third vote is a second model from the other non-raiser family (DeepSeek deepseek-chat; primary DeepSeek vote uses deepseek-reasoner), per the task's substitution rule."
+ },
+ {
+  "case_id": "xc-bounded-response-read",
+  "finding_id": "97d5edda477f",
+  "title": "Function now crashes on any non-UTF-8 response body",
+  "category": "correctness",
+  "severity": "major",
+  "sources": [
+   "openai"
+  ],
+  "votes": [
+   {
+    "provider": "deepseek",
+    "model": "deepseek-chat (fallback from deepseek-reasoner)",
+    "verdict": "HARDENING_ONLY",
+    "quote": "    return b\"\".join(chunks).decode(\"utf-8\")",
+    "quote_valid": true,
+    "justification": "The docstring only promises to return the body as text with a size cap; it never specifies handling of non-UTF-8 bodies, so strict decode is not a violation of stated behaviour, though a robustness improvement could be suggested."
+   },
+   {
+    "provider": "nvidia",
+    "model": "nvidia/nemotron-3.5-lightning-30b-a3b (retry max-tokens 4000)",
+    "verdict": "REAL_DEFECT",
+    "quote": "return b\"\".join(chunks).decode(\"utf-8\")",
+    "quote_valid": true,
+    "justification": "The docstring states the function returns the body as text, but `decode('utf-8')` raises UnicodeDecodeError on non-UTF-8 bytes, violating the stated behavior."
+   },
+   {
+    "provider": "deepseek",
+    "model": "deepseek-chat",
+    "verdict": "HARDENING_ONLY",
+    "quote": "    return b\"\".join(chunks).decode(\"utf-8\")",
+    "quote_valid": true,
+    "justification": "The docstring only promises to return the body as text with a size cap; strict UTF-8 decoding is a reasonable default and non-UTF-8 handling is an unspecified robustness improvement, not a violation of stated behaviour."
+   }
+  ],
+  "probe": {
+   "status": "ran",
+   "claim_result": "confirmed",
+   "detail": "fetch_text raised UnicodeDecodeError on ISO-8859-1 body b'caf\\xe9...': 'utf-8' codec can't decode byte 0xe9 in position 3: invalid continuation byte. Probe executed diff code verbatim (requests stubbed)."
+  },
+  "final_verdict": "REAL_DEFECT",
+  "final_basis": "probe",
+  "panel_note": "gemini_substituted: Gemini returned HTTP 429 (quota) on the health probe and was not retried (hard stop). First substitute tried, z-ai/glm-5.3-flash via NVIDIA NIM, returned empty content and stalled >4 min on the first full packet, so the third vote is a second model from the other non-raiser family (DeepSeek deepseek-chat; primary DeepSeek vote uses deepseek-reasoner), per the task's substitution rule."
+ },
+ {
+  "case_id": "xc-circuit-breaker",
+  "finding_id": "302216bf7f6f",
+  "title": "Stale success unconditionally re-closes a circuit opened by another thread",
+  "category": "reliability",
+  "severity": "major",
+  "sources": [
+   "deepseek"
+  ],
+  "votes": [
+   {
+    "provider": "openai",
+    "model": "gpt-5.4",
+    "verdict": "REAL_DEFECT",
+    "quote": "            self._state = self.CLOSED",
+    "quote_valid": true,
+    "justification": "A successful non-probing call always forces CLOSED after running outside the lock, so another thread can open the circuit meanwhile and this stale success will incorrectly re-close it."
+   },
+   {
+    "provider": "nvidia",
+    "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+    "verdict": "invalid",
+    "quote": "",
+    "quote_valid": false,
+    "justification": ""
+   },
+   {
+    "provider": "openai",
+    "model": "gpt-4.1",
+    "verdict": "REAL_DEFECT",
+    "quote": "            self._state = self.CLOSED",
+    "quote_valid": true,
+    "justification": "A successful call always sets state to CLOSED, even if another thread has since opened the circuit, violating correct circuit breaker semantics."
+   }
+  ],
+  "probe": {
+   "status": "not_applicable",
+   "claim_result": null,
+   "detail": "No executable probe was specified for this finding (claim not a concrete input->crash/wrong-output claim)."
+  },
+  "final_verdict": "REAL_DEFECT",
+  "final_basis": "majority",
+  "panel_note": "gemini_substituted: Gemini returned HTTP 429 (quota) on the health probe and was not retried (hard stop). First substitute tried, z-ai/glm-5.3-flash via NVIDIA NIM, returned empty content and stalled >4 min on the first full packet, so the third vote is a second model from the other non-raiser family (OpenAI gpt-4.1), per the task's substitution rule."
+ },
+ {
+  "case_id": "xc-circuit-breaker",
+  "finding_id": "b8db7962a69a",
+  "title": "Successful closed-state call can incorrectly reset an already-open breaker under concurrency",
+  "category": "correctness",
+  "severity": "major",
+  "sources": [
+   "openai"
+  ],
+  "votes": [
+   {
+    "provider": "deepseek",
+    "model": "deepseek-reasoner",
+    "verdict": "REAL_DEFECT",
+    "quote": "            self._state = self.CLOSED",
+    "quote_valid": true,
+    "justification": "A successful call that began while CLOSED unconditionally resets state to CLOSED on completion, even if concurrent failures opened the breaker in the meantime."
+   },
+   {
+    "provider": "nvidia",
+    "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+    "verdict": "invalid",
+    "quote": "",
+    "quote_valid": false,
+    "justification": ""
+   },
+   {
+    "provider": "deepseek",
+    "model": "deepseek-chat",
+    "verdict": "REAL_DEFECT",
+    "quote": "            self._state = self.CLOSED",
+    "quote_valid": true,
+    "justification": "A call that started while CLOSED unconditionally sets state to CLOSED on success, so a concurrent failure that opened the breaker can be overwritten, violating the breaker's open-state invariant."
+   }
+  ],
+  "probe": {
+   "status": "not_applicable",
+   "claim_result": null,
+   "detail": "No executable probe was specified for this finding (claim not a concrete input->crash/wrong-output claim)."
+  },
+  "final_verdict": "REAL_DEFECT",
+  "final_basis": "majority",
+  "panel_note": "gemini_substituted: Gemini returned HTTP 429 (quota) on the health probe and was not retried (hard stop). First substitute tried, z-ai/glm-5.3-flash via NVIDIA NIM, returned empty content and stalled >4 min on the first full packet, so the third vote is a second model from the other non-raiser family (DeepSeek deepseek-chat; primary DeepSeek vote uses deepseek-reasoner), per the task's substitution rule."
+ },
+ {
+  "case_id": "xc-context-http-timeout",
+  "finding_id": "a84e697f2bc9",
+  "title": "Response body is silently truncated at 1 MiB and returned as success",
+  "category": "data-loss",
+  "severity": "major",
+  "sources": [
+   "deepseek"
+  ],
+  "votes": [
+   {
+    "provider": "openai",
+    "model": "gpt-5.4",
+    "verdict": "REAL_DEFECT",
+    "quote": "body, err := io.ReadAll(io.LimitReader(resp.Body, maxBody))",
+    "quote_valid": true,
+    "justification": "The function comment says it 'fetches url' and returns the body, but this line returns success with a silently truncated body when the response exceeds 1 MiB, violating that stated behavior."
+   },
+   {
+    "provider": "nvidia",
+    "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+    "verdict": "invalid",
+    "quote": "",
+    "quote_valid": false,
+    "justification": ""
+   },
+   {
+    "provider": "openai",
+    "model": "gpt-4.1",
+    "verdict": "REAL_DEFECT",
+    "quote": "body, err := io.ReadAll(io.LimitReader(resp.Body, maxBody))",
+    "quote_valid": true,
+    "justification": "If the response body exceeds 1 MiB, the function returns a truncated body as success without signaling truncation, violating the expectation that the full body is fetched unless an error is returned."
+   }
+  ],
+  "probe": {
+   "status": "not_applicable",
+   "claim_result": null,
+   "detail": "No executable probe was specified for this finding (claim not a concrete input->crash/wrong-output claim)."
+  },
+  "final_verdict": "REAL_DEFECT",
+  "final_basis": "majority",
+  "panel_note": "gemini_substituted: Gemini returned HTTP 429 (quota) on the health probe and was not retried (hard stop). First substitute tried, z-ai/glm-5.3-flash via NVIDIA NIM, returned empty content and stalled >4 min on the first full packet, so the third vote is a second model from the other non-raiser family (OpenAI gpt-4.1), per the task's substitution rule."
+ },
+ {
+  "case_id": "xc-context-http-timeout",
+  "finding_id": "ed80471a5853",
+  "title": "Responses larger than 1 MiB are silently truncated and reported as success",
+  "category": "data-loss",
+  "severity": "major",
+  "sources": [
+   "openai"
+  ],
+  "votes": [
+   {
+    "provider": "deepseek",
+    "model": "deepseek-reasoner",
+    "verdict": "REAL_DEFECT",
+    "quote": "\tbody, err := io.ReadAll(io.LimitReader(resp.Body, maxBody))",
+    "quote_valid": true,
+    "justification": "LimitReader stops at 1 MiB without checking for leftover data, so oversized responses are returned truncated with a nil error."
+   },
+   {
+    "provider": "nvidia",
+    "model": "nvidia/nemotron-3.5-lightning-30b-a3b (retry max-tokens 4000)",
+    "verdict": "invalid",
+    "quote": "",
+    "quote_valid": false,
+    "justification": ""
+   },
+   {
+    "provider": "deepseek",
+    "model": "deepseek-chat",
+    "verdict": "HARDENING_ONLY",
+    "quote": "\tbody, err := io.ReadAll(io.LimitReader(resp.Body, maxBody))",
+    "quote_valid": true,
+    "justification": "The code's stated behaviour is only to fetch with a deadline; silently truncating at maxBody is a plausible robustness concern but not a violation of any documented contract in the diff."
+   }
+  ],
+  "probe": {
+   "status": "not_applicable",
+   "claim_result": null,
+   "detail": "No executable probe was specified for this finding (claim not a concrete input->crash/wrong-output claim)."
+  },
+  "final_verdict": "NO_MAJORITY",
+  "final_basis": "no_majority",
+  "panel_note": "gemini_substituted: Gemini returned HTTP 429 (quota) on the health probe and was not retried (hard stop). First substitute tried, z-ai/glm-5.3-flash via NVIDIA NIM, returned empty content and stalled >4 min on the first full packet, so the third vote is a second model from the other non-raiser family (DeepSeek deepseek-chat; primary DeepSeek vote uses deepseek-reasoner), per the task's substitution rule."
+ },
+ {
+  "case_id": "xc-csrf-token-check",
+  "finding_id": "0c3880878082",
+  "title": "Global CSRF enforcement blocks every mutating route when session middleware is absent or ordered later",
+  "category": "security",
+  "severity": "major",
+  "sources": [
+   "openai"
+  ],
+  "votes": [
+   {
+    "provider": "deepseek",
+    "model": "deepseek-chat (fallback from deepseek-reasoner)",
+    "verdict": "HARDENING_ONLY",
+    "quote": "// Assumes session middleware runs earlier and sets req.session.",
+    "quote_valid": true,
+    "justification": "The code explicitly documents the assumption that session middleware runs earlier; the finding describes a deployment/ordering concern rather than a violation of the stated behaviour."
+   },
+   {
+    "provider": "nvidia",
+    "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+    "verdict": "invalid",
+    "quote": "",
+    "quote_valid": false,
+    "justification": ""
+   },
+   {
+    "provider": "deepseek",
+    "model": "deepseek-chat",
+    "verdict": "HARDENING_ONLY",
+    "quote": "// Assumes session middleware runs earlier and sets req.session.",
+    "quote_valid": true,
+    "justification": "The code explicitly documents the assumption that session middleware runs earlier; the finding describes a deployment/ordering concern rather than a violation of the stated behaviour."
+   }
+  ],
+  "probe": {
+   "status": "not_applicable",
+   "claim_result": null,
+   "detail": "No executable probe was specified for this finding (claim not a concrete input->crash/wrong-output claim)."
+  },
+  "final_verdict": "HARDENING_ONLY",
+  "final_basis": "majority",
+  "panel_note": "gemini_substituted: Gemini returned HTTP 429 (quota) on the health probe and was not retried (hard stop). First substitute tried, z-ai/glm-5.3-flash via NVIDIA NIM, returned empty content and stalled >4 min on the first full packet, so the third vote is a second model from the other non-raiser family (DeepSeek deepseek-chat; primary DeepSeek vote uses deepseek-reasoner), per the task's substitution rule."
+ },
+ {
+  "case_id": "xc-csrf-token-check",
+  "finding_id": "ff80aa6cb2cd",
+  "title": "csrfProtection is mounted but nothing in this module creates req.session or a csrfToken, so all mutating requests 403",
+  "category": "correctness",
+  "severity": "major",
+  "sources": [
+   "deepseek"
+  ],
+  "votes": [
+   {
+    "provider": "openai",
+    "model": "gpt-5.4",
+    "verdict": "FALSE_POSITIVE",
+    "quote": "// Assumes session middleware runs earlier and sets req.session.",
+    "quote_valid": true,
+    "justification": "The middleware explicitly relies on earlier session setup outside this module, so mounting it here does not by itself imply all mutating requests will 403 in supported configurations."
+   },
+   {
+    "provider": "nvidia",
+    "model": "nvidia/nemotron-3.5-lightning-30b-a3b (retry max-tokens 4000)",
+    "verdict": "FALSE_POSITIVE",
+    "quote": "app.use(csrfProtection);",
+    "quote_valid": true,
+    "justification": "The middleware explicitly assumes session middleware runs earlier and sets req.session, as stated in its comment."
+   },
+   {
+    "provider": "openai",
+    "model": "gpt-4.1",
+    "verdict": "REAL_DEFECT",
+    "quote": "app.use(csrfProtection);",
+    "quote_valid": true,
+    "justification": "The code assumes req.session.csrfToken exists but does not set up session middleware or token, causing all mutating requests to fail CSRF checks."
+   }
+  ],
+  "probe": {
+   "status": "not_applicable",
+   "claim_result": null,
+   "detail": "No executable probe was specified for this finding (claim not a concrete input->crash/wrong-output claim)."
+  },
+  "final_verdict": "FALSE_POSITIVE",
+  "final_basis": "majority",
+  "panel_note": "gemini_substituted: Gemini returned HTTP 429 (quota) on the health probe and was not retried (hard stop). First substitute tried, z-ai/glm-5.3-flash via NVIDIA NIM, returned empty content and stalled >4 min on the first full packet, so the third vote is a second model from the other non-raiser family (OpenAI gpt-4.1), per the task's substitution rule."
+ },
+ {
+  "case_id": "xc-deadletter-worker",
+  "finding_id": "1f6438dc11b6",
+  "title": "Dead-letter send is not idempotent-safe and can create duplicate DLQ entries on ack failure",
+  "category": "reliability",
+  "severity": "major",
+  "sources": [
+   "openai"
+  ],
+  "votes": [
+   {
+    "provider": "deepseek",
+    "model": "deepseek-chat (fallback from deepseek-reasoner)",
+    "verdict": "HARDENING_ONLY",
+    "quote": "            queue.ack(message)\n            dead_lettered += 1",
+    "quote_valid": false,
+    "justification": "The docstring only promises ack after the message is safely in the DLQ; a crash between dlq.send and queue.ack causing a duplicate DLQ entry is a plausible reliability improvement, not a violation of stated behaviour."
+   },
+   {
+    "provider": "nvidia",
+    "model": "nvidia/nemotron-3.5-lightning-30b-a3b (retry max-tokens 4000)",
+    "verdict": "HARDENING_ONLY",
+    "quote": "                    dlq.send(",
+    "quote_valid": true,
+    "justification": "The code's stated ack discipline does not guarantee idempotency or prevent duplicate DLQ entries, but also does not violate it; the issue is a plausible defence-in-depth improvement rather than a behavioural violation."
+   },
+   {
+    "provider": "deepseek",
+    "model": "deepseek-chat",
+    "verdict": "HARDENING_ONLY",
+    "quote": "            queue.ack(message)\n            dead_lettered += 1",
+    "quote_valid": false,
+    "justification": "The docstring only promises ack after the message is safely in the DLQ; a crash between dlq.send and queue.ack causing a duplicate DLQ entry is a plausible reliability improvement, not a violation of stated behaviour."
+   }
+  ],
+  "probe": {
+   "status": "not_applicable",
+   "claim_result": null,
+   "detail": "No executable probe was specified for this finding (claim not a concrete input->crash/wrong-output claim)."
+  },
+  "final_verdict": "HARDENING_ONLY",
+  "final_basis": "majority",
+  "panel_note": "gemini_substituted: Gemini returned HTTP 429 (quota) on the health probe and was not retried (hard stop). First substitute tried, z-ai/glm-5.3-flash via NVIDIA NIM, returned empty content and stalled >4 min on the first full packet, so the third vote is a second model from the other non-raiser family (DeepSeek deepseek-chat; primary DeepSeek vote uses deepseek-reasoner), per the task's substitution rule."
+ },
+ {
+  "case_id": "xc-deadletter-worker",
+  "finding_id": "4bcd9e50bcdd",
+  "title": "Retry counting relies on broker-updated delivery_count; can loop forever instead of dead-lettering",
+  "category": "correctness",
+  "severity": "major",
+  "sources": [
+   "deepseek"
+  ],
+  "votes": [
+   {
+    "provider": "openai",
+    "model": "gpt-5.4",
+    "verdict": "REAL_DEFECT",
+    "quote": "        attempts = _delivery_attempts(message) + 1",
+    "quote_valid": true,
+    "justification": "The dead-letter threshold is enforced solely from a message attribute that this worker never updates on retry, so in supported setups where the broker does not mutate `delivery_count` on redelivery, failures stay below `MAX_ATTEMPTS` forever and violate the stated 'after the message is safely in the dead-letter queue' behavior."
+   },
+   {
+    "provider": "nvidia",
+    "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+    "verdict": "invalid",
+    "quote": "",
+    "quote_valid": false,
+    "justification": ""
+   },
+   {
+    "provider": "openai",
+    "model": "gpt-4.1",
+    "verdict": "REAL_DEFECT",
+    "quote": "attempts = _delivery_attempts(message) + 1",
+    "quote_valid": true,
+    "justification": "If the broker does not increment delivery_count, attempts will always be 1 and messages will never be dead-lettered, violating the stated ack discipline."
+   }
+  ],
+  "probe": {
+   "status": "not_applicable",
+   "claim_result": null,
+   "detail": "No executable probe was specified for this finding (claim not a concrete input->crash/wrong-output claim)."
+  },
+  "final_verdict": "REAL_DEFECT",
+  "final_basis": "majority",
+  "panel_note": "gemini_substituted: Gemini returned HTTP 429 (quota) on the health probe and was not retried (hard stop). First substitute tried, z-ai/glm-5.3-flash via NVIDIA NIM, returned empty content and stalled >4 min on the first full packet, so the third vote is a second model from the other non-raiser family (OpenAI gpt-4.1), per the task's substitution rule."
+ },
+ {
+  "case_id": "xc-decimal-money",
+  "finding_id": "4825814c1e37",
+  "title": "Unit price rounded to cents before multiplying by quantity",
+  "category": "correctness",
+  "severity": "major",
+  "sources": [
+   "deepseek"
+  ],
+  "votes": [
+   {
+    "provider": "openai",
+    "model": "gpt-5.4",
+    "verdict": "HARDENING_ONLY",
+    "quote": "    return (parse_money(unit_price) * quantity).quantize(CENT, rounding=ROUND_HALF_UP)",
+    "quote_valid": true,
+    "justification": "The code intentionally defines money values via parse_money() as cent-quantized amounts, so rounding unit_price before multiplication matches the module’s stated behavior rather than violating it."
+   },
+   {
+    "provider": "nvidia",
+    "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+    "verdict": "invalid",
+    "quote": "",
+    "quote_valid": false,
+    "justification": ""
+   },
+   {
+    "provider": "openai",
+    "model": "gpt-4.1",
+    "verdict": "REAL_DEFECT",
+    "quote": "return (parse_money(unit_price) * quantity).quantize(CENT, rounding=ROUND_HALF_UP)",
+    "quote_valid": true,
+    "justification": "Rounding unit_price to cents before multiplying by quantity can cause cumulative rounding errors, violating correct monetary calculation."
+   }
+  ],
+  "probe": {
+   "status": "ran",
+   "claim_result": "confirmed",
+   "detail": "line_total('0.005', 100) = 1.00 executed from diff code verbatim; multiply-then-round gives 0.50. parse_money quantizes the unit price to 0.01 before multiplying."
+  },
+  "final_verdict": "REAL_DEFECT",
+  "final_basis": "probe",
+  "panel_note": "gemini_substituted: Gemini returned HTTP 429 (quota) on the health probe and was not retried (hard stop). First substitute tried, z-ai/glm-5.3-flash via NVIDIA NIM, returned empty content and stalled >4 min on the first full packet, so the third vote is a second model from the other non-raiser family (OpenAI gpt-4.1), per the task's substitution rule."
+ },
+ {
+  "case_id": "xc-fetch-timeout-abort",
+  "finding_id": "e62292af7bb4",
+  "title": "Caller-supplied AbortSignal is silently discarded, breaking external cancellation",
+  "category": "correctness",
+  "severity": "major",
+  "sources": [
+   "deepseek",
+   "openai"
+  ],
+  "votes": [
+   {
+    "provider": "nvidia",
+    "model": "nvidia/nemotron-3.5-lightning-30b-a3b (retry max-tokens 4000)",
+    "verdict": "REAL_DEFECT",
+    "quote": "const response = await fetch(url, { ...options, signal: controller.signal });",
+    "quote_valid": true,
+    "justification": "The code unconditionally overwrites any caller-supplied AbortSignal with controller.signal, silently discarding external cancellation without merge logic or documentation, violating the expected pass-through behaviour of the original fetchJson function."
+   },
+   {
+    "provider": "nvidia",
+    "model": "z-ai/glm-5.3-flash",
+    "verdict": "invalid",
+    "quote": "",
+    "quote_valid": false,
+    "justification": ""
+   },
+   {
+    "provider": "nvidia",
+    "model": "meta/muse-glimmer-30b",
+    "verdict": "REAL_DEFECT",
+    "quote": "    const response = await fetch(url, { ...options, signal: controller.signal });",
+    "quote_valid": true,
+    "justification": "Spreading options then overriding signal discards any caller-supplied AbortSignal, breaking external cancellation."
+   }
+  ],
+  "probe": {
+   "status": "not_applicable",
+   "claim_result": null,
+   "detail": "No executable probe was specified for this finding (claim not a concrete input->crash/wrong-output claim)."
+  },
+  "final_verdict": "REAL_DEFECT",
+  "final_basis": "majority",
+  "panel_note": "reduced_independence: dual-raised (deepseek+openai); only NVIDIA remains as a non-raiser family and Gemini is unavailable (429), so both votes come from the NVIDIA endpoint (two different models). A third NVIDIA-endpoint model (meta/muse-glimmer-30b) was added because the glm-5.3-flash vote came back invalid; all three votes for this finding come from the NVIDIA endpoint (three different models), so independence remains reduced."
+ },
+ {
+  "case_id": "xc-graceful-http-shutdown",
+  "finding_id": "fa7589b5e02e",
+  "title": "Draining flag is set and Shutdown is called with no gap, so the health flip is never observable by balancers",
+  "category": "correctness",
+  "severity": "major",
+  "sources": [
+   "deepseek"
+  ],
+  "votes": [
+   {
+    "provider": "openai",
+    "model": "gpt-5.4",
+    "verdict": "HARDENING_ONLY",
+    "quote": "\t\t// Flip health first so balancers stop sending new traffic,",
+    "quote_valid": true,
+    "justification": "The code does flip health before shutdown as stated; lacking an additional delay for external balancers to observe it may reduce effectiveness but does not violate the implemented behavior or a required invariant."
+   },
+   {
+    "provider": "nvidia",
+    "model": "nvidia/nemotron-3.5-lightning-30b-a3b (retry max-tokens 4000)",
+    "verdict": "FALSE_POSITIVE",
+    "quote": "draining.Store(true)",
+    "quote_valid": true,
+    "justification": "The health handler reads draining.Load() immediately after Store(true), so balancers observe the 503 state right away."
+   },
+   {
+    "provider": "openai",
+    "model": "gpt-4.1",
+    "verdict": "FALSE_POSITIVE",
+    "quote": "draining.Store(true)",
+    "quote_valid": true,
+    "justification": "The draining flag is set before Shutdown is called, so new health checks will see the unhealthy state before the server stops accepting connections, making the health flip observable."
+   }
+  ],
+  "probe": {
+   "status": "not_applicable",
+   "claim_result": null,
+   "detail": "No executable probe was specified for this finding (claim not a concrete input->crash/wrong-output claim)."
+  },
+  "final_verdict": "FALSE_POSITIVE",
+  "final_basis": "majority",
+  "panel_note": "gemini_substituted: Gemini returned HTTP 429 (quota) on the health probe and was not retried (hard stop). First substitute tried, z-ai/glm-5.3-flash via NVIDIA NIM, returned empty content and stalled >4 min on the first full packet, so the third vote is a second model from the other non-raiser family (OpenAI gpt-4.1), per the task's substitution rule."
+ },
+ {
+  "case_id": "xc-graceful-shutdown",
+  "finding_id": "95e4511d76af",
+  "title": "Signal handlers installed but never restored; SIGTERM ignored after shutdown",
+  "category": "reliability",
+  "severity": "major",
+  "sources": [
+   "deepseek"
+  ],
+  "votes": [
+   {
+    "provider": "openai",
+    "model": "gpt-5.4",
+    "verdict": "HARDENING_ONLY",
+    "quote": "        signal.signal(signal.SIGTERM, self.request_stop)",
+    "quote_valid": true,
+    "justification": "The diff promises correct stop/drain behavior during run(), not restoration of prior signal handlers afterward; leaving handlers installed post-return is a reliability improvement, not a stated-behavior violation."
+   },
+   {
+    "provider": "nvidia",
+    "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+    "verdict": "FALSE_POSITIVE",
+    "quote": "signal.signal(signal.SIGTERM, self.request_stop)",
+    "quote_valid": true,
+    "justification": "The code's shutdown contract explicitly drains in-flight jobs and exits; signal handlers need not be restored as the process terminates after drain, so the finding misinterprets the stated behaviour."
+   },
+   {
+    "provider": "openai",
+    "model": "gpt-4.1",
+    "verdict": "FALSE_POSITIVE",
+    "quote": "signal.signal(signal.SIGTERM, self.request_stop)",
+    "quote_valid": true,
+    "justification": "Restoring original signal handlers is not required by the stated behaviour or contract in the docstring, and the process is expected to exit after run() returns."
+   }
+  ],
+  "probe": {
+   "status": "not_applicable",
+   "claim_result": null,
+   "detail": "No executable probe was specified for this finding (claim not a concrete input->crash/wrong-output claim)."
+  },
+  "final_verdict": "FALSE_POSITIVE",
+  "final_basis": "majority",
+  "panel_note": "gemini_substituted: Gemini returned HTTP 429 (quota) on the health probe and was not retried (hard stop). First substitute tried, z-ai/glm-5.3-flash via NVIDIA NIM, returned empty content and stalled >4 min on the first full packet, so the third vote is a second model from the other non-raiser family (OpenAI gpt-4.1), per the task's substitution rule."
+ },
+ {
+  "case_id": "xc-guarded-migration",
+  "finding_id": "0621e57700e4",
+  "title": "Loop has no cursor, so every batch re-scans already-backfilled rows (quadratic work)",
+  "category": "performance",
+  "severity": "major",
+  "sources": [
+   "deepseek"
+  ],
+  "votes": [
+   {
+    "provider": "openai",
+    "model": "gpt-5.4",
+    "verdict": "HARDENING_ONLY",
+    "quote": "-- each pass either fills at least one row or affects zero rows.",
+    "quote_valid": true,
+    "justification": "The migration explicitly guarantees bounded batches and termination, not asymptotic efficiency; repeated rescans may hurt performance but do not violate the stated behavior or correctness."
+   },
+   {
+    "provider": "nvidia",
+    "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+    "verdict": "FALSE_POSITIVE",
+    "quote": "Only rows that still need a value AND have one to copy are selected, so the loop always terminates: each pass either fills at least one row or affects zero rows.",
+    "quote_valid": false,
+    "justification": "The WHERE shipping_region IS NULL clause explicitly excludes already-backfilled rows, so the finding's claim of quadratic re-scanning is incorrect; the loop terminates as documented in the diff."
+   },
+   {
+    "provider": "openai",
+    "model": "gpt-4.1",
+    "verdict": "FALSE_POSITIVE",
+    "quote": "WHERE shipping_region IS NULL\n              AND legacy_region IS NOT NULL",
+    "quote_valid": false,
+    "justification": "The WHERE clause ensures only rows still needing backfill are selected, so each batch only processes unfilled rows and does not re-scan already-backfilled ones."
+   }
+  ],
+  "probe": {
+   "status": "not_applicable",
+   "claim_result": null,
+   "detail": "No executable probe was specified for this finding (claim not a concrete input->crash/wrong-output claim)."
+  },
+  "final_verdict": "FALSE_POSITIVE",
+  "final_basis": "majority",
+  "panel_note": "gemini_substituted: Gemini returned HTTP 429 (quota) on the health probe and was not retried (hard stop). First substitute tried, z-ai/glm-5.3-flash via NVIDIA NIM, returned empty content and stalled >4 min on the first full packet, so the third vote is a second model from the other non-raiser family (OpenAI gpt-4.1), per the task's substitution rule."
+ },
+ {
+  "case_id": "xc-guarded-migration",
+  "finding_id": "d0c6b71b9028",
+  "title": "Exclusive locks from DDL held for the whole backfill, defeating the batching claim",
+  "category": "reliability",
+  "severity": "major",
+  "sources": [
+   "deepseek"
+  ],
+  "votes": [
+   {
+    "provider": "openai",
+    "model": "gpt-5.4",
+    "verdict": "REAL_DEFECT",
+    "quote": "-- Backfill in bounded batches so a large table is never locked or",
+    "quote_valid": true,
+    "justification": "The migration wraps ALTER TABLE and the batched UPDATE loop in one transaction (`BEGIN;` ... `COMMIT;`), so PostgreSQL holds the ALTER TABLE lock until commit, contradicting the comment that batching avoids long locking."
+   },
+   {
+    "provider": "nvidia",
+    "model": "nvidia/nemotron-3.5-lightning-30b-a3b (retry max-tokens 4000)",
+    "verdict": "FALSE_POSITIVE",
+    "quote": "ADD COLUMN IF NOT EXISTS shipping_region TEXT;",
+    "quote_valid": true,
+    "justification": "The DDL statement executes once as setup and does not hold an exclusive lock for the entire backfill; the batching claim concerns the subsequent DO block's UPDATE loop, which processes rows in controlled chunks of 500 and is unaffected by the DDL's brief lock acquisition."
+   },
+   {
+    "provider": "openai",
+    "model": "gpt-4.1",
+    "verdict": "REAL_DEFECT",
+    "quote": "ALTER TABLE orders\n    ADD COLUMN IF NOT EXISTS shipping_region TEXT;",
+    "quote_valid": false,
+    "justification": "ALTER TABLE acquires an exclusive lock, so the claim that batching avoids locking the table for long is violated during this statement."
+   }
+  ],
+  "probe": {
+   "status": "not_applicable",
+   "claim_result": null,
+   "detail": "No executable probe was specified for this finding (claim not a concrete input->crash/wrong-output claim)."
+  },
+  "final_verdict": "REAL_DEFECT",
+  "final_basis": "majority",
+  "panel_note": "gemini_substituted: Gemini returned HTTP 429 (quota) on the health probe and was not retried (hard stop). First substitute tried, z-ai/glm-5.3-flash via NVIDIA NIM, returned empty content and stalled >4 min on the first full packet, so the third vote is a second model from the other non-raiser family (OpenAI gpt-4.1), per the task's substitution rule."
+ },
+ {
+  "case_id": "xc-health-guard-selfcheck",
+  "finding_id": "f5867856cba4",
+  "title": "requests timeout bounds each socket op, not the probe: /healthz can hang indefinitely",
+  "category": "reliability",
+  "severity": "major",
+  "sources": [
+   "deepseek"
+  ],
+  "votes": [
+   {
+    "provider": "openai",
+    "model": "gpt-5.4",
+    "verdict": "HARDENING_ONLY",
+    "quote": "        response = http_get(url, timeout=timeout)",
+    "quote_valid": true,
+    "justification": "The code only promises success on a 2xx response 'within the timeout' for the request call it makes, and there is no stated end-to-end wall-clock bound for the whole probe; this is a plausible robustness improvement, not a demonstrated contract violation."
+   },
+   {
+    "provider": "nvidia",
+    "model": "nvidia/nemotron-3.5-lightning-30b-a3b (retry max-tokens 4000)",
+    "verdict": "FALSE_POSITIVE",
+    "quote": "        response = http_get(url, timeout=timeout)",
+    "quote_valid": true,
+    "justification": "requests respects the timeout parameter and _run_probe catches all exceptions, preventing indefinite hangs."
+   },
+   {
+    "provider": "openai",
+    "model": "gpt-4.1",
+    "verdict": "FALSE_POSITIVE",
+    "quote": "response = http_get(url, timeout=timeout)",
+    "quote_valid": true,
+    "justification": "requests timeout applies to the whole request (connect+read), so the probe will not hang indefinitely as written."
+   }
+  ],
+  "probe": {
+   "status": "not_applicable",
+   "claim_result": null,
+   "detail": "No executable probe was specified for this finding (claim not a concrete input->crash/wrong-output claim)."
+  },
+  "final_verdict": "FALSE_POSITIVE",
+  "final_basis": "majority",
+  "panel_note": "gemini_substituted: Gemini returned HTTP 429 (quota) on the health probe and was not retried (hard stop). First substitute tried, z-ai/glm-5.3-flash via NVIDIA NIM, returned empty content and stalled >4 min on the first full packet, so the third vote is a second model from the other non-raiser family (OpenAI gpt-4.1), per the task's substitution rule."
+ },
+ {
+  "case_id": "xc-idempotency-keys",
+  "finding_id": "12bef37f9dfb",
+  "title": "None sentinel conflates with a falsy stored receipt, enabling a second charge",
+  "category": "correctness",
+  "severity": "major",
+  "sources": [
+   "deepseek"
+  ],
+  "votes": [
+   {
+    "provider": "openai",
+    "model": "gpt-5.4",
+    "verdict": "FALSE_POSITIVE",
+    "quote": "    if prior is not None:",
+    "quote_valid": true,
+    "justification": "The code uses None specifically as the sentinel for 'no completed receipt'; falsy values like 0, '', or {} still satisfy 'is not None' and are returned without recharging."
+   },
+   {
+    "provider": "nvidia",
+    "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+    "verdict": "invalid",
+    "quote": "",
+    "quote_valid": false,
+    "justification": ""
+   },
+   {
+    "provider": "openai",
+    "model": "gpt-4.1",
+    "verdict": "REAL_DEFECT",
+    "quote": "    if prior is not None:",
+    "quote_valid": true,
+    "justification": "A falsy receipt (e.g., empty string or 0) would be treated as not present, causing a second charge, violating idempotency."
+   }
+  ],
+  "probe": {
+   "status": "ran",
+   "claim_result": "confirmed",
+   "detail": "gateway.charge returning None: two charge_once calls with same key caused 2 gateway charges (r1=None, r2=None); diff code executed verbatim. Stored None receipt is indistinguishable from the begin() no-prior sentinel."
+  },
+  "final_verdict": "REAL_DEFECT",
+  "final_basis": "probe",
+  "panel_note": "gemini_substituted: Gemini returned HTTP 429 (quota) on the health probe and was not retried (hard stop). First substitute tried, z-ai/glm-5.3-flash via NVIDIA NIM, returned empty content and stalled >4 min on the first full packet, so the third vote is a second model from the other non-raiser family (OpenAI gpt-4.1), per the task's substitution rule."
+ },
+ {
+  "case_id": "xc-idempotency-keys",
+  "finding_id": "f459ae664faa",
+  "title": "Reused key with a different amount/currency silently returns the old receipt",
+  "category": "correctness",
+  "severity": "major",
+  "sources": [
+   "deepseek"
+  ],
+  "votes": [
+   {
+    "provider": "openai",
+    "model": "gpt-5.4",
+    "verdict": "HARDENING_ONLY",
+    "quote": "                return self._completed[key]",
+    "quote_valid": true,
+    "justification": "The function promises exactly-once semantics per idempotency key and explicitly returns the original receipt for a completed key; it does not state that amount/currency must be validated against prior uses of the same key."
+   },
+   {
+    "provider": "nvidia",
+    "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+    "verdict": "invalid",
+    "quote": "",
+    "quote_valid": false,
+    "justification": ""
+   },
+   {
+    "provider": "openai",
+    "model": "gpt-4.1",
+    "verdict": "FALSE_POSITIVE",
+    "quote": "return self._completed[key]",
+    "quote_valid": true,
+    "justification": "The docstring explicitly states that a repeat call with a completed key returns the original receipt, regardless of amount/currency, so this is by design."
+   }
+  ],
+  "probe": {
+   "status": "not_applicable",
+   "claim_result": null,
+   "detail": "No executable probe was specified for this finding (claim not a concrete input->crash/wrong-output claim)."
+  },
+  "final_verdict": "NO_MAJORITY",
+  "final_basis": "no_majority",
+  "panel_note": "gemini_substituted: Gemini returned HTTP 429 (quota) on the health probe and was not retried (hard stop). First substitute tried, z-ai/glm-5.3-flash via NVIDIA NIM, returned empty content and stalled >4 min on the first full packet, so the third vote is a second model from the other non-raiser family (OpenAI gpt-4.1), per the task's substitution rule."
+ },
+ {
+  "case_id": "xc-intl-currency-format",
+  "finding_id": "ec77bb5d45e2",
+  "title": "Fixed /100 divisor is wrong for currencies whose minor unit is not 1/100",
+  "category": "correctness",
+  "severity": "major",
+  "sources": [
+   "deepseek"
+  ],
+  "votes": [
+   {
+    "provider": "openai",
+    "model": "gpt-5.4",
+    "verdict": "REAL_DEFECT",
+    "quote": "  return formatter.format(amountCents / 100);",
+    "quote_valid": true,
+    "justification": "The function claims to format arbitrary `currency`, but hard-coding cents/100 only matches currencies with 2 minor-unit decimals and misformats supported currencies like JPY or KWD."
+   },
+   {
+    "provider": "nvidia",
+    "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+    "verdict": "invalid",
+    "quote": "",
+    "quote_valid": false,
+    "justification": ""
+   },
+   {
+    "provider": "openai",
+    "model": "gpt-4.1",
+    "verdict": "REAL_DEFECT",
+    "quote": "  return formatter.format(amountCents / 100);",
+    "quote_valid": true,
+    "justification": "Dividing by 100 assumes all currencies have 100 minor units per major unit, which is incorrect for some currencies (e.g., JPY, KWD)."
+   }
+  ],
+  "probe": {
+   "status": "not_applicable",
+   "claim_result": null,
+   "detail": "No executable probe was specified for this finding (claim not a concrete input->crash/wrong-output claim)."
+  },
+  "final_verdict": "REAL_DEFECT",
+  "final_basis": "majority",
+  "panel_note": "gemini_substituted: Gemini returned HTTP 429 (quota) on the health probe and was not retried (hard stop). First substitute tried, z-ai/glm-5.3-flash via NVIDIA NIM, returned empty content and stalled >4 min on the first full packet, so the third vote is a second model from the other non-raiser family (OpenAI gpt-4.1), per the task's substitution rule."
+ },
+ {
+  "case_id": "xc-jdbc-prepared",
+  "finding_id": "1783c93b4f71",
+  "title": "Optional.of throws NPE when the email column is NULL",
+  "category": "correctness",
+  "severity": "major",
+  "sources": [
+   "deepseek"
+  ],
+  "votes": [
+   {
+    "provider": "openai",
+    "model": "gpt-5.4",
+    "verdict": "REAL_DEFECT",
+    "quote": "                return rs.next() ? Optional.of(rs.getString(\"email\")) : Optional.empty();",
+    "quote_valid": true,
+    "justification": "ResultSet.getString returns null for SQL NULL, and Optional.of(null) throws NullPointerException, so findEmail can fail instead of returning an absent value."
+   },
+   {
+    "provider": "nvidia",
+    "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+    "verdict": "REAL_DEFECT",
+    "quote": "return rs.next() ? Optional.of(rs.getString(\"email\")) : Optional.empty();",
+    "quote_valid": true,
+    "justification": "Optional.of(null) throws NPE when the email column is NULL, violating the Optional<String> contract."
+   },
+   {
+    "provider": "openai",
+    "model": "gpt-4.1",
+    "verdict": "REAL_DEFECT",
+    "quote": "return rs.next() ? Optional.of(rs.getString(\"email\")) : Optional.empty();",
+    "quote_valid": true,
+    "justification": "Optional.of throws NullPointerException if the email column is NULL, violating safe Optional usage."
+   }
+  ],
+  "probe": {
+   "status": "not_run",
+   "claim_result": null,
+   "detail": "No javac/JDK in this sandbox (which javac empty, /usr/lib/jvm absent); cannot compile or execute the diff's Java code, and a reimplementation does not count as an override probe per task rules."
+  },
+  "final_verdict": "REAL_DEFECT",
+  "final_basis": "majority",
+  "panel_note": "gemini_substituted: Gemini returned HTTP 429 (quota) on the health probe and was not retried (hard stop). First substitute tried, z-ai/glm-5.3-flash via NVIDIA NIM, returned empty content and stalled >4 min on the first full packet, so the third vote is a second model from the other non-raiser family (OpenAI gpt-4.1), per the task's substitution rule."
+ },
+ {
+  "case_id": "xc-password-hash-verify",
+  "finding_id": "3ab890572a65",
+  "title": "INSERT failure is ignored; lastInsertId returns a bogus id under default PDO error mode",
+  "category": "correctness",
+  "severity": "major",
+  "sources": [
+   "deepseek"
+  ],
+  "votes": [
+   {
+    "provider": "openai",
+    "model": "gpt-5.4",
+    "verdict": "REAL_DEFECT",
+    "quote": "    $stmt->execute(['email' => $email, 'hash' => $hash]);",
+    "quote_valid": true,
+    "justification": "The function unconditionally returns `(int) $pdo->lastInsertId()` after execute without checking success, so under supported default PDO error mode a failed insert can violate the implied behavior of returning the new user's id."
+   },
+   {
+    "provider": "nvidia",
+    "model": "nvidia/nemotron-3.5-lightning-30b-a3b (retry max-tokens 4000)",
+    "verdict": "REAL_DEFECT",
+    "quote": "$stmt->execute(['email' => $email, 'hash' => $hash]);",
+    "quote_valid": true,
+    "justification": "The function returns lastInsertId() without checking execute()'s return value, so a failed INSERT still yields a potentially bogus ID."
+   },
+   {
+    "provider": "openai",
+    "model": "gpt-4.1",
+    "verdict": "REAL_DEFECT",
+    "quote": "    $stmt->execute(['email' => $email, 'hash' => $hash]);",
+    "quote_valid": true,
+    "justification": "If the INSERT fails (e.g., duplicate email), execute() returns false but lastInsertId() is still called, returning a bogus id without error."
+   }
+  ],
+  "probe": {
+   "status": "not_applicable",
+   "claim_result": null,
+   "detail": "No executable probe was specified for this finding (claim not a concrete input->crash/wrong-output claim)."
+  },
+  "final_verdict": "REAL_DEFECT",
+  "final_basis": "majority",
+  "panel_note": "gemini_substituted: Gemini returned HTTP 429 (quota) on the health probe and was not retried (hard stop). First substitute tried, z-ai/glm-5.3-flash via NVIDIA NIM, returned empty content and stalled >4 min on the first full packet, so the third vote is a second model from the other non-raiser family (OpenAI gpt-4.1), per the task's substitution rule."
+ },
+ {
+  "case_id": "xc-password-hash-verify",
+  "finding_id": "754267d9b5f6",
+  "title": "Rehash UPDATE has no old-hash guard and can silently revert a concurrent password change",
+  "category": "security",
+  "severity": "major",
+  "sources": [
+   "deepseek"
+  ],
+  "votes": [
+   {
+    "provider": "openai",
+    "model": "gpt-5.4",
+    "verdict": "REAL_DEFECT",
+    "quote": "        $update->execute(['hash' => $newHash, 'id' => $user['id']]);",
+    "quote_valid": true,
+    "justification": "The unconditional rehash write updates by id only, so a concurrent password change after verification can be overwritten with a hash of the old password, violating correct password-update behavior."
+   },
+   {
+    "provider": "nvidia",
+    "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+    "verdict": "REAL_DEFECT",
+    "quote": "$update->execute(['hash' => $newHash, 'id' => $user['id']]);",
+    "quote_valid": true,
+    "justification": "The UPDATE lacks an old-hash guard in its WHERE clause, so it can silently overwrite a concurrently changed password hash, violating the security invariant that a login flow must not revert external password changes."
+   },
+   {
+    "provider": "openai",
+    "model": "gpt-4.1",
+    "verdict": "REAL_DEFECT",
+    "quote": "$update->execute(['hash' => $newHash, 'id' => $user['id']]);",
+    "quote_valid": true,
+    "justification": "The UPDATE does not check the old hash, so a concurrent password change could be overwritten, violating security invariants."
+   }
+  ],
+  "probe": {
+   "status": "not_applicable",
+   "claim_result": null,
+   "detail": "No executable probe was specified for this finding (claim not a concrete input->crash/wrong-output claim)."
+  },
+  "final_verdict": "REAL_DEFECT",
+  "final_basis": "majority",
+  "panel_note": "gemini_substituted: Gemini returned HTTP 429 (quota) on the health probe and was not retried (hard stop). First substitute tried, z-ai/glm-5.3-flash via NVIDIA NIM, returned empty content and stalled >4 min on the first full packet, so the third vote is a second model from the other non-raiser family (OpenAI gpt-4.1), per the task's substitution rule."
+ },
+ {
+  "case_id": "xc-ssrf-allowlist-fetch",
+  "finding_id": "cdf70be39663",
+  "title": "DNS validated by a separate lookup than the one requests connects with (rebinding / TOCTOU)",
+  "category": "security",
+  "severity": "major",
+  "sources": [
+   "deepseek"
+  ],
+  "votes": [
+   {
+    "provider": "openai",
+    "model": "gpt-5.4",
+    "verdict": "HARDENING_ONLY",
+    "quote": "    _reject_non_public_host(host.lower())",
+    "quote_valid": true,
+    "justification": "The code only promises to validate each redirect hop by URL/hostname and reject non-public resolutions; it does not claim DNS pinning or same-resolution enforcement between validation and connect, so this is a TOCTOU hardening gap rather than a stated-behavior violation."
+   },
+   {
+    "provider": "nvidia",
+    "model": "nvidia/nemotron-3.5-lightning-30b-a3b (retry max-tokens 4000)",
+    "verdict": "REAL_DEFECT",
+    "quote": "_reject_non_public_host(host.lower())",
+    "quote_valid": true,
+    "justification": "DNS resolution occurs separately from the requests connection, enabling a TOCTOU rebinding attack."
+   },
+   {
+    "provider": "openai",
+    "model": "gpt-4.1",
+    "verdict": "REAL_DEFECT",
+    "quote": "    _reject_non_public_host(host.lower())",
+    "quote_valid": true,
+    "justification": "The code validates DNS resolution separately from the requests.get connection, allowing a TOCTOU attack (e.g., DNS rebinding) where the resolved IP may differ between validation and actual connection."
+   }
+  ],
+  "probe": {
+   "status": "not_applicable",
+   "claim_result": null,
+   "detail": "No executable probe was specified for this finding (claim not a concrete input->crash/wrong-output claim)."
+  },
+  "final_verdict": "REAL_DEFECT",
+  "final_basis": "majority",
+  "panel_note": "gemini_substituted: Gemini returned HTTP 429 (quota) on the health probe and was not retried (hard stop). First substitute tried, z-ai/glm-5.3-flash via NVIDIA NIM, returned empty content and stalled >4 min on the first full packet, so the third vote is a second model from the other non-raiser family (OpenAI gpt-4.1), per the task's substitution rule."
+ },
+ {
+  "case_id": "xc-ssrf-allowlist-fetch",
+  "finding_id": "d4c349fafdc2",
+  "title": "DNS rebinding remains possible because validation and the actual connection use separate resolutions",
+  "category": "security",
+  "severity": "major",
+  "sources": [
+   "openai"
+  ],
+  "votes": [
+   {
+    "provider": "deepseek",
+    "model": "deepseek-chat (fallback from deepseek-reasoner)",
+    "verdict": "HARDENING_ONLY",
+    "quote": "        response = requests.get(",
+    "quote_valid": true,
+    "justification": "The code validates DNS then lets requests re-resolve, so a TOCTOU/rebinding gap exists, but the diff's stated behaviour (revalidate each redirect hop) is met; pinning the resolved IP is a defence-in-depth improvement, not a violation of stated behaviour."
+   },
+   {
+    "provider": "nvidia",
+    "model": "nvidia/nemotron-3.5-lightning-30b-a3b (retry max-tokens 4000)",
+    "verdict": "REAL_DEFECT",
+    "quote": "response = requests.get(",
+    "quote_valid": true,
+    "justification": "The code validates host resolution separately from the subsequent requests.get connection, creating a TOCTOU window where DNS rebinding can redirect the request to a non-public address after validation passes."
+   },
+   {
+    "provider": "deepseek",
+    "model": "deepseek-chat",
+    "verdict": "HARDENING_ONLY",
+    "quote": "        response = requests.get(",
+    "quote_valid": true,
+    "justification": "The finding describes a TOCTOU DNS-rebinding gap between _validate_url's getaddrinfo and requests' own resolution, but the code's stated behaviour (validate each hop before following) is satisfied; pinning the resolved IP is a defence-in-depth improvement, not a violation of documented behaviour."
+   }
+  ],
+  "probe": {
+   "status": "not_applicable",
+   "claim_result": null,
+   "detail": "No executable probe was specified for this finding (claim not a concrete input->crash/wrong-output claim)."
+  },
+  "final_verdict": "HARDENING_ONLY",
+  "final_basis": "majority",
+  "panel_note": "gemini_substituted: Gemini returned HTTP 429 (quota) on the health probe and was not retried (hard stop). First substitute tried, z-ai/glm-5.3-flash via NVIDIA NIM, returned empty content and stalled >4 min on the first full packet, so the third vote is a second model from the other non-raiser family (DeepSeek deepseek-chat; primary DeepSeek vote uses deepseek-reasoner), per the task's substitution rule."
+ },
+ {
+  "case_id": "xc-strict-json-body",
+  "finding_id": "a47ac7c70e01",
+  "title": "req.destroy() right after 413 can RST the socket and drop the response",
+  "category": "reliability",
+  "severity": "major",
+  "sources": [
+   "deepseek"
+  ],
+  "votes": [
+   {
+    "provider": "openai",
+    "model": "gpt-5.4",
+    "verdict": "REAL_DEFECT",
+    "quote": "      req.destroy();",
+    "quote_valid": true,
+    "justification": "Destroying the request immediately after writing the 413 can abort the underlying connection before the response is flushed, so clients may not reliably receive the intended error response."
+   },
+   {
+    "provider": "nvidia",
+    "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+    "verdict": "invalid",
+    "quote": "",
+    "quote_valid": false,
+    "justification": ""
+   },
+   {
+    "provider": "openai",
+    "model": "gpt-4.1",
+    "verdict": "REAL_DEFECT",
+    "quote": "      req.destroy();",
+    "quote_valid": true,
+    "justification": "Calling req.destroy() immediately after res.status(413).json() can terminate the socket before the response is sent, violating the intended behaviour of returning a 413 error."
+   }
+  ],
+  "probe": {
+   "status": "not_applicable",
+   "claim_result": null,
+   "detail": "No executable probe was specified for this finding (claim not a concrete input->crash/wrong-output claim)."
+  },
+  "final_verdict": "REAL_DEFECT",
+  "final_basis": "majority",
+  "panel_note": "gemini_substituted: Gemini returned HTTP 429 (quota) on the health probe and was not retried (hard stop). First substitute tried, z-ai/glm-5.3-flash via NVIDIA NIM, returned empty content and stalled >4 min on the first full packet, so the third vote is a second model from the other non-raiser family (OpenAI gpt-4.1), per the task's substitution rule."
+ },
+ {
+  "case_id": "xc-timeout-http-fetch",
+  "finding_id": "958682359efb",
+  "title": "Retries omit common transient SSL and connection-refused errors, so bounded retry is not actually applied on many HTTPS failures",
+  "category": "reliability",
+  "severity": "major",
+  "sources": [
+   "openai"
+  ],
+  "votes": [
+   {
+    "provider": "deepseek",
+    "model": "deepseek-reasoner",
+    "verdict": "HARDENING_ONLY",
+    "quote": "    Net::OpenTimeout, Net::ReadTimeout, Errno::ECONNRESET",
+    "quote_valid": true,
+    "justification": "The diff explicitly defines the retryable error list; adding SSL or ECONNREFUSED retries is a reliability enhancement, not a violation of the code's stated behavior."
+   },
+   {
+    "provider": "nvidia",
+    "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+    "verdict": "invalid",
+    "quote": "",
+    "quote_valid": false,
+    "justification": ""
+   },
+   {
+    "provider": "deepseek",
+    "model": "deepseek-chat",
+    "verdict": "HARDENING_ONLY",
+    "quote": "    Net::OpenTimeout, Net::ReadTimeout, Errno::ECONNRESET",
+    "quote_valid": true,
+    "justification": "The retry list is a design choice; omitting other transient errors like ECONNREFUSED or SSL errors does not violate any stated behaviour in the diff, so it is a defence-in-depth suggestion rather than a defect."
+   }
+  ],
+  "probe": {
+   "status": "not_applicable",
+   "claim_result": null,
+   "detail": "No executable probe was specified for this finding (claim not a concrete input->crash/wrong-output claim)."
+  },
+  "final_verdict": "HARDENING_ONLY",
+  "final_basis": "majority",
+  "panel_note": "gemini_substituted: Gemini returned HTTP 429 (quota) on the health probe and was not retried (hard stop). First substitute tried, z-ai/glm-5.3-flash via NVIDIA NIM, returned empty content and stalled >4 min on the first full packet, so the third vote is a second model from the other non-raiser family (DeepSeek deepseek-chat; primary DeepSeek vote uses deepseek-reasoner), per the task's substitution rule."
+ },
+ {
+  "case_id": "xc-tz-aware-scheduling",
+  "finding_id": "498b7807446e",
+  "title": "Nonexistent local times are accepted and converted to the wrong UTC instant across DST gaps",
+  "category": "correctness",
+  "severity": "major",
+  "sources": [
+   "openai"
+  ],
+  "votes": [
+   {
+    "provider": "deepseek",
+    "model": "deepseek-chat (fallback from deepseek-reasoner)",
+    "verdict": "REAL_DEFECT",
+    "quote": "    candidate = datetime.combine(local.date(), wall, tzinfo=tz)",
+    "quote_valid": true,
+    "justification": "The docstring promises the next daily run_at wall time in tz, but combining a wall time with a ZoneInfo tz silently maps nonexistent DST-gap times to a different instant, violating the stated wall-time semantics."
+   },
+   {
+    "provider": "nvidia",
+    "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+    "verdict": "invalid",
+    "quote": "",
+    "quote_valid": false,
+    "justification": ""
+   },
+   {
+    "provider": "deepseek",
+    "model": "deepseek-chat",
+    "verdict": "REAL_DEFECT",
+    "quote": "    candidate = datetime.combine(local.date(), wall, tzinfo=tz)",
+    "quote_valid": true,
+    "justification": "The docstring promises the next daily run_at wall time in tz, but combining a wall time with a ZoneInfo tz silently maps nonexistent DST-gap times to a different instant, violating the stated wall-time behavior."
+   }
+  ],
+  "probe": {
+   "status": "ran",
+   "claim_result": "confirmed",
+   "detail": "next_daily_run(after=2026-03-07 12:00 EST, run_at=02:30, America/New_York) = 2026-03-08T07:30:00+00:00 = 2026-03-08T03:30:00-04:00 wall in NY, no error raised, executed from diff code verbatim; requested 02:30 does not exist on 2026-03-08 (spring-forward gap) and the returned instant's NY wall time is 03:30 EDT, not 02:30."
+  },
+  "final_verdict": "REAL_DEFECT",
+  "final_basis": "probe",
+  "panel_note": "gemini_substituted: Gemini returned HTTP 429 (quota) on the health probe and was not retried (hard stop). First substitute tried, z-ai/glm-5.3-flash via NVIDIA NIM, returned empty content and stalled >4 min on the first full packet, so the third vote is a second model from the other non-raiser family (DeepSeek deepseek-chat; primary DeepSeek vote uses deepseek-reasoner), per the task's substitution rule."
+ },
+ {
+  "case_id": "xc-tz-aware-scheduling",
+  "finding_id": "d2826f58c92e",
+  "title": "Fall-back hour: candidate (fold=0) compared by wall clock can yield an instant earlier than `after`",
+  "category": "correctness",
+  "severity": "major",
+  "sources": [
+   "deepseek"
+  ],
+  "votes": [
+   {
+    "provider": "openai",
+    "model": "gpt-5.4",
+    "verdict": "REAL_DEFECT",
+    "quote": "    if candidate <= local:",
+    "quote_valid": true,
+    "justification": "On DST fall-back days an ambiguous local run_at defaults to fold=0, so when after is in the second occurrence (fold=1) candidate/local wall-time comparison can select an instant that is actually before after, violating 'Next daily run'."
+   },
+   {
+    "provider": "nvidia",
+    "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+    "verdict": "invalid",
+    "quote": "",
+    "quote_valid": false,
+    "justification": ""
+   },
+   {
+    "provider": "openai",
+    "model": "gpt-4.1",
+    "verdict": "REAL_DEFECT",
+    "quote": "if candidate <= local:",
+    "quote_valid": true,
+    "justification": "Comparing candidate and local by wall time can allow candidate to be before 'after' during DST fall-back, violating the stated behaviour of returning the next run after 'after'."
+   }
+  ],
+  "probe": {
+   "status": "ran",
+   "claim_result": "confirmed",
+   "detail": "next_daily_run(after=2026-11-01 01:15 EST fold=1 [06:15Z], run_at=01:30, America/New_York) = 2026-11-01T05:30:00+00:00 executed from diff code verbatim; result is EARLIER than after (returns a past instant)."
+  },
+  "final_verdict": "REAL_DEFECT",
+  "final_basis": "probe",
+  "panel_note": "gemini_substituted: Gemini returned HTTP 429 (quota) on the health probe and was not retried (hard stop). First substitute tried, z-ai/glm-5.3-flash via NVIDIA NIM, returned empty content and stalled >4 min on the first full packet, so the third vote is a second model from the other non-raiser family (OpenAI gpt-4.1), per the task's substitution rule."
+ }
+]
