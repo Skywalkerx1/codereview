@@ -89,7 +89,7 @@ codereview pr --repo OWNER/REPO --number 123                 # read-only review
 codereview pr --pr https://github.com/OWNER/REPO/pull/123 --post
 ```
 
-Fetches the PR's metadata + unified diff from the GitHub API and reviews it in place. Read-only works without a token on public repos. `--post` (needs `GITHUB_TOKEN` with repo access) posts the report as a PR review comment — COMMENT by default; `--request-changes` escalates a blocked gate to REQUEST_CHANGES; the bot never auto-approves — and sets a `codereview` commit status on the PR head (success / failure / pending). Re-run with `--verify-previous report.json` after a push to run the verification round against the new diff.
+Fetches the PR's metadata + unified diff from the GitHub API and reviews it in place. Read-only works without a token on public repos. `--post` (needs `GITHUB_TOKEN` with repo access) posts the report as a PR review comment — COMMENT by default; `--request-changes` escalates a blocked gate to REQUEST_CHANGES; the bot never auto-approves — and sets a `codereview` commit status on the PR head (success / failure / pending — `pending` is the inconclusive gate: the review reached no verdict, and the status description says so explicitly rather than leaving a silent wait). Re-run with `--verify-previous report.json` after a push to run the verification round against the new diff.
 
 ## The loop driver — the full workflow in one command
 
@@ -384,6 +384,7 @@ Every surface — CLI, MCP server (`run_gate` / `get_verdict`), GitHub adapter, 
 A v1 record carries, alongside the historical fields (the `schema: "codereview.report/1"` tag is unchanged; `schema_version: "1.0.0"` rides next to it):
 
 - **Verdict, in both spellings:** `gate` (legacy lowercase: `pass` / `blocked` / `inconclusive`) and `verdict` (uppercase: `PASS` / `BLOCKED` / `INCONCLUSIVE`) — they must agree. **Exit/status semantics are stable:** CLI exit code **0 = PASS, 1 = BLOCKED, 2 = INCONCLUSIVE** (2 is also the code for a run that could not produce a record at all); the MCP `run_gate` payload returns the same verdict plus `exit_code`, and `get_verdict` reads the same record back.
+- **MCP server threading limit:** `codereview mcp serve` handles one request at a time — a `run_gate` call runs to completion before the next frame is read, so a `notifications/cancelled` sent mid-run cannot interrupt it; the notification is read only after the run finishes. Long runs should be sized with the client's own timeout in mind.
 - **What PASS means — and does not.** The record's `verdict_semantics` section states it in the record itself: a PASS means *no actionable issue was found under the checks that ran*. It is **not a correctness guarantee**.
 - **Checks that did not run are visible:** `checks` lists every check in exactly one of `run` / `not_run` / `unavailable` (attempted, but produced no result — e.g. every reviewer seat errored). A PASS over a partial check set reads as one.
 - **Findings with evidence:** each finding carries its severity, category, file/line, evidence quote, and (when stamped) its `evidence_class` — E0 deterministic, E2 probe-confirmed, E1 corroborated, E3 single-source. Absent means unstamped, never silently E0.
@@ -436,6 +437,8 @@ require_tests_pass = true
 require_reason = true            # a waiver must say why
 max_age_days = 30                # ... and it expires
 ```
+
+**Lifecycle hooks.** A `[hooks]` table may declare shell commands (`pre_run`, `post_verdict`, `on_blocked`) that fire around a run. Every hook receives the event name and the record path in the `CODEREVIEW_HOOK_EVENT` / `CODEREVIEW_HOOK_RECORD` environment variables. The values are also the positional parameters `$1` / `$2` *of the hook command string itself*: a command written as a shell string — `"/path/hook.sh \"$1\" \"$2\""` — forwards them to the script, while a bare script path (`"/path/hook.sh"`) is run with no arguments and must read the environment variables instead. Hooks run sandboxed, are recorded in the record's `hooks` section, and can never change the verdict.
 
 Every key is optional; omitted keys take the defaults (no requirement). An invalid file stops the run with a line-referenced error — a broken policy is never silently ignored. Check a file and see the effective policy with defaults filled in:
 

@@ -150,9 +150,15 @@ def main(argv=None, environ=None):
     if error is not None:
         print(error, file=sys.stderr)
         return 2
-    if not os.path.isdir(repo):
+    if not os.path.exists(repo):
         print(f"codereview: workspace directory does not "
               f"exist: {repo}", file=sys.stderr)
+        return 2
+    if not os.path.isdir(repo):
+        # P5-14: a path that exists but is a file got the
+        # "does not exist" wording; name the actual problem.
+        print(f"codereview: workspace path is not a "
+              f"directory: {repo}", file=sys.stderr)
         return 2
 
     passthrough = list(args.extra)

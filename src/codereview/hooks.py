@@ -15,9 +15,14 @@ that fire at three points in a review run's lifecycle:
                 configures it.
 
 A hook receives the event name and — for the two post-record
-events — the run record's path, three ways at once: the
-CODEREVIEW_HOOK_EVENT / CODEREVIEW_HOOK_RECORD environment
-variables and the command's positional arguments $1 / $2.
+events — the run record's path, in the CODEREVIEW_HOOK_EVENT
+/ CODEREVIEW_HOOK_RECORD environment variables, and as the
+positional parameters $1 / $2 OF THE COMMAND STRING: the
+command runs under `sh -c` with those values as its $1 / $2,
+so a shell-string command (`hook.sh "$1" "$2"`) forwards them
+to the script, while a bare script path receives no arguments
+and must read the environment variables (P5-10, pinned by
+tests/test_phase5_fixes.py).
 
 Execution is the Epic C evidence sandbox, reused whole: a hook
 runs as a single-command `evidence.collect` config, so it gets

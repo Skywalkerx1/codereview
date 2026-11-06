@@ -4,6 +4,7 @@ names the behaviour the Phase 5 report found missing on the
 0.12.1 drop and that master must now hold."""
 
 import io
+import subprocess
 import json
 import os
 import sys
@@ -376,6 +377,138 @@ class TestP507OutCheckedUpFront(unittest.TestCase):
         self.assertEqual(calls, [])  # zero provider calls
         self.assertNotIn("Traceback", err.getvalue())
         self.assertIn("--out", err.getvalue())
+
+
+class TestP510HookPositionalArgs(unittest.TestCase):
+    """P5-10 (docs + pin): $1/$2 are the hook COMMAND STRING's
+    positional parameters. A bare script path receives no
+    arguments (it reads the CODEREVIEW_HOOK_* env vars); a
+    shell string that forwards "$1" "$2" delivers them."""
+
+    def _run_with_hook(self, command):
+        tmp = tempfile.mkdtemp()
+        repo = os.path.join(tmp, "repo")
+        os.makedirs(repo)
+
+        def git(*a):
+            subprocess.run(["git", *a], cwd=repo, check=True,
+                           capture_output=True)
+
+        git("init", "-q")
+        git("config", "user.email", "a@b")
+        git("config", "user.name", "t")
+        with open(os.path.join(repo, "app.py"), "w") as fh:
+            fh.write("import os\n")
+        git("add", ".")
+        git("commit", "-qm", "i")
+        with open(os.path.join(repo, "app.py"), "w") as fh:
+            fh.write("import os\nx = os.getcwd()\n")
+        hook = os.path.join(tmp, "hook.sh")
+        with open(hook, "w") as fh:
+            fh.write('#!/bin/sh\necho "A1=[$1] A2=[$2] '
+                     'EV=$CODEREVIEW_HOOK_EVENT"\n')
+        os.chmod(hook, 0o755)
+        pol = os.path.join(tmp, "pol.toml")
+        with open(pol, "w") as fh:
+            fh.write('[hooks]\npost_verdict = %s\n'
+                     % json.dumps(command.replace("HOOK", hook)))
+        out = os.path.join(tmp, "out")
+        with mock.patch("sys.stderr", io.StringIO()), \
+                mock.patch("sys.stdout", io.StringIO()):
+            rc = _cli.main(
+                ["--repo", repo, "--policy", pol, "--out", out],
+                providers_override={"a": _ok_reviewer,
+                                    "b": _ok_reviewer})
+        self.assertEqual(rc, 0)
+        records = [f for f in os.listdir(out) if f.endswith(".json")]
+        record = json.load(open(os.path.join(out, records[0])))
+        results = (record.get("hooks") or {}).get("results") or []
+        self.assertEqual(len(results), 1)
+        return results[0].get("output_tail") or ""
+
+    def test_bare_path_gets_no_positional_args(self):
+        tail = self._run_with_hook("HOOK")
+        self.assertIn("A1=[] A2=[]", tail)
+        self.assertIn("EV=post-verdict", tail)  # env vars arrive
+
+    def test_shell_string_forwards_positional_args(self):
+        tail = self._run_with_hook('HOOK "$1" "$2"')
+        self.assertIn("A1=[post-verdict]", tail)
+        self.assertIn("A2=[", tail)
+
+
+class TestP514LauncherWording(unittest.TestCase):
+    def test_file_path_says_not_a_directory(self):
+        sys.path.insert(0, os.path.join(
+            os.path.dirname(__file__), "..",
+            "herdr-plugin-codereview"))
+        import codereview_launch as launch
+
+        tmp = tempfile.mkdtemp()
+        f = os.path.join(tmp, "afile")
+        open(f, "w").close()
+        err = io.StringIO()
+        env = {"PATH": os.path.dirname(sys.executable),
+               "HOME": tmp}
+        # A `codereview` must exist on PATH for the launcher to
+        # get past its first check; point PATH at the interpreter
+        # dir plus a shim.
+        shim = os.path.join(tmp, "bin")
+        os.makedirs(shim)
+        shimfile = os.path.join(shim, "codereview")
+        open(shimfile, "w").write("#!/bin/sh\nexit 0\n")
+        os.chmod(shimfile, 0o755)
+        env["PATH"] = shim
+        with mock.patch("sys.stderr", err):
+            rc = launch.main(["--repo", f], environ=env)
+        self.assertEqual(rc, 2)
+        self.assertIn("is not a directory", err.getvalue())
+        self.assertNotIn("does not exist", err.getvalue())
+
+    def test_missing_path_says_does_not_exist(self):
+        sys.path.insert(0, os.path.join(
+            os.path.dirname(__file__), "..",
+            "herdr-plugin-codereview"))
+        import codereview_launch as launch
+
+        tmp = tempfile.mkdtemp()
+        shim = os.path.join(tmp, "bin")
+        os.makedirs(shim)
+        shimfile = os.path.join(shim, "codereview")
+        open(shimfile, "w").write("#!/bin/sh\nexit 0\n")
+        os.chmod(shimfile, 0o755)
+        err = io.StringIO()
+        with mock.patch("sys.stderr", err):
+            rc = launch.main(
+                ["--repo", os.path.join(tmp, "nope")],
+                environ={"PATH": shim, "HOME": tmp})
+        self.assertEqual(rc, 2)
+        self.assertIn("does not exist", err.getvalue())
+
+
+class TestP509HelpExitCodes(unittest.TestCase):
+    """P5-09 was already fixed on master (82efd38, D-004/D-005:
+    --help exits 0 for policy/bench/mcp); this pins every
+    subcommand's help at exit 0 against regression."""
+
+    SUBS = ("setup", "evidence", "acceptance", "doctor",
+            "record-verify", "policy", "sarif", "disputes",
+            "locate", "bench", "pr", "workflow", "intake",
+            "loop", "mcp")
+
+    def test_every_subcommand_help_exits_0(self):
+        src = os.path.join(os.path.dirname(__file__), "..", "src")
+        env = dict(os.environ, PYTHONPATH=os.path.abspath(src),
+                   HOME=tempfile.mkdtemp())
+        for sub in (None,) + self.SUBS:
+            argv = [sys.executable, "-m", "codereview"]
+            if sub:
+                argv.append(sub)
+            argv.append("--help")
+            p = subprocess.run(argv, env=env, capture_output=True,
+                               text=True, timeout=60)
+            self.assertEqual(p.returncode, 0,
+                             f"{sub or 'main'} --help: {p.stderr[:120]}")
 
 
 if __name__ == "__main__":
