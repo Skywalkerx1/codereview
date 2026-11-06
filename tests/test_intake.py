@@ -145,7 +145,7 @@ class SolverProviderTests(unittest.TestCase):
         calls = []
         real = providers._post_json
 
-        def fake_post(url, headers, payload):
+        def fake_post(url, headers, payload, timeout=None):
             calls.append((url, payload))
             if "generativelanguage" in url:
                 return {"candidates": [{"content": {"parts": [
