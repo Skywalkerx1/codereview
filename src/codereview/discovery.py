@@ -217,6 +217,19 @@ def _probe_version(path):
     ]
     for reader in readers:
         reader.start()
+    return _supervise_probe_run(proc, readers, out_sink,
+                                 err_sink)
+
+
+def _supervise_probe_run(proc, readers, out_sink, err_sink):
+    """The probe's supervised wait — the pairing the
+    subprocess-timeout guard accepts by name, as it does the
+    evidence sandbox's: every wait is deadline-bounded
+    (wait(timeout=...), bounded joins) and expiry kills the
+    child. It is a stronger bound than communicate(timeout=
+    ...), not a weaker one: communicate buffers the child's
+    output without bound, this wait drains it under the
+    P3-07 cap."""
     try:
         proc.wait(timeout=PROBE_TIMEOUT)
     except subprocess.TimeoutExpired:

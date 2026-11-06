@@ -224,6 +224,16 @@ class GateTools:
         if args.get("patch") and args.get("range"):
             raise ToolError(
                 "run_gate: give either patch or range, not both")
+        # P3-09: same repo validation as the CLI — an
+        # explicitly given repo must be an existing directory;
+        # "" must not silently become the server's CWD and a
+        # nonexistent path must not silently skip the project
+        # context in patch mode.
+        if "repo" in args and (not args["repo"]
+                               or not os.path.isdir(args["repo"])):
+            raise ToolError(
+                f"run_gate: repo {args['repo']!r} is not an "
+                f"existing directory")
         repo = args.get("repo") or "."
         out = args.get("out") or os.path.join(
             repo, "codereview-out")

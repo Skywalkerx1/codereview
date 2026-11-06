@@ -2070,6 +2070,22 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
               "of seconds", file=sys.stderr)
         return 2
 
+    # P3-09: an explicitly given --repo must be a real
+    # directory. "" used to collapse to "." via `or`, and a
+    # nonexistent path was accepted in BOTH modes — in patch
+    # mode the run then silently skipped all project context
+    # (policy, AGENTS.md, evidence) and still passed.
+    if args.repo is not None:
+        if args.repo == "":
+            print("codereview: --repo must not be empty "
+                  "(omit it to review the current directory)",
+                  file=sys.stderr)
+            return 2
+        if not os.path.isdir(args.repo):
+            print(f"codereview: --repo {args.repo!r} is not "
+                  f"an existing directory", file=sys.stderr)
+            return 2
+
     def _maybe_file(text):
         if text.startswith("@"):
             with open(os.path.expanduser(text[1:]), encoding="utf-8",

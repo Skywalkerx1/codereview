@@ -640,5 +640,60 @@ class HerdrMalformedOutputTests(unittest.TestCase):
         self.assertIsNotNone(plan["host"])
 
 
+class MissingRepoValidationTests(unittest.TestCase):
+    """P3-09 (test_missing_repo_is_an_error): no existence
+    check existed anywhere — a nonexistent --repo was
+    accepted in patch mode too, silently skipping policy /
+    AGENTS.md / evidence context, and repo="" became the
+    CWD."""
+
+    def _patch_file(self, tmp):
+        patch = os.path.join(tmp, "change.diff")
+        with open(patch, "w", encoding="utf-8") as fh:
+            fh.write(SIMPLE_PATCH)
+        return patch
+
+    def test_cli_nonexistent_repo_patch_mode(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            missing = os.path.join(tmp, "no-such-dir")
+            rc, _out, err = run_cli(
+                ["--patch", self._patch_file(tmp),
+                 "--repo", missing,
+                 "--out", os.path.join(tmp, "out")],
+                providers_override={"a": pass_provider})
+            self.assertEqual(rc, 2)
+            self.assertIn(missing, err)
+
+    def test_cli_nonexistent_repo_git_mode(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            missing = os.path.join(tmp, "no-such-dir")
+            rc, _out, err = run_cli(
+                ["--repo", missing,
+                 "--out", os.path.join(tmp, "out")],
+                providers_override={"a": pass_provider})
+            self.assertEqual(rc, 2)
+            self.assertIn(missing, err)
+
+    def test_cli_empty_repo_is_an_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            rc, _out, err = run_cli(
+                ["--patch", self._patch_file(tmp),
+                 "--repo", "",
+                 "--out", os.path.join(tmp, "out")],
+                providers_override={"a": pass_provider})
+            self.assertEqual(rc, 2)
+            self.assertIn("--repo", err)
+
+    def test_mcp_nonexistent_repo_is_tool_error(self):
+        from codereview import mcp_tools
+        tools = mcp_tools.GateTools(
+            providers_override={"a": pass_provider})
+        with self.assertRaises(mcp_tools.ToolError):
+            tools.run_gate({"repo": "/nonexistent/zzz",
+                            "patch": SIMPLE_PATCH})
+        with self.assertRaises(mcp_tools.ToolError):
+            tools.run_gate({"repo": "", "patch": SIMPLE_PATCH})
+
+
 if __name__ == "__main__":
     unittest.main()

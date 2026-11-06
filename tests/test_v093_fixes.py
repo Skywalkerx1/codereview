@@ -340,7 +340,11 @@ class FixturePartitionTests(unittest.TestCase):
 # kill — providers' seat wait (Epic K2) and the evidence
 # sandbox's wait (Epic C5). See the guard class docstring.
 _SUPERVISED_WAITS = ("_run_seat_process",
-                     "_supervise_sandbox_run")
+                     "_supervise_sandbox_run",
+                     # P3-07: the discovery probe's supervised
+                     # wait — same contract (deadline-bounded
+                     # waits, kill on expiry, capped drain).
+                     "_supervise_probe_run")
 
 
 class SubprocessTimeoutGuardTests(unittest.TestCase):
