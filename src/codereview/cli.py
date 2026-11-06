@@ -752,6 +752,14 @@ def _pr_main(argv, providers_override=None):
         print(f"codereview pr: {exc}", file=sys.stderr)
         return 2
 
+    if args.post and not os.environ.get("GITHUB_TOKEN", "").strip():
+        # P5-02: fail fast — before providers are built, tests
+        # run, or any review call is spent. (review_pr re-checks
+        # at the library boundary.)
+        print("codereview pr: --post needs GITHUB_TOKEN with "
+              "repo access", file=sys.stderr)
+        return 2
+
     builder_response = args.builder_response
     if builder_response.startswith("@"):
         with open(os.path.expanduser(builder_response[1:]),
@@ -805,6 +813,14 @@ def _pr_main(argv, providers_override=None):
         print(f"  posted: {a}")
     print(f"  report: {mpath}")
     print(f"  data:   {jpath}")
+    posting = report.get("posting") or {}
+    if posting.get("error"):
+        # P5-03: the report above is written and names what was
+        # already posted; the exit code still reflects the
+        # posting failure.
+        print(f"codereview pr: posting failed: {posting['error']}",
+              file=sys.stderr)
+        return 2
     return {"pass": 0, "blocked": 1, "inconclusive": 2}.get(
         report["gate"], 2)
 

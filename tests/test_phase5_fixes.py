@@ -73,5 +73,150 @@ class TestP501Sarif(unittest.TestCase):
         self.assertEqual(one, two)
 
 
+from codereview import cli as _cli  # noqa: E402
+from codereview.github import (GitHubError, render_pr_comment,  # noqa: E402
+                               review_pr)
+
+DIFF = ("diff --git a/app.py b/app.py\n"
+        "--- a/app.py\n+++ b/app.py\n"
+        "@@ -1,1 +1,2 @@\n x = 1\n+run_all_the_things()\n")
+
+
+class StubClient:
+    """Object-level GitHubClient stand-in for review_pr."""
+
+    def __init__(self, token="tok", fail_status=False,
+                 fail_review=False):
+        self.token = token
+        self.fail_status = fail_status
+        self.fail_review = fail_review
+        self.statuses = []
+        self.reviews = []
+
+    def get_pr(self, owner, repo, number):
+        return {"title": "T", "body": "", "user": {"login": "dev"},
+                "head": {"sha": "abc123"}}
+
+    def get_pr_diff(self, owner, repo, number):
+        return DIFF
+
+    def post_review(self, owner, repo, number, body, event="COMMENT"):
+        if self.fail_review:
+            raise GitHubError("GitHub API POST reviews: HTTP 403")
+        self.reviews.append((body, event))
+        return {}
+
+    def set_status(self, owner, repo, sha, state, description,
+                   target_url=None):
+        if self.fail_status:
+            raise GitHubError("GitHub API POST statuses: HTTP 500")
+        self.statuses.append((state, description))
+        return {}
+
+
+def _ok_reviewer(prompt):
+    return json.dumps({"findings": [], "summary": "s", "usage": {}})
+
+
+class TestP502PostTokenFailFast(unittest.TestCase):
+    def test_review_pr_refuses_before_any_review_call(self):
+        calls = []
+
+        def counting(prompt):
+            calls.append(1)
+            return _ok_reviewer(prompt)
+
+        client = StubClient(token="")
+        with self.assertRaises(GitHubError):
+            review_pr(client, "o", "r", 7, {"fake": counting},
+                      post=True)
+        self.assertEqual(calls, [])  # zero provider calls
+
+    def test_cli_post_without_token_exits_2_no_calls(self):
+        calls = []
+
+        def counting(prompt):
+            calls.append(1)
+            return _ok_reviewer(prompt)
+
+        env = {k: v for k, v in os.environ.items()
+               if k != "GITHUB_TOKEN"}
+        with mock.patch.dict(os.environ, env, clear=True), \
+                mock.patch("sys.stderr", io.StringIO()):
+            rc = _cli._pr_main(
+                ["--pr", "https://github.com/o/r/pull/7", "--post"],
+                providers_override={"fake": counting})
+        self.assertEqual(rc, 2)
+        self.assertEqual(calls, [])
+
+
+class TestP503PostFailureKeepsReport(unittest.TestCase):
+    def test_status_500_records_posting_and_returns_report(self):
+        client = StubClient(fail_status=True)
+        report, actions = review_pr(
+            client, "o", "r", 7, {"fake": _ok_reviewer}, post=True)
+        self.assertEqual(report["gate"], "pass")
+        self.assertEqual(actions,
+                         ["review comment posted (event=COMMENT)"])
+        self.assertEqual(report["posting"]["posted"], actions)
+        self.assertIn("500", report["posting"]["error"])
+
+    def test_review_post_failure_records_empty_posted(self):
+        client = StubClient(fail_review=True)
+        report, actions = review_pr(
+            client, "o", "r", 7, {"fake": _ok_reviewer}, post=True)
+        self.assertEqual(actions, [])
+        self.assertEqual(report["posting"]["posted"], [])
+        self.assertIn("403", report["posting"]["error"])
+
+    def test_successful_post_records_no_posting_block(self):
+        client = StubClient()
+        report, actions = review_pr(
+            client, "o", "r", 7, {"fake": _ok_reviewer}, post=True)
+        self.assertEqual(len(actions), 2)
+        self.assertNotIn("posting", report)
+
+
+class TestP504CommentNeutralisation(unittest.TestCase):
+    def test_hostile_finding_text_is_inert(self):
+        report = {
+            "gate": "blocked",
+            "gate_reasons": ["see @everyone-team and "
+                             "<img src=http://evil.example/x>"],
+            "findings": [{
+                "severity": "major", "file": "a.py",
+                "title": "@octocat @org/security-team please look "
+                         "![beacon](http://evil.example/p.png) "
+                         "[click](javascript:alert(1)) </details>",
+                "sources": ["@reviewer"]}],
+            "version": "0", "patch_sha256": "x" * 12}
+        body = render_pr_comment(report, "o", "r", 7)
+        self.assertNotIn("@octocat", body)
+        self.assertNotIn("@everyone-team", body)
+        self.assertNotIn("![beacon](http", body)
+        self.assertNotIn("](javascript:", body)
+        self.assertNotIn("<img", body)
+        self.assertNotIn("</details>", body)
+        # Structural markdown survives.
+        self.assertIn("## ", body)
+        self.assertIn("| Severity | File | Finding | Reviewer(s) |",
+                      body)
+
+
+class TestP511InconclusiveStatus(unittest.TestCase):
+    def test_inconclusive_pending_with_explicit_description(self):
+        def dead(prompt):
+            raise RuntimeError("seat down")
+
+        client = StubClient()
+        report, _actions = review_pr(
+            client, "o", "r", 7, {"fake": dead}, post=True)
+        self.assertEqual(report["gate"], "inconclusive")
+        self.assertEqual(len(client.statuses), 1)
+        state, desc = client.statuses[0]
+        self.assertEqual(state, "pending")
+        self.assertIn("inconclusive", desc)
+
+
 if __name__ == "__main__":
     unittest.main()

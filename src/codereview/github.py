@@ -114,6 +114,23 @@ _GATE_STATUS = {"pass": "success", "blocked": "failure",
                 "inconclusive": "pending"}
 
 
+def _neutralise(text):
+    """Make model- or diff-derived text inert in a rendered PR
+    comment (P5-04): a zero-width space after `@` breaks mention
+    parsing, `![` and `](` are split so no image or link
+    construct forms, and raw HTML is escaped. Applied at the
+    rendering boundary to untrusted text only — the comment's
+    own structural markdown is built separately and never
+    passes through here."""
+    out = str(text or "")
+    out = out.replace("&", "&amp;").replace("<", "&lt;") \
+             .replace(">", "&gt;")
+    out = out.replace("@", "@\u200b")
+    out = out.replace("![", "!\u200b[")
+    out = out.replace("](", "]\u200b(")
+    return out
+
+
 def render_pr_comment(report, owner, repo, number):
     """The PR-visible summary of a report (Markdown)."""
     gate = report["gate"].upper()
@@ -121,17 +138,19 @@ def render_pr_comment(report, owner, repo, number):
             "INCONCLUSIVE": "⚠️"}.get(gate, "")
     lines = [f"## {icon} CodeReview gate: **{gate}**",
              "",
-             "; ".join(report.get("gate_reasons") or []), ""]
+             _neutralise("; ".join(
+                 report.get("gate_reasons") or [])), ""]
     def cell(text):
-        return (str(text or "").replace("|", "/")
-                .replace("\r", " ").replace("\n", " "))
+        return _neutralise(
+            str(text or "").replace("|", "/")
+            .replace("\r", " ").replace("\n", " "))
 
     findings = [f for f in report.get("findings") or []]
     if findings:
         lines.append("| Severity | File | Finding | Reviewer(s) |")
         lines.append("|---|---|---|---|")
         for f in findings:
-            who = ", ".join(f.get("sources") or [])
+            who = _neutralise(", ".join(f.get("sources") or []))
             lines.append(f"| {f['severity']} | {cell(f.get('file'))} "
                          f"| {cell(f.get('title'))} | {who} |")
         lines.append("")
@@ -155,7 +174,16 @@ def review_pr(client, owner, repo, number, reviewer_providers,
     """Fetch a PR, review (or verify) its diff, optionally post.
 
     Returns (report, actions) where actions records what was posted.
+    A posting failure does NOT raise (P5-03): the completed review
+    must survive it, so the failure is recorded on the report as
+    report["posting"] = {"posted": [...], "error": "..."} and the
+    caller decides the exit code after writing the report. Fetch
+    and review failures still raise GitHubError as before.
     """
+    if post and not client.token:
+        # P5-02: refuse before any fetch or review spend — the
+        # token check used to sit after the review had run.
+        raise GitHubError("--post needs GITHUB_TOKEN")
     pr = client.get_pr(owner, repo, number)
     diff = client.get_pr_diff(owner, repo, number)
     if not diff.strip():
@@ -179,18 +207,30 @@ def review_pr(client, owner, repo, number, reviewer_providers,
                     "head_sha": head_sha, "title": pr.get("title") or ""}
     actions = []
     if post:
-        if not client.token:
-            raise GitHubError("--post needs GITHUB_TOKEN")
         event = "COMMENT"
         if request_changes and report["gate"] == "blocked":
             event = "REQUEST_CHANGES"
         body = render_pr_comment(report, owner, repo, number)
-        client.post_review(owner, repo, number, body, event=event)
-        actions.append(f"review comment posted (event={event})")
-        if head_sha:
-            state = _GATE_STATUS.get(report["gate"], "pending")
-            desc = ("; ".join(report.get("gate_reasons") or [])
-                    or report["gate"])
-            client.set_status(owner, repo, head_sha, state, desc)
-            actions.append(f"commit status set: codereview={state}")
+        try:
+            client.post_review(owner, repo, number, body,
+                               event=event)
+            actions.append(f"review comment posted (event={event})")
+            if head_sha:
+                state = _GATE_STATUS.get(report["gate"], "pending")
+                desc = ("; ".join(report.get("gate_reasons") or [])
+                        or report["gate"])
+                if report["gate"] == "inconclusive":
+                    # P5-11: `pending` is the documented state for
+                    # an inconclusive gate, and the description
+                    # must say so explicitly — branch protection
+                    # waits on pending, so the human has to be
+                    # able to see WHY it is pending.
+                    desc = ("gate inconclusive — the review did "
+                            f"not reach a verdict: {desc}")
+                client.set_status(owner, repo, head_sha, state, desc)
+                actions.append(
+                    f"commit status set: codereview={state}")
+        except GitHubError as exc:
+            report["posting"] = {"posted": list(actions),
+                                 "error": str(exc)}
     return report, actions
