@@ -1,0 +1,615 @@
+=== registered generation attempt 1 started 2026-11-05T20:30:14+00:00 ===
+master: a808008
+config: panel-baseline-2026-11-04 sha=3a2395618f00d63a81c194bdb2739483caafdbf1b85b4178adb1ed95348a2ec4
+panel (registered order): ['openai', 'nvidia', 'deepseek']
+seat_lenses (explicit): {'openai': ['correctness'], 'nvidia': ['operations'], 'deepseek': ['correctness']}
+fallbacks (pre-declared): {'correctness': 'openai'}
+{
+ "preflight": {
+  "gemini": {
+   "model": "gemini-3.8-flash",
+   "ok": false,
+   "error": "ProviderError: gemini quota: HTTP 429",
+   "latency_s": 0.6
+  },
+  "nvidia": {
+   "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+   "ok": true,
+   "sample": "{\"ok\": true}",
+   "latency_s": 0.8
+  },
+  "openai": {
+   "model": "gpt-5.4",
+   "configured": true,
+   "ok": false,
+   "error": "ProviderError: openai quota: HTTP 429",
+   "latency_s": 0.9
+  },
+  "deepseek": {
+   "model": "deepseek-flash",
+   "configured": true,
+   "ok": true,
+   "sample": "{\"ok\": true}",
+   "latency_s": 1.6
+  }
+ }
+}
+note: ['openai'] dead at preflight — they stay IN the panel (S1); their cases record unscored-infra and complete on a later resume.
+cases: 9 holdout + 35 expanded-clean = 44
+[holdout] auth-admin-or-true: complete=False gate=inconclusive shadow=$0.0012
+[holdout] clean-auth-check-added: complete=False gate=pass shadow=$0.0048
+[holdout] clean-input-validation: complete=False gate=inconclusive shadow=$0.0040
+[holdout] drop-table-migration: complete=False gate=blocked shadow=$0.0022
+[holdout] payment-refund-partial: complete=False gate=inconclusive shadow=$0.0011
+[holdout] race-check-then-act: complete=False gate=inconclusive shadow=$0.0090
+[holdout] secret-aws-key: complete=False gate=blocked shadow=$0.0016
+[holdout] sql-injection-concat: complete=False gate=blocked shadow=$0.0019
+[holdout] xss-innerhtml: complete=False gate=inconclusive shadow=$0.0008
+[expanded-clean] xc-atomic-state-writer: complete=False gate=pass shadow=$0.0059
+[expanded-clean] xc-batch-delete-guarded: complete=False gate=blocked shadow=$0.0059
+[expanded-clean] xc-bigdecimal-invoice: complete=False gate=pass shadow=$0.0048
+[expanded-clean] xc-bounded-response-read: complete=False gate=pass shadow=$0.0070
+[expanded-clean] xc-circuit-breaker: complete=False gate=blocked shadow=$0.0077
+[expanded-clean] xc-constant-time-compare: complete=False gate=inconclusive shadow=$0.0033
+[expanded-clean] xc-context-http-timeout: complete=False gate=inconclusive shadow=$0.0066
+[expanded-clean] xc-csrf-token-check: complete=False gate=inconclusive shadow=$0.0034
+[expanded-clean] xc-deadletter-worker: complete=False gate=inconclusive shadow=$0.0099
+[expanded-clean] xc-debounce-search: complete=False gate=pass shadow=$0.0062
+[expanded-clean] xc-decimal-money: complete=False gate=inconclusive shadow=$0.0066
+[expanded-clean] xc-double-checked-cache: complete=False gate=pass shadow=$0.0035
+[expanded-clean] xc-errgroup-drain: complete=False gate=pass shadow=$0.0031
+[expanded-clean] xc-escaped-rendering: complete=False gate=pass shadow=$0.0030
+[expanded-clean] xc-fetch-timeout-abort: complete=False gate=inconclusive shadow=$0.0037
+[expanded-clean] xc-graceful-http-shutdown: complete=False gate=inconclusive shadow=$0.0071
+[expanded-clean] xc-graceful-shutdown: complete=False gate=inconclusive shadow=$0.0019
+[expanded-clean] xc-guarded-migration: complete=False gate=blocked shadow=$0.0075
+[expanded-clean] xc-health-guard-selfcheck: complete=False gate=inconclusive shadow=$0.0104
+[expanded-clean] xc-idempotency-keys: complete=False gate=inconclusive shadow=$0.0068
+[expanded-clean] xc-intl-currency-format: complete=False gate=inconclusive shadow=$0.0041
+[expanded-clean] xc-jdbc-prepared: complete=False gate=inconclusive shadow=$0.0021
+[expanded-clean] xc-locked-counter: complete=False gate=pass shadow=$0.0029
+[expanded-clean] xc-mutex-guarded-map: complete=False gate=pass shadow=$0.0051
+[expanded-clean] xc-pagination-bounds: complete=False gate=pass shadow=$0.0060
+[expanded-clean] xc-password-hash-verify: complete=False gate=inconclusive shadow=$0.0084
+[expanded-clean] xc-pdo-prepared: complete=False gate=pass shadow=$0.0064
+[expanded-clean] xc-redacted-logging: complete=False gate=blocked shadow=$0.0092
+[expanded-clean] xc-retry-backoff-jitter: complete=False gate=pass shadow=$0.0071
+[expanded-clean] xc-safe-yaml-config: complete=False gate=pass shadow=$0.0062
+[expanded-clean] xc-ssrf-allowlist-fetch: complete=False gate=inconclusive shadow=$0.0091
+[expanded-clean] xc-strict-json-body: complete=False gate=inconclusive shadow=$0.0090
+[expanded-clean] xc-timeout-http-fetch: complete=False gate=inconclusive shadow=$0.0077
+[expanded-clean] xc-token-bucket-limiter: complete=False gate=pass shadow=$0.0035
+[expanded-clean] xc-tz-aware-scheduling: complete=False gate=inconclusive shadow=$0.0058
+{
+ "complete": [],
+ "incomplete": {
+  "auth-admin-or-true": [
+   "openai"
+  ],
+  "clean-auth-check-added": [
+   "openai"
+  ],
+  "clean-input-validation": [
+   "openai"
+  ],
+  "drop-table-migration": [
+   "openai"
+  ],
+  "payment-refund-partial": [
+   "openai"
+  ],
+  "race-check-then-act": [
+   "openai"
+  ],
+  "secret-aws-key": [
+   "openai"
+  ],
+  "sql-injection-concat": [
+   "openai"
+  ],
+  "xss-innerhtml": [
+   "openai"
+  ],
+  "xc-atomic-state-writer": [
+   "openai"
+  ],
+  "xc-batch-delete-guarded": [
+   "openai"
+  ],
+  "xc-bigdecimal-invoice": [
+   "openai"
+  ],
+  "xc-bounded-response-read": [
+   "openai"
+  ],
+  "xc-circuit-breaker": [
+   "openai"
+  ],
+  "xc-constant-time-compare": [
+   "openai"
+  ],
+  "xc-context-http-timeout": [
+   "openai"
+  ],
+  "xc-csrf-token-check": [
+   "openai"
+  ],
+  "xc-deadletter-worker": [
+   "openai"
+  ],
+  "xc-debounce-search": [
+   "openai"
+  ],
+  "xc-decimal-money": [
+   "openai"
+  ],
+  "xc-double-checked-cache": [
+   "openai"
+  ],
+  "xc-errgroup-drain": [
+   "openai"
+  ],
+  "xc-escaped-rendering": [
+   "openai"
+  ],
+  "xc-fetch-timeout-abort": [
+   "openai"
+  ],
+  "xc-graceful-http-shutdown": [
+   "openai"
+  ],
+  "xc-graceful-shutdown": [
+   "openai"
+  ],
+  "xc-guarded-migration": [
+   "openai"
+  ],
+  "xc-health-guard-selfcheck": [
+   "openai"
+  ],
+  "xc-idempotency-keys": [
+   "openai"
+  ],
+  "xc-intl-currency-format": [
+   "openai"
+  ],
+  "xc-jdbc-prepared": [
+   "openai"
+  ],
+  "xc-locked-counter": [
+   "openai"
+  ],
+  "xc-mutex-guarded-map": [
+   "openai"
+  ],
+  "xc-pagination-bounds": [
+   "openai"
+  ],
+  "xc-password-hash-verify": [
+   "openai"
+  ],
+  "xc-pdo-prepared": [
+   "openai"
+  ],
+  "xc-redacted-logging": [
+   "nvidia",
+   "openai"
+  ],
+  "xc-retry-backoff-jitter": [
+   "openai"
+  ],
+  "xc-safe-yaml-config": [
+   "openai"
+  ],
+  "xc-ssrf-allowlist-fetch": [
+   "openai"
+  ],
+  "xc-strict-json-body": [
+   "openai"
+  ],
+  "xc-timeout-http-fetch": [
+   "openai"
+  ],
+  "xc-token-bucket-limiter": [
+   "openai"
+  ],
+  "xc-tz-aware-scheduling": [
+   "openai"
+  ]
+ },
+ "shadow_cost_usd": 0.233184,
+ "tokens_in": 162450,
+ "tokens_out": 220177,
+ "generation_records": "/home/hatch/workspace/codereview/bench/generation-v2/generation-attempt-1.jsonl",
+ "attempt_records": "/home/hatch/workspace/codereview/bench/generation-v2/attempt-1.jsonl",
+ "manifest": "/home/hatch/workspace/codereview/bench/generation-v2/generation-manifest-attempt-1.json"
+}
+LAUNCHER_EXIT=4
+=== resume 1 2026-11-05T21:03:52+00:00 ===
+config: panel-baseline-2026-11-04 sha=3a2395618f00d63a81c194bdb2739483caafdbf1b85b4178adb1ed95348a2ec4
+panel (registered order): ['openai', 'nvidia', 'deepseek']
+seat_lenses (explicit): {'openai': ['correctness'], 'nvidia': ['operations'], 'deepseek': ['correctness']}
+fallbacks (pre-declared): {'correctness': 'openai'}
+{
+ "preflight": {
+  "gemini": {
+   "model": "gemini-3.8-flash",
+   "ok": false,
+   "error": "ProviderError: gemini quota: HTTP 429",
+   "latency_s": 0.8
+  },
+  "nvidia": {
+   "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+   "ok": true,
+   "sample": "{\"ok\": true}",
+   "latency_s": 1.0
+  },
+  "openai": {
+   "model": "gpt-5.4",
+   "configured": true,
+   "ok": false,
+   "error": "ProviderError: openai quota: HTTP 429",
+   "latency_s": 1.6
+  },
+  "deepseek": {
+   "model": "deepseek-flash",
+   "configured": true,
+   "ok": true,
+   "sample": "{\"ok\": true}",
+   "latency_s": 1.6
+  }
+ }
+}
+note: ['openai'] dead at preflight — they stay IN the panel (S1); their cases record unscored-infra and complete on a later resume.
+cases: 9 holdout + 35 expanded-clean = 44
+[holdout] auth-admin-or-true: complete=False gate=inconclusive shadow=$0.0000
+[holdout] clean-auth-check-added: complete=False gate=pass shadow=$0.0000
+[holdout] clean-input-validation: complete=False gate=inconclusive shadow=$0.0000
+[holdout] drop-table-migration: complete=False gate=blocked shadow=$0.0000
+[holdout] payment-refund-partial: complete=False gate=inconclusive shadow=$0.0000
+[holdout] race-check-then-act: complete=False gate=inconclusive shadow=$0.0000
+[holdout] secret-aws-key: complete=False gate=blocked shadow=$0.0000
+[holdout] sql-injection-concat: complete=False gate=blocked shadow=$0.0000
+[holdout] xss-innerhtml: complete=False gate=inconclusive shadow=$0.0000
+[expanded-clean] xc-atomic-state-writer: complete=False gate=pass shadow=$0.0000
+[expanded-clean] xc-batch-delete-guarded: complete=False gate=blocked shadow=$0.0000
+[expanded-clean] xc-bigdecimal-invoice: complete=False gate=pass shadow=$0.0039
+[expanded-clean] xc-bounded-response-read: complete=False gate=pass shadow=$0.0000
+[expanded-clean] xc-circuit-breaker: complete=False gate=blocked shadow=$0.0000
+[expanded-clean] xc-constant-time-compare: complete=False gate=pass shadow=$0.0041
+[expanded-clean] xc-context-http-timeout: complete=False gate=inconclusive shadow=$0.0000
+[expanded-clean] xc-csrf-token-check: complete=False gate=inconclusive shadow=$0.0073
+[expanded-clean] xc-deadletter-worker: complete=False gate=inconclusive shadow=$0.0000
+[expanded-clean] xc-debounce-search: complete=False gate=pass shadow=$0.0076
+[expanded-clean] xc-decimal-money: complete=False gate=inconclusive shadow=$0.0000
+[expanded-clean] xc-double-checked-cache: complete=False gate=pass shadow=$0.0000
+[expanded-clean] xc-errgroup-drain: complete=False gate=pass shadow=$0.0000
+[expanded-clean] xc-escaped-rendering: complete=False gate=pass shadow=$0.0000
+[expanded-clean] xc-fetch-timeout-abort: complete=False gate=inconclusive shadow=$0.0000
+[expanded-clean] xc-graceful-http-shutdown: complete=False gate=inconclusive shadow=$0.0000
+[expanded-clean] xc-graceful-shutdown: complete=False gate=inconclusive shadow=$0.0080
+[expanded-clean] xc-guarded-migration: complete=False gate=blocked shadow=$0.0000
+[expanded-clean] xc-health-guard-selfcheck: complete=False gate=inconclusive shadow=$0.0000
+[expanded-clean] xc-idempotency-keys: complete=False gate=inconclusive shadow=$0.0000
+[expanded-clean] xc-intl-currency-format: complete=False gate=inconclusive shadow=$0.0000
+[expanded-clean] xc-jdbc-prepared: complete=False gate=inconclusive shadow=$0.0000
+[expanded-clean] xc-locked-counter: complete=False gate=pass shadow=$0.0000
+[expanded-clean] xc-mutex-guarded-map: complete=False gate=pass shadow=$0.0043
+[expanded-clean] xc-pagination-bounds: complete=False gate=pass shadow=$0.0000
+[expanded-clean] xc-password-hash-verify: complete=False gate=inconclusive shadow=$0.0000
+[expanded-clean] xc-pdo-prepared: complete=False gate=pass shadow=$0.0000
+[expanded-clean] xc-redacted-logging: complete=False gate=blocked shadow=$0.0000
+[expanded-clean] xc-retry-backoff-jitter: complete=False gate=pass shadow=$0.0000
+[expanded-clean] xc-safe-yaml-config: complete=False gate=pass shadow=$0.0000
+[expanded-clean] xc-ssrf-allowlist-fetch: complete=False gate=inconclusive shadow=$0.0000
+[expanded-clean] xc-strict-json-body: complete=False gate=inconclusive shadow=$0.0000
+[expanded-clean] xc-timeout-http-fetch: complete=False gate=inconclusive shadow=$0.0000
+[expanded-clean] xc-token-bucket-limiter: complete=False gate=pass shadow=$0.0071
+[expanded-clean] xc-tz-aware-scheduling: complete=False gate=inconclusive shadow=$0.0084
+{
+ "complete": [],
+ "incomplete": {
+  "auth-admin-or-true": [
+   "openai"
+  ],
+  "clean-auth-check-added": [
+   "openai"
+  ],
+  "clean-input-validation": [
+   "openai"
+  ],
+  "drop-table-migration": [
+   "openai"
+  ],
+  "payment-refund-partial": [
+   "openai"
+  ],
+  "race-check-then-act": [
+   "openai"
+  ],
+  "secret-aws-key": [
+   "openai"
+  ],
+  "sql-injection-concat": [
+   "openai"
+  ],
+  "xss-innerhtml": [
+   "openai"
+  ],
+  "xc-atomic-state-writer": [
+   "openai"
+  ],
+  "xc-batch-delete-guarded": [
+   "openai"
+  ],
+  "xc-bigdecimal-invoice": [
+   "openai"
+  ],
+  "xc-bounded-response-read": [
+   "openai"
+  ],
+  "xc-circuit-breaker": [
+   "openai"
+  ],
+  "xc-constant-time-compare": [
+   "openai"
+  ],
+  "xc-context-http-timeout": [
+   "openai"
+  ],
+  "xc-csrf-token-check": [
+   "openai"
+  ],
+  "xc-deadletter-worker": [
+   "openai"
+  ],
+  "xc-debounce-search": [
+   "openai"
+  ],
+  "xc-decimal-money": [
+   "openai"
+  ],
+  "xc-double-checked-cache": [
+   "openai"
+  ],
+  "xc-errgroup-drain": [
+   "openai"
+  ],
+  "xc-escaped-rendering": [
+   "openai"
+  ],
+  "xc-fetch-timeout-abort": [
+   "openai"
+  ],
+  "xc-graceful-http-shutdown": [
+   "openai"
+  ],
+  "xc-graceful-shutdown": [
+   "openai"
+  ],
+  "xc-guarded-migration": [
+   "openai"
+  ],
+  "xc-health-guard-selfcheck": [
+   "openai"
+  ],
+  "xc-idempotency-keys": [
+   "openai"
+  ],
+  "xc-intl-currency-format": [
+   "openai"
+  ],
+  "xc-jdbc-prepared": [
+   "openai"
+  ],
+  "xc-locked-counter": [
+   "openai"
+  ],
+  "xc-mutex-guarded-map": [
+   "openai"
+  ],
+  "xc-pagination-bounds": [
+   "openai"
+  ],
+  "xc-password-hash-verify": [
+   "openai"
+  ],
+  "xc-pdo-prepared": [
+   "openai"
+  ],
+  "xc-redacted-logging": [
+   "nvidia",
+   "openai"
+  ],
+  "xc-retry-backoff-jitter": [
+   "openai"
+  ],
+  "xc-safe-yaml-config": [
+   "openai"
+  ],
+  "xc-ssrf-allowlist-fetch": [
+   "openai"
+  ],
+  "xc-strict-json-body": [
+   "openai"
+  ],
+  "xc-timeout-http-fetch": [
+   "openai"
+  ],
+  "xc-token-bucket-limiter": [
+   "openai"
+  ],
+  "xc-tz-aware-scheduling": [
+   "openai"
+  ]
+ },
+ "shadow_cost_usd": 0.050556,
+ "tokens_in": 14637,
+ "tokens_out": 44784,
+ "generation_records": "/home/hatch/workspace/codereview/bench/generation-v2/generation-attempt-1.jsonl",
+ "attempt_records": "/home/hatch/workspace/codereview/bench/generation-v2/attempt-1.jsonl",
+ "manifest": "/home/hatch/workspace/codereview/bench/generation-v2/generation-manifest-attempt-1.json"
+}
+LAUNCHER_EXIT=4
+
+=== STATUS 2026-11-05T23:27Z — PAUSED on owner-side OpenAI billing ===
+Diagnostic (one raw call via the custom.openai connector, 23:26Z):
+  HTTP 429, error.type=insufficient_quota,
+  code=credit_balance_exhausted,
+  message: "You have no credits remaining. Add credits to continue
+  using the API at https://platform.openai.com/settings/organization/billing/."
+This is NOT a rate limit: it does not reset with time. Probes at
+21:40Z, 22:33Z, 23:25Z all showed openai 429 (gemini 429 as well;
+nvidia + deepseek healthy throughout).
+Run state: attempt 1, resumable; 87/132 seat-jobs valid
+(deepseek 44/44, nvidia 43/44 + 1 content_failed on
+xc-redacted-logging, openai 0/44). Unscored tally NOT final —
+the run is neither complete nor void. On credit restoration:
+  HOME=/home/hatch CODEREVIEW_REGISTERED_RUN=1 python3 \
+    bench/generation-v2/run_registered_confirmation.py run
+then score with bench/generation-v2/score_registered.py
+(synthetic-fixture validated 2026-11-05) + the frozen
+score_confirmation_v2.py it wraps.
+Notes for the results doc: (1) machinery retry backoff is 1s-base/
+30s-cap inside the 600s job budget, not the addendum's nominal
+20s-base schedule (binding caps hold: 5 attempts, 600s/job,
+1800s/case); (2) fallback naming per run: correctness->openai
+(the machinery names one fallback seat per lens; operations has
+none, per Addendum A item 5).
+config: panel-baseline-2026-11-04 sha=3a2395618f00d63a81c194bdb2739483caafdbf1b85b4178adb1ed95348a2ec4
+panel (registered order): ['openai', 'nvidia', 'deepseek']
+seat_lenses (explicit): {'openai': ['correctness'], 'nvidia': ['operations'], 'deepseek': ['correctness']}
+fallbacks (pre-declared): {'correctness': 'openai'}
+{
+ "preflight": {
+  "gemini": {
+   "model": "gemini-3.8-flash",
+   "ok": false,
+   "error": "ProviderError: gemini quota: HTTP 429",
+   "latency_s": 0.6
+  },
+  "nvidia": {
+   "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+   "ok": true,
+   "sample": "{\"ok\": true}",
+   "latency_s": 0.7
+  },
+  "openai": {
+   "model": "gpt-5.4",
+   "configured": true,
+   "ok": true,
+   "sample": "{\"ok\": true}",
+   "latency_s": 2.5
+  },
+  "deepseek": {
+   "model": "deepseek-flash",
+   "configured": true,
+   "ok": true,
+   "sample": "{\"ok\": true}",
+   "latency_s": 1.4
+  }
+ }
+}
+cases: 9 holdout + 35 expanded-clean = 44
+[holdout] auth-admin-or-true: complete=True gate=blocked shadow=$0.0049
+[holdout] clean-auth-check-added: complete=True gate=pass shadow=$0.0015
+[holdout] clean-input-validation: complete=True gate=blocked shadow=$0.0028
+[holdout] drop-table-migration: complete=True gate=blocked shadow=$0.0095
+[holdout] payment-refund-partial: complete=True gate=blocked shadow=$0.0052
+[holdout] race-check-then-act: complete=True gate=blocked shadow=$0.0088
+[holdout] secret-aws-key: complete=True gate=blocked shadow=$0.0039
+[holdout] sql-injection-concat: complete=True gate=blocked shadow=$0.0062
+[holdout] xss-innerhtml: complete=True gate=blocked shadow=$0.0041
+[expanded-clean] xc-atomic-state-writer: complete=True gate=blocked shadow=$0.0121
+[expanded-clean] xc-batch-delete-guarded: complete=True gate=blocked shadow=$0.0119
+[expanded-clean] xc-bigdecimal-invoice: complete=True gate=blocked shadow=$0.0086
+[expanded-clean] xc-bounded-response-read: complete=True gate=blocked shadow=$0.0061
+[expanded-clean] xc-circuit-breaker: complete=True gate=blocked shadow=$0.0066
+[expanded-clean] xc-constant-time-compare: complete=True gate=pass shadow=$0.0026
+[expanded-clean] xc-context-http-timeout: complete=True gate=blocked shadow=$0.0088
+[expanded-clean] xc-csrf-token-check: complete=True gate=blocked shadow=$0.0085
+[expanded-clean] xc-deadletter-worker: complete=True gate=blocked shadow=$0.0132
+[expanded-clean] xc-debounce-search: complete=True gate=pass shadow=$0.0055
+[expanded-clean] xc-decimal-money: complete=True gate=blocked shadow=$0.0030
+[expanded-clean] xc-double-checked-cache: complete=True gate=pass shadow=$0.0032
+[expanded-clean] xc-errgroup-drain: complete=True gate=pass shadow=$0.0017
+[expanded-clean] xc-escaped-rendering: complete=True gate=pass shadow=$0.0018
+[expanded-clean] xc-fetch-timeout-abort: complete=True gate=blocked shadow=$0.0047
+[expanded-clean] xc-graceful-http-shutdown: complete=True gate=blocked shadow=$0.0081
+[expanded-clean] xc-graceful-shutdown: complete=True gate=blocked shadow=$0.0130
+[expanded-clean] xc-guarded-migration: complete=True gate=blocked shadow=$0.0119
+[expanded-clean] xc-health-guard-selfcheck: complete=True gate=blocked shadow=$0.0104
+[expanded-clean] xc-idempotency-keys: complete=True gate=blocked shadow=$0.0129
+[expanded-clean] xc-intl-currency-format: complete=True gate=blocked shadow=$0.0032
+[expanded-clean] xc-jdbc-prepared: complete=True gate=blocked shadow=$0.0031
+[expanded-clean] xc-locked-counter: complete=True gate=pass shadow=$0.0027
+[expanded-clean] xc-mutex-guarded-map: complete=True gate=pass shadow=$0.0022
+[expanded-clean] xc-pagination-bounds: complete=True gate=pass shadow=$0.0080
+[expanded-clean] xc-password-hash-verify: complete=True gate=blocked shadow=$0.0061
+[expanded-clean] xc-pdo-prepared: complete=True gate=pass shadow=$0.0016
+[expanded-clean] xc-redacted-logging: complete=False gate=blocked shadow=$0.0128
+[expanded-clean] xc-retry-backoff-jitter: complete=True gate=pass shadow=$0.0075
+[expanded-clean] xc-safe-yaml-config: complete=True gate=pass shadow=$0.0022
+[expanded-clean] xc-ssrf-allowlist-fetch: complete=True gate=blocked shadow=$0.0081
+[expanded-clean] xc-strict-json-body: complete=True gate=blocked shadow=$0.0078
+[expanded-clean] xc-timeout-http-fetch: complete=True gate=blocked shadow=$0.0085
+[expanded-clean] xc-token-bucket-limiter: complete=True gate=pass shadow=$0.0113
+[expanded-clean] xc-tz-aware-scheduling: complete=True gate=blocked shadow=$0.0077
+{
+ "complete": [
+  "auth-admin-or-true",
+  "clean-auth-check-added",
+  "clean-input-validation",
+  "drop-table-migration",
+  "payment-refund-partial",
+  "race-check-then-act",
+  "secret-aws-key",
+  "sql-injection-concat",
+  "xss-innerhtml",
+  "xc-atomic-state-writer",
+  "xc-batch-delete-guarded",
+  "xc-bigdecimal-invoice",
+  "xc-bounded-response-read",
+  "xc-circuit-breaker",
+  "xc-constant-time-compare",
+  "xc-context-http-timeout",
+  "xc-csrf-token-check",
+  "xc-deadletter-worker",
+  "xc-debounce-search",
+  "xc-decimal-money",
+  "xc-double-checked-cache",
+  "xc-errgroup-drain",
+  "xc-escaped-rendering",
+  "xc-fetch-timeout-abort",
+  "xc-graceful-http-shutdown",
+  "xc-graceful-shutdown",
+  "xc-guarded-migration",
+  "xc-health-guard-selfcheck",
+  "xc-idempotency-keys",
+  "xc-intl-currency-format",
+  "xc-jdbc-prepared",
+  "xc-locked-counter",
+  "xc-mutex-guarded-map",
+  "xc-pagination-bounds",
+  "xc-password-hash-verify",
+  "xc-pdo-prepared",
+  "xc-retry-backoff-jitter",
+  "xc-safe-yaml-config",
+  "xc-ssrf-allowlist-fetch",
+  "xc-strict-json-body",
+  "xc-timeout-http-fetch",
+  "xc-token-bucket-limiter",
+  "xc-tz-aware-scheduling"
+ ],
+ "incomplete": {
+  "xc-redacted-logging": [
+   "nvidia"
+  ]
+ },
+ "shadow_cost_usd": 0.29411000000000004,
+ "tokens_in": 156490,
+ "tokens_out": 63706,
+ "generation_records": "/home/hatch/workspace/codereview/bench/generation-v2/generation-attempt-1.jsonl",
+ "attempt_records": "/home/hatch/workspace/codereview/bench/generation-v2/attempt-1.jsonl",
+ "manifest": "/home/hatch/workspace/codereview/bench/generation-v2/generation-manifest-attempt-1.json"
+}

@@ -1,0 +1,54 @@
+{
+ "attempt": 1,
+ "preflight": {
+  "gemini": {
+   "model": "gemini-3.8-flash",
+   "ok": false,
+   "error": "ProviderError: gemini quota: HTTP 429",
+   "latency_s": 0.6
+  },
+  "nvidia": {
+   "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+   "ok": true,
+   "sample": "{\"ok\": true}",
+   "latency_s": 0.7
+  },
+  "openai": {
+   "model": "gpt-5.4",
+   "configured": true,
+   "ok": true,
+   "sample": "{\"ok\": true}",
+   "latency_s": 2.5
+  },
+  "deepseek": {
+   "model": "deepseek-flash",
+   "configured": true,
+   "ok": true,
+   "sample": "{\"ok\": true}",
+   "latency_s": 1.4
+  }
+ },
+ "gemini_seated": false,
+ "gemini_exclusion": "not in the v1 panel; comparability governs (registration \u00a71)",
+ "panel": [
+  "openai",
+  "nvidia",
+  "deepseek"
+ ],
+ "seat_lenses": {
+  "openai": [
+   "correctness"
+  ],
+  "nvidia": [
+   "operations"
+  ],
+  "deepseek": [
+   "correctness"
+  ]
+ },
+ "fallbacks": {
+  "correctness": "openai"
+ },
+ "config": "panel-baseline-2026-11-04",
+ "config_sha256": "3a2395618f00d63a81c194bdb2739483caafdbf1b85b4178adb1ed95348a2ec4"
+}

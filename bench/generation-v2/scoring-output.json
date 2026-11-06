@@ -1,0 +1,596 @@
+{
+ "records_scored": 43,
+ "unscored_cases": [
+  "xc-redacted-logging"
+ ],
+ "unscored_count": 1,
+ "unscored_within_cap_2": true,
+ "degraded_scored_cases": [],
+ "scored_only_view": {
+  "records": 43,
+  "degraded_cases": [],
+  "seat_jobs": 129,
+  "seat_jobs_ok": 129,
+  "latency_s": {
+   "p50": 18.5,
+   "p95": 57.9
+  },
+  "profile_demotions_total": 54,
+  "holdout": {
+   "cases": 9,
+   "defects_total": 7,
+   "defects_found": 7,
+   "recall": 1.0,
+   "recall_bootstrap95": [
+    1.0,
+    1.0
+   ],
+   "recall_wilson95": [
+    0.646,
+    1.0
+   ],
+   "defects_found_at_blocking": 7,
+   "blocking_recall": 1.0,
+   "merged_blocking_precision": 0.875,
+   "precision_D": 7,
+   "precision_U": 1,
+   "precision_duplicates_removed": 12,
+   "precision_bootstrap95": [
+    0.625,
+    1.0
+   ],
+   "precision_wilson95": [
+    0.529,
+    0.978
+   ],
+   "per_case": [
+    {
+     "case_id": "auth-admin-or-true",
+     "gate": "blocked",
+     "degraded": false,
+     "expected": 1,
+     "matched": 1,
+     "escaped": 0,
+     "findings": 3,
+     "false_positives_naive": 2
+    },
+    {
+     "case_id": "clean-auth-check-added",
+     "gate": "pass",
+     "degraded": false,
+     "expected": 0,
+     "matched": 0,
+     "escaped": 0,
+     "findings": 2,
+     "false_positives_naive": 2
+    },
+    {
+     "case_id": "clean-input-validation",
+     "gate": "blocked",
+     "degraded": false,
+     "expected": 0,
+     "matched": 0,
+     "escaped": 0,
+     "findings": 7,
+     "false_positives_naive": 7
+    },
+    {
+     "case_id": "drop-table-migration",
+     "gate": "blocked",
+     "degraded": false,
+     "expected": 1,
+     "matched": 1,
+     "escaped": 0,
+     "findings": 6,
+     "false_positives_naive": 5
+    },
+    {
+     "case_id": "payment-refund-partial",
+     "gate": "blocked",
+     "degraded": false,
+     "expected": 1,
+     "matched": 1,
+     "escaped": 0,
+     "findings": 4,
+     "false_positives_naive": 3
+    },
+    {
+     "case_id": "race-check-then-act",
+     "gate": "blocked",
+     "degraded": false,
+     "expected": 1,
+     "matched": 1,
+     "escaped": 0,
+     "findings": 7,
+     "false_positives_naive": 6
+    },
+    {
+     "case_id": "secret-aws-key",
+     "gate": "blocked",
+     "degraded": false,
+     "expected": 1,
+     "matched": 1,
+     "escaped": 0,
+     "findings": 2,
+     "false_positives_naive": 1
+    },
+    {
+     "case_id": "sql-injection-concat",
+     "gate": "blocked",
+     "degraded": false,
+     "expected": 1,
+     "matched": 1,
+     "escaped": 0,
+     "findings": 4,
+     "false_positives_naive": 3
+    },
+    {
+     "case_id": "xss-innerhtml",
+     "gate": "blocked",
+     "degraded": false,
+     "expected": 1,
+     "matched": 1,
+     "escaped": 0,
+     "findings": 2,
+     "false_positives_naive": 1
+    }
+   ]
+  },
+  "expanded_clean": {
+   "cases": 34,
+   "blocked": 22,
+   "blocked_rate": 0.6470588235294118,
+   "blocked_wilson95": [
+    0.479,
+    0.785
+   ],
+   "blocked_bootstrap95": [
+    0.471,
+    0.794
+   ],
+   "any_finding_cases": 34,
+   "any_finding_rate": 1.0,
+   "blocking_findings_total": 33,
+   "blocking_findings_per_case": 0.97,
+   "per_case": [
+    {
+     "case_id": "xc-atomic-state-writer",
+     "gate": "blocked",
+     "degraded": false,
+     "findings": 5,
+     "blocking_findings": 1,
+     "demotions": 0
+    },
+    {
+     "case_id": "xc-batch-delete-guarded",
+     "gate": "blocked",
+     "degraded": false,
+     "findings": 9,
+     "blocking_findings": 3,
+     "demotions": 1
+    },
+    {
+     "case_id": "xc-bigdecimal-invoice",
+     "gate": "blocked",
+     "degraded": false,
+     "findings": 8,
+     "blocking_findings": 1,
+     "demotions": 2
+    },
+    {
+     "case_id": "xc-bounded-response-read",
+     "gate": "blocked",
+     "degraded": false,
+     "findings": 10,
+     "blocking_findings": 1,
+     "demotions": 2
+    },
+    {
+     "case_id": "xc-circuit-breaker",
+     "gate": "blocked",
+     "degraded": false,
+     "findings": 6,
+     "blocking_findings": 2,
+     "demotions": 0
+    },
+    {
+     "case_id": "xc-constant-time-compare",
+     "gate": "pass",
+     "degraded": false,
+     "findings": 5,
+     "blocking_findings": 0,
+     "demotions": 2
+    },
+    {
+     "case_id": "xc-context-http-timeout",
+     "gate": "blocked",
+     "degraded": false,
+     "findings": 6,
+     "blocking_findings": 2,
+     "demotions": 1
+    },
+    {
+     "case_id": "xc-csrf-token-check",
+     "gate": "blocked",
+     "degraded": false,
+     "findings": 7,
+     "blocking_findings": 2,
+     "demotions": 1
+    },
+    {
+     "case_id": "xc-deadletter-worker",
+     "gate": "blocked",
+     "degraded": false,
+     "findings": 7,
+     "blocking_findings": 2,
+     "demotions": 1
+    },
+    {
+     "case_id": "xc-debounce-search",
+     "gate": "pass",
+     "degraded": false,
+     "findings": 8,
+     "blocking_findings": 0,
+     "demotions": 2
+    },
+    {
+     "case_id": "xc-decimal-money",
+     "gate": "blocked",
+     "degraded": false,
+     "findings": 6,
+     "blocking_findings": 1,
+     "demotions": 2
+    },
+    {
+     "case_id": "xc-double-checked-cache",
+     "gate": "pass",
+     "degraded": false,
+     "findings": 4,
+     "blocking_findings": 0,
+     "demotions": 0
+    },
+    {
+     "case_id": "xc-errgroup-drain",
+     "gate": "pass",
+     "degraded": false,
+     "findings": 5,
+     "blocking_findings": 0,
+     "demotions": 1
+    },
+    {
+     "case_id": "xc-escaped-rendering",
+     "gate": "pass",
+     "degraded": false,
+     "findings": 4,
+     "blocking_findings": 0,
+     "demotions": 1
+    },
+    {
+     "case_id": "xc-fetch-timeout-abort",
+     "gate": "blocked",
+     "degraded": false,
+     "findings": 9,
+     "blocking_findings": 1,
+     "demotions": 1
+    },
+    {
+     "case_id": "xc-graceful-http-shutdown",
+     "gate": "blocked",
+     "degraded": false,
+     "findings": 6,
+     "blocking_findings": 1,
+     "demotions": 1
+    },
+    {
+     "case_id": "xc-graceful-shutdown",
+     "gate": "blocked",
+     "degraded": false,
+     "findings": 10,
+     "blocking_findings": 1,
+     "demotions": 1
+    },
+    {
+     "case_id": "xc-guarded-migration",
+     "gate": "blocked",
+     "degraded": false,
+     "findings": 12,
+     "blocking_findings": 2,
+     "demotions": 2
+    },
+    {
+     "case_id": "xc-health-guard-selfcheck",
+     "gate": "blocked",
+     "degraded": false,
+     "findings": 6,
+     "blocking_findings": 1,
+     "demotions": 0
+    },
+    {
+     "case_id": "xc-idempotency-keys",
+     "gate": "blocked",
+     "degraded": false,
+     "findings": 8,
+     "blocking_findings": 2,
+     "demotions": 1
+    },
+    {
+     "case_id": "xc-intl-currency-format",
+     "gate": "blocked",
+     "degraded": false,
+     "findings": 7,
+     "blocking_findings": 1,
+     "demotions": 2
+    },
+    {
+     "case_id": "xc-jdbc-prepared",
+     "gate": "blocked",
+     "degraded": false,
+     "findings": 5,
+     "blocking_findings": 1,
+     "demotions": 2
+    },
+    {
+     "case_id": "xc-locked-counter",
+     "gate": "pass",
+     "degraded": false,
+     "findings": 5,
+     "blocking_findings": 0,
+     "demotions": 2
+    },
+    {
+     "case_id": "xc-mutex-guarded-map",
+     "gate": "pass",
+     "degraded": false,
+     "findings": 5,
+     "blocking_findings": 0,
+     "demotions": 0
+    },
+    {
+     "case_id": "xc-pagination-bounds",
+     "gate": "pass",
+     "degraded": false,
+     "findings": 4,
+     "blocking_findings": 0,
+     "demotions": 1
+    },
+    {
+     "case_id": "xc-password-hash-verify",
+     "gate": "blocked",
+     "degraded": false,
+     "findings": 9,
+     "blocking_findings": 2,
+     "demotions": 3
+    },
+    {
+     "case_id": "xc-pdo-prepared",
+     "gate": "pass",
+     "degraded": false,
+     "findings": 6,
+     "blocking_findings": 0,
+     "demotions": 2
+    },
+    {
+     "case_id": "xc-retry-backoff-jitter",
+     "gate": "pass",
+     "degraded": false,
+     "findings": 10,
+     "blocking_findings": 0,
+     "demotions": 2
+    },
+    {
+     "case_id": "xc-safe-yaml-config",
+     "gate": "pass",
+     "degraded": false,
+     "findings": 5,
+     "blocking_findings": 0,
+     "demotions": 1
+    },
+    {
+     "case_id": "xc-ssrf-allowlist-fetch",
+     "gate": "blocked",
+     "degraded": false,
+     "findings": 9,
+     "blocking_findings": 2,
+     "demotions": 2
+    },
+    {
+     "case_id": "xc-strict-json-body",
+     "gate": "blocked",
+     "degraded": false,
+     "findings": 7,
+     "blocking_findings": 1,
+     "demotions": 2
+    },
+    {
+     "case_id": "xc-timeout-http-fetch",
+     "gate": "blocked",
+     "degraded": false,
+     "findings": 8,
+     "blocking_findings": 1,
+     "demotions": 0
+    },
+    {
+     "case_id": "xc-token-bucket-limiter",
+     "gate": "pass",
+     "degraded": false,
+     "findings": 7,
+     "blocking_findings": 0,
+     "demotions": 1
+    },
+    {
+     "case_id": "xc-tz-aware-scheduling",
+     "gate": "blocked",
+     "degraded": false,
+     "findings": 7,
+     "blocking_findings": 2,
+     "demotions": 2
+    }
+   ]
+  }
+ },
+ "pessimistic_view": {
+  "recall": 1.0,
+  "recall_defects_total": 7,
+  "merged_blocking_precision": 0.875,
+  "clean_blocked": 23,
+  "clean_cases_total": 35,
+  "clean_blocked_rate": 0.6571428571428571,
+  "clean_wilson95": [
+   0.492,
+   0.792
+  ]
+ },
+ "threshold_verdicts": {
+  "scored_only": {
+   "precision_ge_0.50": true,
+   "recall_ge_0.95": true,
+   "clean_point_le_0.20": false,
+   "clean_wilson_upper_le_0.30": false
+  },
+  "pessimistic": {
+   "precision_ge_0.50": true,
+   "recall_ge_0.95": true,
+   "clean_point_le_0.20": false,
+   "clean_wilson_upper_le_0.30": false
+  }
+ },
+ "paired_strict_balanced": {
+  "a5": [
+   {
+    "case_id": "auth-admin-or-true",
+    "expected": 1,
+    "found_balanced": 1,
+    "found_strict": 1,
+    "blocking_balanced": 1,
+    "blocking_strict": 1
+   },
+   {
+    "case_id": "clean-auth-check-added",
+    "expected": 0,
+    "found_balanced": 0,
+    "found_strict": 0,
+    "blocking_balanced": 0,
+    "blocking_strict": 0
+   },
+   {
+    "case_id": "clean-input-validation",
+    "expected": 0,
+    "found_balanced": 0,
+    "found_strict": 0,
+    "blocking_balanced": 0,
+    "blocking_strict": 0
+   },
+   {
+    "case_id": "drop-table-migration",
+    "expected": 1,
+    "found_balanced": 1,
+    "found_strict": 1,
+    "blocking_balanced": 1,
+    "blocking_strict": 1
+   },
+   {
+    "case_id": "payment-refund-partial",
+    "expected": 1,
+    "found_balanced": 1,
+    "found_strict": 1,
+    "blocking_balanced": 1,
+    "blocking_strict": 1
+   },
+   {
+    "case_id": "race-check-then-act",
+    "expected": 1,
+    "found_balanced": 1,
+    "found_strict": 1,
+    "blocking_balanced": 1,
+    "blocking_strict": 1
+   },
+   {
+    "case_id": "secret-aws-key",
+    "expected": 1,
+    "found_balanced": 1,
+    "found_strict": 1,
+    "blocking_balanced": 1,
+    "blocking_strict": 1
+   },
+   {
+    "case_id": "sql-injection-concat",
+    "expected": 1,
+    "found_balanced": 1,
+    "found_strict": 1,
+    "blocking_balanced": 1,
+    "blocking_strict": 1
+   },
+   {
+    "case_id": "xss-innerhtml",
+    "expected": 1,
+    "found_balanced": 1,
+    "found_strict": 1,
+    "blocking_balanced": 1,
+    "blocking_strict": 1
+   }
+  ],
+  "clean_blocked_balanced": [
+   "xc-atomic-state-writer",
+   "xc-batch-delete-guarded",
+   "xc-bigdecimal-invoice",
+   "xc-bounded-response-read",
+   "xc-circuit-breaker",
+   "xc-context-http-timeout",
+   "xc-csrf-token-check",
+   "xc-deadletter-worker",
+   "xc-decimal-money",
+   "xc-fetch-timeout-abort",
+   "xc-graceful-http-shutdown",
+   "xc-graceful-shutdown",
+   "xc-guarded-migration",
+   "xc-health-guard-selfcheck",
+   "xc-idempotency-keys",
+   "xc-intl-currency-format",
+   "xc-jdbc-prepared",
+   "xc-password-hash-verify",
+   "xc-ssrf-allowlist-fetch",
+   "xc-strict-json-body",
+   "xc-timeout-http-fetch",
+   "xc-tz-aware-scheduling"
+  ],
+  "clean_blocked_strict": [
+   "xc-atomic-state-writer",
+   "xc-batch-delete-guarded",
+   "xc-bigdecimal-invoice",
+   "xc-bounded-response-read",
+   "xc-circuit-breaker",
+   "xc-constant-time-compare",
+   "xc-context-http-timeout",
+   "xc-csrf-token-check",
+   "xc-deadletter-worker",
+   "xc-debounce-search",
+   "xc-decimal-money",
+   "xc-errgroup-drain",
+   "xc-escaped-rendering",
+   "xc-fetch-timeout-abort",
+   "xc-graceful-http-shutdown",
+   "xc-graceful-shutdown",
+   "xc-guarded-migration",
+   "xc-health-guard-selfcheck",
+   "xc-idempotency-keys",
+   "xc-intl-currency-format",
+   "xc-jdbc-prepared",
+   "xc-locked-counter",
+   "xc-pagination-bounds",
+   "xc-password-hash-verify",
+   "xc-pdo-prepared",
+   "xc-retry-backoff-jitter",
+   "xc-safe-yaml-config",
+   "xc-ssrf-allowlist-fetch",
+   "xc-strict-json-body",
+   "xc-timeout-http-fetch",
+   "xc-token-bucket-limiter",
+   "xc-tz-aware-scheduling"
+  ]
+ },
+ "fallback_served_records": {
+  "total": 0,
+  "by_split_and_serving_seat": {},
+  "detail": []
+ }
+}

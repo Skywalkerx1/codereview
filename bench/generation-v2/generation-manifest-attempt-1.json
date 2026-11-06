@@ -1,0 +1,297 @@
+{
+ "run": "baseline-v2-confirmation",
+ "attempt": 1,
+ "config": "panel-baseline-2026-11-04",
+ "config_sha256": "3a2395618f00d63a81c194bdb2739483caafdbf1b85b4178adb1ed95348a2ec4",
+ "fallbacks": {
+  "correctness": "openai"
+ },
+ "run_identity_sha256": "6f1c3640798a1cafbfd5b2f8c6588b2ea7044a433cb69343e625dfe97cd90941",
+ "created_at": "2026-11-05T20:30:18+00:00",
+ "cases": {
+  "auth-admin-or-true": {
+   "complete": true,
+   "unscored_infra": [],
+   "content_failed": [],
+   "shadow_cost_usd": 0.004893
+  },
+  "clean-auth-check-added": {
+   "complete": true,
+   "unscored_infra": [],
+   "content_failed": [],
+   "shadow_cost_usd": 0.001548
+  },
+  "clean-input-validation": {
+   "complete": true,
+   "unscored_infra": [],
+   "content_failed": [],
+   "shadow_cost_usd": 0.002792
+  },
+  "drop-table-migration": {
+   "complete": true,
+   "unscored_infra": [],
+   "content_failed": [],
+   "shadow_cost_usd": 0.009461
+  },
+  "payment-refund-partial": {
+   "complete": true,
+   "unscored_infra": [],
+   "content_failed": [],
+   "shadow_cost_usd": 0.00518
+  },
+  "race-check-then-act": {
+   "complete": true,
+   "unscored_infra": [],
+   "content_failed": [],
+   "shadow_cost_usd": 0.008791
+  },
+  "secret-aws-key": {
+   "complete": true,
+   "unscored_infra": [],
+   "content_failed": [],
+   "shadow_cost_usd": 0.003894
+  },
+  "sql-injection-concat": {
+   "complete": true,
+   "unscored_infra": [],
+   "content_failed": [],
+   "shadow_cost_usd": 0.006158
+  },
+  "xss-innerhtml": {
+   "complete": true,
+   "unscored_infra": [],
+   "content_failed": [],
+   "shadow_cost_usd": 0.004051
+  },
+  "xc-atomic-state-writer": {
+   "complete": true,
+   "unscored_infra": [],
+   "content_failed": [],
+   "shadow_cost_usd": 0.012094
+  },
+  "xc-batch-delete-guarded": {
+   "complete": true,
+   "unscored_infra": [],
+   "content_failed": [],
+   "shadow_cost_usd": 0.011913
+  },
+  "xc-bigdecimal-invoice": {
+   "complete": true,
+   "unscored_infra": [],
+   "content_failed": [],
+   "shadow_cost_usd": 0.008614
+  },
+  "xc-bounded-response-read": {
+   "complete": true,
+   "unscored_infra": [],
+   "content_failed": [],
+   "shadow_cost_usd": 0.006149
+  },
+  "xc-circuit-breaker": {
+   "complete": true,
+   "unscored_infra": [],
+   "content_failed": [],
+   "shadow_cost_usd": 0.006574
+  },
+  "xc-constant-time-compare": {
+   "complete": true,
+   "unscored_infra": [],
+   "content_failed": [],
+   "shadow_cost_usd": 0.0026
+  },
+  "xc-context-http-timeout": {
+   "complete": true,
+   "unscored_infra": [],
+   "content_failed": [],
+   "shadow_cost_usd": 0.008752
+  },
+  "xc-csrf-token-check": {
+   "complete": true,
+   "unscored_infra": [],
+   "content_failed": [],
+   "shadow_cost_usd": 0.008487
+  },
+  "xc-deadletter-worker": {
+   "complete": true,
+   "unscored_infra": [],
+   "content_failed": [],
+   "shadow_cost_usd": 0.013175
+  },
+  "xc-debounce-search": {
+   "complete": true,
+   "unscored_infra": [],
+   "content_failed": [],
+   "shadow_cost_usd": 0.005474
+  },
+  "xc-decimal-money": {
+   "complete": true,
+   "unscored_infra": [],
+   "content_failed": [],
+   "shadow_cost_usd": 0.003024
+  },
+  "xc-double-checked-cache": {
+   "complete": true,
+   "unscored_infra": [],
+   "content_failed": [],
+   "shadow_cost_usd": 0.003161
+  },
+  "xc-errgroup-drain": {
+   "complete": true,
+   "unscored_infra": [],
+   "content_failed": [],
+   "shadow_cost_usd": 0.001731
+  },
+  "xc-escaped-rendering": {
+   "complete": true,
+   "unscored_infra": [],
+   "content_failed": [],
+   "shadow_cost_usd": 0.001842
+  },
+  "xc-fetch-timeout-abort": {
+   "complete": true,
+   "unscored_infra": [],
+   "content_failed": [],
+   "shadow_cost_usd": 0.004683
+  },
+  "xc-graceful-http-shutdown": {
+   "complete": true,
+   "unscored_infra": [],
+   "content_failed": [],
+   "shadow_cost_usd": 0.008085
+  },
+  "xc-graceful-shutdown": {
+   "complete": true,
+   "unscored_infra": [],
+   "content_failed": [],
+   "shadow_cost_usd": 0.012974
+  },
+  "xc-guarded-migration": {
+   "complete": true,
+   "unscored_infra": [],
+   "content_failed": [],
+   "shadow_cost_usd": 0.011856
+  },
+  "xc-health-guard-selfcheck": {
+   "complete": true,
+   "unscored_infra": [],
+   "content_failed": [],
+   "shadow_cost_usd": 0.010379
+  },
+  "xc-idempotency-keys": {
+   "complete": true,
+   "unscored_infra": [],
+   "content_failed": [],
+   "shadow_cost_usd": 0.012916
+  },
+  "xc-intl-currency-format": {
+   "complete": true,
+   "unscored_infra": [],
+   "content_failed": [],
+   "shadow_cost_usd": 0.003221
+  },
+  "xc-jdbc-prepared": {
+   "complete": true,
+   "unscored_infra": [],
+   "content_failed": [],
+   "shadow_cost_usd": 0.003145
+  },
+  "xc-locked-counter": {
+   "complete": true,
+   "unscored_infra": [],
+   "content_failed": [],
+   "shadow_cost_usd": 0.00267
+  },
+  "xc-mutex-guarded-map": {
+   "complete": true,
+   "unscored_infra": [],
+   "content_failed": [],
+   "shadow_cost_usd": 0.00222
+  },
+  "xc-pagination-bounds": {
+   "complete": true,
+   "unscored_infra": [],
+   "content_failed": [],
+   "shadow_cost_usd": 0.008048
+  },
+  "xc-password-hash-verify": {
+   "complete": true,
+   "unscored_infra": [],
+   "content_failed": [],
+   "shadow_cost_usd": 0.006099
+  },
+  "xc-pdo-prepared": {
+   "complete": true,
+   "unscored_infra": [],
+   "content_failed": [],
+   "shadow_cost_usd": 0.001645
+  },
+  "xc-redacted-logging": {
+   "complete": false,
+   "unscored_infra": [],
+   "content_failed": [
+    "nvidia"
+   ],
+   "shadow_cost_usd": 0.0128
+  },
+  "xc-retry-backoff-jitter": {
+   "complete": true,
+   "unscored_infra": [],
+   "content_failed": [],
+   "shadow_cost_usd": 0.007484
+  },
+  "xc-safe-yaml-config": {
+   "complete": true,
+   "unscored_infra": [],
+   "content_failed": [],
+   "shadow_cost_usd": 0.002195
+  },
+  "xc-ssrf-allowlist-fetch": {
+   "complete": true,
+   "unscored_infra": [],
+   "content_failed": [],
+   "shadow_cost_usd": 0.008064
+  },
+  "xc-strict-json-body": {
+   "complete": true,
+   "unscored_infra": [],
+   "content_failed": [],
+   "shadow_cost_usd": 0.007818
+  },
+  "xc-timeout-http-fetch": {
+   "complete": true,
+   "unscored_infra": [],
+   "content_failed": [],
+   "shadow_cost_usd": 0.008478
+  },
+  "xc-token-bucket-limiter": {
+   "complete": true,
+   "unscored_infra": [],
+   "content_failed": [],
+   "shadow_cost_usd": 0.011312
+  },
+  "xc-tz-aware-scheduling": {
+   "complete": true,
+   "unscored_infra": [],
+   "content_failed": [],
+   "shadow_cost_usd": 0.00766
+  }
+ },
+ "summary": {
+  "complete_cases": 43,
+  "incomplete_cases": {
+   "xc-redacted-logging": [
+    "nvidia"
+   ]
+  },
+  "shadow_cost_usd": 0.29411,
+  "tokens_in": 156490,
+  "tokens_out": 63706,
+  "budgets": {
+   "per_job_wall_clock_s": [
+    600.0
+   ],
+   "per_case_wall_clock_s": 1800.0
+  },
+  "shadow_price_note": "shadow price: approximate list price per 1M tokens, for cost metering only \u2014 not an invoice figure"
+ }
+}
