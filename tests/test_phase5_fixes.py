@@ -276,5 +276,73 @@ class TestP505McpEnvelope(unittest.TestCase):
         self.assertEqual([r["id"] for r in responses], [5, 5])
 
 
+from codereview import setup_wizard  # noqa: E402
+
+
+class TestP506P513WizardInterrupts(unittest.TestCase):
+    def _environ(self, tmp):
+        return {"PATH": "", "HOME": tmp,
+                "CODEREVIEW_CONFIG": os.path.join(tmp, "c.toml")}
+
+    def test_wizard_eof_prints_abort_exactly_once(self):
+        tmp = tempfile.mkdtemp()
+        lines = []
+
+        def eof_input(prompt):
+            raise EOFError("EOF when reading a line")
+
+        with self.assertRaises(EOFError):
+            setup_wizard.run_wizard(
+                input_fn=eof_input, print_fn=lines.append,
+                environ=self._environ(tmp),
+                discover_fn=lambda: [])
+        aborts = [l for l in lines if "setup aborted" in l]
+        self.assertEqual(len(aborts), 1)
+        self.assertFalse(os.path.exists(
+            os.path.join(tmp, "c.toml")))
+
+    def test_wizard_ctrl_c_propagates_and_saves_nothing(self):
+        tmp = tempfile.mkdtemp()
+
+        def int_input(prompt):
+            raise KeyboardInterrupt
+
+        with self.assertRaises(KeyboardInterrupt):
+            setup_wizard.run_wizard(
+                input_fn=int_input, print_fn=lambda _l: None,
+                environ=self._environ(tmp),
+                discover_fn=lambda: [])
+        self.assertFalse(os.path.exists(
+            os.path.join(tmp, "c.toml")))
+
+    def test_setup_main_ctrl_c_is_130_no_traceback(self):
+        err = io.StringIO()
+        with mock.patch.object(
+                _cli, "_run_setup_wizard",
+                side_effect=KeyboardInterrupt), \
+                mock.patch("sys.stderr", err):
+            rc = _cli._setup_main([])
+        self.assertEqual(rc, 130)
+        self.assertIn("cancelled — nothing saved.", err.getvalue())
+        self.assertNotIn("Traceback", err.getvalue())
+
+    def test_setup_main_eof_does_not_duplicate_message(self):
+        out, err = io.StringIO(), io.StringIO()
+
+        def fake_wizard():
+            print("setup aborted — nothing saved.")
+            raise EOFError("EOF when reading a line")
+
+        with mock.patch.object(_cli, "_run_setup_wizard",
+                               side_effect=fake_wizard), \
+                mock.patch("sys.stdout", out), \
+                mock.patch("sys.stderr", err):
+            rc = _cli._setup_main([])
+        self.assertEqual(rc, 2)
+        combined = out.getvalue() + err.getvalue()
+        self.assertEqual(combined.count("setup aborted"), 1)
+        self.assertNotIn("EOF when reading a line", combined)
+
+
 if __name__ == "__main__":
     unittest.main()

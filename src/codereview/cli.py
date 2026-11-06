@@ -350,6 +350,20 @@ def _setup_main(argv):
     ap.parse_args(argv)
     try:
         result = _run_setup_wizard()
+    except KeyboardInterrupt:
+        # P5-06: Ctrl-C is a cancellation, not a crash — no
+        # traceback. The wizard saves only at the very end, so
+        # nothing was written. 130 is the conventional
+        # SIGINT exit code.
+        print("codereview setup: cancelled — nothing saved.",
+              file=sys.stderr)
+        return 130
+    except EOFError:
+        # P5-13: the wizard already printed its abort line
+        # ("setup aborted — nothing saved.") at the prompt that
+        # hit EOF; re-printing the exception here duplicated
+        # the message.
+        return 2
     except Exception as exc:  # noqa: BLE001
         print(f"codereview setup: {exc}", file=sys.stderr)
         return 2
