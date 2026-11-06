@@ -539,5 +539,64 @@ class SandboxGroupKillTests(unittest.TestCase):
                 pass
 
 
+class DiscoveryProbeCapTests(unittest.TestCase):
+    """P3-07: default_probe buffered a --version probe's
+    output without bound (subprocess.run capture) and only
+    OSError/TimeoutExpired were caught, so a spewing binary
+    could raise MemoryError out of discover_clis despite the
+    never-raises docstring."""
+
+    def _bindir(self, tmp, name, body):
+        bindir = os.path.join(tmp, "bin")
+        os.makedirs(bindir, exist_ok=True)
+        path = os.path.join(bindir, name)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(body)
+        os.chmod(path, 0o755)
+        return bindir
+
+    def test_spewing_binary_probe_is_capped_and_calm(self):
+        from codereview import discovery
+        body = ("#!/usr/bin/env python3\n"
+                "import sys\n"
+                "sys.stdout.write('claude 1.0\\n' "
+                "+ 'A' * 5000000)\n"
+                "sys.stdout.flush()\n")
+        with tempfile.TemporaryDirectory() as tmp:
+            bindir = self._bindir(tmp, "claude", body)
+            started = time.monotonic()
+            found = discovery.discover_clis(path_value=bindir)
+            elapsed = time.monotonic() - started
+        self.assertEqual([f["name"] for f in found], ["claude"])
+        self.assertFalse(found[0]["probe_ok"])
+        self.assertLess(elapsed, 10)
+
+    def test_probe_exception_becomes_failed_probe(self):
+        from codereview import discovery
+
+        def bad_probe(_path):
+            raise RuntimeError("boom")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            bindir = self._bindir(
+                tmp, "claude", "#!/bin/sh\necho 'claude 1.0'\n")
+            found = discovery.discover_clis(
+                path_value=bindir, probe_fn=bad_probe)
+        self.assertEqual(len(found), 1)
+        self.assertFalse(found[0]["probe_ok"])
+        self.assertIn("boom", found[0]["probe_detail"])
+
+    def test_well_behaved_binary_still_probes_ok(self):
+        from codereview import discovery
+        with tempfile.TemporaryDirectory() as tmp:
+            bindir = self._bindir(
+                tmp, "claude", "#!/bin/sh\necho 'claude 1.2.3'\n")
+            found = discovery.discover_clis(path_value=bindir)
+        self.assertEqual(len(found), 1)
+        self.assertTrue(found[0]["probe_ok"])
+        self.assertEqual(found[0]["probe_detail"],
+                         "claude 1.2.3")
+
+
 if __name__ == "__main__":
     unittest.main()

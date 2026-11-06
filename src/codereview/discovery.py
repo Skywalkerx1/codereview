@@ -47,10 +47,16 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+import threading
 
 from . import hardening
 
 PROBE_TIMEOUT = 5
+
+# Retained-output ceiling for one --version probe (P3-07):
+# a version string is one line; anything past this is a
+# spewing binary, and the parent must not buffer it.
+_PROBE_OUTPUT_CAP = 64 * 1024
 
 # The instruction the shipped example wrapper passes to Claude
 # Code (examples/agent-seat-claude.sh, verbatim): the seat's
@@ -162,13 +168,69 @@ def default_probe(path):
     # this process (same /proc/$PPID/environ exposure as the
     # evidence sandbox's env-only mode).
     hardening.make_non_dumpable()
+    # P3-07: the probe NEVER raises — not OSError, not a
+    # timeout, not MemoryError from a spewing binary's
+    # unbounded output (the old subprocess.run capture had
+    # no cap, so the "never raises" contract was false).
     try:
-        proc = subprocess.run(
-            [path, "--version"], capture_output=True, text=True,
-            timeout=PROBE_TIMEOUT)
-    except (OSError, subprocess.TimeoutExpired) as exc:
+        return _probe_version(path)
+    except Exception as exc:  # noqa: BLE001 — never raises
         return False, f"could not run: {exc}"
-    out = (proc.stdout or proc.stderr or "").strip()
+
+
+def _drain_capped(stream, sink, proc):
+    """Read `stream` into `sink` (a bytearray), retaining at
+    most _PROBE_OUTPUT_CAP bytes; once the cap is exceeded,
+    kill the child and keep draining (discarding) so the
+    pipe never blocks it on the way down."""
+    try:
+        while True:
+            chunk = stream.read(8192)
+            if not chunk:
+                return
+            room = _PROBE_OUTPUT_CAP - len(sink)
+            if room >= len(chunk):
+                sink.extend(chunk)
+                continue
+            if room > 0:
+                sink.extend(chunk[:room])
+            try:
+                proc.kill()
+            except OSError:
+                pass
+    except (OSError, ValueError):
+        return
+
+
+def _probe_version(path):
+    proc = subprocess.Popen(
+        [path, "--version"], stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE)
+    out_sink, err_sink = bytearray(), bytearray()
+    readers = [
+        threading.Thread(target=_drain_capped,
+                         args=(proc.stdout, out_sink, proc),
+                         daemon=True),
+        threading.Thread(target=_drain_capped,
+                         args=(proc.stderr, err_sink, proc),
+                         daemon=True),
+    ]
+    for reader in readers:
+        reader.start()
+    try:
+        proc.wait(timeout=PROBE_TIMEOUT)
+    except subprocess.TimeoutExpired:
+        try:
+            proc.kill()
+        except OSError:
+            pass
+        proc.wait()
+        return False, (f"could not run: timed out after "
+                       f"{PROBE_TIMEOUT} seconds")
+    for reader in readers:
+        reader.join(timeout=2)
+    out = out_sink.decode("utf-8", "replace").strip() \
+        or err_sink.decode("utf-8", "replace").strip()
     detail = out.splitlines()[0][:120] if out else ""
     if proc.returncode != 0:
         return False, (f"exited {proc.returncode}"
@@ -199,7 +261,12 @@ def discover_clis(path_value=None, which_fn=None, probe_fn=None):
                 break
         if not resolved:
             continue
-        ok, detail = probe_fn(resolved)
+        try:
+            ok, detail = probe_fn(resolved)
+        except Exception as exc:  # noqa: BLE001 — discovery
+            # never raises (P3-07): a probe that blows up is
+            # a failed probe with the reason attached.
+            ok, detail = False, f"could not run: {exc}"
         found.append({**entry, "path": resolved,
                       "probe_ok": bool(ok),
                       "probe_detail": detail})
