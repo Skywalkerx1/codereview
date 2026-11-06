@@ -148,5 +148,64 @@ class PolicyOriginObservabilityTests(unittest.TestCase):
             self.assertNotIn("policy", record)
 
 
+def _patch_for(file, lines):
+    body = "".join(f"+{line}\n" for line in lines)
+    return (f"diff --git a/{file} b/{file}\n"
+            f"--- a/{file}\n+++ b/{file}\n"
+            f"@@ -0,0 +1,{len(lines)} @@\n" + body)
+
+
+class DeterministicScanBoundsTests(unittest.TestCase):
+    """P3-02: the sql-string-build rule was cubic on long
+    keyword-dense lines, and the scan had no per-line bound."""
+
+    def _timed_scan(self, patch):
+        started = time.monotonic()
+        findings = core.deterministic_scan(patch)
+        return findings, time.monotonic() - started
+
+    def test_pathological_shapes_scan_fast(self):
+        unit = ('var a="x",b="update",c=function(){return a+b};')
+        shapes = {
+            "minified-like": unit * 4000,          # ~184 KB
+            "quote-plus repeats": "'x' + " * 22000,  # ~154 KB
+            "keyword-dense": "delete from " * 16000,  # ~192 KB
+        }
+        for name, line in shapes.items():
+            with self.subTest(shape=name):
+                findings, elapsed = self._timed_scan(
+                    _patch_for("app.min.js", [line]))
+                self.assertLess(
+                    elapsed, 5.0,
+                    f"{name}: scan took {elapsed:.1f}s")
+                self.assertIsInstance(findings, list)
+
+    def test_legit_sql_string_builds_still_flagged(self):
+        cases = [
+            'cursor.execute("SELECT * FROM t WHERE id = " + uid)',
+            'q = "delete from sessions where id = " + sid',
+            'sql = f"UPDATE users SET name = {name}"',
+            'q = "insert into logs values (%s)" % (v,)',
+            'q = "select * from t where id = {}".format(uid)',
+        ]
+        for i, line in enumerate(cases):
+            with self.subTest(line=line):
+                findings = core.deterministic_scan(
+                    _patch_for(f"mod{i}.py", [line]))
+                rules = [f["rule"] for f in findings]
+                self.assertIn("sql-string-build", rules)
+
+    def test_scan_line_cap_keeps_head_findings(self):
+        # A finding inside the first 16K chars of a huge line is
+        # still reported; the scan does not walk the whole line.
+        line = ('q = "SELECT * FROM t WHERE id = " + uid; '
+                + "x" * 100000)
+        findings, elapsed = self._timed_scan(
+            _patch_for("big.py", [line]))
+        self.assertIn("sql-string-build",
+                      [f["rule"] for f in findings])
+        self.assertLess(elapsed, 5.0)
+
+
 if __name__ == "__main__":
     unittest.main()

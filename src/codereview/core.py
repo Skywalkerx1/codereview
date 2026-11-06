@@ -455,6 +455,10 @@ def redact_secrets(text):
 
 # ------------------------------------------------------- deterministic scan
 
+# Per-line scan bound (P3-02): added lines longer than this are
+# scanned only through their first _MAX_SCAN_LINE_CHARS chars.
+_MAX_SCAN_LINE_CHARS = 16384
+
 _RULES = [
     # (rule_id, severity, category, regex, title, recommendation)
     ("hardcoded-secret", "blocker", "security",
@@ -480,11 +484,17 @@ _RULES = [
      "DROP TABLE in added code",
      "Confirm this is a deliberate, backed-up migration; otherwise remove."),
     ("sql-string-build", "major", "security",
+     # Every gap is bounded ({0,200}): the unbounded [^\n]*
+     # form was cubic on minified/keyword-dense lines (Phase 3,
+     # P3-02 — 28s on one 18KB line). A SQL keyword and its
+     # concatenation/formatting marker further than 200 chars
+     # apart are not one statement construction in any code
+     # this rule exists to catch.
      re.compile(r"(?i)(\b(select|insert\s+into|update|delete\s+from)\b"
-                r"[^\n]*(\.format\(|%\s*\(|['\"]\s*\+)"
-                r"|f['\"][^\n]*\b(select|insert|update|delete)\b"
-                r"|['\"][^\n]*\b(select|insert|update|delete)\b"
-                r"[^\n]*['\"]\s*\+)"),
+                r"[^\n]{0,200}(\.format\(|%\s*\(|['\"]\s*\+)"
+                r"|f['\"][^\n]{0,200}\b(select|insert|update|delete)\b"
+                r"|['\"][^\n]{0,200}\b(select|insert|update|delete)\b"
+                r"[^\n]{0,200}['\"]\s*\+)"),
      "SQL statement built by string formatting/concatenation",
      "Use parameterized queries / bound parameters for every value."),
     ("delete-no-where", "major", "data-loss",
@@ -549,6 +559,12 @@ def deterministic_scan(patch, test_results=None):
 
     alert_files = {}
     for file, lineno, text in added_lines(patch):
+        # P3-02: the scan sees at most the first
+        # _MAX_SCAN_LINE_CHARS of any single added line — a
+        # minified bundle line is not 200KB of reviewable code,
+        # and unbounded per-line scanning is a denial-of-service
+        # surface against the gate itself.
+        text = text[:_MAX_SCAN_LINE_CHARS]
         for rule_id, sev, cat, rx, title, rec in _RULES:
             if rx.search(text):
                 if rule_id == "hardcoded-secret" and re.search(
