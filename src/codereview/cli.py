@@ -240,6 +240,41 @@ def _stdin_is_tty():
         return False
 
 
+def _out_dir_problem(out):
+    """Why the --out directory cannot be written into, or None
+    (P5-07). Pure path inspection — creates nothing. The check
+    runs at argument-validation time so an unwritable --out
+    fails BEFORE any provider call, instead of after the review
+    has spent them (when the late crash also lost the result)."""
+    if not out:
+        return None
+    path = os.path.abspath(os.path.expanduser(out))
+    probe = path
+    while not os.path.exists(probe):
+        parent = os.path.dirname(probe)
+        if parent == probe:
+            return None
+        probe = parent
+    if not os.path.isdir(probe):
+        return f"--out {out}: {probe} is not a directory"
+    if not os.access(probe, os.W_OK | os.X_OK):
+        if probe == path:
+            return f"--out {out}: directory is not writable"
+        return (f"--out {out}: cannot be created — "
+                f"{probe} is not writable")
+    return None
+
+
+def _refuse_unwritable_out(out, prog):
+    """Print the P5-07 refusal and return True when --out is
+    unusable, so the caller exits 2 before doing any work."""
+    problem = _out_dir_problem(out)
+    if problem:
+        print(f"{prog}: {problem}", file=sys.stderr)
+        return True
+    return False
+
+
 def _run_setup_wizard():
     """The first-run wizard (test seam): the CLI wires the live
     seat probe; tests substitute this to script a setup."""
@@ -406,6 +441,8 @@ def _loop_main(argv, providers_override=None):
     ap.add_argument("--strict", action="store_true")
     args = ap.parse_args(argv)
 
+    if _refuse_unwritable_out(args.out, "codereview loop"):
+        return 2
     if providers_override is not None:
         providers = providers_override
     else:
@@ -507,6 +544,8 @@ def _workflow_main(argv, providers_override=None):
     ap.add_argument("--provider", action="append", default=[])
     args = ap.parse_args(argv)
 
+    if _refuse_unwritable_out(args.out, "codereview workflow"):
+        return 2
     with open(args.file, encoding="utf-8") as fh:
         wf = json.load(fh)
     steps = wf.get("steps") or []
@@ -638,6 +677,8 @@ def _intake_main(argv, solvers_override=None):
         print("codereview intake: --timeout must be a positive "
               "number of seconds", file=sys.stderr)
         return 2
+    if _refuse_unwritable_out(args.out, "codereview intake"):
+        return 2
     try:
         with open(os.path.expanduser(args.report), encoding="utf-8",
                   errors="replace") as fh:
@@ -752,6 +793,8 @@ def _pr_main(argv, providers_override=None):
     ap.add_argument("--allow-major", action="store_true")
     ap.add_argument("--out", default="codereview-pr-out")
     args = ap.parse_args(argv)
+    if _refuse_unwritable_out(args.out, "codereview pr"):
+        return 2
     try:
         if args.pr:
             owner, repo, number = parse_pr_url(args.pr)
@@ -1645,6 +1688,8 @@ def _bench_main(argv, providers_override=None):
                         help="discard existing results for the named "
                              "configs and re-run every case")
         args = ap.parse_args(rest)
+        if _refuse_unwritable_out(args.out, "codereview bench"):
+            return 2
         injected = None
         if providers_override is not None:
             injected = {}
@@ -1687,6 +1732,8 @@ def _bench_main(argv, providers_override=None):
                     help="exit 1 if any config's escaped-defect rate "
                          "exceeds this rate (CI regression gate)")
     args = ap.parse_args(rest)
+    if _refuse_unwritable_out(args.out_dir, "codereview bench"):
+        return 2
     try:
         report = bench_mod.build_report(
             bench_mod.load_results(args.results), args.corpus,
@@ -2101,6 +2148,8 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
     if args.timeout is not None and args.timeout <= 0:
         print("codereview: --timeout must be a positive number "
               "of seconds", file=sys.stderr)
+        return 2
+    if _refuse_unwritable_out(args.out, "codereview"):
         return 2
 
     # P3-09: an explicitly given --repo must be a real

@@ -344,5 +344,39 @@ class TestP506P513WizardInterrupts(unittest.TestCase):
         self.assertNotIn("EOF when reading a line", combined)
 
 
+class TestP507OutCheckedUpFront(unittest.TestCase):
+    def test_problem_detection(self):
+        self.assertIsNotNone(_cli._out_dir_problem("/proc/nope"))
+        self.assertIsNone(_cli._out_dir_problem(None))
+        tmp = tempfile.mkdtemp()
+        self.assertIsNone(_cli._out_dir_problem(tmp))
+        self.assertIsNone(_cli._out_dir_problem(
+            os.path.join(tmp, "new", "nested")))
+        f = os.path.join(tmp, "afile")
+        open(f, "w").close()
+        self.assertIn("not a directory",
+                      _cli._out_dir_problem(f))
+
+    def test_main_unwritable_out_exits_2_zero_provider_calls(self):
+        calls = []
+
+        def counting(prompt):
+            calls.append(1)
+            return _ok_reviewer(prompt)
+
+        tmp = tempfile.mkdtemp()
+        patch = os.path.join(tmp, "p.diff")
+        with open(patch, "w") as fh:
+            fh.write(DIFF)
+        err = io.StringIO()
+        with mock.patch("sys.stderr", err):
+            rc = _cli.main(["--patch", patch, "--out", "/proc/nope"],
+                           providers_override={"fake": counting})
+        self.assertEqual(rc, 2)
+        self.assertEqual(calls, [])  # zero provider calls
+        self.assertNotIn("Traceback", err.getvalue())
+        self.assertIn("--out", err.getvalue())
+
+
 if __name__ == "__main__":
     unittest.main()
