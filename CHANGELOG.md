@@ -1,5 +1,70 @@
 # Changelog
 
+## Unreleased — 0.13.0.dev0 (external Phase 2 test fixes)
+
+Fixes from the external tester's Phase 2 report (2026-11-06),
+each independently verified against master before landing:
+
+- **P2-01 — strict + incomplete no longer downgrades a
+  blocker.** The `_gate` incomplete-coverage branch returned
+  "inconclusive" under strict mode even with a blocking
+  finding present; it now carries the same `not blocking`
+  guard as the degraded branch.
+- **P2-02 — merge_findings is order-invariant.** The greedy
+  merge compared each finding only against each group's
+  founding title, so grouping (and, under `balanced`, the
+  verdict) depended on input order. Inputs are first sorted
+  by a canonical content key (file, category, line, title,
+  severity, sources — never the assignment-order id).
+- **P2-03 — diversity family tags are normalised.**
+  `known_families` / `assess_panel` compare strip+casefold
+  forms, so "OpenAI" vs "openai" no longer counts as two
+  families and builder exclusion no longer fails silently
+  on case. Tags stored elsewhere are untouched.
+- **P2-04 — policy loader robustness.** A UTF-8 BOM no
+  longer makes a valid policy unloadable (decoded as
+  utf-8-sig), and a deeply nested document now raises
+  PolicyError naming the excessive nesting depth instead of
+  leaking RecursionError.
+- **P2-05 — risk path patterns component-anchored.** The
+  migrations, secrets and deserialization patterns no
+  longer match keywords buried inside longer components
+  ("im**migration**", "no**secrets**.py"); canonical paths
+  (db/migrations/…, config/secrets.yaml, .env,
+  lib/deserialize.py) score exactly as before.
+- **P2-06 — claimed outcomes read counts and negation.**
+  "12 passed, 0 failed" and "did not fail" are pass claims
+  (previously read as FAILED); "0 errors" is a pass claim
+  (previously no claim). Counts are read first, then a
+  negation guard, then the original word search.
+- **P2-07 — claim parsing is linear and single-pass.** The
+  labelled-line trailing-outcome regex backtracked
+  quadratically on long separator runs (~12s at 12KB; now
+  milliseconds), and `verify_report_claims` no longer
+  parses the report text twice.
+- **Survivor pins.** Regression tests now hold behaviours
+  the Phase 2 mutation pass verified: the balanced
+  unattributed-source guard, deterministic source-lens
+  stamping, tiering missing-seat dedup, and lens-pin edges
+  (ghost seat / unknown lens ignored, single-seat fallback,
+  dual pins).
+
+**P2-08 — NOT landed (blocked, decision pending).** The
+verified finding stands: under `balanced`, an unbound panel
+gets positional lens assignment and the same finding can
+flip PASS/BLOCKED by binding state. The prescribed
+fail-closed fix (run_review raises without a seat_lenses
+binding) cannot land as specified: the CLI and policy
+surfaces have NO way to supply a binding (zero seat_lenses
+references in cli.py / policy.py / userconfig.py — bindings
+are produced only by bench's derive_seat_lenses and direct
+library callers), so the raise would make the shipped
+`--gate-profile balanced` flag and a policy-file
+`[gate] profile = "balanced"` fail on every run with no
+possible remedy. Landing it needs a product decision:
+add a CLI/policy binding surface in the same change, or
+have the CLI derive and record an explicit binding.
+
 ## Unreleased — 0.13.0.dev0 (external Phase 0–1 test fixes)
 
 Version bumped to 0.13.0.dev0 (pyproject.toml and
