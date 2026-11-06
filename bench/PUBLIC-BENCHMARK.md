@@ -83,7 +83,9 @@ metric definitions):
   on case-level rates (Youden's J as used in these documents).
   Check on one row: the B2 pilot live row reports recall 1.000
   and clean-BLOCKED 0.125, and 1.000 − 0.125 = 0.875, its
-  tabulated J.
+  tabulated J. (The worked check uses a dev-pilot row, §3.5;
+  measured product figures and their caveat live in
+  bench/BASELINE-2026-11-04.md.)
 
 ### 2.3 Two views of a registered run
 
@@ -109,6 +111,8 @@ pilot (§3.5) scores three on the same combined sets: always-pass
 (clean-BLOCKED 1.000 / recall 1.000 / J 0.000), and the
 deterministic layer alone (clean-BLOCKED 0.025 / recall 0.265 /
 J 0.240). A policy earns its J only above what those score.
+(Trivial gates are yardsticks, not results; see the caveat in
+§2.1.)
 
 *Provenance: set construction and metric definitions —
 `bench/README.md` (Corpus v0; Metrics — exact definitions) and
@@ -168,6 +172,7 @@ defects are author-labelled on a corpus the team authored and
 tuned machinery against. The deterministic-layer row is the
 pipeline with the panel removed, scored standalone by subset
 rescoring; it is what prices the panel's contribution.
+(Baseline: bench/BASELINE-2026-11-04.md.)
 
 *Provenance: `bench/BASELINE-2026-11-04.md` — frontmatter
 `required_caveat`, §1 (cases, seat jobs, latency, cost), §2
@@ -192,6 +197,7 @@ the whole attempt: $0.294.
 | A5 recall (7 labelled defects) | 1.000 (7/7; Wilson 95% [0.646, 1.0]) | 1.000 (of 7) |
 | Merged blocking precision (A5) | 0.875 (D=7, U=1; 12 duplicates removed) | 0.875 |
 | Expanded-clean BLOCKED | 22/34 = 0.647 (Wilson 95% [0.479, 0.785]) | 23/35 = 0.657 (Wilson 95% [0.492, 0.792]) |
+Attempt-1 views of the registered baseline-v2 run — record: bench/BASELINE-V2-2026-11-05.md.
 
 Paired comparison on identical records: under `strict` the same
 records BLOCK 32/34 clean cases (0.941); under `balanced`, 22/34.
@@ -266,6 +272,7 @@ replaying stored records through the one scoring implementation
 | R1 B1 | 1.000 | 0.939 (D31/U2) | 0.590 (23/39) | 0.410 |
 | R2 block-only-E0/E1/E2 | 1.000 | 1.000 (D15/U0) | 0.051 (2/39) | 0.949 |
 | R3 (= R2 offline) | 1.000 | 1.000 | 0.051 (2/39) | 0.949 |
+Offline rule sweep on consumed sets — see the caveat in §2.1.
 
 Two readings must travel with this table. First, recall here is
 the any-severity definition: at blocking tier, R2/R3 recall is
@@ -310,7 +317,8 @@ defects in mislabelled "clean" code. Paired-replay agreement:
 62/62. Degraded cases: 14/62, every one with reviewer failure
 among its causes — under a registered run those degraded cases
 would matter; seat reliability is the pilot's main operational
-warning.
+warning. (Dev-pilot figures — not confirmed results; see
+bench/CLAIMS-SHEET.md.)
 
 Trivial baselines on the same combined sets: always-pass
 J 0.000; always-block J 0.000; deterministic-only clean-BLOCKED
@@ -347,6 +355,7 @@ Stated as plainly as the results:
   defects. Intervals at these sizes are wide ([0.646, 1.0] on
   the attempt-1 recall point of 1.000) and no threshold claim
   should rest on the baseline clean stratum.
+  (Attempt-1 record: bench/BASELINE-V2-2026-11-05.md.)
 - **Adjudication asymmetry on recall.** The 34/34 figure is
   computed against ground truth enlarged by adjudicating the
   panel's own findings; it can only add defects the panel found

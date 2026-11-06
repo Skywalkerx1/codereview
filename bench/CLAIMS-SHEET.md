@@ -90,6 +90,8 @@ with their sets and caveats.
   0.590 / J 0.410), with blocking-tier recall 0.484 (15/31)
   stated alongside. Never presented as a live result.
   Source: `bench/analysis-2026-11-05/SUMMARY.md` §A3 + addendum.
+  (Offline sweep figures travel with the caveat in
+  `bench/PUBLIC-BENCHMARK.md` §2.1.)
 
 - **B2 pilot, only as a clearly-labelled dev-pilot reference in
   technical material:** the pilot may be *referenced* — as an
@@ -108,7 +110,7 @@ with their sets and caveats.
 
 ## May NOT say
 
-- **The naive precision 0.209 — never.** Superseded by the
+- **The superseded naive precision 0.209 — never.** Superseded by the
   2026-11-04 adjudicated recount (0.870 / 0.756). It may appear
   only inside a clearly-marked superseded-figures note saying
   do-not-quote, as in `bench/PUBLIC-BENCHMARK.md` §5.

@@ -1,24 +1,43 @@
 """Claim lint (honest-negatives solution §2.6): the caveat
 travels with the headline — enforced, not just intended.
 
-Every baseline file carries a machine-readable
-`required_caveat`. The guarded files below may quote the
-baseline's headline figures only with that caveat adjacent —
-embedded verbatim, or via a reference to the baseline file
-that carries it. And the superseded naive precision figure
-(step-3 recount, 2026-11-04) may never appear as a current
-claim: in any guarded file it may only show up AFTER the file
-has marked it superseded (the baseline's frontmatter caveat
-and repair pointer do this for its own historical sections;
-the CHANGELOG's Unreleased entry does it for the 0.12.0
-entry's as-published figures).
+Strengthened after the external Phase 5 report (P5-08): the
+original lint checked three files at FILE level (one caveat
+anywhere cleared every claim in the file) with a few literal
+patterns; 11 of 11 unqualified claim variants the tester
+appended to the README passed it. The lint now works at
+PARAGRAPH level over every shipped reader-facing doc:
 
-The check is deliberately pragmatic: an explicit, small
-guarded-file list and literal figure patterns. It guards the
-docs that carry claims — README.md, CHANGELOG.md, and the
-baseline itself — not every text in the repo.
+- Scope: README.md, CHANGELOG.md, ROADMAP.md, REVIEW-NOTES.md
+  and THREAT-MODEL.md at the root, every bench/*.md and every
+  pilot/*.md — minus the named RECORD docs below. Records of
+  registered runs are immutable evidence: they state what was
+  measured and claimed at the time and are never edited to
+  satisfy a lint, so they are out of scope BY NAME, with the
+  reason recorded here. (The root review-*.md response and
+  disposition files and gate-attempts.md are likewise
+  historical adjudication records and are not in the root set.)
+- A claim is a paragraph (blank-line-delimited block, matched
+  whitespace-normalised) that states a headline figure: the
+  baseline's corrected decimals, a perfect N/N fraction, or a
+  recall-perfection phrasing (decimal, percentage or words).
+- A claim paragraph is qualified only by material IN THE SAME
+  paragraph: a reference to the baseline document that carries
+  the required caveat, the caveat itself, or an explicit
+  in-place caveat pointer ("see the asymmetry caveat in §2.1").
+  A caveat elsewhere in the file no longer clears it.
+- The superseded naive precision figure (0.209, step-3
+  recount, 2026-11-04) may never read as a current claim: it
+  may appear only after the file has marked it superseded,
+  and a paragraph that presents it as current ("Current
+  precision is 0.209") fails even then unless the same
+  paragraph marks it superseded.
+- The baseline document itself is the caveat source and a
+  registered record: it is exempt from the claim-figure rule
+  and held only to the naive-figure ordering rule.
 """
 
+import glob
 import os
 import re
 import sys
@@ -29,23 +48,73 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 REPO_ROOT = os.path.abspath(
     os.path.join(os.path.dirname(__file__), ".."))
 BASELINE_REL = os.path.join("bench", "BASELINE-2026-11-04.md")
-GUARDED = ("README.md", "CHANGELOG.md", BASELINE_REL)
+BASELINE_REF = "bench/BASELINE-2026-11-04.md"
 
-# The baseline's headline figures, as literal text. A guarded
-# doc quoting any of these owes the reader the caveat (or the
-# baseline reference that carries it).
-HEADLINE_PATTERNS = (
-    r"34/34",
-    r"24/24",
+ROOT_GUARDED = ("README.md", "CHANGELOG.md", "ROADMAP.md",
+                "REVIEW-NOTES.md", "THREAT-MODEL.md")
+
+# Records of registered runs: immutable, out of scope by name.
+RECORD_DOCS = frozenset({
+    os.path.join("bench", "BASELINE-V2-2026-11-05.md"),
+    os.path.join("bench", "baseline-2026-11-04-report.md"),
+})
+
+
+def guarded_files():
+    rels = set(ROOT_GUARDED)
+    for pattern in (os.path.join("bench", "*.md"),
+                    os.path.join("pilot", "*.md")):
+        for path in glob.glob(os.path.join(REPO_ROOT, pattern)):
+            rels.add(os.path.relpath(path, REPO_ROOT))
+    rels.discard(BASELINE_REL)
+    return sorted(rels - RECORD_DOCS)
+
+
+# Claim patterns, matched against a whitespace-normalised
+# paragraph. Decimals and percentages for the recall figure,
+# the corrected headline decimals, and perfection phrasings.
+CLAIM_PATTERNS = (
     r"0\.870",
     r"0\.756",
     r"0\.956",
     r"0\.906",
-    r"[Rr]ecall[^\n]{0,60}1\.000",
+    r"[Rr]ecall[^0-9]{0,30}?\b1(?:\.0+)?\b",
+    r"[Rr]ecall[^0-9]{0,30}?\b100\s*%",
+    r"\b100\s*%\s+[Rr]ecall",
+    r"[Pp]erfect recall",
+    r"[Cc]atches every bug",
+    r"[Zz]ero false positives",
+)
+
+# A perfect N/N fraction is a claim only in a LOCAL metric
+# context (and only for case-sized counts): suite sizes
+# ("full suite 1005/1005"), chain/record counts and narrative
+# mentions in engineering entries are not benchmark claims.
+FRACTION_PATTERN = r"\b(\d{1,2})/\1\b"
+FRACTION_CONTEXT = (r"recall|precision|defect|clean[- ]case|"
+                    r"benchmark|corpus|split|stratum|baseline")
+FRACTION_WINDOW = 80
+
+# In-paragraph qualification, in the docs' own established
+# vocabulary: a reference to a baseline document that carries
+# the caveat, the caveat's own name, an in-place caveat
+# pointer, a superseded marking, the claims sheet's mandatory-
+# caveats formula, a harness-validation scope line for the
+# scripted replay seats, or an explicit not-a-claim
+# disclaimer in the same paragraph.
+QUALIFIER_PATTERNS = (
+    r"BASELINE-2026-11-04",
+    r"BASELINE-V2-2026-11-05",
+    r"required[ _]caveat",
+    r"(see|in|the)\s+(the\s+)?[\w ]{0,30}caveat|caveat\s+in",
+    r"superseded",
+    r"[Mm]andatory caveats",
+    r"validates? the harness",
+    r"not (a |an |any )?(confirmed result|product claim|"
+    r"independent recall measurement)",
 )
 
 NAIVE_FIGURE = "0.209"
-BASELINE_REF = "bench/BASELINE-2026-11-04.md"
 
 
 def read_repo(rel):
@@ -61,34 +130,52 @@ def required_caveat(baseline_text):
     return m.group(1) if m else None
 
 
-def claim_violations(texts):
-    """texts: {rel_path: text} -> list of violation strings.
+def _paragraphs(text):
+    return [p for p in re.split(r"\n\s*\n", text) if p.strip()]
 
-    Rules:
-    (a) a guarded file other than the baseline that mentions a
-        headline figure must embed the required_caveat
-        verbatim or reference the baseline file;
-    (b) the superseded naive figure may appear in a guarded
-        file only after that file has marked it superseded
-        (the word 'superseded' occurs earlier in the file).
-    """
+
+def _normalised(paragraph):
+    return " ".join(paragraph.split())
+
+
+def _qualified(paragraph, caveat):
+    if caveat and caveat in paragraph:
+        return True
+    return any(re.search(p, paragraph, re.IGNORECASE)
+               for p in QUALIFIER_PATTERNS)
+
+
+def claim_violations(texts):
+    """texts: {rel_path: text} covering the guarded files plus
+    the baseline -> list of violation strings."""
     violations = []
     caveat = required_caveat(texts[BASELINE_REL])
     if not caveat:
         return [f"{BASELINE_REL}: no required_caveat in the "
                 f"frontmatter — the lint has nothing to enforce"]
-    for rel in GUARDED:
+    for rel in sorted(texts):
+        if rel == BASELINE_REL:
+            continue
         text = texts[rel]
-        if rel != BASELINE_REL:
-            quoted = [p for p in HEADLINE_PATTERNS
-                      if re.search(p, text)]
-            if quoted and caveat not in text \
-                    and BASELINE_REF not in text:
+        for paragraph in _paragraphs(text):
+            norm = _normalised(paragraph)
+            hits = [p for p in CLAIM_PATTERNS
+                    if re.search(p, norm)]
+            for m in re.finditer(FRACTION_PATTERN, norm):
+                window = norm[max(0, m.start() - FRACTION_WINDOW):
+                              m.end() + FRACTION_WINDOW]
+                if re.search(FRACTION_CONTEXT, window,
+                             re.IGNORECASE):
+                    hits.append(FRACTION_PATTERN)
+                    break
+            if hits and not _qualified(norm, caveat):
                 violations.append(
-                    f"{rel}: quotes headline figure(s) "
-                    f"{quoted} without the baseline's "
-                    f"required_caveat embedded or a reference "
-                    f"to {BASELINE_REF}")
+                    f"{rel}: unqualified claim "
+                    f"(pattern {hits[0]!r}) in paragraph: "
+                    f"{norm[:110]}...")
+        # The naive figure: file-order rule (must be marked
+        # superseded earlier in the file) plus the paragraph
+        # currency rule.
         idx = text.find(NAIVE_FIGURE)
         if idx >= 0 and "superseded" not in text[:idx].lower():
             violations.append(
@@ -96,7 +183,47 @@ def claim_violations(texts):
                 f"{NAIVE_FIGURE} appears before the file marks "
                 f"it superseded — it must never read as a "
                 f"current claim")
+        for paragraph in _paragraphs(text):
+            norm = _normalised(paragraph)
+            if NAIVE_FIGURE in norm \
+                    and re.search(r"[Cc]urrent", norm) \
+                    and "superseded" not in norm.lower():
+                violations.append(
+                    f"{rel}: the superseded naive figure "
+                    f"{NAIVE_FIGURE} is presented as current "
+                    f"in paragraph: {norm[:110]}...")
+    # The baseline itself is held to the ordering rule only.
+    base = texts[BASELINE_REL]
+    idx = base.find(NAIVE_FIGURE)
+    if idx >= 0 and "superseded" not in base[:idx].lower():
+        violations.append(
+            f"{BASELINE_REL}: the superseded naive figure "
+            f"{NAIVE_FIGURE} appears before the frontmatter "
+            f"caveat marks it superseded")
     return violations
+
+
+def load_texts():
+    texts = {rel: read_repo(rel) for rel in guarded_files()}
+    texts[BASELINE_REL] = read_repo(BASELINE_REL)
+    return texts
+
+
+# The Phase 5 tester's mutation set: every one of these,
+# appended to the README, must now FAIL the lint.
+MUTATION_VARIANTS = (
+    "Our reviewers reach recall 1.0 on the corpus.",
+    "Recall 1.000 on the public split.",
+    "Recall = 1.00 across the corpus.",
+    "The panel achieves a recall of 100%.",
+    "Perfect recall on every case.",
+    "CodeReview catches every bug.",
+    "It caught 34/34 seeded defects.",
+    "Current precision is 0.209.",
+    "**Recall: 1.0** on the benchmark.",
+    "Recall\n1.0",
+    "Zero false positives in testing.",
+)
 
 
 class ClaimLintTests(unittest.TestCase):
@@ -108,25 +235,39 @@ class ClaimLintTests(unittest.TestCase):
         self.assertIn("superseded", caveat)
         self.assertIn("do not quote", caveat)
 
-    def test_guarded_docs_pass_the_lint(self):
-        texts = {rel: read_repo(rel) for rel in GUARDED}
-        self.assertEqual(claim_violations(texts), [])
+    def test_scope_is_the_shipped_docs_minus_records(self):
+        guarded = guarded_files()
+        for expected in ("README.md", "CHANGELOG.md",
+                         os.path.join("bench", "CLAIMS-SHEET.md"),
+                         os.path.join("bench",
+                                      "PUBLIC-BENCHMARK.md"),
+                         os.path.join("pilot", "QUICKSTART.md")):
+            self.assertIn(expected, guarded)
+        for record in RECORD_DOCS:
+            self.assertNotIn(record, guarded)
 
-    def test_lint_bites_on_a_bare_headline_quote(self):
-        texts = {rel: read_repo(rel) for rel in GUARDED}
-        texts["README.md"] = "Recall 34/34, precision 0.870!\n"
+    def test_guarded_docs_pass_the_lint(self):
+        self.assertEqual(claim_violations(load_texts()), [])
+
+    def test_every_phase5_mutation_variant_fails(self):
+        for variant in MUTATION_VARIANTS:
+            texts = load_texts()
+            texts["README.md"] += "\n\n" + variant + "\n"
+            violations = claim_violations(texts)
+            self.assertTrue(
+                any("README.md" in v for v in violations),
+                f"mutation not caught: {variant!r}")
+
+    def test_caveat_elsewhere_in_file_no_longer_clears(self):
+        texts = load_texts()
+        texts["README.md"] = (
+            "See bench/BASELINE-2026-11-04.md for the caveat."
+            "\n\nRecall 1.0 on the corpus.\n")
         violations = claim_violations(texts)
         self.assertTrue(any("README.md" in v for v in violations))
 
-    def test_lint_bites_on_unmarked_naive_figure(self):
-        texts = {rel: read_repo(rel) for rel in GUARDED}
-        texts["CHANGELOG.md"] = "## 9.9.9\n\nPrecision 0.209.\n"
-        violations = claim_violations(texts)
-        self.assertTrue(
-            any("CHANGELOG.md" in v for v in violations))
-
-    def test_lint_accepts_a_baseline_reference(self):
-        texts = {rel: read_repo(rel) for rel in GUARDED}
+    def test_same_paragraph_baseline_reference_qualifies(self):
+        texts = load_texts()
         texts["README.md"] = (
             "Recall 34/34 on the public split — see "
             "bench/BASELINE-2026-11-04.md for the caveat.\n")
