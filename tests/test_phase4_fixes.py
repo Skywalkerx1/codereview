@@ -776,5 +776,52 @@ class MeteringJournalTests(unittest.TestCase):
             self.assertEqual(again, resumed)
 
 
+class FutureWaiverTests(unittest.TestCase):
+    """P4-10: a future-dated waiver passed the age check
+    trivially (negative age) and waived findings forever."""
+
+    TODAY = datetime.date(2026, 11, 6)
+
+    def _evaluate(self, waiver):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "policy.toml")
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write("[waivers]\nmax_age_days = 90\n")
+            pol = policy.load_policy(path)
+        return policy.evaluate_policy(
+            pol, files=[], reviewer_reports=[], test_results=[],
+            path_matches=core.path_matches, waivers=[waiver],
+            today=self.TODAY)
+
+    def test_future_dates_violate(self):
+        for stamp in ("2026-12-31", "2099-01-01"):
+            out = self._evaluate(
+                {"finding_id": "abc123", "date": stamp})
+            self.assertEqual(len(out["violations"]), 1, stamp)
+            self.assertIn("in the future",
+                          out["violations"][0]["detail"])
+
+    def test_timezone_skew_within_tolerance_passes(self):
+        # 2026-11-07T01:00+14:00 is 2026-11-06 UTC; the
+        # date-only truncation reads it as tomorrow (age -1),
+        # which the one-day tolerance absorbs.
+        out = self._evaluate(
+            {"finding_id": "abc123",
+             "waived_at": "2026-11-07T01:00:00+14:00"})
+        self.assertEqual(out["violations"], [])
+
+    def test_controls_unchanged(self):
+        out = self._evaluate(
+            {"finding_id": "abc123", "date": "2026-11-01"})
+        self.assertEqual(out["violations"], [])
+        out = self._evaluate({"finding_id": "abc123"})
+        self.assertEqual(len(out["violations"]), 1)
+        self.assertIn("no usable date",
+                      out["violations"][0]["detail"])
+        out = self._evaluate(
+            {"finding_id": "abc123", "date": "not-a-date"})
+        self.assertEqual(len(out["violations"]), 1)
+
+
 if __name__ == "__main__":
     unittest.main()

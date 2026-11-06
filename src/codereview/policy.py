@@ -1040,5 +1040,21 @@ def evaluate_policy(policy, *, files, reviewer_reports,
                       f"waiver for finding {fid} is {age} day(s) "
                       f"old; policy expires waivers after "
                       f"{waiver_rules['max_age_days']} day(s)")
+                if age < -1:
+                    # A waiver dated in the future passes the
+                    # age check trivially (a negative age), so a
+                    # fat-fingered or fraudulent future date
+                    # waived findings forever (P4-10). One day
+                    # of slack absorbs the timezone skew
+                    # _waiver_date's date-only truncation
+                    # creates (a +14:00 timestamp reads as
+                    # tomorrow).
+                    check("waivers.max_age_days",
+                          f"waiver for {fid} is not dated in "
+                          f"the future",
+                          False,
+                          f"waiver for finding {fid} is dated "
+                          f"{wdate} — in the future; a waiver "
+                          f"cannot predate the finding it waives")
 
     return {"applied": applied, "violations": violations}
