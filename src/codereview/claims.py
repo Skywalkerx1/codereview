@@ -137,9 +137,11 @@ def verify_report_claims(report_text, source_dir, timeout=None,
         parsed = []
     entries = []
     try:
+        # P2-07: hand over the claims parsed above — the
+        # report text is parsed exactly once per verification.
         result = _evidence.verify_claims(
             report_text, source_dir, timeout=timeout,
-            environ=environ)
+            environ=environ, claims=parsed)
         for claim in result.get("claims") or []:
             entries.append({
                 "line": claim.get("line"),

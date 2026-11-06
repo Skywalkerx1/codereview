@@ -425,6 +425,23 @@ class ClaimTests(unittest.TestCase):
             self.assertEqual(fh.read(), "x\n")
 
 
+class TrailingOutcomePerformanceTests(unittest.TestCase):
+    """P2-07 — a labelled line ending in a long separator run
+    must parse in linear time (the old separator-run regex
+    backtracked quadratically: ~12s at 12KB)."""
+
+    def test_long_separator_run_parses_fast(self):
+        import time
+        line = "Ran: make test" + " - " * 4000 + "passed\n"
+        start = time.perf_counter()
+        claims = evidence.parse_claims(line)
+        elapsed = time.perf_counter() - start
+        self.assertLess(elapsed, 2.0)
+        self.assertEqual(
+            [(c["command"], c["claimed"]) for c in claims],
+            [("make test", "passed")])
+
+
 class ConfigLoadTests(unittest.TestCase):
     def test_load_config_roundtrip_and_errors(self):
         path = os.path.join(_tree({}), "cfg.json")

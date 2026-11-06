@@ -353,5 +353,29 @@ class CliRecordTests(unittest.TestCase):
         self.assertNotIn("claim_verification", report)
 
 
+class SingleParseTests(unittest.TestCase):
+    """P2-07 — verify_report_claims parses the report text
+    exactly once: the claims it extracts are handed to
+    evidence.verify_claims, which must not parse again."""
+
+    def test_report_text_parsed_once(self):
+        src = _tree({"app.py": "x\n"})
+        real_parse = evidence.parse_claims
+        calls = []
+
+        def counting_parse(text):
+            calls.append(text)
+            return real_parse(text)
+
+        with mock.patch.object(evidence, "parse_claims",
+                               counting_parse):
+            section = claims.verify_report_claims(
+                "Ran `true` — passed\n", src)
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(section["summary"]["mismatch"], 0)
+        self.assertEqual(
+            section["claims"][0]["status"], "verified")
+
+
 if __name__ == "__main__":
     unittest.main()

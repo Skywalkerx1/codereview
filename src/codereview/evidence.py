@@ -713,6 +713,15 @@ _FAIL_WORD_RE = re.compile(r"\b(failed|fail|failure|error)\b",
 _PASS_WORD_RE = re.compile(
     r"\b(passed|pass|success|succeeded|ok)\b", re.IGNORECASE)
 _TAIL_SEPS = (" — ", " – ", " | ", " (")
+# P2-07: the trailing outcome word of a labelled line is found
+# with this end-anchored search; the separator run before it
+# is walked by hand (see parse_claims). The old single regex
+# (separator-run + word) backtracked quadratically on long
+# separator runs.
+_TRAILING_OUTCOME_RE = re.compile(
+    r"(passed|failed|pass|fail|success|succeeded|ok)"
+    r"\s*[.!]?\s*$", re.IGNORECASE)
+_TRAILING_SEP_CHARS = " \t-–—"
 
 
 def _claimed_outcome(text):
@@ -764,13 +773,20 @@ def parse_claims(report_text):
                     tail = sep + tail
             outcome = _claimed_outcome(tail) if tail else None
             if outcome is None and not tail:
-                end = re.search(
-                    r"[\s\-–—]+(passed|failed|pass|fail|success|"
-                    r"succeeded|ok)\s*[.!]?\s*$", body,
-                    re.IGNORECASE)
+                # P2-07: end-anchored word search + a hand
+                # walk over the separator run — linear, where
+                # the old separator-run regex backtracked
+                # quadratically on long runs.
+                end = _TRAILING_OUTCOME_RE.search(body)
                 if end:
-                    outcome = _claimed_outcome(end.group(0))
-                    head = body[:end.start()]
+                    start = end.start()
+                    while start > 0 and body[start - 1] in \
+                            _TRAILING_SEP_CHARS:
+                        start -= 1
+                    if start < end.start():
+                        outcome = _claimed_outcome(
+                            body[start:end.end()])
+                        head = body[:start]
             if outcome:
                 command = _EXIT_RE.sub("", head)
                 command = " ".join(command.split()).strip()
@@ -785,7 +801,7 @@ def parse_claims(report_text):
 
 
 def verify_claims(report_text, source_dir, timeout=DEFAULT_TIMEOUT,
-                  environ=None):
+                  environ=None, claims=None):
     """Re-run every claimed command in the sandbox and compare.
 
     Returns {"schema", "claims": [...], "summary": {...}}. Each
@@ -796,8 +812,14 @@ def verify_claims(report_text, source_dir, timeout=DEFAULT_TIMEOUT,
     string is executed as-is because re-running what was claimed
     is the point — but it executes under the full C5 sandbox
     (temp copy, scrubbed env, no network, limits), never in the
-    reviewed tree and never with secrets."""
-    claims = parse_claims(report_text)
+    reviewed tree and never with secrets.
+
+    `claims` may carry a pre-parsed claim list (the output of
+    parse_claims on the same text) so a caller that already
+    parsed the report does not pay for — or diverge on — a
+    second parse (P2-07); None parses `report_text` here."""
+    if claims is None:
+        claims = parse_claims(report_text)
     results = []
     sandbox_root = tempfile.mkdtemp(prefix="codereview-claims-")
     workdir = os.path.join(sandbox_root, "tree")
