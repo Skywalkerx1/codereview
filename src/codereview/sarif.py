@@ -52,6 +52,7 @@ The writer is stdlib-only, like the rest of the package.
 from __future__ import annotations
 
 import re
+from urllib.parse import quote
 
 from . import core
 
@@ -178,6 +179,32 @@ def _build_rules(pairs):
     return rules
 
 
+_CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f]")
+_MAX_LINE = 2 ** 31 - 1
+
+
+def _clean_message(text):
+    """message.text with control characters stripped (P5-01):
+    a finding title is model/diff-derived text and may carry
+    raw newlines, NULs and other Cc characters that strict
+    SARIF consumers reject."""
+    return _CONTROL_CHARS.sub("", str(text))
+
+
+def _artifact_uri(path):
+    """Normalise a record file path to a SARIF artifactLocation
+    uri (P5-01): a percent-encoded RELATIVE URI reference. Drive
+    letters, leading slashes and `.`/`..` segments are dropped
+    rather than resolved — the uri names a repo-relative
+    artefact, and a hostile path must not escape the repo or be
+    mistaken for a URI scheme. Returns "" when nothing safe
+    remains (the caller then emits no location)."""
+    p = str(path or "").replace("\\", "/").strip()
+    p = re.sub(r"^[A-Za-z]:", "", p)  # Windows drive letter
+    segments = [s for s in p.split("/") if s not in ("", ".", "..")]
+    return "/".join(quote(s, safe="") for s in segments)
+
+
 def _result(finding, state):
     rid = _rule_id(finding)
     severity = str(finding.get("severity") or "minor").lower()
@@ -188,19 +215,19 @@ def _result(finding, state):
     result = {
         "ruleId": rid,
         "level": level_for_severity(severity),
-        "message": {"text": str(finding.get("title")
-                                or "Untitled finding")},
+        "message": {"text": _clean_message(finding.get("title")
+                                           or "Untitled finding")},
         "partialFingerprints": {
             "codereviewFindingId": str(finding.get("id") or "")},
     }
-    file = str(finding.get("file") or "").replace("\\", "/")
+    file = _artifact_uri(finding.get("file"))
     if file:
         physical = {"artifactLocation": {"uri": file}}
         region = {}
         line = finding.get("line")
         if isinstance(line, int) and not isinstance(line, bool) \
                 and line >= 1:
-            region["startLine"] = line
+            region["startLine"] = min(line, _MAX_LINE)
         quote = str(finding.get("evidence_quote") or "")
         if quote:
             region["snippet"] = {"text": quote.splitlines()[0][:500]}
