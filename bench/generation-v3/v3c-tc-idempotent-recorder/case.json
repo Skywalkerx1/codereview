@@ -1,0 +1,11 @@
+{
+  "id": "v3c-tc-idempotent-recorder",
+  "title": "Idempotent order recorder creates exactly one entry per key",
+  "category": "clean",
+  "split": "holdout",
+  "source": "Authored for the CodeReview benchmark corpus (generation-v3 clean-authored stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "clean-authored",
+  "false_flag_note": "A reviewer might flag returning the original payload when a duplicate arrives with a different payload as data loss. That is the idempotency contract: the first recording wins, duplicates are acknowledgements of it, and the atomic lock makes the guarantee hold under concurrency."
+}

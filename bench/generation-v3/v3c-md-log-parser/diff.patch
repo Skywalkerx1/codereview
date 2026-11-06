@@ -1,0 +1,42 @@
+diff --git a/ops/log_parser.py b/ops/log_parser.py
+new file mode 100644
+--- /dev/null
++++ b/ops/log_parser.py
+@@ -0,0 +1,37 @@
++"""Parse a plain-text application log into records.
++
++Contract: a record STARTS at a line of the form
++``YYYY-MM-DD HH:MM:SS [LEVEL] message``. Following lines that are
++INDENTED (leading space or tab) -- stack traces, wrapped detail --
++belong to the record above them and are stored, stripped of their
++leading indentation, in that record's ``continuation`` list. A
++non-indented line that does not start a record raises
++``ValueError``, as does an indented line before any record. Empty
++input returns ``[]``. Each record is a dict with ``timestamp``
++(string as written), ``level``, ``message`` and ``continuation``.
++"""
++import re
++
++START = re.compile(
++    r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) \[([A-Z]+)\] (.*)$")
++
++
++def parse_log(text):
++    """Return the list of log records in ``text``."""
++    records = []
++    for raw in text.splitlines():
++        match = START.match(raw)
++        if match:
++            records.append({"timestamp": match.group(1),
++                            "level": match.group(2),
++                            "message": match.group(3),
++                            "continuation": []})
++        elif raw[:1] in (" ", "\t"):
++            if not records:
++                raise ValueError("continuation line before any record")
++            records[-1]["continuation"].append(raw.strip())
++        elif raw == "":
++            continue
++        else:
++            raise ValueError(f"unrecognised log line: {raw!r}")
++    return records

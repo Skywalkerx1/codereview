@@ -1,0 +1,11 @@
+{
+  "id": "v3c-md-money-minor-units",
+  "title": "Money conversion to minor units with currency precision rules",
+  "category": "clean",
+  "split": "holdout",
+  "source": "Authored for the CodeReview benchmark corpus (generation-v3 clean-authored stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "clean-authored",
+  "false_flag_note": "A reviewer might flag the quantize call as rounding that could hide excess precision. The precision check runs first and rejects any amount whose value would actually change under quantizing; quantize with an explicit ROUND_HALF_UP is used only to normalise exact values (including harmless trailing zeros), so nothing is silently rounded."
+}

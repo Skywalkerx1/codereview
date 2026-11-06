@@ -1,0 +1,53 @@
+diff --git a/app/session_store.py b/app/session_store.py
+new file mode 100644
+--- /dev/null
++++ b/app/session_store.py
+@@ -0,0 +1,48 @@
++"""In-memory session store with monotonic-clock expiry.
++
++Contract:
++- Expiry is judged on a monotonic clock (injectable for tests),
++  never wall time, so clock adjustments cannot extend a session.
++- A session is valid only while elapsed time is strictly less
++  than the TTL; at exactly the TTL it is expired.
++- Expired sessions are rejected by ``get`` and removed by
++  ``sweep``; unknown ids return None.
++- Re-creating an existing id replaces it with a fresh expiry.
++"""
++import time
++
++
++class SessionStore:
++    """TTL sessions keyed by session id."""
++
++    def __init__(self, ttl_seconds, clock=time.monotonic):
++        self._ttl = float(ttl_seconds)
++        self._clock = clock
++        self._sessions = {}
++
++    def create(self, session_id, user_id):
++        """Create or replace a session expiring after the TTL."""
++        self._sessions[session_id] = (user_id, self._clock() + self._ttl)
++
++    def get(self, session_id):
++        """Return the user id if the session is live, else None."""
++        item = self._sessions.get(session_id)
++        if item is None:
++            return None
++        user_id, expires_at = item
++        if self._clock() >= expires_at:
++            del self._sessions[session_id]
++            return None
++        return user_id
++
++    def sweep(self):
++        """Remove every expired session; return how many were removed."""
++        now = self._clock()
++        expired = [sid for sid, (_, exp) in self._sessions.items()
++                   if now >= exp]
++        for sid in expired:
++            del self._sessions[sid]
++        return len(expired)
++
++    def __len__(self):
++        return len(self._sessions)

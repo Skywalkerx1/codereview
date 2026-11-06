@@ -1,0 +1,37 @@
+diff --git a/app/retention_purge.py b/app/retention_purge.py
+new file mode 100644
+--- /dev/null
++++ b/app/retention_purge.py
+@@ -0,0 +1,32 @@
++"""Retention purge for per-tenant job-history rows.
++
++Contract: the purge deletes only rows that belong to the tenant
++being purged AND are in a terminal status AND finished before the
++cutoff.  Tenant isolation is absolute: no other tenant's rows may
++be removed, whatever their status or age — deleting another
++tenant's history is unrecoverable data loss.
++"""
++
++TERMINAL_STATUSES = frozenset({"completed", "failed", "cancelled"})
++
++
++def purge_old_rows(rows, tenant_id, cutoff_iso):
++    """Remove purgeable rows for ``tenant_id`` from ``rows``.
++
++    ``rows`` is a list of dicts with keys ``id``, ``tenant_id``,
++    ``status`` and ``finished_at`` (ISO-8601 string).  Rows are
++    removed in place; the number removed is returned.
++    """
++    kept = []
++    removed = 0
++    for row in rows:
++        purgeable = (
++            row["status"] in TERMINAL_STATUSES
++            and row["finished_at"] < cutoff_iso
++        )
++        if purgeable:
++            removed += 1
++        else:
++            kept.append(row)
++    rows[:] = kept
++    return removed

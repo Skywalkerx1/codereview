@@ -1,0 +1,94 @@
+diff --git a/app/wraptext.py b/app/wraptext.py
+new file mode 100644
+--- /dev/null
++++ b/app/wraptext.py
+@@ -0,0 +1,89 @@
++"""Paragraph wrapping for generated reports.
++
++Text is split into word-sized chunks and packed into lines of at
++most ``width`` columns.  Emitted lines never carry trailing
++whitespace.  In particular, when the text accumulated so far --
++including a separating space -- exactly fills the width and the
++next chunk is a word too long for any line, the separating space
++is dropped: the long word is broken starting on the next line.
++"""
++
++import re
++
++_whitespace = "\t\n\x0b\x0c\r "
++
++
++class TextWrapper:
++    """Wrap a single paragraph of text to a fixed width."""
++
++    unicode_whitespace_trans = dict.fromkeys(map(ord, _whitespace), ord(" "))
++
++    _ws = r'[%s]' % re.escape(_whitespace)
++    wordsep_re = re.compile(r'''
++        ( %(ws)s+ | (?<=%(wp)s) -{2,} (?=\w)
++        | %(nws)s+? (?: -(?: (?<=%(lt)s{2}-) | (?<=%(lt)s-%(lt)s-))
++                        (?= %(lt)s -? %(lt)s)
++                      | (?=%(ws)s|\Z) | (?<=%(wp)s) (?=-{2,}\w) ) )
++        ''' % {'wp': r'[\w!"\'&.,?]', 'lt': r'[^\d\W]',
++               'ws': _ws, 'nws': '[^' + _ws[1:]}, re.VERBOSE)
++    wordsep_simple_re = re.compile(r'(%s+)' % _ws)
++
++    def __init__(self, width=70, break_long_words=True,
++                 drop_whitespace=True, break_on_hyphens=True):
++        self.width = width
++        self.break_long_words = break_long_words
++        self.drop_whitespace = drop_whitespace
++        self.break_on_hyphens = break_on_hyphens
++
++    def _split(self, text):
++        rexp = self.wordsep_re if self.break_on_hyphens else self.wordsep_simple_re
++        return [c for c in rexp.split(text) if c]
++
++    def _handle_long_word(self, reversed_chunks, cur_line, cur_len, width):
++        space_left = 1 if width < 1 else width - cur_len
++        # If we're allowed to break long words, do so: put as much
++        # of the chunk as fits.  When nothing fits (space_left == 0),
++        # placing an empty piece would shield a trailing space from
++        # the drop-whitespace cleanup below, so place nothing.
++        if self.break_long_words and space_left > 0:
++            end = space_left
++            chunk = reversed_chunks[-1]
++            if self.break_on_hyphens and len(chunk) > space_left:
++                hyphen = chunk.rfind("-", 0, space_left)
++                if hyphen > 0 and any(c != "-" for c in chunk[:hyphen]):
++                    end = hyphen + 1
++            cur_line.append(chunk[:end])
++            reversed_chunks[-1] = chunk[end:]
++        elif not cur_line:
++            cur_line.append(reversed_chunks.pop())
++
++    def _wrap_chunks(self, chunks):
++        lines = []
++        if self.width <= 0:
++            raise ValueError("invalid width %r (must be > 0)" % self.width)
++        chunks.reverse()
++        while chunks:
++            cur_line, cur_len = [], 0
++            if self.drop_whitespace and chunks[-1].strip() == "" and lines:
++                del chunks[-1]
++            while chunks:
++                l = len(chunks[-1])
++                if cur_len + l <= self.width:
++                    cur_line.append(chunks.pop())
++                    cur_len += l
++                else:
++                    break
++            if chunks and len(chunks[-1]) > self.width:
++                self._handle_long_word(chunks, cur_line, cur_len, self.width)
++                cur_len = sum(map(len, cur_line))
++            if self.drop_whitespace and cur_line and cur_line[-1].strip() == "":
++                cur_len -= len(cur_line[-1])
++                del cur_line[-1]
++            if cur_line:
++                lines.append("".join(cur_line))
++        return lines
++
++    def wrap(self, text):
++        """Wrap the single paragraph in text; return a list of lines."""
++        text = text.expandtabs(8).translate(self.unicode_whitespace_trans)
++        return self._wrap_chunks(self._split(text))

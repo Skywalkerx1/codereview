@@ -1,0 +1,25 @@
+{
+  "id": "v3d-cache-key-user",
+  "title": "Cache key omits the user, serving one user's payload to another",
+  "category": "security",
+  "split": "holdout",
+  "source": "Authored for the CodeReview benchmark corpus (generation-v3 defect-injected stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [
+    {
+      "severity": "major",
+      "category": "security",
+      "file": "app/document_cache.py",
+      "line": 14,
+      "title": "Cache key is built from the resource id only and omits the caller's user id, so a second user is served the first user's cached private payload",
+      "keywords": [
+        "cache key",
+        "user id",
+        "cross-user",
+        "disclosure",
+        "cache"
+      ]
+    }
+  ],
+  "stratum": "defect-injected"
+}

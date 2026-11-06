@@ -1,0 +1,72 @@
+diff --git a/ops/job_guard.py b/ops/job_guard.py
+new file mode 100644
+--- /dev/null
++++ b/ops/job_guard.py
+@@ -0,0 +1,67 @@
++"""Singleton job guard backed by a heartbeat lease file.
++
++Contract:
++- The lease file holds one float timestamp, written via temp file
++  plus atomic rename, so readers never see a partial timestamp.
++- A lease is stale only when its age is strictly greater than the
++  TTL: at exactly the TTL it is still held.
++- ``try_acquire`` succeeds when there is no lease or the lease is
++  stale, and fails while a fresh lease exists.
++- A missing lease file is treated as no lease (stale).
++- Times are injectable (``now``) so the boundary is testable.
++"""
++import os
++import tempfile
++
++
++class JobGuard:
++    """Lease-file guard ensuring one runner at a time."""
++
++    def __init__(self, path, ttl_seconds):
++        self._path = os.fspath(path)
++        self._ttl = float(ttl_seconds)
++
++    def _read_ts(self):
++        try:
++            return float(open(self._path, encoding="utf-8").read().strip())
++        except FileNotFoundError:
++            return None
++        except ValueError as exc:
++            raise ValueError(f"corrupt lease file: {self._path}") from exc
++
++    def _write_ts(self, now):
++        directory = os.path.dirname(os.path.abspath(self._path))
++        fd, tmp = tempfile.mkstemp(dir=directory, suffix=".tmp")
++        try:
++            with os.fdopen(fd, "w", encoding="utf-8") as fh:
++                fh.write(repr(float(now)))
++                fh.flush()
++                os.fsync(fh.fileno())
++            os.replace(tmp, self._path)
++        except BaseException:
++            if os.path.exists(tmp):
++                os.unlink(tmp)
++            raise
++
++    def is_stale(self, now):
++        """True if there is no lease or its age exceeds the TTL."""
++        ts = self._read_ts()
++        return ts is None or (float(now) - ts) > self._ttl
++
++    def try_acquire(self, now):
++        """Take the lease if free or stale; return success."""
++        if not self.is_stale(now):
++            return False
++        self._write_ts(now)
++        return True
++
++    def heartbeat(self, now):
++        """Refresh the lease timestamp atomically."""
++        self._write_ts(now)
++
++    def release(self):
++        """Drop the lease if present."""
++        try:
++            os.unlink(self._path)
++        except FileNotFoundError:
++            pass

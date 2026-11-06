@@ -1,0 +1,68 @@
+diff --git a/app/health_aggregator.py b/app/health_aggregator.py
+new file mode 100644
+--- /dev/null
++++ b/app/health_aggregator.py
+@@ -0,0 +1,63 @@
++"""Health aggregator: per-check timeouts, worst-of overall status.
++
++Contract:
++- Checks are registered with ``add(name, fn, timeout)``. A check fn
++  returns one of "ok", "degraded", "down" (any other return value is
++  treated as "degraded"), or raises (its entry becomes "down" with
++  the exception text as detail).
++- Each check runs in its own daemon thread and is given only its own
++  timeout: a check that hangs makes ITS entry "degraded" with detail
++  "timeout" and never delays or fails the rest of the report.
++- ``report()`` returns {"status": worst, "checks": {name: {...}}}
++  where severity orders ok < degraded < down and the overall status
++  is the worst entry (or "ok" when no checks are registered).
++"""
++import threading
++
++_SEVERITY = {"ok": 0, "degraded": 1, "down": 2}
++
++
++class HealthAggregator:
++    """Run named health checks and aggregate their statuses."""
++
++    def __init__(self):
++        self._checks = {}  # name -> (fn, timeout)
++
++    def add(self, name, fn, timeout=1.0):
++        """Register a check; duplicate names raise ValueError."""
++        if name in self._checks:
++            raise ValueError(f"duplicate check: {name}")
++        if timeout <= 0:
++            raise ValueError("timeout must be positive")
++        self._checks[name] = (fn, float(timeout))
++
++    @staticmethod
++    def _run_one(fn, timeout):
++        box = {}
++        def target():
++            try:
++                box["status"] = fn()
++            except BaseException as exc:
++                box["status"] = "down"
++                box["detail"] = f"{type(exc).__name__}: {exc}"
++        t = threading.Thread(target=target, daemon=True)
++        t.start()
++        t.join(timeout)
++        if t.is_alive():
++            return {"status": "degraded", "detail": "timeout"}
++        status = box.get("status")
++        if status not in _SEVERITY:
++            return {"status": "degraded",
++                    "detail": f"unexpected result: {status!r}"}
++        return {"status": status, "detail": box.get("detail", "")}
++
++    def report(self):
++        """Run every check and return the aggregated report."""
++        checks = {}
++        worst = "ok"
++        for name, (fn, timeout) in self._checks.items():
++            entry = self._run_one(fn, timeout)
++            checks[name] = entry
++            if _SEVERITY[entry["status"]] > _SEVERITY[worst]:
++                worst = entry["status"]
++        return {"status": worst, "checks": checks}

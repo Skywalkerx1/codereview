@@ -1,0 +1,77 @@
+diff --git a/transfer/assemble.py b/transfer/assemble.py
+new file mode 100644
+--- /dev/null
++++ b/transfer/assemble.py
+@@ -0,0 +1,72 @@
++"""Verified assembly of chunked uploads.
++
++Inputs: ``chunks`` is an iterable of ``(index, data)`` pairs and
++``manifest`` maps each expected index to the lowercase hex
++SHA-256 of that chunk's bytes.
++
++Contract:
++- Indexes must be exactly ``0..len(manifest)-1`` and agree with
++  the manifest keys: a missing chunk, an unexpected chunk, or a
++  duplicate index raises :class:`AssemblyError`.
++- Every chunk's SHA-256 must match the manifest before anything
++  is written; a mismatch raises :class:`AssemblyError`.
++- Chunks are assembled strictly in index order, regardless of
++  arrival order.
++- On ANY failure the output path is left untouched: no new file
++  is created and a pre-existing file is not modified.  On
++  success the payload is written via a temporary sibling file
++  and atomically renamed over the output path.
++- ``assemble_chunks`` returns the number of bytes written.  An
++  empty manifest with no chunks writes an empty file.
++"""
++
++from __future__ import annotations
++
++import hashlib
++import os
++import tempfile
++from pathlib import Path
++
++
++class AssemblyError(ValueError):
++    """The chunk set was incomplete, duplicated, or corrupt."""
++
++
++def assemble_chunks(chunks, manifest: dict, output_path) -> int:
++    """Verify ``chunks`` against ``manifest`` and write the file."""
++    expected = set(manifest.keys())
++    if expected != set(range(len(manifest))):
++        raise AssemblyError("manifest indexes must start at 0 "
++                            "with no gaps")
++    received: dict = {}
++    for index, data in chunks:
++        if index in received:
++            raise AssemblyError(f"duplicate chunk {index}")
++        received[index] = bytes(data)
++    if set(received.keys()) != expected:
++        missing = sorted(expected - set(received.keys()))
++        extra = sorted(set(received.keys()) - expected)
++        raise AssemblyError(
++            f"chunk set mismatch, missing={missing} extra={extra}")
++    ordered = []
++    for index in sorted(expected):
++        digest = hashlib.sha256(received[index]).hexdigest()
++        if digest != str(manifest[index]).lower():
++            raise AssemblyError(f"hash mismatch on chunk {index}")
++        ordered.append(received[index])
++    payload = b"".join(ordered)
++    out = Path(output_path)
++    fd, tmp_name = tempfile.mkstemp(dir=str(out.parent),
++                                    prefix=out.name + ".",
++                                    suffix=".part")
++    try:
++        with os.fdopen(fd, "wb") as handle:
++            handle.write(payload)
++        os.replace(tmp_name, out)
++    except BaseException:
++        try:
++            os.unlink(tmp_name)
++        except OSError:
++            pass
++        raise
++    return len(payload)

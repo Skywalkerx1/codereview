@@ -1,0 +1,73 @@
+diff --git a/codecs/gzipcap.py b/codecs/gzipcap.py
+new file mode 100644
+--- /dev/null
++++ b/codecs/gzipcap.py
+@@ -0,0 +1,68 @@
++"""Gzip decoding with a hard decompressed-size cap.
++
++Contract:
++- ``decode_gzip_limited(data, max_output)`` returns the full
++  decompressed bytes when they are at most ``max_output`` long.
++- As soon as the decompressed output would exceed
++  ``max_output``, decoding aborts and raises
++  :class:`SizeCapExceeded`; partial output is never returned
++  (zip-bomb guard).  The decoder asks zlib for at most the
++  remaining allowance plus one byte, so an oversized stream is
++  never fully materialised in memory.
++- Corrupt or truncated gzip data raises :class:`GzipDecodeError`.
++- ``max_output`` must be non-negative; a negative value raises
++  ``ValueError``.  A cap of 0 accepts only an empty payload.
++"""
++
++from __future__ import annotations
++
++import zlib
++
++_FEED = 8192
++
++
++class GzipDecodeError(ValueError):
++    """The input was not a complete, valid gzip stream."""
++
++
++class SizeCapExceeded(ValueError):
++    """The decompressed output exceeded the caller's cap."""
++
++
++def decode_gzip_limited(data: bytes, max_output: int) -> bytes:
++    """Decode gzip ``data`` subject to a ``max_output`` byte cap."""
++    if max_output < 0:
++        raise ValueError("max_output must be non-negative")
++    decomp = zlib.decompressobj(wbits=31)
++    out = bytearray()
++    try:
++        for start in range(0, len(data), _FEED):
++            chunk = data[start:start + _FEED]
++            # allowance+1: one extra byte proves oversize without
++            # ever holding more than the cap plus that byte.
++            piece = decomp.decompress(
++                chunk, max_output + 1 - len(out))
++            out += piece
++            if len(out) > max_output:
++                raise SizeCapExceeded(
++                    "decompressed size exceeds cap")
++            while decomp.unconsumed_tail:
++                piece = decomp.decompress(
++                    decomp.unconsumed_tail,
++                    max_output + 1 - len(out))
++                out += piece
++                if len(out) > max_output:
++                    raise SizeCapExceeded(
++                        "decompressed size exceeds cap")
++        tail = decomp.flush()
++    except zlib.error as exc:
++        raise GzipDecodeError("invalid gzip data") from exc
++    if tail:
++        out += tail
++        if len(out) > max_output:
++            raise SizeCapExceeded("decompressed size exceeds cap")
++    if not decomp.eof:
++        raise GzipDecodeError("truncated gzip stream")
++    if decomp.unused_data:
++        raise GzipDecodeError("trailing data after gzip stream")
++    return bytes(out)

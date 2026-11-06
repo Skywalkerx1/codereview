@@ -1,0 +1,11 @@
+{
+  "id": "v3r-textwrap-trailing-space",
+  "title": "Text wrapper leaves no trailing space when a long word follows an exactly-full line",
+  "category": "clean",
+  "split": "holdout",
+  "source": "CPython commit 1c598e04361dbfc9cf465f3a02f83715c11b028c (gh-139065, GH-139070) dated 2025-10-10, fixing Lib/textwrap.py",
+  "license": "PSF",
+  "expected": [],
+  "stratum": "clean-realworld",
+  "false_flag_note": "A reviewer might read the added space_left > 0 condition as changing long-word breaking: previously an empty slice of the word was appended to the current line in this situation, which looks harmless. That empty chunk was the bug -- it became the line's last chunk, so the drop-whitespace cleanup removed it instead of the separating space chunk, and the emitted line kept a trailing space. When space_left is 0 nothing of the word could be placed anyway, so no breaking behaviour is lost."
+}

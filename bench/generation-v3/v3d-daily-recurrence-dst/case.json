@@ -1,0 +1,25 @@
+{
+  "id": "v3d-daily-recurrence-dst",
+  "title": "Daily 09:00 job drifts an hour across the spring DST transition",
+  "category": "correctness",
+  "split": "holdout",
+  "source": "Authored for the CodeReview benchmark corpus (generation-v3 defect-injected stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [
+    {
+      "severity": "major",
+      "category": "correctness",
+      "file": "app/digest_schedule.py",
+      "line": 28,
+      "title": "Next daily run is computed by adding a fixed 24 hours of elapsed time to a local wall time, so after spring-forward the job fires at 10:00 local instead of 09:00",
+      "keywords": [
+        "dst",
+        "recurrence",
+        "24 hours",
+        "wall clock",
+        "timezone"
+      ]
+    }
+  ],
+  "stratum": "defect-injected"
+}

@@ -1,0 +1,27 @@
+{
+  "id": "v3w-urllib-query-crlf",
+  "title": "Request-target validation checks the path but not the query, allowing CRLF header injection",
+  "category": "security",
+  "split": "holdout",
+  "source": "Real-world defect (reconstruction): CPython http.client request-target handling pre-fix for CVE-2019-9740 (CRLF injection via the query string of a URL passed to urllib.request.urlopen), bpo-36276, fixed upstream by CPython PR GH-12755 (first released in 3.7.4); the defective validation is reconstructed standalone in this case, 2026-11-05. Substituted for the brief's CVE-2020-8492, which on verification is a ReDoS (bpo-39503), not the described CRLF defect",
+  "license": "PSF-2.0",
+  "expected": [
+    {
+      "severity": "major",
+      "category": "security",
+      "file": "app/request_target.py",
+      "line": 26,
+      "title": "Request-target validation checks the path but not the query, allowing CRLF header injection",
+      "keywords": [
+        "crlf",
+        "injection",
+        "query",
+        "request",
+        "target",
+        "header",
+        "validation"
+      ]
+    }
+  ],
+  "stratum": "defect-realworld"
+}

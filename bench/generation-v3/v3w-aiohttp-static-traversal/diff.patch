@@ -1,0 +1,40 @@
+diff --git a/app/static_resolve.py b/app/static_resolve.py
+new file mode 100644
+--- /dev/null
++++ b/app/static_resolve.py
+@@ -0,0 +1,35 @@
++"""Resolving a request path against the static-file root.
++
++Static routes serve files below one root directory. The
++``follow_symlinks`` option exists so a symlink INSIDE the root
++may point at a file elsewhere on disk.
++
++Contract: ``..`` segments in the request path itself must never
++resolve to a location outside the root, in either mode -- the
++option governs symlinks found on disk, not path traversal in
++the URL. An escaping path raises ValueError.
++"""
++
++import os
++
++
++def _within(root, candidate):
++    return candidate == root or candidate.startswith(
++        root.rstrip(os.sep) + os.sep)
++
++
++def resolve_static(root, url_path, follow_symlinks=False):
++    """Return the filesystem path for *url_path* under *root*.
++
++    Raises ValueError when the path escapes the root through
++    ``..`` segments.
++    """
++    root = os.path.normpath(root)
++    rel = url_path.lstrip("/")
++    candidate = os.path.normpath(os.path.join(root, rel))
++    if follow_symlinks:
++        return candidate
++    if not _within(root, candidate):
++        raise ValueError(
++            f"static path escapes the root: {url_path!r}")
++    return candidate

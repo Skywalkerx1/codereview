@@ -1,0 +1,63 @@
+diff --git a/ingest/bounded_reader.py b/ingest/bounded_reader.py
+new file mode 100644
+--- /dev/null
++++ b/ingest/bounded_reader.py
+@@ -0,0 +1,58 @@
++"""Bounded reading of an upstream response body.
++
++Contract:
++- ``read_bounded`` returns the whole body decoded as text when the
++  body is at most ``limit`` bytes long.
++- A body longer than ``limit`` raises :class:`BoundedReadError`;
++  it is NEVER silently truncated to ``limit`` bytes.
++- Bytes are decoded as UTF-8 strictly: invalid UTF-8 raises
++  :class:`BoundedReadError` (no replacement characters).
++- ``limit`` must be non-negative; a negative limit raises
++  ``ValueError`` before anything is read.  A limit of 0 accepts
++  only an empty body.
++"""
++
++from __future__ import annotations
++
++import io
++
++_CHUNK = 8192
++
++
++class BoundedReadError(ValueError):
++    """The body exceeded the byte limit or was not valid UTF-8."""
++
++
++def read_bounded(stream, limit: int) -> str:
++    """Read at most ``limit`` bytes from binary ``stream`` as UTF-8.
++
++    ``stream`` is any object with ``read(n) -> bytes`` (for example
++    ``io.BytesIO`` or an HTTP response body file object).
++    """
++    if limit < 0:
++        raise ValueError("limit must be non-negative")
++    parts: list[bytes] = []
++    total = 0
++    while True:
++        # Never ask for more than one byte past the limit: that byte
++        # is the oversize probe, so memory stays bounded by limit+1.
++        want = min(_CHUNK, limit + 1 - total)
++        if want <= 0:
++            raise BoundedReadError("body exceeds byte limit")
++        chunk = stream.read(want)
++        if not chunk:
++            break
++        parts.append(chunk)
++        total += len(chunk)
++        if total > limit:
++            raise BoundedReadError("body exceeds byte limit")
++    raw = b"".join(parts)
++    try:
++        return raw.decode("utf-8", errors="strict")
++    except UnicodeDecodeError as exc:
++        raise BoundedReadError("body is not valid UTF-8") from exc
++
++
++def read_bytes_limited(data: bytes, limit: int) -> str:
++    """Convenience wrapper: apply :func:`read_bounded` to ``data``."""
++    return read_bounded(io.BytesIO(data), limit)

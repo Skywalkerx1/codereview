@@ -1,0 +1,40 @@
+diff --git a/app/token_expiry.py b/app/token_expiry.py
+new file mode 100644
+--- /dev/null
++++ b/app/token_expiry.py
+@@ -0,0 +1,35 @@
++"""Access-token expiry checks for the session service.
++
++Contract: stored token expiries are timezone-aware datetimes in
++UTC.  A token is valid only while its expiry is strictly later
++than the current instant *in UTC*.  The comparison must be made
++between aware datetimes on the same (UTC) timeline; wall-clock
++times from a local timezone must never be compared against the
++stored UTC expiry, because a local wall clock runs hours behind
++UTC and would keep expired tokens alive for hours.
++"""
++
++from datetime import datetime, timezone
++from zoneinfo import ZoneInfo
++
++DISPLAY_ZONE = ZoneInfo("America/New_York")
++
++
++def token_is_valid(expiry, now=None):
++    """Return True iff the aware UTC ``expiry`` is still ahead.
++
++    ``now`` may be injected for tests; it must be timezone-aware.
++    A naive ``expiry`` is a programming error and raises ValueError.
++    """
++    if expiry.tzinfo is None:
++        raise ValueError("expiry must be timezone-aware (UTC)")
++    if now is None:
++        now = datetime.now(DISPLAY_ZONE).replace(tzinfo=None)
++    if now.tzinfo is None:
++        raise ValueError("now must be timezone-aware")
++    return expiry.replace(tzinfo=None) > now
++
++
++def display_expiry(expiry):
++    """Render an aware UTC expiry in the display timezone."""
++    return expiry.astimezone(DISPLAY_ZONE).strftime("%Y-%m-%d %H:%M %Z")

@@ -1,0 +1,45 @@
+diff --git a/app/webhook_verify.py b/app/webhook_verify.py
+new file mode 100644
+--- /dev/null
++++ b/app/webhook_verify.py
+@@ -0,0 +1,40 @@
++"""Webhook signature verification with a replay guard.
++
++Contract:
++- The signature is the hex HMAC-SHA256 of the RAW body bytes, keyed
++  with the shared secret. Verification recomputes it over the exact
++  bytes received (no decoding or re-serialisation) and compares with
++  ``hmac.compare_digest`` (constant time).
++- ``timestamp`` is integer epoch seconds. A request is rejected when
++  ``abs(now - timestamp) > tolerance`` (default 300s): old replays
++  and far-future timestamps both fail. Exactly at the tolerance
++  boundary is accepted.
++- Malformed signatures or timestamps return False; this function
++  never raises for attacker-controlled input.
++"""
++import hashlib
++import hmac
++
++
++def sign(body, secret):
++    """Return the hex HMAC-SHA256 signature for body under secret."""
++    return hmac.new(secret, body, hashlib.sha256).hexdigest()
++
++
++def verify(body, signature, timestamp, secret, now, tolerance=300):
++    """Return True iff the signature is valid and the timestamp fresh."""
++    if not isinstance(body, (bytes, bytearray)):
++        return False
++    if not isinstance(signature, str):
++        return False
++    try:
++        ts = int(timestamp)
++    except (TypeError, ValueError):
++        return False
++    if abs(int(now) - ts) > int(tolerance):
++        return False
++    expected = sign(bytes(body), secret)
++    try:
++        return hmac.compare_digest(expected, signature)
++    except TypeError:
++        return False

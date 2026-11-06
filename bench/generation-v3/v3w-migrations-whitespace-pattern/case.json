@@ -1,0 +1,27 @@
+{
+  "id": "v3w-migrations-whitespace-pattern",
+  "title": "Migration-risk pattern misses destructive SQL written with non-space whitespace",
+  "category": "security",
+  "split": "holdout",
+  "source": "Real-world defect: CodeReview repository (superstartelecom/codereview), fix commit 02bf9c001a6a3a03087f64b292ceb8bbecaa2641 'migrations pattern uses \\\\s+'; pre-fix content-pattern logic reconstructed as a standalone module, 2026-11-05",
+  "license": "MIT",
+  "expected": [
+    {
+      "severity": "major",
+      "category": "security",
+      "file": "app/risk_patterns.py",
+      "line": 20,
+      "title": "Migration-risk pattern misses destructive SQL written with non-space whitespace",
+      "keywords": [
+        "migrations",
+        "pattern",
+        "whitespace",
+        "destructive",
+        "sql",
+        "detection",
+        "gap"
+      ]
+    }
+  ],
+  "stratum": "defect-realworld"
+}

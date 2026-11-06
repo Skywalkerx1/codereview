@@ -1,0 +1,81 @@
+diff --git a/ops/config_snapshots.py b/ops/config_snapshots.py
+new file mode 100644
+--- /dev/null
++++ b/ops/config_snapshots.py
+@@ -0,0 +1,76 @@
++"""Versioned configuration snapshots with bounded retention.
++
++Contract:
++- Each ``save`` writes a new snapshot whose version is one more
++  than the highest existing version (the first save is version 1)
++  and returns that version.
++- Snapshots are written via temp file plus atomic rename.
++- Only the newest 5 snapshots are retained: after each save, all
++  older snapshots beyond those 5 are deleted, exactly.
++- ``latest`` returns ``(version, config)`` for the highest
++  retained version, or None when nothing was ever saved.
++"""
++import json
++import os
++import tempfile
++
++KEEP = 5
++PREFIX = "snapshot-"
++SUFFIX = ".json"
++
++
++class ConfigSnapshots:
++    """Directory of numbered JSON config snapshots."""
++
++    def __init__(self, directory, keep=KEEP):
++        self._dir = os.fspath(directory)
++        self._keep = int(keep)
++        os.makedirs(self._dir, exist_ok=True)
++
++    def _versions(self):
++        versions = []
++        for name in os.listdir(self._dir):
++            if name.startswith(PREFIX) and name.endswith(SUFFIX):
++                middle = name[len(PREFIX):-len(SUFFIX)]
++                if middle.isdigit():
++                    versions.append(int(middle))
++        return sorted(versions)
++
++    def _path(self, version):
++        return os.path.join(self._dir, f"{PREFIX}{version:06d}{SUFFIX}")
++
++    def save(self, config):
++        """Store ``config`` as the next version; return the version."""
++        versions = self._versions()
++        version = (versions[-1] + 1) if versions else 1
++        fd, tmp = tempfile.mkstemp(dir=self._dir, suffix=".tmp")
++        try:
++            with os.fdopen(fd, "w", encoding="utf-8") as fh:
++                json.dump(config, fh, ensure_ascii=False, sort_keys=True)
++                fh.flush()
++                os.fsync(fh.fileno())
++            os.replace(tmp, self._path(version))
++        except BaseException:
++            if os.path.exists(tmp):
++                os.unlink(tmp)
++            raise
++        retained = self._versions()
++        for old in retained[:-self._keep] if len(retained) > self._keep else []:
++            os.unlink(self._path(old))
++        return version
++
++    def get(self, version):
++        """Return the config for a retained version, else None."""
++        if version not in self._versions():
++            return None
++        with open(self._path(version), encoding="utf-8") as fh:
++            return json.load(fh)
++
++    def list_versions(self):
++        return self._versions()
++
++    def latest(self):
++        versions = self._versions()
++        if not versions:
++            return None
++        return versions[-1], self.get(versions[-1])

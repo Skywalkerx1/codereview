@@ -1,0 +1,11 @@
+{
+  "id": "v3c-io-filename-sanitizer",
+  "title": "Download filename sanitizer strips paths, reserved names and overlength",
+  "category": "clean",
+  "split": "holdout",
+  "source": "Authored for the CodeReview benchmark corpus (generation-v3 clean-authored stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "clean-authored",
+  "false_flag_note": "A reviewer might flag prefixing an underscore to reserved names like CON.txt as mangling a legitimate file, or truncating the stem as data loss. Both are required for the stated contract: the original name cannot be created on the target filesystems at all, and truncation keeps the extension so the file stays openable."
+}

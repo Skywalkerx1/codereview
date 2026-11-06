@@ -1,0 +1,11 @@
+{
+  "id": "v3r-robotparser-normalize-urls",
+  "title": "robots.txt rule matching normalises percent-encoding without conflating raw ?, = and & with %3F, %3D and %26",
+  "category": "clean",
+  "split": "holdout",
+  "source": "CPython commit cb7ef18d70a0bc1363799e2dfa475db457155e43 (gh-88375, gh-111788; GH-138502) dated 2025-09-05, fixing Lib/urllib/robotparser.py",
+  "license": "PSF",
+  "expected": [],
+  "stratum": "clean-realworld",
+  "false_flag_note": "A reviewer might flag the decode-then-re-encode round trip as lossy, or the trailing-'?' distinction as pedantry that could over-block. It is the semantics the robots.txt exclusion protocol and major crawlers use: matching is defined over the normalised path, a rule written with a query is meant to apply to that query only, and conflating %3F with '?' both over-blocks (a percent-encoded '?' in a file name becomes a query delimiter) and under-blocks (a rule for a query URL never matches). Invalid percent sequences and non-UTF-8 octets survive the round trip via surrogateescape instead of raising."
+}

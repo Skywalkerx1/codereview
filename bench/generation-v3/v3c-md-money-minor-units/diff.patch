@@ -1,0 +1,52 @@
+diff --git a/ledger/minor_units.py b/ledger/minor_units.py
+new file mode 100644
+--- /dev/null
++++ b/ledger/minor_units.py
+@@ -0,0 +1,47 @@
++"""Convert major-unit money amounts to integer minor units.
++
++Contract: amounts arrive as ``str`` or ``Decimal``; floats raise
++``TypeError``. Each currency has a fixed minor-unit exponent
++(USD/EUR: 2, JPY: 0, KWD: 3). An amount carrying MORE fractional
++precision than its currency allows raises ``ValueError`` -- excess
++precision is never silently rounded away. Conversion itself goes
++through ``Decimal.quantize`` with an explicit ``ROUND_HALF_UP``
++mode (never the context default). Unknown currencies raise
++``ValueError``. Negative amounts convert symmetrically (refunds).
++"""
++from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
++
++EXPONENTS = {"USD": 2, "EUR": 2, "GBP": 2, "JPY": 0, "KWD": 3}
++
++
++def to_minor_units(amount, currency="USD"):
++    """Return the integer minor-unit value of ``amount``."""
++    if isinstance(amount, float):
++        raise TypeError("amount must be str/Decimal, not float")
++    if currency not in EXPONENTS:
++        raise ValueError(f"unknown currency: {currency!r}")
++    try:
++        value = Decimal(amount)
++    except (InvalidOperation, ValueError, TypeError):
++        raise ValueError(f"not a valid amount: {amount!r}") from None
++    if not value.is_finite():
++        raise ValueError(f"amount must be finite: {amount!r}")
++    exp = EXPONENTS[currency]
++    quantum = Decimal(1).scaleb(-exp)
++    fractional_digits = max(0, -value.as_tuple().exponent)
++    if fractional_digits > exp and value != value.quantize(quantum):
++        raise ValueError(
++            f"{amount!r} has more precision than {currency} allows")
++    rounded = value.quantize(quantum, rounding=ROUND_HALF_UP)
++    return int(rounded.scaleb(exp))
++
++
++def from_minor_units(minor, currency="USD"):
++    """Return the ``Decimal`` major-unit value of integer ``minor``."""
++    if isinstance(minor, bool) or not isinstance(minor, int):
++        raise TypeError("minor must be an int")
++    if currency not in EXPONENTS:
++        raise ValueError(f"unknown currency: {currency!r}")
++    exp = EXPONENTS[currency]
++    return Decimal(minor).scaleb(-exp).quantize(
++        Decimal(1).scaleb(-exp), rounding=ROUND_HALF_UP)

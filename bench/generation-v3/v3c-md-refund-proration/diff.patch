@@ -1,0 +1,48 @@
+diff --git a/ledger/refund_proration.py b/ledger/refund_proration.py
+new file mode 100644
+--- /dev/null
++++ b/ledger/refund_proration.py
+@@ -0,0 +1,43 @@
++"""Prorate a refund, in integer cents, across line items.
++
++Contract: shares are proportional to each line's amount in cents.
++Integer shares are assigned by the largest-remainder method --
++floor every exact share, then hand the leftover cents one each to
++the lines with the largest fractional remainders (ties broken by
++earlier line position, so the result is deterministic). The parts
++therefore sum EXACTLY to the refund. A refund below 0 or above the
++line total raises ``ValueError``; a positive refund over a zero
++total raises ``ValueError``; a zero refund returns all zeros.
++"""
++def prorate_refund(line_cents, refund_cents):
++    """Return a list of integer-cent shares summing to the refund."""
++    if isinstance(refund_cents, bool) or not isinstance(refund_cents, int):
++        raise TypeError("refund_cents must be an int")
++    amounts = list(line_cents)
++    for amount in amounts:
++        if isinstance(amount, bool) or not isinstance(amount, int):
++            raise TypeError("line amounts must be ints (cents)")
++        if amount < 0:
++            raise ValueError("line amounts must be non-negative")
++    total = sum(amounts)
++    if refund_cents < 0:
++        raise ValueError("refund must be non-negative")
++    if refund_cents > total:
++        raise ValueError("refund exceeds the line total")
++    if total == 0:
++        return [0] * len(amounts)
++    if refund_cents == 0:
++        return [0] * len(amounts)
++    floors = []
++    remainders = []
++    for amount in amounts:
++        numerator = refund_cents * amount
++        floors.append(numerator // total)
++        remainders.append(numerator % total)
++    leftover = refund_cents - sum(floors)
++    order = sorted(range(len(amounts)),
++                   key=lambda i: (-remainders[i], i))
++    shares = list(floors)
++    for idx in order[:leftover]:
++        shares[idx] += 1
++    return shares

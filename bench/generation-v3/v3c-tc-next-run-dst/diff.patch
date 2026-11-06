@@ -1,0 +1,48 @@
+diff --git a/app/schedule_next.py b/app/schedule_next.py
+new file mode 100644
+--- /dev/null
++++ b/app/schedule_next.py
+@@ -0,0 +1,43 @@
++"""Next-run computation for a daily local-time schedule.
++
++Contract:
++- ``next_run(after, wall_time, tz_name)`` returns the first daily
++  occurrence of ``wall_time`` in zone ``tz_name`` strictly after
++  ``after``. ``after`` must be timezone-aware; naive raises ValueError.
++- Fall-back overlap: the earlier occurrence (fold=0) is chosen.
++- Spring-forward gap: a nonexistent wall time is shifted forward by
++  the length of the gap (e.g. 02:30 on a 1-hour gap day -> 03:30
++  local in the new offset).
++"""
++from datetime import datetime, time, timedelta, timezone
++from zoneinfo import ZoneInfo
++
++
++def _resolve(day, wall_time, tz):
++    """Resolve one local wall time on ``day`` per the module rules."""
++    cand0 = datetime.combine(day, wall_time, tzinfo=tz).replace(fold=0)
++    cand1 = datetime.combine(day, wall_time, tzinfo=tz).replace(fold=1)
++    # Round-trip through UTC: a nonexistent time comes back changed.
++    back = cand0.astimezone(timezone.utc).astimezone(tz)
++    if (back.hour, back.minute, back.second) != (
++            wall_time.hour, wall_time.minute, wall_time.second):
++        gap = cand1.utcoffset() - cand0.utcoffset()
++        if gap <= timedelta(0):
++            gap = timedelta(hours=1)
++        shifted = (datetime.combine(day, wall_time) + gap)
++        return shifted.replace(tzinfo=tz)
++    return cand0  # fold=0: earlier occurrence wins in an overlap
++
++
++def next_run(after, wall_time=time(9, 30), tz_name="America/New_York"):
++    """Return the next scheduled instant strictly after ``after``."""
++    if after.tzinfo is None or after.utcoffset() is None:
++        raise ValueError("after must be timezone-aware")
++    tz = ZoneInfo(tz_name)
++    local_after = after.astimezone(tz)
++    day = local_after.date()
++    for offset in range(0, 4):
++        cand = _resolve(day + timedelta(days=offset), wall_time, tz)
++        if cand > local_after:
++            return cand
++    raise AssertionError("unreachable: no run within 4 days")

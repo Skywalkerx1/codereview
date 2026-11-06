@@ -1,0 +1,62 @@
+diff --git a/ops/worker_heartbeat.py b/ops/worker_heartbeat.py
+new file mode 100644
+--- /dev/null
++++ b/ops/worker_heartbeat.py
+@@ -0,0 +1,57 @@
++"""Worker heartbeat file: atomic timestamp, age-based liveness.
++
++Contract:
++- ``beat`` writes the current timestamp via temp file plus
++  atomic rename, so a reader never sees a partial timestamp.
++- ``status`` returns "missing" with no file, "alive" when the
++  age is at most the TTL (exactly the TTL is still alive), and
++  "stale" only when the age is strictly greater than the TTL.
++- A corrupt heartbeat file raises ValueError rather than being
++  reported alive.
++- Times are injectable (``now``) so the boundary is testable.
++"""
++import os
++import tempfile
++
++
++class WorkerHeartbeat:
++    """Heartbeat timestamp file for one worker."""
++
++    def __init__(self, path, ttl_seconds):
++        self._path = os.fspath(path)
++        self._ttl = float(ttl_seconds)
++
++    def beat(self, now):
++        """Atomically record a heartbeat at time ``now``."""
++        directory = os.path.dirname(os.path.abspath(self._path))
++        fd, tmp = tempfile.mkstemp(dir=directory, suffix=".tmp")
++        try:
++            with os.fdopen(fd, "w", encoding="utf-8") as fh:
++                fh.write(repr(float(now)))
++                fh.flush()
++                os.fsync(fh.fileno())
++            os.replace(tmp, self._path)
++        except BaseException:
++            if os.path.exists(tmp):
++                os.unlink(tmp)
++            raise
++
++    def _read(self):
++        try:
++            return float(open(self._path, encoding="utf-8").read().strip())
++        except FileNotFoundError:
++            return None
++        except ValueError as exc:
++            raise ValueError(f"corrupt heartbeat: {self._path}") from exc
++
++    def age(self, now):
++        """Seconds since the last beat, or None if never beaten."""
++        ts = self._read()
++        return None if ts is None else float(now) - ts
++
++    def status(self, now):
++        """Return "missing", "alive", or "stale" for time ``now``."""
++        age = self.age(now)
++        if age is None:
++            return "missing"
++        return "stale" if age > self._ttl else "alive"

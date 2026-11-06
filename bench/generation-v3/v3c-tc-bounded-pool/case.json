@@ -1,0 +1,11 @@
+{
+  "id": "v3c-tc-bounded-pool",
+  "title": "Bounded worker pool rejects on full and drains on shutdown",
+  "category": "clean",
+  "split": "holdout",
+  "source": "Authored for the CodeReview benchmark corpus (generation-v3 clean-authored stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "clean-authored",
+  "false_flag_note": "A reviewer might flag the sentinel puts blocking on a full queue. They cannot: sentinels are only enqueued after queue.join() shows every accepted job finished (so the queue is empty), and in the wait=False path that whole stop sequence runs on a background daemon thread, so shutdown itself never blocks on it."
+}

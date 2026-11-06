@@ -1,0 +1,77 @@
+diff --git a/app/debouncer.py b/app/debouncer.py
+new file mode 100644
+--- /dev/null
++++ b/app/debouncer.py
+@@ -0,0 +1,72 @@
++"""Debouncer with a max-wait guarantee, driven by injected timers.
++
++Contract:
++- ``call(fn)`` schedules fn to run after ``delay`` seconds of quiet;
++  each new call replaces the pending one (only the latest fn runs).
++- No call is delayed beyond ``max_wait`` seconds from the FIRST
++  pending call in a burst: the flush deadline is
++  min(last_call + delay, first_call + max_wait).
++- Timing uses the injected monotonic clock and the injected
++  scheduler: ``schedule(delay_seconds, callback) -> cancel_fn``.
++- ``flush()`` runs the pending fn immediately (once); ``cancel()``
++  drops it without running. After a flush the burst resets.
++"""
++import threading
++import time
++
++
++class Debouncer:
++    """Coalesce bursts, guaranteeing the max-wait bound."""
++
++    def __init__(self, delay, max_wait, clock=time.monotonic,
++                 schedule=None):
++        if delay < 0 or max_wait < delay:
++            raise ValueError("require 0 <= delay <= max_wait")
++        self._delay = float(delay)
++        self._max_wait = float(max_wait)
++        self._clock = clock
++        self._schedule = schedule or self._timer_schedule
++        self._lock = threading.Lock()
++        self._pending_fn = None
++        self._first_at = None
++        self._cancel_timer = None
++
++    @staticmethod
++    def _timer_schedule(delay, callback):
++        timer = threading.Timer(delay, callback)
++        timer.daemon = True
++        timer.start()
++        return timer.cancel
++
++    def call(self, fn):
++        """Register fn as the pending call, (re)scheduling the flush."""
++        with self._lock:
++            now = float(self._clock())
++            if self._pending_fn is None:
++                self._first_at = now
++            self._pending_fn = fn
++            if self._cancel_timer is not None:
++                self._cancel_timer()
++            wait = min(self._delay,
++                       max(0.0, self._first_at + self._max_wait - now))
++            self._cancel_timer = self._schedule(wait, self.flush)
++
++    def flush(self):
++        """Run the pending function once, if any, and reset the burst."""
++        with self._lock:
++            fn, self._pending_fn = self._pending_fn, None
++            self._first_at = None
++            cancel, self._cancel_timer = self._cancel_timer, None
++        if cancel is not None:
++            cancel()
++        if fn is not None:
++            fn()
++
++    def cancel(self):
++        """Drop the pending function without running it."""
++        with self._lock:
++            self._pending_fn = None
++            self._first_at = None
++            cancel, self._cancel_timer = self._cancel_timer, None
++        if cancel is not None:
++            cancel()

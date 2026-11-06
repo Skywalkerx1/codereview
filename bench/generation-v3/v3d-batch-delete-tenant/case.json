@@ -1,0 +1,25 @@
+{
+  "id": "v3d-batch-delete-tenant",
+  "title": "Retention purge deletes other tenants' rows",
+  "category": "data-loss",
+  "split": "holdout",
+  "source": "Authored for the CodeReview benchmark corpus (generation-v3 defect-injected stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [
+    {
+      "severity": "blocker",
+      "category": "data-loss",
+      "file": "app/retention_purge.py",
+      "line": 24,
+      "title": "Batch purge filters by status and finish date but not by tenant, deleting every tenant's old rows",
+      "keywords": [
+        "tenant",
+        "batch delete",
+        "purge",
+        "data loss",
+        "isolation"
+      ]
+    }
+  ],
+  "stratum": "defect-injected"
+}

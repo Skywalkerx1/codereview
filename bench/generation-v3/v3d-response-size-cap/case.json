@@ -1,0 +1,25 @@
+{
+  "id": "v3d-response-size-cap",
+  "title": "Upstream response body is read into memory with no size cap",
+  "category": "reliability",
+  "split": "holdout",
+  "source": "Authored for the CodeReview benchmark corpus (generation-v3 defect-injected stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [
+    {
+      "severity": "major",
+      "category": "reliability",
+      "file": "app/body_reader.py",
+      "line": 25,
+      "title": "Response body is read fully into memory with a single unbounded read and no size cap, so an oversized upstream body can exhaust memory",
+      "keywords": [
+        "unbounded read",
+        "size cap",
+        "memory",
+        "response body",
+        "stream"
+      ]
+    }
+  ],
+  "stratum": "defect-injected"
+}

@@ -1,0 +1,25 @@
+{
+  "id": "v3d-decode-latin1-fallback",
+  "title": "Decoder silently falls back to latin-1 on invalid UTF-8",
+  "category": "correctness",
+  "split": "holdout",
+  "source": "Authored for the CodeReview benchmark corpus (generation-v3 defect-injected stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [
+    {
+      "severity": "major",
+      "category": "correctness",
+      "file": "app/payload_decoder.py",
+      "line": 22,
+      "title": "Response decoder falls back to latin-1 on UnicodeDecodeError instead of raising, silently corrupting non-UTF-8 payloads into mojibake",
+      "keywords": [
+        "utf-8",
+        "latin-1",
+        "decode",
+        "mojibake",
+        "fallback"
+      ]
+    }
+  ],
+  "stratum": "defect-injected"
+}

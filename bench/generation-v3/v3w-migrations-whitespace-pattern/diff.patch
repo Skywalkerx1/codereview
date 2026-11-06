@@ -1,0 +1,42 @@
+diff --git a/app/risk_patterns.py b/app/risk_patterns.py
+new file mode 100644
+--- /dev/null
++++ b/app/risk_patterns.py
+@@ -0,0 +1,37 @@
++"""Content-pattern classification for patch risk scoring.
++
++Each pattern class flags a kind of change a reviewer should look
++at harder. The ``migrations`` class matches destructive or
++structural SQL phrases (``drop table``, ``alter table``, ...).
++
++Contract: SQL phrases match whatever whitespace separates the
++keywords -- a statement written across lines, indented with tabs,
++or padded with repeated spaces is the same statement. Matching is
++case-insensitive.
++"""
++
++import re
++
++_CONTENT_PATTERNS = {
++    "crypto": re.compile(
++        r"\b(hashlib|bcrypt|argon2|scrypt|pbkdf2|fernet|"
++        r"encrypt|decrypt)\b", re.IGNORECASE),
++    "migrations": re.compile(
++        r"\b(alter table|create table|drop table|"
++        r"add column|drop column|create index|drop index)\b",
++        re.IGNORECASE),
++    "secrets": re.compile(
++        r"(api[_-]?key|secret|password|passwd|private[_-]?key|"
++        r"token)", re.IGNORECASE),
++}
++
++
++def classify_content(text):
++    """Return the set of pattern classes that match *text*."""
++    return {name for name, pattern in _CONTENT_PATTERNS.items()
++            if pattern.search(text)}
++
++
++def is_migration_risk(text):
++    """True when *text* contains a structural SQL phrase."""
++    return "migrations" in classify_content(text)

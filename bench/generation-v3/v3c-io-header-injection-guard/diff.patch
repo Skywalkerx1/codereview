@@ -1,0 +1,63 @@
+diff --git a/mailbuild/headers.py b/mailbuild/headers.py
+new file mode 100644
+--- /dev/null
++++ b/mailbuild/headers.py
+@@ -0,0 +1,58 @@
++"""Building email headers without header injection.
++
++Contract:
++- ``build_message_headers`` returns ``{"To": ..., "Subject":
++  ...}`` with the values unchanged when they are safe.
++- Any carriage return or line feed ANYWHERE in the recipient or
++  the subject raises :class:`HeaderInjectionError` -- including
++  a CRLF pair smuggling an extra header such as ``Bcc:``.
++- The recipient must be a non-empty string containing ``@``
++  with non-empty local and domain parts; otherwise
++  ``ValueError`` is raised.
++- Ordinary non-ASCII text (accented names, CJK subjects, emoji)
++  is NOT rejected: only CR and LF are structural dangers here.
++- ``format_sender`` applies the same CR/LF rule to the display
++  name and address and renders ``"Name <address>"``.
++"""
++
++from __future__ import annotations
++
++
++class HeaderInjectionError(ValueError):
++    """A header value contained a CR or LF character."""
++
++
++def _check_value(label: str, value: str) -> str:
++    if not isinstance(value, str):
++        raise ValueError(f"{label} must be a string")
++    if "\r" in value or "\n" in value:
++        raise HeaderInjectionError(
++            f"{label} contains a line break")
++    return value
++
++
++def build_message_headers(recipient: str, subject: str) -> dict:
++    """Validate and return the To/Subject header mapping."""
++    _check_value("recipient", recipient)
++    _check_value("subject", subject)
++    address = recipient.strip()
++    local, sep, domain = address.partition("@")
++    if not sep or not local or not domain or "@" in domain:
++        raise ValueError("recipient is not a plain email address")
++    if not subject.strip():
++        raise ValueError("subject must not be empty")
++    return {"To": address, "Subject": subject}
++
++
++def format_sender(display_name: str, address: str) -> str:
++    """Render ``display_name <address>`` after CR/LF checks."""
++    _check_value("display name", display_name)
++    _check_value("address", address)
++    name = display_name.strip()
++    addr = address.strip()
++    local, sep, domain = addr.partition("@")
++    if not sep or not local or not domain:
++        raise ValueError("address is not a plain email address")
++    if not name:
++        return addr
++    return f"{name} <{addr}>"

@@ -1,0 +1,67 @@
+diff --git a/downloads/names.py b/downloads/names.py
+new file mode 100644
+--- /dev/null
++++ b/downloads/names.py
+@@ -0,0 +1,62 @@
++"""Sanitising server-supplied download filenames.
++
++Contract for ``sanitize_download_name``:
++- Directory components are stripped: both ``/`` and ``\\`` count
++  as separators and only the final component survives.
++- Control characters (code points below 32, and 127) are removed.
++- Leading spaces are removed; trailing dots and spaces are
++  removed (they are illegal/ignored on common filesystems).
++- Reserved device names (CON, PRN, AUX, NUL, COM1-COM9,
++  LPT1-LPT9, compared case-insensitively on the stem before the
++  first dot) are neutralised by prefixing an underscore.
++- The result is at most ``max_length`` characters; truncation
++  shortens the stem and keeps the final extension (the part
++  after the last dot, when that dot is not the first character
++  and the extension is at most 10 characters).
++- If nothing usable remains, the fallback ``"download"`` is
++  returned.  ``max_length`` below 8 raises ``ValueError``.
++"""
++
++from __future__ import annotations
++
++_RESERVED = (
++    {"CON", "PRN", "AUX", "NUL"}
++    | {f"COM{i}" for i in range(1, 10)}
++    | {f"LPT{i}" for i in range(1, 10)}
++)
++_FALLBACK = "download"
++
++
++def _split_extension(name: str):
++    dot = name.rfind(".")
++    if dot <= 0:
++        return name, ""
++    ext = name[dot:]
++    if len(ext) - 1 > 10:
++        return name, ""
++    return name[:dot], ext
++
++
++def sanitize_download_name(raw: str, max_length: int = 60) -> str:
++    """Return a safe single-component filename for ``raw``."""
++    if max_length < 8:
++        raise ValueError("max_length must be at least 8")
++    if raw is None:
++        return _FALLBACK
++    name = str(raw).replace("\\", "/").split("/")[-1]
++    name = "".join(ch for ch in name
++                   if ord(ch) >= 32 and ord(ch) != 127)
++    name = name.lstrip(" ").rstrip(". ")
++    if not name:
++        return _FALLBACK
++    stem, ext = _split_extension(name)
++    if stem.split(".")[0].upper() in _RESERVED:
++        name = "_" + name
++        stem, ext = _split_extension(name)
++    if len(name) > max_length:
++        keep = max_length - len(ext)
++        stem = stem[:keep].rstrip(". ")
++        name = stem + ext
++        if not stem:
++            name = _FALLBACK[:max_length]
++    return name or _FALLBACK

@@ -1,0 +1,26 @@
+{
+  "id": "v3d-tax-rounding-half-up",
+  "title": "Tax quantise silently uses bankers rounding instead of half-up",
+  "category": "correctness",
+  "split": "holdout",
+  "source": "Authored for the CodeReview benchmark corpus (generation-v3 defect-injected stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [
+    {
+      "severity": "major",
+      "category": "correctness",
+      "file": "app/tax_calc.py",
+      "line": 23,
+      "title": "Tax quantize omits the contracted ROUND_HALF_UP mode and falls back to the Decimal default ROUND_HALF_EVEN, rounding half-cent taxes down",
+      "keywords": [
+        "rounding",
+        "half-up",
+        "half-even",
+        "decimal",
+        "tax",
+        "quantize"
+      ]
+    }
+  ],
+  "stratum": "defect-injected"
+}

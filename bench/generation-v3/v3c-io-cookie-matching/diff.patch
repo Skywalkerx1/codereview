@@ -1,0 +1,79 @@
+diff --git a/webstate/cookies.py b/webstate/cookies.py
+new file mode 100644
+--- /dev/null
++++ b/webstate/cookies.py
+@@ -0,0 +1,74 @@
++"""Cookie-to-URL matching for a small HTTP client.
++
++Contract (RFC 6265 style):
++- A host-only cookie is sent only to the exact host that set it;
++  it never leaks to subdomains or to the parent domain.
++- A domain cookie (``host_only=False``) is sent to its domain and
++  to subdomains of it, matched on a dot boundary: a cookie for
++  ``example.com`` matches ``api.example.com`` but NOT
++  ``badexample.com`` and NOT ``example.com.evil.test``.
++- A cookie for a subdomain is not sent to its parent domain.
++- Path scoping: the request path must equal the cookie path, or
++  extend it at a ``/`` boundary (cookie path ``/app`` matches
++  ``/app`` and ``/app/x`` but not ``/apple``).  An empty request
++  path counts as ``/``.  Host comparison is case-insensitive.
++"""
++
++from __future__ import annotations
++
++from urllib.parse import urlparse
++
++
++class Cookie:
++    """One stored cookie.  ``domain`` has no leading dot."""
++
++    def __init__(self, name: str, value: str, domain: str,
++                 host_only: bool = True, path: str = "/"):
++        self.name = name
++        self.value = value
++        self.domain = domain
++        self.host_only = host_only
++        self.path = path
++
++    def __repr__(self):
++        return (f"Cookie({self.name!r}, domain={self.domain!r}, "
++                f"host_only={self.host_only!r}, path={self.path!r})")
++
++
++def _domain_matches(cookie: Cookie, host: str) -> bool:
++    domain = cookie.domain.lstrip(".").lower()
++    if not domain:
++        return False
++    if cookie.host_only:
++        return host == domain
++    return host == domain or host.endswith("." + domain)
++
++
++def _path_matches(cookie_path: str, request_path: str) -> bool:
++    if not request_path:
++        request_path = "/"
++    if not cookie_path:
++        cookie_path = "/"
++    if request_path == cookie_path:
++        return True
++    if request_path.startswith(cookie_path):
++        if cookie_path.endswith("/"):
++            return True
++        return request_path[len(cookie_path)] == "/"
++    return False
++
++
++def cookie_matches(cookie: Cookie, url: str) -> bool:
++    """Return True when ``cookie`` should be sent to ``url``."""
++    parsed = urlparse(url)
++    host = (parsed.hostname or "").lower()
++    if not host:
++        return False
++    return (_domain_matches(cookie, host)
++            and _path_matches(cookie.path, parsed.path))
++
++
++def cookies_for_url(cookies, url: str) -> list:
++    """Return the sublist of ``cookies`` to send to ``url``,
++    in their original order."""
++    return [c for c in cookies if cookie_matches(c, url)]

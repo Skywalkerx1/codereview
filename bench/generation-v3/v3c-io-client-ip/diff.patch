@@ -1,0 +1,48 @@
+diff --git a/gateway/clientip.py b/gateway/clientip.py
+new file mode 100644
+--- /dev/null
++++ b/gateway/clientip.py
+@@ -0,0 +1,43 @@
++"""Resolving the real client IP behind trusted proxies.
++
++Contract for ``resolve_client_ip``:
++- ``X-Forwarded-For`` is honoured ONLY when the direct peer is
++  in ``trusted_proxies``.  A header sent by an untrusted peer is
++  ignored entirely and the peer's own address is returned --
++  the first (leftmost) XFF entry is never trusted on its own,
++  because any client can forge it.
++- When the peer is trusted, the chain is the XFF entries
++  followed by the peer.  Walking from the RIGHT, the client IP
++  is the first address that is NOT a trusted proxy: each trusted
++  hop only vouches for the address to its left.
++- If every address in the chain is trusted, the leftmost XFF
++  entry is the client.  If the header is absent or empty, the
++  peer address is returned.
++- Entries are whitespace-trimmed; empty entries are skipped.
++"""
++
++from __future__ import annotations
++
++
++def _parse_chain(header_value) -> list:
++    if not header_value:
++        return []
++    return [piece.strip() for piece in str(header_value).split(",")
++            if piece.strip()]
++
++
++def resolve_client_ip(peer_ip: str, forwarded_for,
++                      trusted_proxies) -> str:
++    """Return the client IP given the peer and XFF header."""
++    peer = str(peer_ip).strip()
++    trusted = {str(item).strip() for item in trusted_proxies}
++    if peer not in trusted:
++        return peer
++    chain = _parse_chain(forwarded_for)
++    if not chain:
++        return peer
++    full_chain = chain + [peer]
++    for candidate in reversed(full_chain):
++        if candidate not in trusted:
++            return candidate
++    return chain[0]

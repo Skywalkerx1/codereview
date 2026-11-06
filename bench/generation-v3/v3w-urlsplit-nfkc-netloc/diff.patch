@@ -1,0 +1,46 @@
+diff --git a/app/netloc_parse.py b/app/netloc_parse.py
+new file mode 100644
+--- /dev/null
++++ b/app/netloc_parse.py
+@@ -0,0 +1,41 @@
++"""Extracting the hostname from a URL for cookie / auth scoping.
++
++The hostname decides which stored credentials and cookies a
++request carries, so it must be the host every other consumer
++(IDNA / browser parsing) will see.
++
++Contract: if NFKC normalization of the netloc introduces any
++of the separator characters ``/ ? # @ :`` -- characters that
++were not separators as written but become them after
++normalization -- the URL is ambiguous and ValueError is
++raised. Callers normalize first if they want such URLs.
++"""
++
++import unicodedata
++
++_SEPARATORS = frozenset("/?#@:")
++
++
++def _netloc_of(url):
++    rest = url.split("://", 1)[1] if "://" in url else url
++    netloc = rest
++    for delim in "/?#":
++        netloc = netloc.split(delim, 1)[0]
++    return netloc
++
++
++def hostname_of(url):
++    """Return the lowercased hostname of *url*.
++
++    Raises ValueError per the module contract for netlocs whose
++    NFKC normalization introduces separator characters.
++    """
++    netloc = _netloc_of(url)
++    host = netloc.rsplit("@", 1)[-1]
++    host = host.split(":", 1)[0]
++    return host.lower()
++
++
++def same_site(url_a, url_b):
++    """True when both URLs scope to the same hostname."""
++    return hostname_of(url_a) == hostname_of(url_b)

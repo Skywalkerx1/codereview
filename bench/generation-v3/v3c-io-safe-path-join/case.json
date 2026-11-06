@@ -1,0 +1,11 @@
+{
+  "id": "v3c-io-safe-path-join",
+  "title": "Safe path join refuses traversal, absolute and backslash escapes",
+  "category": "clean",
+  "split": "holdout",
+  "source": "Authored for the CodeReview benchmark corpus (generation-v3 clean-authored stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "clean-authored",
+  "false_flag_note": "A reviewer might flag treating backslash as a separator on a POSIX host as over-engineering, or rejecting '..' components that would end up back inside the base as a false positive. The contract is deliberately strict: fragments come from Windows clients too, so backslash forms are real traversal vectors here, and any '..' is refused rather than normalised-and-hoped-safe."
+}

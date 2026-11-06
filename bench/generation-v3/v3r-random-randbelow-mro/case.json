@@ -1,0 +1,11 @@
+{
+  "id": "v3r-random-randbelow-mro",
+  "title": "Random subclass picks its integer generator from the nearest MRO definition of random()/getrandbits()",
+  "category": "clean",
+  "split": "holdout",
+  "source": "CPython commit ec1622d56c80d15740f7f8459c9a79fd55f5d3c7 (bpo-33144, GH-6563) dated 2018-05-08, fixing Lib/random.py",
+  "license": "PSF",
+  "expected": [],
+  "stratum": "clean-realworld",
+  "false_flag_note": "A reviewer might flag mutating the subclass inside __init_subclass__ as surprising, or the MRO walk as over-engineered next to a simple identity check against the base class. The identity check is exactly what was wrong: it misjudged overrides inherited from an intermediate class or supplied by a mixin, installing a _randbelow that used a primitive the subclass had effectively replaced. Nearest-definition-wins is the ordinary subclassing contract, and a subclass that defines _randbelow itself still short-circuits the walk and keeps its own implementation."
+}

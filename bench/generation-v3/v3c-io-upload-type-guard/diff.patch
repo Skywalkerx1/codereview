@@ -1,0 +1,72 @@
+diff --git a/uploads/typeguard.py b/uploads/typeguard.py
+new file mode 100644
+--- /dev/null
++++ b/uploads/typeguard.py
+@@ -0,0 +1,67 @@
++"""Upload type guard: declared type must match magic bytes.
++
++Contract:
++- Three formats are supported, recognised by their leading
++  bytes: PNG (the 8-byte signature 89 50 4E 47 0D 0A 1A 0A),
++  JPEG (FF D8 FF), and PDF (the ``%PDF-`` marker).
++- ``validate_upload(declared, data)`` returns the canonical
++  type name (``"png"``, ``"jpeg"`` or ``"pdf"``) only when the
++  declared content type and the sniffed type agree.
++- The declared type is compared case-insensitively and any
++  ``;`` parameters (for example a charset) are ignored.
++  ``image/jpg`` is accepted as an alias of ``image/jpeg``.
++- A mismatch, an unsupported/unknown declared type, data whose
++  magic bytes match nothing supported, and empty data all
++  raise :class:`UploadTypeError`.  The file name / extension is
++  never consulted.
++"""
++
++from __future__ import annotations
++
++
++class UploadTypeError(ValueError):
++    """The upload's declared and actual types disagree."""
++
++
++_PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
++_JPEG_MAGIC = b"\xff\xd8\xff"
++_PDF_MAGIC = b"%PDF-"
++
++_DECLARED = {
++    "image/png": "png",
++    "image/jpeg": "jpeg",
++    "image/jpg": "jpeg",
++    "application/pdf": "pdf",
++}
++
++
++def sniff_type(data: bytes):
++    """Return the type implied by ``data``'s magic bytes."""
++    if not data:
++        return None
++    if data.startswith(_PNG_MAGIC):
++        return "png"
++    if data.startswith(_JPEG_MAGIC):
++        return "jpeg"
++    if data.startswith(_PDF_MAGIC):
++        return "pdf"
++    return None
++
++
++def validate_upload(declared_content_type: str, data: bytes) -> str:
++    """Return the canonical type when declaration matches data."""
++    if not data:
++        raise UploadTypeError("empty upload")
++    declared = str(declared_content_type or "")
++    declared = declared.split(";", 1)[0].strip().lower()
++    expected = _DECLARED.get(declared)
++    if expected is None:
++        raise UploadTypeError(
++            f"unsupported content type: {declared!r}")
++    actual = sniff_type(bytes(data))
++    if actual is None:
++        raise UploadTypeError("unrecognised file signature")
++    if actual != expected:
++        raise UploadTypeError(
++            f"declared {expected} but content is {actual}")
++    return actual

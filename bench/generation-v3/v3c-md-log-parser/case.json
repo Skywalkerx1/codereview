@@ -1,0 +1,11 @@
+{
+  "id": "v3c-md-log-parser",
+  "title": "Log parser with continuation-line grouping",
+  "category": "clean",
+  "split": "holdout",
+  "source": "Authored for the CodeReview benchmark corpus (generation-v3 clean-authored stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "clean-authored",
+  "false_flag_note": "A reviewer might flag blank lines being skipped while other stray lines raise. Blank lines carry no content and appear at file ends, so skipping them is stated in the contract implementation; a non-indented content line that is not a record start is ambiguous -- attaching or dropping it silently would corrupt record boundaries, so it raises."
+}

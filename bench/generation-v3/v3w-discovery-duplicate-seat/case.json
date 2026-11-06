@@ -1,0 +1,26 @@
+{
+  "id": "v3w-discovery-duplicate-seat",
+  "title": "Setup merge seats an exact duplicate of a discovery pick",
+  "category": "correctness",
+  "split": "holdout",
+  "source": "Real-world defect: CodeReview repository (superstartelecom/codereview), fix commit 8deee7af979e45b94bb960b5a21e5f8352276906 'never seat an exact duplicate of a discovery pick'; pre-fix merge logic reconstructed as a standalone module, 2026-11-05",
+  "license": "MIT",
+  "expected": [
+    {
+      "severity": "major",
+      "category": "correctness",
+      "file": "app/panel_merge.py",
+      "line": 22,
+      "title": "Setup merge seats an exact duplicate of a discovery pick",
+      "keywords": [
+        "duplicate",
+        "discovery",
+        "pick",
+        "seat",
+        "panel",
+        "merge"
+      ]
+    }
+  ],
+  "stratum": "defect-realworld"
+}

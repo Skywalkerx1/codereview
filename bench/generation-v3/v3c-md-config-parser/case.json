@@ -1,0 +1,11 @@
+{
+  "id": "v3c-md-config-parser",
+  "title": "INI-style config with defaults and typed getters",
+  "category": "clean",
+  "split": "holdout",
+  "source": "Authored for the CodeReview benchmark corpus (generation-v3 clean-authored stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "clean-authored",
+  "false_flag_note": "A reviewer might flag get_int/get_bool raising instead of returning the fallback for a present-but-malformed value. That distinction is the contract: fallbacks apply only to absent keys, while a malformed value the operator actually wrote must surface loudly rather than be silently replaced."
+}

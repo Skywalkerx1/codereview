@@ -1,0 +1,11 @@
+{
+  "id": "v3c-io-bounded-reader",
+  "title": "Bounded response reader raises on oversize bodies and invalid UTF-8",
+  "category": "clean",
+  "split": "holdout",
+  "source": "Authored for the CodeReview benchmark corpus (generation-v3 clean-authored stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "clean-authored",
+  "false_flag_note": "A reviewer might flag reading limit+1 bytes as an off-by-one overflow, or the chunked loop as needless complexity for a small body. The extra byte is the oversize probe: it is the only way to distinguish a body of exactly limit bytes from a longer one, memory stays bounded by limit+1, and exceeding the limit always raises instead of returning a silently truncated prefix."
+}

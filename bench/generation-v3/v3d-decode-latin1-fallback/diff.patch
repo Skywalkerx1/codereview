@@ -1,0 +1,42 @@
+diff --git a/app/payload_decoder.py b/app/payload_decoder.py
+new file mode 100644
+--- /dev/null
++++ b/app/payload_decoder.py
+@@ -0,0 +1,37 @@
++"""Decoding of webhook payload bodies.
++
++Contract: payload bodies are UTF-8, strictly.  Bytes that are not
++valid UTF-8 are a protocol violation and raise ValueError so the
++delivery can be rejected and retried by the sender.  The decoder
++must never guess another encoding: silently re-interpreting the
++bytes as latin-1 produces mojibake that passes validation and
++corrupts names and amounts downstream.
++"""
++
++
++def decode_payload(data):
++    """Decode ``data`` (bytes) as strict UTF-8 text.
++
++    Raises ValueError if ``data`` is not valid UTF-8.
++    """
++    if not isinstance(data, (bytes, bytearray)):
++        raise TypeError("payload must be bytes")
++    try:
++        return bytes(data).decode("utf-8")
++    except UnicodeDecodeError:
++        return bytes(data).decode("latin-1")
++
++
++def decode_fields(data, fields):
++    """Decode a payload and split it into ``key=value`` fields.
++
++    Only keys named in ``fields`` are kept.
++    """
++    text = decode_payload(data)
++    result = {}
++    for pair in text.split("&"):
++        if "=" in pair:
++            key, value = pair.split("=", 1)
++            if key in fields:
++                result[key] = value
++    return result

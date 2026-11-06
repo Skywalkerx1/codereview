@@ -1,0 +1,88 @@
+diff --git a/app/spread.py b/app/spread.py
+new file mode 100644
+--- /dev/null
++++ b/app/spread.py
+@@ -0,0 +1,83 @@
++"""Dispersion statistics for measurement batches.
++
++``stdev`` and ``pstdev`` return the square root of the variance of
++a sample or of a whole population.  The computation is exact
++(fraction arithmetic) for finite inputs.  If any input is infinite
++or NaN, the functions raise ``ValueError``: a standard deviation
++is not defined for such data, and silently returning NaN, or
++failing with an unrelated error, would hide bad measurements.
++"""
++
++import math
++from fractions import Fraction
++
++
++class StatisticsError(ValueError):
++    """Raised when a statistic is undefined for the given data."""
++
++
++def _ss(data, c=None):
++    """Return the sum of squared deviations of data from c.
++
++    The centre c defaults to the exact mean of data.  The result
++    is an exact Fraction for finite inputs; if any input is
++    infinite or NaN, the result is the float NaN, mirroring how
++    the inexact value propagates in the underlying computation.
++    """
++    values = list(data)
++    if c is None:
++        total = Fraction(0)
++        for x in values:
++            if isinstance(x, float) and not math.isfinite(x):
++                return math.nan
++            total += Fraction(x)
++        c = total / len(values)
++    ss = Fraction(0)
++    for x in values:
++        if isinstance(x, float) and not math.isfinite(x):
++            return math.nan
++        ss += (Fraction(x) - Fraction(c)) ** 2
++    return ss
++
++
++def _float_sqrt_of_frac(n, d):
++    """Return the square root of the fraction n/d as a float."""
++    return math.sqrt(n / d)
++
++
++def stdev(data, xbar=None):
++    """Return the sample standard deviation of data.
++
++    At least two data points are required.  Raises ValueError if
++    any value in data is infinite or NaN.
++    """
++    data = list(data)
++    n = len(data)
++    if n < 2:
++        raise StatisticsError("stdev requires at least two data points")
++    mss = _ss(data, xbar) / (n - 1)
++    try:
++        mss_numerator = mss.numerator
++        mss_denominator = mss.denominator
++    except AttributeError:
++        raise ValueError("inf or nan encountered in data") from None
++    return _float_sqrt_of_frac(mss_numerator, mss_denominator)
++
++
++def pstdev(data, mu=None):
++    """Return the population standard deviation of data.
++
++    At least one data point is required.  Raises ValueError if
++    any value in data is infinite or NaN.
++    """
++    data = list(data)
++    n = len(data)
++    if n < 1:
++        raise StatisticsError("pstdev requires at least one data point")
++    mss = _ss(data, mu) / n
++    try:
++        mss_numerator = mss.numerator
++        mss_denominator = mss.denominator
++    except AttributeError:
++        raise ValueError("inf or nan encountered in data") from None
++    return _float_sqrt_of_frac(mss_numerator, mss_denominator)

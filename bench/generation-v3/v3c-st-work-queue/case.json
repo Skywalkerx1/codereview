@@ -1,0 +1,11 @@
+{
+  "id": "v3c-st-work-queue",
+  "title": "Directory work queue with atomic-rename claiming and delete ack",
+  "category": "clean",
+  "split": "holdout",
+  "source": "Authored for the CodeReview benchmark corpus (generation-v3 clean-authored stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "clean-authored",
+  "false_flag_note": "A reviewer might flag the sorted-listing claim as not FIFO for arbitrary ids. The contract defines claim order lexicographically, and the atomic rename is what guarantees exactly-once claiming: a loser of a race gets FileNotFoundError and moves on, while a claimed file is invisible to later claims, as the check asserts."
+}

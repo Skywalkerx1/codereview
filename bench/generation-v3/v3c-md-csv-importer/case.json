@@ -1,0 +1,11 @@
+{
+  "id": "v3c-md-csv-importer",
+  "title": "Strict all-or-nothing CSV inventory importer",
+  "category": "clean",
+  "split": "holdout",
+  "source": "Authored for the CodeReview benchmark corpus (generation-v3 clean-authored stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "clean-authored",
+  "false_flag_note": "A reviewer might flag that records parsed before a bad row are built in memory yet not returned. That is the all-or-nothing contract: staging validated rows locally and only extending the caller's store after the whole file passes is exactly how a partial import is prevented while still collecting every row error."
+}

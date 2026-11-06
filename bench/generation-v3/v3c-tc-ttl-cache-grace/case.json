@@ -1,0 +1,11 @@
+{
+  "id": "v3c-tc-ttl-cache-grace",
+  "title": "TTL cache serves stale only inside the explicit grace window",
+  "category": "clean",
+  "split": "holdout",
+  "source": "Authored for the CodeReview benchmark corpus (generation-v3 clean-authored stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "clean-authored",
+  "false_flag_note": "A reviewer might flag lazy eviction inflating len() before a lookup. That is stated in the contract, and the behavioural guarantee that matters holds: lookup never returns an entry as fresh past its TTL, and never returns it at all past the grace window."
+}

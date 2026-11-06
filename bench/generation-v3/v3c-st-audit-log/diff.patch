@@ -1,0 +1,61 @@
+diff --git a/ops/audit_log.py b/ops/audit_log.py
+new file mode 100644
+--- /dev/null
++++ b/ops/audit_log.py
+@@ -0,0 +1,56 @@
++"""Append-only audit log with size-based rotation.
++
++Contract:
++- Entries are appended in call order, each flushed and fsynced.
++- Before an append that would exceed ``max_bytes`` (and only when
++  the current file is non-empty), the log rotates: the oldest
++  backup is deleted and backups shift up by one.
++- Exactly ``backups`` backups are kept, named ``<path>.1`` (newest)
++  through ``<path>.<backups>`` (oldest); no ``.<backups+1>`` file
++  is ever created.
++- A single entry larger than ``max_bytes`` is still written to an
++  empty current file rather than rotating forever.
++"""
++import os
++
++
++class AuditLog:
++    """Append-only log file with bounded rotated backups."""
++
++    def __init__(self, path, max_bytes, backups):
++        if max_bytes <= 0 or backups < 1:
++            raise ValueError("max_bytes and backups must be positive")
++        self._path = os.fspath(path)
++        self._max = int(max_bytes)
++        self._backups = int(backups)
++
++    def _rotate(self):
++        oldest = f"{self._path}.{self._backups}"
++        if os.path.exists(oldest):
++            os.unlink(oldest)
++        for index in range(self._backups - 1, 0, -1):
++            src, dst = f"{self._path}.{index}", f"{self._path}.{index + 1}"
++            if os.path.exists(src):
++                os.replace(src, dst)
++        os.replace(self._path, f"{self._path}.1")
++
++    def append(self, entry):
++        """Append one entry (a trailing newline is added if absent)."""
++        if not entry.endswith("\n"):
++            entry = entry + "\n"
++        data = entry.encode("utf-8")
++        if os.path.exists(self._path):
++            size = os.path.getsize(self._path)
++            if size > 0 and size + len(data) > self._max:
++                self._rotate()
++        with open(self._path, "ab") as fh:
++            fh.write(data)
++            fh.flush()
++            os.fsync(fh.fileno())
++
++    def read_current(self):
++        """Return the current file's entries in order."""
++        if not os.path.exists(self._path):
++            return []
++        with open(self._path, encoding="utf-8") as fh:
++            return fh.read().splitlines()

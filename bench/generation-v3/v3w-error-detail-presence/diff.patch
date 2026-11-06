@@ -1,0 +1,43 @@
+diff --git a/app/report_entry.py b/app/report_entry.py
+new file mode 100644
+--- /dev/null
++++ b/app/report_entry.py
+@@ -0,0 +1,38 @@
++"""Persisted form of one reviewer seat's report entry.
++
++The record layer stores a compact entry per seat report. Contract:
++every field the report CARRIES is persisted. In particular
++``error_detail`` is copied whenever the key is present in the
++report -- even when the block is empty or holds only null-valued
++fields -- because downstream diagnostics distinguish "the seat
++reported an error with an empty detail block" from "no detail was
++reported at all". A key that is absent from the report stays
++absent from the entry.
++"""
++
++_BASE_FIELDS = ("provider", "lens", "status", "attempts")
++
++
++def reviewer_report_entry(report):
++    """Return the persisted entry dict for one seat *report*.
++
++    Copies the base fields that are present, then the optional
++    error fields. ``error_detail`` follows the presence contract
++    stated in the module docstring.
++    """
++    entry = {}
++    for field in _BASE_FIELDS:
++        if field in report:
++            entry[field] = report[field]
++    if report.get("fallback_for"):
++        entry["fallback_for"] = report["fallback_for"]
++    if report.get("primary_error"):
++        entry["primary_error"] = report["primary_error"]
++    if report.get("error_detail"):
++        entry["error_detail"] = report["error_detail"]
++    return entry
++
++
++def entry_has_error_detail(entry):
++    """True when the persisted entry carries an error_detail."""
++    return "error_detail" in entry

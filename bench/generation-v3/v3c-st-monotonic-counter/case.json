@@ -1,0 +1,11 @@
+{
+  "id": "v3c-st-monotonic-counter",
+  "title": "File-backed monotonic counter under lock with fsync",
+  "category": "clean",
+  "split": "holdout",
+  "source": "Authored for the CodeReview benchmark corpus (generation-v3 clean-authored stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "clean-authored",
+  "false_flag_note": "A reviewer might worry the lock is released by closing or that replacing the counter file loses the lock. The lock is held on a separate, never-replaced lock file for the whole read-increment-replace sequence, so serialisation survives the atomic rename of the data file."
+}

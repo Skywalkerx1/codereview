@@ -1,0 +1,68 @@
+diff --git a/ops/feature_flags.py b/ops/feature_flags.py
+new file mode 100644
+--- /dev/null
++++ b/ops/feature_flags.py
+@@ -0,0 +1,63 @@
++"""Feature-flag store persisted as a single JSON file.
++
++Contract:
++- Writes go to a temp file in the same directory, are fsynced, and
++  are installed with os.replace, so concurrent readers see either
++  the old complete file or the new complete file, never a torn one.
++- A missing file means no flags are set (empty mapping).
++- A corrupt (non-JSON or non-object) file raises ValueError on any
++  read or write; it is never silently reset to empty.
++- Flag values round-trip as JSON values, including unicode names.
++"""
++import json
++import os
++import tempfile
++
++
++class FlagStore:
++    """JSON-backed feature flags with atomic replacement."""
++
++    def __init__(self, path):
++        self._path = os.fspath(path)
++
++    def _load(self):
++        if not os.path.exists(self._path):
++            return {}
++        try:
++            with open(self._path, encoding="utf-8") as fh:
++                data = json.load(fh)
++        except (json.JSONDecodeError, UnicodeDecodeError) as exc:
++            raise ValueError(f"corrupt flag file: {self._path}") from exc
++        if not isinstance(data, dict):
++            raise ValueError(f"corrupt flag file: {self._path}")
++        return data
++
++    def get(self, name, default=False):
++        """Return flag ``name`` or ``default`` if it was never set."""
++        return self._load().get(name, default)
++
++    def all(self):
++        """Return a copy of all flags."""
++        return dict(self._load())
++
++    def set(self, name, value):
++        """Set one flag, preserving all others, atomically."""
++        flags = self._load()
++        flags[name] = value
++        directory = os.path.dirname(os.path.abspath(self._path))
++        fd, tmp = tempfile.mkstemp(dir=directory, suffix=".tmp")
++        try:
++            with os.fdopen(fd, "w", encoding="utf-8") as fh:
++                json.dump(flags, fh, ensure_ascii=False, sort_keys=True)
++                fh.flush()
++                os.fsync(fh.fileno())
++            os.replace(tmp, self._path)
++        except BaseException:
++            if os.path.exists(tmp):
++                os.unlink(tmp)
++            raise
++        dir_fd = os.open(directory, os.O_RDONLY)
++        try:
++            os.fsync(dir_fd)
++        finally:
++            os.close(dir_fd)

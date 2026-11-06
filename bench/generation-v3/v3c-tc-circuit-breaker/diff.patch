@@ -1,0 +1,77 @@
+diff --git a/app/circuit_breaker.py b/app/circuit_breaker.py
+new file mode 100644
+--- /dev/null
++++ b/app/circuit_breaker.py
+@@ -0,0 +1,72 @@
++"""Circuit breaker with a single half-open probe.
++
++Contract (clock is an injected monotonic source):
++- Closed: calls pass through. After ``failure_threshold`` CONSECUTIVE
++  failures the breaker opens; a success resets the failure count.
++- Open: calls raise CircuitOpenError immediately without invoking fn.
++- Once ``cooldown`` seconds have elapsed since opening, the breaker
++  admits exactly ONE probe call; concurrent calls during the probe
++  are rejected fast. Probe success closes the breaker; probe failure
++  re-opens it and restarts the cooldown.
++"""
++import threading
++import time
++
++
++class CircuitOpenError(RuntimeError):
++    """Raised when a call is rejected because the breaker is open."""
++
++
++class CircuitBreaker:
++    """State machine: closed -> open -> half-open (one probe) -> ..."""
++
++    def __init__(self, failure_threshold=3, cooldown=30.0,
++                 clock=time.monotonic):
++        if failure_threshold < 1 or cooldown < 0:
++            raise ValueError("bad threshold or cooldown")
++        self._threshold = failure_threshold
++        self._cooldown = float(cooldown)
++        self._clock = clock
++        self._lock = threading.Lock()
++        self._failures = 0
++        self._opened_at = None
++        self._probe_in_flight = False
++
++    @property
++    def state(self):
++        with self._lock:
++            if self._opened_at is None:
++                return "closed"
++            if self._clock() - self._opened_at >= self._cooldown:
++                return "half_open"
++            return "open"
++
++    def call(self, fn):
++        """Invoke fn if the breaker allows it; return fn's result."""
++        with self._lock:
++            probe = False
++            if self._opened_at is not None:
++                if self._clock() - self._opened_at < self._cooldown:
++                    raise CircuitOpenError("circuit is open")
++                if self._probe_in_flight:
++                    raise CircuitOpenError("probe already in flight")
++                self._probe_in_flight = True
++                probe = True
++        try:
++            result = fn()
++        except BaseException:
++            with self._lock:
++                if probe:
++                    self._probe_in_flight = False
++                    self._opened_at = self._clock()  # re-open
++                else:
++                    self._failures += 1
++                    if self._failures >= self._threshold:
++                        self._opened_at = self._clock()
++            raise
++        with self._lock:
++            if probe:
++                self._probe_in_flight = False
++                self._opened_at = None
++            self._failures = 0
++        return result

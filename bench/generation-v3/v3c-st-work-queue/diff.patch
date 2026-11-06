@@ -1,0 +1,80 @@
+diff --git a/ops/work_queue.py b/ops/work_queue.py
+new file mode 100644
+--- /dev/null
++++ b/ops/work_queue.py
+@@ -0,0 +1,75 @@
++"""Directory-backed work queue.
++
++Contract:
++- Items live as files under ``pending/``; ``enqueue`` writes the
++  payload via a temp file in ``pending/`` plus atomic rename, so
++  a claimer never sees a partial item.
++- ``claim`` moves the oldest (lexicographically first) pending
++  item into ``claimed/`` with os.rename. The rename is the claim:
++  once moved, the item is no longer pending and cannot be
++  claimed a second time; an empty queue returns None.
++- ``ack`` deletes the claimed file; acking an item that is not
++  claimed raises FileNotFoundError.
++- Item ids are plain names; path separators are rejected.
++"""
++import os
++import tempfile
++
++
++class WorkQueue:
++    """File-system queue with pending/ and claimed/ directories."""
++
++    def __init__(self, root):
++        self._pending = os.path.join(os.fspath(root), "pending")
++        self._claimed = os.path.join(os.fspath(root), "claimed")
++        os.makedirs(self._pending, exist_ok=True)
++        os.makedirs(self._claimed, exist_ok=True)
++
++    def _check_id(self, item_id):
++        if not item_id or os.path.basename(item_id) != item_id:
++            raise ValueError(f"invalid item id: {item_id!r}")
++
++    def enqueue(self, item_id, payload):
++        """Add an item to the pending queue."""
++        self._check_id(item_id)
++        fd, tmp = tempfile.mkstemp(dir=self._pending, suffix=".tmp")
++        try:
++            with os.fdopen(fd, "w", encoding="utf-8") as fh:
++                fh.write(payload)
++                fh.flush()
++                os.fsync(fh.fileno())
++            os.replace(tmp, os.path.join(self._pending, item_id))
++        except BaseException:
++            if os.path.exists(tmp):
++                os.unlink(tmp)
++            raise
++
++    def claim(self):
++        """Claim the first pending item; return its id or None."""
++        for item_id in sorted(os.listdir(self._pending)):
++            if item_id.endswith(".tmp"):
++                continue
++            try:
++                os.rename(os.path.join(self._pending, item_id),
++                          os.path.join(self._claimed, item_id))
++            except FileNotFoundError:
++                continue
++            return item_id
++        return None
++
++    def read_claimed(self, item_id):
++        """Return the payload of a claimed item."""
++        with open(os.path.join(self._claimed, item_id),
++                  encoding="utf-8") as fh:
++            return fh.read()
++
++    def ack(self, item_id):
++        """Delete a claimed item, completing its work."""
++        os.unlink(os.path.join(self._claimed, item_id))
++
++    def pending_count(self):
++        return len([n for n in os.listdir(self._pending)
++                    if not n.endswith(".tmp")])
++
++    def claimed_count(self):
++        return len(os.listdir(self._claimed))

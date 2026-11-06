@@ -1,0 +1,11 @@
+{
+  "id": "v3c-st-worker-heartbeat",
+  "title": "Worker heartbeat file with atomic refresh and age boundary",
+  "category": "clean",
+  "split": "holdout",
+  "source": "Authored for the CodeReview benchmark corpus (generation-v3 clean-authored stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "clean-authored",
+  "false_flag_note": "A reviewer might read the alive-at-exactly-TTL result as an off-by-one. The boundary rule is stated in the contract — stale only when age is strictly greater than the TTL — and the check asserts alive at exactly the TTL and stale immediately after it."
+}

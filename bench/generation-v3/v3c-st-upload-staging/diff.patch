@@ -1,0 +1,69 @@
+diff --git a/app/upload_staging.py b/app/upload_staging.py
+new file mode 100644
+--- /dev/null
++++ b/app/upload_staging.py
+@@ -0,0 +1,64 @@
++"""Upload staging: quarantine first, promote only valid files.
++
++Contract:
++- ``stage`` writes the upload under ``quarantine/`` only; nothing
++  appears under ``final/`` until ``promote`` succeeds.
++- ``promote`` validates size (at most ``max_bytes``; exactly
++  ``max_bytes`` is allowed) and extension (case-insensitive,
++  against the allow-list). An invalid file raises ValueError,
++  stays in quarantine, and is never promoted.
++- A valid promotion moves the file atomically with os.replace.
++- Names are basenames only: directory components are rejected.
++"""
++import os
++
++
++class UploadStaging:
++    """Two-stage upload area with validation on promotion."""
++
++    def __init__(self, root, max_bytes, allowed_extensions):
++        self._quarantine = os.path.join(os.fspath(root), "quarantine")
++        self._final = os.path.join(os.fspath(root), "final")
++        os.makedirs(self._quarantine, exist_ok=True)
++        os.makedirs(self._final, exist_ok=True)
++        self._max = int(max_bytes)
++        self._allowed = {e.lower().lstrip(".") for e in allowed_extensions}
++
++    def _check_name(self, name):
++        if not name or os.path.basename(name) != name or name in (".", ".."):
++            raise ValueError(f"invalid upload name: {name!r}")
++        return name
++
++    def stage(self, name, data):
++        """Write ``data`` into quarantine under ``name``."""
++        self._check_name(name)
++        path = os.path.join(self._quarantine, name)
++        with open(path, "wb") as fh:
++            fh.write(data)
++            fh.flush()
++            os.fsync(fh.fileno())
++        return path
++
++    def _validate(self, name, path):
++        ext = name.rsplit(".", 1)[-1].lower() if "." in name else ""
++        if ext not in self._allowed:
++            raise ValueError(f"extension not allowed: {name!r}")
++        if os.path.getsize(path) > self._max:
++            raise ValueError(f"upload too large: {name!r}")
++
++    def promote(self, name):
++        """Validate the staged file and move it to ``final/``."""
++        self._check_name(name)
++        src = os.path.join(self._quarantine, name)
++        if not os.path.exists(src):
++            raise FileNotFoundError(name)
++        self._validate(name, src)
++        dest = os.path.join(self._final, name)
++        os.replace(src, dest)
++        return dest
++
++    def in_final(self, name):
++        return os.path.exists(os.path.join(self._final, name))
++
++    def in_quarantine(self, name):
++        return os.path.exists(os.path.join(self._quarantine, name))

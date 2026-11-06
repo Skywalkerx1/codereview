@@ -1,0 +1,70 @@
+diff --git a/ops/config_parser.py b/ops/config_parser.py
+new file mode 100644
+--- /dev/null
++++ b/ops/config_parser.py
+@@ -0,0 +1,65 @@
++"""A small INI-style configuration reader.
++
++Format: ``key = value`` lines; blank lines and lines starting with
++``#`` or ``;`` are ignored; a non-empty line without ``=`` raises
++``ValueError`` naming the line number. Values from the file
++OVERRIDE the caller-supplied defaults key-by-key; defaults for
++keys the file never mentions survive. ``get_str`` returns the raw
++string, ``get_int`` parses base-10 ints and ``get_bool`` accepts
++true/false/yes/no/on/off/1/0 (case-insensitive); malformed typed
++values raise ``ValueError`` rather than falling back silently. A
++missing key raises ``KeyError`` unless a fallback is passed to the
++getter. Duplicate keys: the LAST occurrence in the file wins.
++"""
++_BOOL = {"true": True, "yes": True, "on": True, "1": True,
++         "false": False, "no": False, "off": False, "0": False}
++MISSING = object()
++
++
++class Config:
++    """Merged string-valued settings with typed accessors."""
++
++    def __init__(self, values):
++        self._values = dict(values)
++
++    def get_str(self, key, fallback=MISSING):
++        if key in self._values:
++            return self._values[key]
++        if fallback is MISSING:
++            raise KeyError(key)
++        return fallback
++
++    def get_int(self, key, fallback=MISSING):
++        raw = self.get_str(key, fallback)
++        if raw is fallback and key not in self._values:
++            return raw
++        try:
++            return int(str(raw).strip(), 10)
++        except ValueError:
++            raise ValueError(f"{key}: not an int: {raw!r}") from None
++
++    def get_bool(self, key, fallback=MISSING):
++        raw = self.get_str(key, fallback)
++        if raw is fallback and key not in self._values:
++            return raw
++        token = str(raw).strip().lower()
++        if token not in _BOOL:
++            raise ValueError(f"{key}: not a bool: {raw!r}")
++        return _BOOL[token]
++
++
++def parse_config(text, defaults=None):
++    """Parse ``text`` over ``defaults`` and return a ``Config``."""
++    values = dict(defaults or {})
++    for line_no, raw in enumerate(text.splitlines(), start=1):
++        line = raw.strip()
++        if not line or line.startswith("#") or line.startswith(";"):
++            continue
++        if "=" not in line:
++            raise ValueError(f"line {line_no}: expected key = value")
++        key, _, value = line.partition("=")
++        key = key.strip()
++        if not key:
++            raise ValueError(f"line {line_no}: empty key")
++        values[key] = value.strip()
++    return Config(values)

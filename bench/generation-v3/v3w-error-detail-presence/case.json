@@ -1,0 +1,26 @@
+{
+  "id": "v3w-error-detail-presence",
+  "title": "Persisted report entry drops a present-but-falsy error_detail block",
+  "category": "data-loss",
+  "split": "holdout",
+  "source": "Real-world defect: CodeReview repository (superstartelecom/codereview), fix commit ae422eaeac26fbdfa1697e958f7bb329d8d62692 'copy error_detail by presence, not truthiness'; pre-fix reviewer_report_entry logic reconstructed as a standalone module, 2026-11-05",
+  "license": "MIT",
+  "expected": [
+    {
+      "severity": "major",
+      "category": "data-loss",
+      "file": "app/report_entry.py",
+      "line": 31,
+      "title": "Persisted report entry drops a present-but-falsy error_detail block",
+      "keywords": [
+        "error_detail",
+        "truthiness",
+        "falsy",
+        "dropped",
+        "persistence",
+        "presence"
+      ]
+    }
+  ],
+  "stratum": "defect-realworld"
+}

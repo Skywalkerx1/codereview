@@ -1,0 +1,11 @@
+{
+  "id": "v3c-io-upload-type-guard",
+  "title": "Upload guard requires declared content type to match magic bytes",
+  "category": "clean",
+  "split": "holdout",
+  "source": "Authored for the CodeReview benchmark corpus (generation-v3 clean-authored stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "clean-authored",
+  "false_flag_note": "A reviewer might flag accepting image/jpg as a declared type as non-standard, or rejecting a valid PNG whose sender used an unusual but honest type as a false positive. image/jpg is a widespread sender spelling of the JPEG type and maps to the same sniffed format, while the guard's whole purpose is that only the three documented declared types may pass, and only when the bytes agree."
+}

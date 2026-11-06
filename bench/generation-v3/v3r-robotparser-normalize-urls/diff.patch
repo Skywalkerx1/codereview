@@ -1,0 +1,95 @@
+diff --git a/app/robotrules.py b/app/robotrules.py
+new file mode 100644
+--- /dev/null
++++ b/app/robotrules.py
+@@ -0,0 +1,90 @@
++"""Access rules parsed from a site's robots.txt file.
++
++Rules and candidate URLs are compared in a normalised form: each
++path is percent-decoded once and re-encoded, so percent-encoded
++and raw spellings of the same character match, while URL syntax
++is never confused with its percent-encoded spelling: a raw "?"
++starts the query, "%3F" is an ordinary path character, and a
++trailing "?" is significant: "/another/path?" ≠ "/another/path"."""
++
++import re, urllib.parse
++
++def normalize(path):
++    # Percent-decode once, then re-encode: the canonical spelling.
++    unquoted = urllib.parse.unquote(path, errors="surrogateescape")
++    return urllib.parse.quote(unquoted, errors="surrogateescape")
++
++def normalize_path(path):
++    """Normalise a path plus optional query for rule comparison."""
++    path, sep, query = path.partition("?")
++    if sep:
++        query = re.sub(r"[^=&]+", lambda m: normalize(m[0]), query)
++        return normalize(path) + "?" + query
++    return normalize(path)
++
++class RuleLine:
++    """A single Allow:/Disallow: rule with a normalised path."""
++
++    def __init__(self, path, allowance):
++        if path == "" and not allowance:
++            allowance = True  # An empty Disallow value allows all.
++        self.path = normalize_path(path)
++        self.allowance = allowance
++
++class RobotRules:
++    """Parse robots.txt lines and answer can_fetch questions."""
++
++    def __init__(self):
++        self.groups = []           # [(useragents, rulelines)], file order
++        self.default_rules = None  # rulelines of the "*" group
++
++    def parse(self, lines):
++        """Parse robots.txt lines (a small group state machine)."""
++        agents, rules, state = [], [], 0
++        for raw in lines:
++            line = raw.split("#", 1)[0].strip()
++            if not line:
++                continue
++            field, sep, value = line.partition(":")
++            if not sep:
++                continue
++            field, value = field.strip().lower(), value.strip()
++            if field == "user-agent":
++                if state == 2:
++                    self._add_group(agents, rules)
++                    agents, rules = [], []
++                agents.append(value)
++                state = 1
++            elif field in ("allow", "disallow") and state != 0:
++                rules.append(RuleLine(value, field == "allow"))
++                state = 2
++        if state != 0:
++            self._add_group(agents, rules)
++
++    def _add_group(self, agents, rules):
++        if "*" in agents and self.default_rules is None:
++            self.default_rules = rules
++        elif "*" not in agents:
++            self.groups.append((agents, rules))
++
++    def can_fetch(self, useragent, url):
++        """True if useragent may fetch url under the parsed rules."""
++        # Reduce the URL to path plus query (trailing "?" kept).
++        rest = url.split("#", 1)[0]
++        scheme_end = rest.find("://")
++        if scheme_end >= 0:
++            slash = rest.find("/", scheme_end + 3)
++            rest = rest[slash:] if slash >= 0 else "/"
++        url = normalize_path(rest) or "/"
++        token = useragent.split("/")[0].lower()
++        rules = self.default_rules
++        for agents, group_rules in self.groups:
++            if any(a.lower() in token for a in agents):
++                rules = group_rules
++                break
++        if rules is None:
++            return True
++        for line in rules:
++            if line.path == "*" or url.startswith(line.path):
++                return line.allowance
++        return True

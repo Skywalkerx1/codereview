@@ -1,0 +1,11 @@
+{
+  "id": "v3c-md-duration-parser",
+  "title": "Duration parser to seconds",
+  "category": "clean",
+  "split": "holdout",
+  "source": "Authored for the CodeReview benchmark corpus (generation-v3 clean-authored stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "clean-authored",
+  "false_flag_note": "A reviewer might flag spaces being stripped or '90m' being accepted without normalising to hours. Both follow the stated grammar: spaces may separate components, and amounts are not range-limited per unit -- only the total in seconds matters, so 90m is a legitimate 5400 seconds."
+}

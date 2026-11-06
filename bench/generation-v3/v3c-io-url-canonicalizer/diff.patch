@@ -1,0 +1,52 @@
+diff --git a/dedup/canonurl.py b/dedup/canonurl.py
+new file mode 100644
+--- /dev/null
++++ b/dedup/canonurl.py
+@@ -0,0 +1,47 @@
++"""URL canonicalisation for duplicate detection.
++
++Contract for ``canonicalize_url``:
++- Only ``http`` and ``https`` URLs are accepted; any other (or
++  missing) scheme, or a missing host, raises ``ValueError``.
++- Scheme and host are lowercased; the host's case never affects
++  the result.  Path case IS meaningful and is preserved exactly.
++- A default port (80 for http, 443 for https) is removed; any
++  other port is kept.
++- Query parameters are sorted by (name, value); repeated names
++  keep all of their values, sorted among themselves.  Blank
++  values are preserved.
++- The fragment is dropped entirely.  An empty path becomes "/".
++"""
++
++from __future__ import annotations
++
++from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
++
++_DEFAULT_PORTS = {"http": 80, "https": 443}
++
++
++def canonicalize_url(url: str) -> str:
++    """Return the canonical form of ``url`` for dedup keys."""
++    parts = urlsplit(str(url).strip())
++    scheme = parts.scheme.lower()
++    if scheme not in _DEFAULT_PORTS:
++        raise ValueError("only http and https URLs are supported")
++    host = (parts.hostname or "").lower()
++    if not host:
++        raise ValueError("URL has no host")
++    if ":" in host:  # IPv6 literal needs brackets when rebuilt
++        host = f"[{host}]"
++    userinfo = ""
++    if parts.username:
++        userinfo = parts.username
++        if parts.password:
++            userinfo += ":" + parts.password
++        userinfo += "@"
++    netloc = userinfo + host
++    port = parts.port
++    if port is not None and port != _DEFAULT_PORTS[scheme]:
++        netloc += f":{port}"
++    path = parts.path or "/"
++    pairs = parse_qsl(parts.query, keep_blank_values=True)
++    query = urlencode(sorted(pairs))
++    return urlunsplit((scheme, netloc, path, query, ""))

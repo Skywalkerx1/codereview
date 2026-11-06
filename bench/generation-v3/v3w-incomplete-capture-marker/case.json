@@ -1,0 +1,27 @@
+{
+  "id": "v3w-incomplete-capture-marker",
+  "title": "Partial sandbox capture is presented as whole when a detached process holds the pipe",
+  "category": "reliability",
+  "split": "holdout",
+  "source": "Real-world defect: CodeReview repository (superstartelecom/codereview), fix commit 64cb223a418e83d0a9dbcdb4f918428086b38fa0 'incomplete captures are marked, never silent'; pre-fix capture-combining logic reconstructed as a standalone module, 2026-11-05",
+  "license": "MIT",
+  "expected": [
+    {
+      "severity": "major",
+      "category": "reliability",
+      "file": "app/capture.py",
+      "line": 35,
+      "title": "Partial sandbox capture is presented as whole when a detached process holds the pipe",
+      "keywords": [
+        "incomplete",
+        "capture",
+        "partial",
+        "marker",
+        "detached",
+        "pipe",
+        "silent"
+      ]
+    }
+  ],
+  "stratum": "defect-realworld"
+}

@@ -1,0 +1,25 @@
+{
+  "id": "v3d-charge-idempotency-order",
+  "title": "Charge runs before its idempotency record exists, so a retry double-charges",
+  "category": "correctness",
+  "split": "holdout",
+  "source": "Authored for the CodeReview benchmark corpus (generation-v3 defect-injected stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [
+    {
+      "severity": "major",
+      "category": "correctness",
+      "file": "app/charge_service.py",
+      "line": 31,
+      "title": "The gateway charge executes before the idempotency record is written, so a retry after a lost response charges the customer twice",
+      "keywords": [
+        "idempotency",
+        "charge",
+        "retry",
+        "double charge",
+        "ordering"
+      ]
+    }
+  ],
+  "stratum": "defect-injected"
+}

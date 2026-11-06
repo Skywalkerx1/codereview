@@ -1,0 +1,11 @@
+{
+  "id": "v3r-numeric-range-slicing",
+  "title": "numeric_range slicing resolves slices with slice.indices() so reversed and negative-step slices work",
+  "category": "clean",
+  "split": "holdout",
+  "source": "more-itertools PR #1128, merge commit 3bbe636e23bdfa359d80e6851e0c37abbc860d4c merged 2026-03-17, fixing more_itertools/more.py",
+  "license": "MIT",
+  "expected": [],
+  "stratum": "clean-realworld",
+  "false_flag_note": "A reviewer might worry that delegating to slice.indices() changes edge-case behaviour for out-of-range slices compared with the previous hand-rolled defaulting. That delegation is the point: numeric_range promises to mirror the built-in range, and indices() is exactly range's own resolution, including clamping. The hand-rolled code defaulted a missing start/stop to the range's own start/stop regardless of the step direction, which is why [::-1] on a descending range produced an empty range instead of the reversed values; integer indexing is untouched."
+}

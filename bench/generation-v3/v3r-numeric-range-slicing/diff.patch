@@ -1,0 +1,74 @@
+diff --git a/app/numrange.py b/app/numrange.py
+new file mode 100644
+--- /dev/null
++++ b/app/numrange.py
+@@ -0,0 +1,69 @@
++"""A range of numbers that mirrors the built-in range.
++
++``numeric_range(start, stop, step)`` works like ``range`` but the
++values may be any numeric type, such as float or Decimal.
++Indexing and slicing follow built-in range semantics: a slice is
++resolved with ``slice.indices()`` against the length of the
++range, so the bounds of the new range are computed correctly for
++either step direction -- in particular ``r[::-1]`` is the
++reversed range, also when the original range descends.
++"""
++
++
++class numeric_range:
++    """An immutable sequence of numbers; see the module docstring."""
++
++    def __init__(self, *args):
++        if len(args) == 1:
++            self._start, self._stop, self._step = 0, args[0], 1
++        elif len(args) == 2:
++            self._start, self._stop, self._step = args[0], args[1], 1
++        elif len(args) == 3:
++            self._start, self._stop, self._step = args
++        else:
++            raise TypeError("numeric_range expected 1 to 3 arguments, "
++                            "got %d" % len(args))
++        if self._step == 0:
++            raise ValueError("numeric_range() arg 3 must not be zero")
++        self._len = self._compute_len()
++
++    def _compute_len(self):
++        if self._step > 0:
++            distance, step = self._stop - self._start, self._step
++        else:
++            distance, step = self._start - self._stop, -self._step
++        if distance <= 0:
++            return 0
++        q, r = divmod(distance, step)
++        return int(q) + (1 if r != 0 else 0)
++
++    def __len__(self):
++        return self._len
++
++    def __iter__(self):
++        for i in range(self._len):
++            yield self._start + i * self._step
++
++    def __getitem__(self, key):
++        if isinstance(key, slice):
++            start_idx, stop_idx, step_idx = key.indices(self._len)
++            return numeric_range(self._start + start_idx * self._step,
++                                 self._start + stop_idx * self._step,
++                                 self._step * step_idx)
++        if isinstance(key, int):
++            return self._get_by_index(key)
++        raise TypeError("numeric_range indices must be integers or "
++                        "slices, not %s" % type(key).__name__)
++
++    def _get_by_index(self, i):
++        if i < 0:
++            i += self._len
++        if i < 0 or i >= self._len:
++            raise IndexError("numeric_range object index out of range")
++        return self._start + i * self._step
++
++    def __repr__(self):
++        if self._step == 1:
++            return "numeric_range(%r, %r)" % (self._start, self._stop)
++        return "numeric_range(%r, %r, %r)" % (
++            self._start, self._stop, self._step)

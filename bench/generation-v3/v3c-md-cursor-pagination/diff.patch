@@ -1,0 +1,36 @@
+diff --git a/feed/pagination.py b/feed/pagination.py
+new file mode 100644
+--- /dev/null
++++ b/feed/pagination.py
+@@ -0,0 +1,31 @@
++"""Stable cursor pagination for a feed of timestamped items.
++
++Contract: items are mappings with ``created_at`` and ``id`` keys.
++Ordering is by ``(created_at, id)`` ascending -- the ``id``
++tiebreak is what makes the order total even when many items share
++one timestamp. A cursor is the ``(created_at, id)`` pair of the
++last item of the previous page (``None`` for the first page); the
++next page contains the items strictly after the cursor in that
++order. Walking pages until the returned cursor is ``None`` yields
++every item exactly once. ``paginate`` returns ``(page,
++next_cursor)`` where ``next_cursor`` is ``None`` exactly when the
++page just returned is the last one. ``page_size`` must be a
++positive int. The input list is never mutated or assumed sorted.
++"""
++def paginate(items, page_size, cursor=None):
++    """Return one page and the cursor for the following page."""
++    if isinstance(page_size, bool) or not isinstance(page_size, int):
++        raise TypeError("page_size must be an int")
++    if page_size <= 0:
++        raise ValueError("page_size must be positive")
++    ordered = sorted(items, key=lambda it: (it["created_at"], it["id"]))
++    if cursor is not None:
++        ordered = [it for it in ordered
++                   if (it["created_at"], it["id"]) > tuple(cursor)]
++    page = ordered[:page_size]
++    if len(ordered) > page_size:
++        last = page[-1]
++        next_cursor = (last["created_at"], last["id"])
++    else:
++        next_cursor = None
++    return page, next_cursor

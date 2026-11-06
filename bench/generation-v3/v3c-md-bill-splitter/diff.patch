@@ -1,0 +1,43 @@
+diff --git a/ledger/bill_split.py b/ledger/bill_split.py
+new file mode 100644
+--- /dev/null
++++ b/ledger/bill_split.py
+@@ -0,0 +1,38 @@
++"""Split a bill total, in integer cents, among N people.
++
++Contract: shares sum EXACTLY to ``total_cents`` and differ by at
++most one cent. The remainder (``total_cents % n``) is distributed
++one cent each to the FIRST ``remainder`` people, in order, so the
++split is deterministic. ``n`` must be a positive int and the total
++a non-negative int of cents; anything else raises ``ValueError``
++(or ``TypeError`` for non-int inputs). Zero total gives all zeros.
++"""
++def split_bill(total_cents, n):
++    """Return ``n`` integer-cent shares of ``total_cents``."""
++    if isinstance(total_cents, bool) or not isinstance(total_cents, int):
++        raise TypeError("total_cents must be an int")
++    if isinstance(n, bool) or not isinstance(n, int):
++        raise TypeError("n must be an int")
++    if n <= 0:
++        raise ValueError("n must be positive")
++    if total_cents < 0:
++        raise ValueError("total must be non-negative")
++    base, remainder = divmod(total_cents, n)
++    return [base + 1 if i < remainder else base for i in range(n)]
++
++
++def split_bill_named(total_cents, names):
++    """Return an ordered ``{name: share}`` mapping for ``names``.
++
++    Shares follow exactly the ``split_bill`` rules for
++    ``len(names)`` people, assigned in the order the names are
++    given. Duplicate names raise ``ValueError`` (a mapping cannot
++    hold two shares for one name), as does an empty name list.
++    """
++    names = list(names)
++    if not names:
++        raise ValueError("at least one name is required")
++    if len(set(names)) != len(names):
++        raise ValueError("names must be unique")
++    shares = split_bill(total_cents, len(names))
++    return dict(zip(names, shares))

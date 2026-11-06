@@ -1,0 +1,70 @@
+diff --git a/app/settings_repo.py b/app/settings_repo.py
+new file mode 100644
+--- /dev/null
++++ b/app/settings_repo.py
+@@ -0,0 +1,65 @@
++"""SQLite-backed settings repository.
++
++Contract:
++- The database runs in WAL mode with a 5000 ms busy timeout.
++- Every query is parameterized; keys and values are never
++  interpolated into SQL, so hostile keys are stored literally.
++- ``set`` has upsert semantics: setting an existing key replaces
++  its value and never creates a duplicate row.
++- Values persist across close/reopen. Missing keys return the
++  caller's default.
++"""
++import os
++import sqlite3
++
++
++class SettingsRepo:
++    """Key/value settings stored in a SQLite database file."""
++
++    def __init__(self, path):
++        self._conn = sqlite3.connect(os.fspath(path))
++        self._conn.execute("PRAGMA journal_mode=WAL")
++        self._conn.execute("PRAGMA busy_timeout=5000")
++        self._conn.execute(
++            "CREATE TABLE IF NOT EXISTS settings "
++            "(key TEXT PRIMARY KEY, value TEXT NOT NULL)")
++        self._conn.commit()
++
++    def journal_mode(self):
++        """Return the active journal mode (``wal``)."""
++        return self._conn.execute("PRAGMA journal_mode").fetchone()[0]
++
++    def busy_timeout(self):
++        """Return the configured busy timeout in milliseconds."""
++        return self._conn.execute("PRAGMA busy_timeout").fetchone()[0]
++
++    def set(self, key, value):
++        """Insert ``key``/``value`` or replace the existing value."""
++        self._conn.execute(
++            "INSERT INTO settings(key, value) VALUES (?, ?) "
++            "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
++            (key, value))
++        self._conn.commit()
++
++    def get(self, key, default=None):
++        """Return the value for ``key`` or ``default`` if absent."""
++        row = self._conn.execute(
++            "SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
++        return row[0] if row is not None else default
++
++    def delete(self, key):
++        """Remove ``key`` if present."""
++        self._conn.execute("DELETE FROM settings WHERE key = ?", (key,))
++        self._conn.commit()
++
++    def count(self):
++        """Return the number of stored keys."""
++        return self._conn.execute("SELECT COUNT(*) FROM settings").fetchone()[0]
++
++    def close(self):
++        self._conn.close()
++
++
++def os_path(path):
++    import os
++    return os.fspath(path)

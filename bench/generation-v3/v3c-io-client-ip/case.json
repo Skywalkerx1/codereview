@@ -1,0 +1,11 @@
+{
+  "id": "v3c-io-client-ip",
+  "title": "Client IP is the first untrusted address from the right, only via trusted peers",
+  "category": "clean",
+  "split": "holdout",
+  "source": "Authored for the CodeReview benchmark corpus (generation-v3 clean-authored stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "clean-authored",
+  "false_flag_note": "A reviewer might flag returning the leftmost entry when the whole chain is trusted as trusting the client blindly. In that case every hop was one of our own proxies which appends the address it actually observed, so the leftmost entry is proxy-attested, not client-asserted; the forging risk exists only when an untrusted hop appears, and the right-to-left walk stops exactly there."
+}

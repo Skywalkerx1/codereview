@@ -1,0 +1,27 @@
+{
+  "id": "v3w-attempt-rows-malformed",
+  "title": "One malformed telemetry row aborts the whole records scan",
+  "category": "reliability",
+  "split": "holdout",
+  "source": "Real-world defect: CodeReview repository (superstartelecom/codereview), fix commit 2648231a51535560cd673ae83be47f38c5f69185 'records_scan: malformed gate-attempts rows skipped-and-counted, never fatal'; pre-fix parsing logic reconstructed as a standalone module, 2026-11-05",
+  "license": "MIT",
+  "expected": [
+    {
+      "severity": "major",
+      "category": "reliability",
+      "file": "app/attempt_rows.py",
+      "line": 20,
+      "title": "One malformed telemetry row aborts the whole records scan",
+      "keywords": [
+        "malformed",
+        "row",
+        "jsonl",
+        "scan",
+        "abort",
+        "skipped",
+        "counted"
+      ]
+    }
+  ],
+  "stratum": "defect-realworld"
+}

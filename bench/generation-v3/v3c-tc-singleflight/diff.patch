@@ -1,0 +1,60 @@
+diff --git a/app/singleflight.py b/app/singleflight.py
+new file mode 100644
+--- /dev/null
++++ b/app/singleflight.py
+@@ -0,0 +1,55 @@
++"""Singleflight: deduplicate concurrent calls by key.
++
++Contract:
++- Concurrent ``do(key, fn)`` calls with the same key execute ``fn``
++  exactly once; every caller receives that one result.
++- Different keys execute independently and concurrently.
++- If ``fn`` raises, every concurrent caller sees that exception, the
++  entry is removed, and a later call retries ``fn`` (exceptions are
++  never cached). Successful results are also not cached beyond the
++  in-flight window: a later call re-executes ``fn``.
++"""
++import threading
++
++
++class _Call:
++    __slots__ = ("done", "result", "error")
++
++    def __init__(self):
++        self.done = threading.Event()
++        self.result = None
++        self.error = None
++
++
++class SingleFlight:
++    """Coalesce concurrent duplicate calls behind one execution."""
++
++    def __init__(self):
++        self._lock = threading.Lock()
++        self._inflight = {}
++
++    def do(self, key, fn):
++        """Run fn for key, sharing one execution among concurrent callers."""
++        with self._lock:
++            call = self._inflight.get(key)
++            leader = call is None
++            if leader:
++                call = _Call()
++                self._inflight[key] = call
++        if not leader:
++            call.done.wait()
++            if call.error is not None:
++                raise call.error
++            return call.result
++        try:
++            call.result = fn()
++        except BaseException as exc:  # shared with all waiters
++            call.error = exc
++        finally:
++            with self._lock:
++                if self._inflight.get(key) is call:
++                    del self._inflight[key]
++            call.done.set()
++        if call.error is not None:
++            raise call.error
++        return call.result

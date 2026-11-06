@@ -1,0 +1,11 @@
+{
+  "id": "v3c-tc-singleflight",
+  "title": "Singleflight executes once per key and never caches exceptions",
+  "category": "clean",
+  "split": "holdout",
+  "source": "Authored for the CodeReview benchmark corpus (generation-v3 clean-authored stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "clean-authored",
+  "false_flag_note": "A reviewer might flag followers raising the leader's exception instance or the entry being deleted before the event is set. Sharing the instance is the stated contract, and deletion happens under the lock before signalling, so no new caller can join a completed call or miss the wakeup."
+}

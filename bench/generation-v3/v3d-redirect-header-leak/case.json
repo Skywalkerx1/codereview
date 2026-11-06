@@ -1,0 +1,25 @@
+{
+  "id": "v3d-redirect-header-leak",
+  "title": "Redirect to another host forwards the Authorization header",
+  "category": "security",
+  "split": "holdout",
+  "source": "Authored for the CodeReview benchmark corpus (generation-v3 defect-injected stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [
+    {
+      "severity": "major",
+      "category": "security",
+      "file": "app/redirect_headers.py",
+      "line": 26,
+      "title": "Redirect handler copies all original headers, including Authorization and Cookie, to a different host, leaking the caller's credentials",
+      "keywords": [
+        "redirect",
+        "authorization header",
+        "cross-host",
+        "credential leak",
+        "headers"
+      ]
+    }
+  ],
+  "stratum": "defect-injected"
+}

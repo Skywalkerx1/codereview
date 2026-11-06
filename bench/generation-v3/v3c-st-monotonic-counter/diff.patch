@@ -1,0 +1,62 @@
+diff --git a/billing/sequence_counter.py b/billing/sequence_counter.py
+new file mode 100644
+--- /dev/null
++++ b/billing/sequence_counter.py
+@@ -0,0 +1,57 @@
++"""Monotonic counter persisted in a file.
++
++Contract:
++- ``next()`` returns strictly increasing integers starting at 1.
++- The increment is serialised with an exclusive flock on a
++  separate lock file, the new value is fsynced before the counter
++  file is atomically replaced, and the value survives reopening.
++- The counter never goes backwards: there is no decrement or reset.
++- A missing file reads as 0; a corrupt file raises ValueError.
++"""
++import fcntl
++import os
++import tempfile
++
++
++class MonotonicCounter:
++    """Strictly increasing counter stored in ``path``."""
++
++    def __init__(self, path):
++        self._path = os.fspath(path)
++        self._lock_path = self._path + ".lock"
++
++    def _read_unlocked(self):
++        if not os.path.exists(self._path):
++            return 0
++        text = open(self._path, encoding="utf-8").read().strip()
++        try:
++            value = int(text)
++        except ValueError as exc:
++            raise ValueError(f"corrupt counter file: {self._path}") from exc
++        if value < 0:
++            raise ValueError(f"corrupt counter file: {self._path}")
++        return value
++
++    def value(self):
++        """Return the last issued value (0 before any increment)."""
++        return self._read_unlocked()
++
++    def next(self):
++        """Atomically increment, persist, and return the new value."""
++        directory = os.path.dirname(os.path.abspath(self._path))
++        with open(self._lock_path, "a+") as lock:
++            fcntl.flock(lock, fcntl.LOCK_EX)
++            new_value = self._read_unlocked() + 1
++            fd, tmp = tempfile.mkstemp(dir=directory, suffix=".tmp")
++            try:
++                with os.fdopen(fd, "w", encoding="utf-8") as fh:
++                    fh.write(str(new_value))
++                    fh.flush()
++                    os.fsync(fh.fileno())
++                os.replace(tmp, self._path)
++            except BaseException:
++                if os.path.exists(tmp):
++                    os.unlink(tmp)
++                raise
++            fcntl.flock(lock, fcntl.LOCK_UN)
++        return new_value

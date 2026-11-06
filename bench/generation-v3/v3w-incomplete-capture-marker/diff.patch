@@ -1,0 +1,40 @@
+diff --git a/app/capture.py b/app/capture.py
+new file mode 100644
+--- /dev/null
++++ b/app/capture.py
+@@ -0,0 +1,35 @@
++"""Combining captured sandbox output for the evidence record.
++
++The record hashes and tails the combined bytes, so any way the
++bytes can be less than what the child wrote must be visible IN
++the bytes themselves:
++
++* a stream that hit the output cap gets a truncation marker;
++* a capture that ended while a detached process still held the
++  pipe open (the drainer never saw EOF, so later bytes were
++  lost) gets an incomplete-capture marker.
++
++Contract: partial output is never presented as whole -- when
++``incomplete`` is true the combined output carries the
++incomplete marker, exactly as a capped stream carries the
++truncation marker.
++"""
++
++_OUTPUT_CAP_BYTES = 8 * 1024 * 1024
++
++TRUNCATION_MARKER = (
++    f"\n[codereview: output truncated at the sandbox cap of "
++    f"{_OUTPUT_CAP_BYTES} bytes per stream]\n").encode("utf-8")
++
++INCOMPLETE_MARKER = (
++    "\n[codereview: output capture incomplete -- a detached "
++    "process still holds the pipe]\n").encode("utf-8")
++
++
++def combine_output(stdout_bytes, stderr_bytes,
++                   truncated=False, incomplete=False):
++    """Return stdout then stderr, plus the markers that apply."""
++    output = bytes(stdout_bytes) + bytes(stderr_bytes)
++    if truncated:
++        output += TRUNCATION_MARKER
++    return output

@@ -1,0 +1,42 @@
+diff --git a/app/retry_helper.py b/app/retry_helper.py
+new file mode 100644
+--- /dev/null
++++ b/app/retry_helper.py
+@@ -0,0 +1,37 @@
++"""Retry helper with capped exponential backoff and jitter.
++
++Contract:
++- ``retry_call`` calls fn up to ``max_attempts`` times, retrying only
++  exceptions that are instances of ``retry_exceptions``; any other
++  exception propagates immediately with no sleep.
++- The delay before attempt i+1 is ``min(cap, base * 2**i) * rand()``
++  where rand() returns a value in [0, 1]; jitter therefore can never
++  push a delay above ``cap``. Sleeps go through the injected sleeper.
++- If the next sleep would pass ``deadline`` (a monotonic timestamp
++  from the injected clock), retrying stops. When attempts or the
++  deadline are exhausted, the ORIGINAL last exception is re-raised.
++"""
++import random
++import time
++
++
++def retry_call(fn, *, max_attempts=3, base_delay=0.1, cap=1.0,
++               deadline=None, retry_exceptions=(Exception,),
++               clock=time.monotonic, sleeper=time.sleep,
++               rand=random.random):
++    """Call fn with retries per the module contract; return its result."""
++    if max_attempts < 1:
++        raise ValueError("max_attempts must be at least 1")
++    attempt = 0
++    while True:
++        try:
++            return fn()
++        except retry_exceptions:
++            attempt += 1
++            if attempt >= max_attempts:
++                raise  # re-raises the original exception instance
++            raw = min(cap, base_delay * (2 ** (attempt - 1)))
++            delay = raw * rand()
++            if deadline is not None and clock() + delay > deadline:
++                raise  # deadline would be exceeded: stop, original error
++            sleeper(delay)

@@ -1,0 +1,25 @@
+{
+  "id": "v3d-download-path-traversal",
+  "title": "Download path built by string concatenation allows ../ escape",
+  "category": "security",
+  "split": "holdout",
+  "source": "Authored for the CodeReview benchmark corpus (generation-v3 defect-injected stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [
+    {
+      "severity": "major",
+      "category": "security",
+      "file": "app/download_paths.py",
+      "line": 23,
+      "title": "Download path is built by string concatenation of the base directory and the user-supplied filename with no containment check, so ../ segments escape the download root",
+      "keywords": [
+        "path traversal",
+        "download",
+        "string concatenation",
+        "dotdot",
+        "containment"
+      ]
+    }
+  ],
+  "stratum": "defect-injected"
+}

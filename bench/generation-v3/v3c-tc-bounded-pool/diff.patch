@@ -1,0 +1,90 @@
+diff --git a/app/bounded_pool.py b/app/bounded_pool.py
+new file mode 100644
+--- /dev/null
++++ b/app/bounded_pool.py
+@@ -0,0 +1,85 @@
++"""Bounded worker pool with a reject-on-full submission policy.
++
++Contract:
++- The pool runs ``num_workers`` daemon worker threads and buffers at
++  most ``queue_capacity`` not-yet-started jobs.
++- ``submit(fn, *args, **kwargs)`` returns a concurrent.futures.Future.
++  If the buffer is full it raises PoolFullError immediately (it never
++  blocks the submitter and never silently drops the job). After
++  shutdown it raises RuntimeError.
++- ``shutdown(wait=True)`` stops accepting jobs, DRAINS every accepted
++  job to completion, then stops the workers. With wait=False it
++  returns immediately while draining continues in the background.
++- A job that raises has its exception captured by its Future; the
++  worker survives and keeps processing.
++"""
++import queue
++import threading
++from concurrent.futures import Future
++
++
++class PoolFullError(RuntimeError):
++    """Raised when submit is called with a full job buffer."""
++
++
++class BoundedPool:
++    """Fixed workers plus a bounded pending-job buffer."""
++
++    def __init__(self, num_workers=2, queue_capacity=4):
++        if num_workers < 1 or queue_capacity < 0:
++            raise ValueError("bad worker count or capacity")
++        self._queue = queue.Queue(maxsize=queue_capacity)
++        self._lock = threading.Lock()
++        self._closed = False
++        self._workers = []
++        for _ in range(num_workers):
++            t = threading.Thread(target=self._work, daemon=True)
++            t.start()
++            self._workers.append(t)
++
++    def _work(self):
++        while True:
++            item = self._queue.get()
++            try:
++                if item is None:  # shutdown sentinel
++                    return
++                fut, fn, args, kwargs = item
++                if not fut.set_running_or_notify_cancel():
++                    continue
++                try:
++                    fut.set_result(fn(*args, **kwargs))
++                except BaseException as exc:
++                    fut.set_exception(exc)
++            finally:
++                self._queue.task_done()
++
++    def submit(self, fn, *args, **kwargs):
++        """Queue fn for execution; see the module contract."""
++        with self._lock:
++            if self._closed:
++                raise RuntimeError("pool is shut down")
++            fut = Future()
++            try:
++                self._queue.put_nowait((fut, fn, args, kwargs))
++            except queue.Full:
++                raise PoolFullError("job buffer is full") from None
++            return fut
++
++    def _stop_workers(self):
++        self._queue.join()  # every accepted job finished first
++        for _ in self._workers:
++            self._queue.put(None)
++
++    def shutdown(self, wait=True):
++        """Drain all accepted jobs, then stop the workers."""
++        with self._lock:
++            if self._closed:
++                return
++            self._closed = True
++        if wait:
++            self._stop_workers()
++            for t in self._workers:
++                t.join()
++        else:  # never block the caller on a full queue for sentinels
++            threading.Thread(target=self._stop_workers,
++                             daemon=True).start()

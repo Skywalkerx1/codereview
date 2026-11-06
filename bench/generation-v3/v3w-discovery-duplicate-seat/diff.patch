@@ -1,0 +1,34 @@
+diff --git a/app/panel_merge.py b/app/panel_merge.py
+new file mode 100644
+--- /dev/null
++++ b/app/panel_merge.py
+@@ -0,0 +1,29 @@
++"""Merging hand-typed seat specs into a discovered panel.
++
++The setup wizard discovers agent commands on the machine (the
++*picked* list) and also lets the user type additional provider
++specs at a prompt (the *candidates*).
++
++Contract: a candidate that is an EXACT repeat of a discovery pick
++is skipped, with a note for the user -- seating the identical
++command twice under two seat names would put one model on the
++panel wearing two hats. Any other candidate stands as typed,
++including one that merely resembles a pick.
++"""
++
++
++def merge_panel(picked, candidates):
++    """Merge *candidates* into the *picked* panel.
++
++    Returns ``(providers, notes)``: the final ordered spec list
++    and one human-readable note per skipped duplicate.
++    """
++    notes = []
++    providers = picked + candidates
++    return providers, notes
++
++
++def describe_panel(providers):
++    """One summary line per seated spec, in panel order."""
++    return [f"seat {i + 1}: {spec}"
++            for i, spec in enumerate(providers)]

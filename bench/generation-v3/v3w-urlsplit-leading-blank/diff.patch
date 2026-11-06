@@ -1,0 +1,46 @@
+diff --git a/app/url_guard.py b/app/url_guard.py
+new file mode 100644
+--- /dev/null
++++ b/app/url_guard.py
+@@ -0,0 +1,41 @@
++"""Minimal URL splitting used by the outbound-request guard.
++
++The guard allowlists schemes and hosts based on this split, so
++the split must agree with what a browser / WHATWG parser sees.
++
++Contract: before parsing, ASCII tab and newline characters are
++removed from anywhere in the URL, and any leading C0 control or
++space characters (U+0000..U+0020) are stripped -- a URL that
++starts with blank characters is still a URL with its real scheme
++and host, never a scheme-less relative reference.
++"""
++
++_SCHEME_CHARS = (
++    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
++    "0123456789+-.")
++
++
++def split_url(url):
++    """Return ``(scheme, host)`` for *url*, lowercased.
++
++    Returns ``("", "")`` when no valid scheme is present.
++    """
++    cleaned = url.replace("\t", "").replace("\r", "").replace("\n", "")
++    scheme, sep, rest = cleaned.partition(":")
++    if not sep or not scheme[:1].isalpha():
++        return "", ""
++    if any(c not in _SCHEME_CHARS for c in scheme):
++        return "", ""
++    host = ""
++    if rest.startswith("//"):
++        netloc = rest[2:]
++        for delim in "/?#":
++            netloc = netloc.split(delim, 1)[0]
++        host = netloc.rsplit("@", 1)[-1].split(":", 1)[0]
++    return scheme.lower(), host.lower()
++
++
++def scheme_allowed(url, allowed):
++    """True when *url*'s scheme is in the *allowed* set."""
++    scheme, _host = split_url(url)
++    return scheme in allowed

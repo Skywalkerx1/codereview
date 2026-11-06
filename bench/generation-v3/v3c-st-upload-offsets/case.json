@@ -1,0 +1,11 @@
+{
+  "id": "v3c-st-upload-offsets",
+  "title": "Resumable-upload tracker returning the first missing offset",
+  "category": "clean",
+  "split": "holdout",
+  "source": "Authored for the CodeReview benchmark corpus (generation-v3 clean-authored stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "clean-authored",
+  "false_flag_note": "A reviewer might expect next_offset to be the end of the highest recorded chunk. The contract is resumability: gaps must be filled first, so the offset is the first missing chunk even when later chunks already arrived out of order, which the gap case in the check proves."
+}

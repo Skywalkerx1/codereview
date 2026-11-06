@@ -1,0 +1,25 @@
+{
+  "id": "v3d-token-expiry-tz",
+  "title": "Expired UTC tokens stay valid when compared to a naive local clock",
+  "category": "correctness",
+  "split": "holdout",
+  "source": "Authored for the CodeReview benchmark corpus (generation-v3 defect-injected stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [
+    {
+      "severity": "major",
+      "category": "correctness",
+      "file": "app/token_expiry.py",
+      "line": 27,
+      "title": "Token expiry (aware UTC) is compared against a naive local wall-clock now, so recently expired tokens are still accepted",
+      "keywords": [
+        "timezone",
+        "naive datetime",
+        "utc",
+        "expiry",
+        "token"
+      ]
+    }
+  ],
+  "stratum": "defect-injected"
+}

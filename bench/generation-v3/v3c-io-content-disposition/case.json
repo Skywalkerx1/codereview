@@ -1,0 +1,11 @@
+{
+  "id": "v3c-io-content-disposition",
+  "title": "Content-Disposition filename prefers RFC 5987 filename* with safe fallback",
+  "category": "clean",
+  "split": "holdout",
+  "source": "Authored for the CodeReview benchmark corpus (generation-v3 clean-authored stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "clean-authored",
+  "false_flag_note": "A reviewer might flag regex parsing of the header as fragile compared with a full MIME parser, or falling back to filename= on a malformed filename* as masking errors. The header grammar handled here is exactly the two parameter forms servers emit, quoted semicolons included, and the fallback keeps a usable name for broken senders while the result still passes through traversal stripping either way."
+}

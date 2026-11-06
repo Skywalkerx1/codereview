@@ -1,0 +1,826 @@
+{
+ "results": [
+  {
+   "case_id": "v3c-io-bounded-reader",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-io-chunk-assembler",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-io-client-ip",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-io-content-disposition",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-io-cookie-matching",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-io-filename-sanitizer",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-io-gzip-cap",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-io-header-injection-guard",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-io-html-to-text",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-io-redirect-follower",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-io-request-id",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-io-safe-path-join",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-io-upload-type-guard",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-io-url-canonicalizer",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-md-bill-splitter",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-md-bulk-upsert",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-md-config-parser",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-md-csv-importer",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-md-cursor-pagination",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-md-duration-parser",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-md-guarded-batch-delete",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-md-invoice-totals",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-md-jsonl-reader",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-md-log-parser",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-md-money-minor-units",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-md-price-parser",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-md-refund-proration",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-md-semver-comparator",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-st-audit-log",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-st-config-snapshots",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-st-csv-ledger",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-st-file-cache",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-st-flag-store",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-st-job-guard",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-st-kv-compaction",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-st-monotonic-counter",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-st-session-store",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-st-sqlite-settings",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-st-upload-offsets",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-st-upload-staging",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-st-work-queue",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-st-worker-heartbeat",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-tc-bounded-pool",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-tc-circuit-breaker",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-tc-deadline",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-tc-debouncer-maxwait",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-tc-health-aggregator",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-tc-idempotent-recorder",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-tc-job-queue-visibility",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-tc-lease-fencing",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-tc-next-run-dst",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-tc-retry-backoff",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-tc-singleflight",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-tc-token-bucket",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-tc-ttl-cache-grace",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3c-tc-webhook-signature",
+   "stratum": "clean-authored",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "ok",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3d-batch-delete-tenant",
+   "stratum": "defect-injected",
+   "has_check": true,
+   "defect_code_check_rc": 1,
+   "defect_code_check_tail": "AssertionError: 3",
+   "fixed_code_check_rc": 0,
+   "fixed_code_check_tail": "ok",
+   "ok": true,
+   "mode": "fail-then-fix-passes"
+  },
+  {
+   "case_id": "v3d-cache-key-user",
+   "stratum": "defect-injected",
+   "has_check": true,
+   "defect_code_check_rc": 1,
+   "defect_code_check_tail": "AssertionError: private-doc-of-user-1",
+   "fixed_code_check_rc": 0,
+   "fixed_code_check_tail": "ok",
+   "ok": true,
+   "mode": "fail-then-fix-passes"
+  },
+  {
+   "case_id": "v3d-charge-idempotency-order",
+   "stratum": "defect-injected",
+   "has_check": true,
+   "defect_code_check_rc": 1,
+   "defect_code_check_tail": "AssertionError: charged 2 times",
+   "fixed_code_check_rc": 0,
+   "fixed_code_check_tail": "ok",
+   "ok": true,
+   "mode": "fail-then-fix-passes"
+  },
+  {
+   "case_id": "v3d-csv-formula-export",
+   "stratum": "defect-injected",
+   "has_check": true,
+   "defect_code_check_rc": 1,
+   "defect_code_check_tail": "AssertionError: ['alice', \"=2+5+cmd|' /C calc'!A0\"]",
+   "fixed_code_check_rc": 0,
+   "fixed_code_check_tail": "ok",
+   "ok": true,
+   "mode": "fail-then-fix-passes"
+  },
+  {
+   "case_id": "v3d-daily-recurrence-dst",
+   "stratum": "defect-injected",
+   "has_check": true,
+   "defect_code_check_rc": 1,
+   "defect_code_check_tail": "AssertionError: 2026-03-08 11:00:00-04:00",
+   "fixed_code_check_rc": 0,
+   "fixed_code_check_tail": "ok",
+   "ok": true,
+   "mode": "fail-then-fix-passes"
+  },
+  {
+   "case_id": "v3d-decode-latin1-fallback",
+   "stratum": "defect-injected",
+   "has_check": true,
+   "defect_code_check_rc": 1,
+   "defect_code_check_tail": "AssertionError: invalid UTF-8 accepted: b'name=caf\\xe9'",
+   "fixed_code_check_rc": 0,
+   "fixed_code_check_tail": "ok",
+   "ok": true,
+   "mode": "fail-then-fix-passes"
+  },
+  {
+   "case_id": "v3d-download-path-traversal",
+   "stratum": "defect-injected",
+   "has_check": true,
+   "defect_code_check_rc": 1,
+   "defect_code_check_tail": "AssertionError: downloads/report-2026.pdf",
+   "fixed_code_check_rc": 0,
+   "fixed_code_check_tail": "ok",
+   "ok": true,
+   "mode": "fail-then-fix-passes"
+  },
+  {
+   "case_id": "v3d-money-float",
+   "stratum": "defect-injected",
+   "has_check": true,
+   "defect_code_check_rc": 1,
+   "defect_code_check_tail": "AssertionError",
+   "fixed_code_check_rc": 0,
+   "fixed_code_check_tail": "ok",
+   "ok": true,
+   "mode": "fail-then-fix-passes"
+  },
+  {
+   "case_id": "v3d-pagination-cursor-tiebreak",
+   "stratum": "defect-injected",
+   "has_check": true,
+   "defect_code_check_rc": 1,
+   "defect_code_check_tail": "AssertionError: [1, 2, 6, 7]",
+   "fixed_code_check_rc": 0,
+   "fixed_code_check_tail": "ok",
+   "ok": true,
+   "mode": "fail-then-fix-passes"
+  },
+  {
+   "case_id": "v3d-redirect-header-leak",
+   "stratum": "defect-injected",
+   "has_check": true,
+   "defect_code_check_rc": 1,
+   "defect_code_check_tail": "AssertionError: {'Authorization': 'Bearer secret-token', 'Cookie': 'session=abc123', 'Accept': 'application/json'}",
+   "fixed_code_check_rc": 0,
+   "fixed_code_check_tail": "ok",
+   "ok": true,
+   "mode": "fail-then-fix-passes"
+  },
+  {
+   "case_id": "v3d-response-size-cap",
+   "stratum": "defect-injected",
+   "has_check": true,
+   "defect_code_check_rc": 1,
+   "defect_code_check_tail": "AssertionError: oversized body was accepted",
+   "fixed_code_check_rc": 0,
+   "fixed_code_check_tail": "ok",
+   "ok": true,
+   "mode": "fail-then-fix-passes"
+  },
+  {
+   "case_id": "v3d-retry-unbounded-create",
+   "stratum": "defect-injected",
+   "has_check": true,
+   "defect_code_check_rc": 1,
+   "defect_code_check_tail": "StopLoop",
+   "fixed_code_check_rc": 0,
+   "fixed_code_check_tail": "ok",
+   "ok": true,
+   "mode": "fail-then-fix-passes"
+  },
+  {
+   "case_id": "v3d-tax-rounding-half-up",
+   "stratum": "defect-injected",
+   "has_check": true,
+   "defect_code_check_rc": 1,
+   "defect_code_check_tail": "AssertionError",
+   "fixed_code_check_rc": 0,
+   "fixed_code_check_tail": "ok",
+   "ok": true,
+   "mode": "fail-then-fix-passes"
+  },
+  {
+   "case_id": "v3d-token-expiry-tz",
+   "stratum": "defect-injected",
+   "has_check": true,
+   "defect_code_check_rc": 1,
+   "defect_code_check_tail": "ValueError: now must be timezone-aware",
+   "fixed_code_check_rc": 0,
+   "fixed_code_check_tail": "ok",
+   "ok": true,
+   "mode": "fail-then-fix-passes"
+  },
+  {
+   "case_id": "v3r-json-tool-utf8",
+   "stratum": "clean-realworld",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "v3r-json-tool-utf8: OK",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3r-logging-adapter-merge-extra",
+   "stratum": "clean-realworld",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "v3r-logging-adapter-merge-extra: OK",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3r-numeric-range-slicing",
+   "stratum": "clean-realworld",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "v3r-numeric-range-slicing: OK",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3r-random-randbelow-mro",
+   "stratum": "clean-realworld",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "v3r-random-randbelow-mro: OK",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3r-robotparser-decimal-digits",
+   "stratum": "clean-realworld",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "v3r-robotparser-decimal-digits: OK",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3r-robotparser-normalize-urls",
+   "stratum": "clean-realworld",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "v3r-robotparser-normalize-urls: OK",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3r-statistics-inf-nan-stdev",
+   "stratum": "clean-realworld",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "v3r-statistics-inf-nan-stdev: OK",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3r-textwrap-trailing-space",
+   "stratum": "clean-realworld",
+   "has_check": true,
+   "defect_code_check_rc": 0,
+   "defect_code_check_tail": "v3r-textwrap-trailing-space: OK",
+   "ok": true,
+   "mode": "check-must-pass"
+  },
+  {
+   "case_id": "v3w-aiohttp-static-traversal",
+   "stratum": "defect-realworld",
+   "has_check": true,
+   "defect_code_check_rc": 1,
+   "defect_code_check_tail": "AssertionError: traversal accepted: /srv/secret.txt",
+   "ok": true,
+   "mode": "check-fails-on-defect"
+  },
+  {
+   "case_id": "v3w-attempt-rows-malformed",
+   "stratum": "defect-realworld",
+   "has_check": true,
+   "defect_code_check_rc": 1,
+   "defect_code_check_tail": "json.decoder.JSONDecodeError: Expecting value: line 1 column 12 (char 11)",
+   "ok": true,
+   "mode": "check-fails-on-defect"
+  },
+  {
+   "case_id": "v3w-discovery-duplicate-seat",
+   "stratum": "defect-realworld",
+   "has_check": true,
+   "defect_code_check_rc": 1,
+   "defect_code_check_tail": "AssertionError: ['claude -p \"brief\"', 'claude -p \"brief\"', 'gpt-x']",
+   "ok": true,
+   "mode": "check-fails-on-defect"
+  },
+  {
+   "case_id": "v3w-error-detail-presence",
+   "stratum": "defect-realworld",
+   "has_check": true,
+   "defect_code_check_rc": 1,
+   "defect_code_check_tail": "AssertionError: {'provider': 'p', 'lens': 'correctness', 'status': 'error', 'attempts': 1}",
+   "ok": true,
+   "mode": "check-fails-on-defect"
+  },
+  {
+   "case_id": "v3w-incomplete-capture-marker",
+   "stratum": "defect-realworld",
+   "has_check": true,
+   "defect_code_check_rc": 1,
+   "defect_code_check_tail": "AssertionError: b'ready\\n'",
+   "ok": true,
+   "mode": "check-fails-on-defect"
+  },
+  {
+   "case_id": "v3w-migrations-whitespace-pattern",
+   "stratum": "defect-realworld",
+   "has_check": true,
+   "defect_code_check_rc": 1,
+   "defect_code_check_tail": "AssertionError: newline-split SQL missed",
+   "ok": true,
+   "mode": "check-fails-on-defect"
+  },
+  {
+   "case_id": "v3w-pyjwt-hmac-key-confusion",
+   "stratum": "defect-realworld",
+   "has_check": true,
+   "defect_code_check_rc": 1,
+   "defect_code_check_tail": "AssertionError: public key accepted: b'-----BEGIN PUBLIC KEY-----\\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE\\n-----END PUBLIC KEY-----'",
+   "ok": true,
+   "mode": "check-fails-on-defect"
+  },
+  {
+   "case_id": "v3w-urllib-query-crlf",
+   "stratum": "defect-realworld",
+   "has_check": true,
+   "defect_code_check_rc": 1,
+   "defect_code_check_tail": "AssertionError: query CRLF accepted: '/redir?next=/ok\\r\\nInjected: pwned'",
+   "ok": true,
+   "mode": "check-fails-on-defect"
+  },
+  {
+   "case_id": "v3w-urlsplit-leading-blank",
+   "stratum": "defect-realworld",
+   "has_check": true,
+   "defect_code_check_rc": 1,
+   "defect_code_check_tail": "AssertionError",
+   "ok": true,
+   "mode": "check-fails-on-defect"
+  },
+  {
+   "case_id": "v3w-urlsplit-nfkc-netloc",
+   "stratum": "defect-realworld",
+   "has_check": true,
+   "defect_code_check_rc": 1,
+   "defect_code_check_tail": "AssertionError: NFKC-ambiguous netloc accepted: bing.com",
+   "ok": true,
+   "mode": "check-fails-on-defect"
+  }
+ ],
+ "ok": 88,
+ "total": 88
+}

@@ -1,0 +1,34 @@
+"""Invoice totals for the billing service.
+
+Contract: prices arrive as decimal strings.  The invoice total is
+the exact decimal sum of price * quantity over all lines, rounded
+once at the end to whole cents with ROUND_HALF_UP.  Binary floating
+point must never enter the computation: values such as 1.005 have
+no exact float representation and drift below the half-cent
+boundary, producing totals that are a cent short.
+"""
+
+from decimal import Decimal, ROUND_HALF_UP
+
+CENT = Decimal("0.01")
+ZERO = Decimal("0")
+
+
+def invoice_total(lines):
+    """Return the invoice total as a Decimal quantised to cents.
+
+    ``lines`` is an iterable of ``(unit_price, quantity)`` pairs
+    where ``unit_price`` is a string such as "19.99" and
+    ``quantity`` is a positive int.
+    """
+    total = ZERO
+    for unit_price, quantity in lines:
+        if quantity <= 0:
+            raise ValueError("quantity must be positive")
+        total += Decimal(unit_price) * quantity
+    return total.quantize(CENT, rounding=ROUND_HALF_UP)
+
+
+def invoice_total_cents(lines):
+    """Return the invoice total as an integer number of cents."""
+    return int(invoice_total(lines) * 100)

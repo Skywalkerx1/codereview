@@ -1,0 +1,46 @@
+diff --git a/catalog/price_parser.py b/catalog/price_parser.py
+new file mode 100644
+--- /dev/null
++++ b/catalog/price_parser.py
+@@ -0,0 +1,41 @@
++"""Parse human-entered price text into ``Decimal`` values.
++
++Accepted: ``"1,234.56"``, ``"$12.00"``, ``" 7.5 "``, ``"42"`` --
++optional surrounding whitespace, one optional leading ``$``,
++optional correctly grouped thousands commas, and at most two
++decimal places. Rejected with ``ValueError`` (never a silent 0):
++empty or whitespace-only text, non-numeric text, ``"1.2.3"``,
++misgrouped commas such as ``"12,34.56"``, more than two decimal
++places, and any negative value (prices here are non-negative).
++Non-string input also raises ``ValueError``. The result is a
++``Decimal`` quantised to cents with ``ROUND_HALF_UP``.
++"""
++import re
++from decimal import Decimal, ROUND_HALF_UP
++
++CENT = Decimal("0.01")
++_PLAIN = re.compile(r"^\d+(\.\d{1,2})?$")
++_GROUPED = re.compile(r"^\d{1,3}(,\d{3})+(\.\d{1,2})?$")
++
++
++def parse_price(text):
++    """Return the price in ``text`` as a cents-quantised Decimal."""
++    if not isinstance(text, str):
++        raise ValueError("price must be given as text")
++    body = text.strip()
++    if body.startswith("$"):
++        body = body[1:].strip()
++    if not body:
++        raise ValueError("empty price")
++    if body.startswith("-") or body.startswith("+"):
++        raise ValueError("price must be non-negative")
++    if "," in body:
++        if not _GROUPED.match(body):
++            raise ValueError(f"malformed grouped price: {text!r}")
++        body = body.replace(",", "")
++    elif not _PLAIN.match(body):
++        raise ValueError(f"malformed price: {text!r}")
++    value = Decimal(body)
++    if value < 0:
++        raise ValueError("price must be non-negative")
++    return value.quantize(CENT, rounding=ROUND_HALF_UP)

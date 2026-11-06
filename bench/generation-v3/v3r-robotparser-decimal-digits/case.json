@@ -1,0 +1,11 @@
+{
+  "id": "v3r-robotparser-decimal-digits",
+  "title": "robots.txt Crawl-delay and Request-rate silently ignore non-decimal digits instead of aborting the parse",
+  "category": "clean",
+  "split": "holdout",
+  "source": "CPython commit 597ec2d7e5f8bbd5a1eb9e6780444cae46cec3ea (gh-153404, GH-153405) dated 2026-07-17, fixing Lib/urllib/robotparser.py",
+  "license": "PSF",
+  "expected": [],
+  "stratum": "clean-realworld",
+  "false_flag_note": "A reviewer might call the isdigit()-to-isdecimal() change a no-op (they agree on ASCII) or object that silently ignoring a directive hides a site owner's intent. The predicates differ exactly where it matters: str.isdigit() accepts characters such as U+00B2 SUPERSCRIPT TWO that int() then rejects, so one malformed value used to raise ValueError and discard the entire robots.txt, including every access rule. isdecimal() is precisely the set int() accepts -- non-ASCII decimal digits such as Arabic-Indic digits still parse -- and ignoring one bad throttle value while keeping the rest of the file is the established failure mode for this parser."
+}

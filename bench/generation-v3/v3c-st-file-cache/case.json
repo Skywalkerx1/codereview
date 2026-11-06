@@ -1,0 +1,11 @@
+{
+  "id": "v3c-st-file-cache",
+  "title": "Checksum-verified file cache with temp download and rename promotion",
+  "category": "clean",
+  "split": "holdout",
+  "source": "Authored for the CodeReview benchmark corpus (generation-v3 clean-authored stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "clean-authored",
+  "false_flag_note": "A reviewer might flag that the digest is computed from the in-memory bytes rather than re-read from the temp file. The temp file is written from exactly those bytes and fsynced before promotion within the same call, so the verified digest is the digest of what was written; the behavioural contract — bad checksums never reach the cache path — is what the check proves."
+}

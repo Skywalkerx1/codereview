@@ -1,0 +1,27 @@
+{
+  "id": "v3w-pyjwt-hmac-key-confusion",
+  "title": "HMAC key preparation accepts asymmetric public keys as HMAC secrets, enabling algorithm confusion",
+  "category": "security",
+  "split": "holdout",
+  "source": "Real-world defect (reconstruction): PyJWT HMACAlgorithm.prepare_key pre-fix logic for CVE-2022-29217 (GHSA-ffqj-6fqr-9h24; asymmetric public keys usable as HMAC secrets), fixed upstream by PyJWT commit 9c528670c455b8d948aff95ed50e22940d1ad3fc (released in 2.4.0); the defective function is reconstructed standalone in this case, 2026-11-05",
+  "license": "MIT",
+  "expected": [
+    {
+      "severity": "major",
+      "category": "security",
+      "file": "app/hmac_keys.py",
+      "line": 25,
+      "title": "HMAC key preparation accepts asymmetric public keys as HMAC secrets, enabling algorithm confusion",
+      "keywords": [
+        "hmac",
+        "public",
+        "key",
+        "confusion",
+        "jwt",
+        "prepare",
+        "asymmetric"
+      ]
+    }
+  ],
+  "stratum": "defect-realworld"
+}

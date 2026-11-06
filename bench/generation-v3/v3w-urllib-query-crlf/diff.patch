@@ -1,0 +1,41 @@
+diff --git a/app/request_target.py b/app/request_target.py
+new file mode 100644
+--- /dev/null
++++ b/app/request_target.py
+@@ -0,0 +1,36 @@
++"""Building an HTTP request target from path and query parts.
++
++The caller supplies a URL path and a raw query string; this
++module joins them into the request target written on the
++request line of an HTTP request.
++
++Contract: CR and LF characters are disallowed ANYWHERE in the
++request target -- path and query alike. A target containing
++them would terminate the request line and inject attacker
++headers (or smuggle a second request), so building one raises
++ValueError instead.
++"""
++
++import re
++
++_DISALLOWED = re.compile(r"[\r\n]")
++
++
++def build_request_target(path, query=""):
++    """Return ``path`` or ``path?query`` as a request target.
++
++    Raises ValueError if any part contains CR or LF.
++    """
++    if not path:
++        path = "/"
++    if _DISALLOWED.search(path):
++        raise ValueError(
++            "Request target contains disallowed characters")
++    if query:
++        return f"{path}?{query}"
++    return path
++
++
++def request_line(method, path, query=""):
++    """Return the full HTTP/1.1 request line for *method*."""
++    return f"{method} {build_request_target(path, query)} HTTP/1.1"

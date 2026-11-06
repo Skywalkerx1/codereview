@@ -1,0 +1,42 @@
+diff --git a/app/hmac_keys.py b/app/hmac_keys.py
+new file mode 100644
+--- /dev/null
++++ b/app/hmac_keys.py
+@@ -0,0 +1,37 @@
++"""Preparing an HMAC secret for token signing / verification.
++
++An HMAC secret must be private key material known only to the
++signer. Asymmetric PUBLIC keys are world-readable by design, so
++accepting one as an HMAC secret lets anyone who knows the
++public key forge tokens (the classic JWT algorithm-confusion
++failure: a token's ``alg`` is switched to HS256 and the public
++key becomes the HMAC secret).
++
++Contract: ``prepare_hmac_key`` raises TypeError for asymmetric
++public key material -- PEM blocks labelled PUBLIC KEY or RSA
++PUBLIC KEY, and OpenSSH one-line public keys (``ssh-rsa``,
++``ssh-dss``, ``ssh-ed25519``, ``ecdsa-sha2-*``). Ordinary secret
++strings and bytes pass through as bytes.
++"""
++
++
++def prepare_hmac_key(key):
++    """Return *key* as bytes, per the module contract.
++
++    Raises TypeError for asymmetric public key material and
++    for values that are not str / bytes.
++    """
++    if isinstance(key, str):
++        return key.encode("utf-8")
++    if isinstance(key, (bytes, bytearray)):
++        return bytes(key)
++    raise TypeError("HMAC key must be str or bytes")
++
++
++def is_usable_secret(key):
++    """True when *key* can be prepared as an HMAC secret."""
++    try:
++        prepare_hmac_key(key)
++    except TypeError:
++        return False
++    return True

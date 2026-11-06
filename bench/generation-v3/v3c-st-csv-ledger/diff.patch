@@ -1,0 +1,48 @@
+diff --git a/billing/csv_ledger.py b/billing/csv_ledger.py
+new file mode 100644
+--- /dev/null
++++ b/billing/csv_ledger.py
+@@ -0,0 +1,43 @@
++"""CSV ledger that writes its header exactly once.
++
++Contract:
++- The header row is written only when the file is missing or
++  empty, so reopening and appending never duplicates it, across
++  any number of ledger instances.
++- Each append is flushed and fsynced before returning.
++- Rows are dictionaries for the fixed columns below; values are
++  written with the csv module (quoting handled by the library),
++  so commas and unicode in memos round-trip.
++"""
++import csv
++import os
++
++COLUMNS = ["entry_id", "amount_cents", "memo"]
++
++
++class CsvLedger:
++    """Append-only CSV ledger with a single header row."""
++
++    def __init__(self, path):
++        self._path = os.fspath(path)
++
++    def append(self, entry_id, amount_cents, memo):
++        """Append one row, creating the file and header if needed."""
++        needs_header = (not os.path.exists(self._path)
++                        or os.path.getsize(self._path) == 0)
++        with open(self._path, "a", newline="", encoding="utf-8") as fh:
++            writer = csv.DictWriter(fh, fieldnames=COLUMNS)
++            if needs_header:
++                writer.writeheader()
++            writer.writerow({"entry_id": entry_id,
++                             "amount_cents": int(amount_cents),
++                             "memo": memo})
++            fh.flush()
++            os.fsync(fh.fileno())
++
++    def rows(self):
++        """Return all data rows as dictionaries, in file order."""
++        if not os.path.exists(self._path):
++            return []
++        with open(self._path, newline="", encoding="utf-8") as fh:
++            return list(csv.DictReader(fh))

@@ -1,0 +1,11 @@
+{
+  "id": "v3c-md-refund-proration",
+  "title": "Refund proration by largest remainder",
+  "category": "clean",
+  "split": "holdout",
+  "source": "Authored for the CodeReview benchmark corpus (generation-v3 clean-authored stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "clean-authored",
+  "false_flag_note": "A reviewer might flag the leftover distribution as favouring early lines on ties. That deterministic tie-break is stated in the contract; exact proportional shares in integer cents are impossible in general, and largest-remainder with a fixed tie-break keeps the parts summing exactly to the refund while staying reproducible."
+}

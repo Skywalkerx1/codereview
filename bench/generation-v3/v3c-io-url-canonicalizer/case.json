@@ -1,0 +1,11 @@
+{
+  "id": "v3c-io-url-canonicalizer",
+  "title": "URL canonicalizer lowercases scheme/host, drops default ports, sorts query",
+  "category": "clean",
+  "split": "holdout",
+  "source": "Authored for the CodeReview benchmark corpus (generation-v3 clean-authored stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "clean-authored",
+  "false_flag_note": "A reviewer might flag decoding and re-encoding the query string as lossy, or leaving path case untouched as incomplete normalisation. Query decode/re-encode is applied identically to every URL so equivalent spellings still collapse to one key, and the contract explicitly preserves path case because paths are case-sensitive on many servers: merging differing-case paths would create false dedup hits."
+}

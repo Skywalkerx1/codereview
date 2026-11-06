@@ -1,0 +1,40 @@
+diff --git a/admin/batch_delete.py b/admin/batch_delete.py
+new file mode 100644
+--- /dev/null
++++ b/admin/batch_delete.py
+@@ -0,0 +1,35 @@
++"""Guarded batch deletion over a dict-backed record store.
++
++The store maps record ids to record dicts, each carrying a
++``tenant`` field. Contract -- every guard is checked BEFORE any
++deletion, so a refused run deletes nothing:
++
++* ``tenant`` is required: ``None`` or empty raises ``ValueError``
++  (an unfiltered delete can never run).
++* ``dry_run=True`` deletes nothing and only reports the count.
++* If the number of matching records exceeds ``max_rows`` the run
++  refuses with ``ValueError`` and deletes nothing; exactly
++  ``max_rows`` matches is allowed.
++* Only records whose ``tenant`` equals the filter are touched.
++
++Returns ``{"matched": int, "deleted": int}`` -- in dry-run mode
++``deleted`` is 0 while ``matched`` reports what WOULD be deleted.
++"""
++def batch_delete(store, tenant=None, dry_run=False, max_rows=100):
++    """Delete ``tenant``'s records from ``store`` under the guards."""
++    if tenant is None or (isinstance(tenant, str) and not tenant.strip()):
++        raise ValueError("a tenant filter is required")
++    if isinstance(max_rows, bool) or not isinstance(max_rows, int):
++        raise TypeError("max_rows must be an int")
++    if max_rows <= 0:
++        raise ValueError("max_rows must be positive")
++    matched_ids = [rid for rid, rec in store.items()
++                   if rec.get("tenant") == tenant]
++    if len(matched_ids) > max_rows:
++        raise ValueError(
++            f"{len(matched_ids)} rows match, above max_rows={max_rows}")
++    if dry_run:
++        return {"matched": len(matched_ids), "deleted": 0}
++    for rid in matched_ids:
++        del store[rid]
++    return {"matched": len(matched_ids), "deleted": len(matched_ids)}

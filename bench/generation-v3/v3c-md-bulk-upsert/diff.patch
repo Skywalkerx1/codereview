@@ -1,0 +1,40 @@
+diff --git a/catalog/bulk_upsert.py b/catalog/bulk_upsert.py
+new file mode 100644
+--- /dev/null
++++ b/catalog/bulk_upsert.py
+@@ -0,0 +1,35 @@
++"""Bulk upsert into a dict-backed store with a conflict policy.
++
++The store maps a row's ``id`` to the stored row dict (this case is
++dict-backed, not SQL -- the policy semantics are identical).
++Contract: for each incoming row, if its ``id`` is new the whole
++row is inserted (as a copy). If the ``id`` already exists, ONLY
++the columns listed in ``update_columns`` are overwritten, and
++only when the incoming row actually carries that column; every
++other stored column keeps its stored value, and stored columns
++absent from the incoming row are never dropped. ``update_columns``
++must not contain ``"id"`` (the key never changes) -- that raises
++``ValueError``, as does an incoming row without an ``id``.
++Returns ``{"inserted": int, "updated": int}``.
++"""
++def bulk_upsert(store, rows, update_columns):
++    """Upsert ``rows`` into ``store`` under the column policy."""
++    columns = list(update_columns)
++    if "id" in columns:
++        raise ValueError("the id column cannot be an update column")
++    inserted = 0
++    updated = 0
++    for row in rows:
++        if "id" not in row:
++            raise ValueError(f"row without id: {row!r}")
++        key = row["id"]
++        if key not in store:
++            store[key] = dict(row)
++            inserted += 1
++        else:
++            stored = store[key]
++            for column in columns:
++                if column in row:
++                    stored[column] = row[column]
++            updated += 1
++    return {"inserted": inserted, "updated": updated}

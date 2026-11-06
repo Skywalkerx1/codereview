@@ -1,0 +1,11 @@
+{
+  "id": "v3c-io-gzip-cap",
+  "title": "Gzip decoder aborts as soon as decompressed output exceeds the cap",
+  "category": "clean",
+  "split": "holdout",
+  "source": "Authored for the CodeReview benchmark corpus (generation-v3 clean-authored stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "clean-authored",
+  "false_flag_note": "A reviewer might flag the max_length argument to decompress as premature optimisation, or rejecting trailing bytes as too strict. max_length is the bomb guard itself: it guarantees the output buffer never grows past the cap plus one byte even for a hostile high-ratio stream, and trailing data is rejected so concatenated-stream smuggling cannot slip extra payload past the cap."
+}

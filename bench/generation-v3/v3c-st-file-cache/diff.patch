@@ -1,0 +1,61 @@
+diff --git a/app/file_cache.py b/app/file_cache.py
+new file mode 100644
+--- /dev/null
++++ b/app/file_cache.py
+@@ -0,0 +1,56 @@
++"""File cache that only promotes checksum-verified downloads.
++
++Contract:
++- ``put`` writes the payload to a temp name inside the cache
++  directory, verifies its SHA-256 against the expected digest,
++  and only then promotes it to the cache path with os.replace.
++- A bad checksum raises ValueError, the temp file is removed, and
++  nothing ever appears at the cache path for that key.
++- Keys are plain names: path separators and ``..`` are rejected.
++- Empty payloads are valid when their (known) digest matches.
++"""
++import hashlib
++import os
++import tempfile
++
++
++class FileCache:
++    """Directory cache keyed by simple names."""
++
++    def __init__(self, directory):
++        self._dir = os.fspath(directory)
++        os.makedirs(self._dir, exist_ok=True)
++
++    def _path_for(self, key):
++        if not key or "/" in key or "\\" in key or key in (".", ".."):
++            raise ValueError(f"invalid cache key: {key!r}")
++        return os.path.join(self._dir, key)
++
++    def put(self, key, data, expected_sha256):
++        """Store ``data`` under ``key`` iff its digest matches."""
++        dest = self._path_for(key)
++        fd, tmp = tempfile.mkstemp(dir=self._dir, suffix=".part")
++        try:
++            with os.fdopen(fd, "wb") as fh:
++                fh.write(data)
++                fh.flush()
++                os.fsync(fh.fileno())
++            actual = hashlib.sha256(data).hexdigest()
++            if actual != expected_sha256.lower():
++                raise ValueError("checksum mismatch")
++            os.replace(tmp, dest)
++        except BaseException:
++            if os.path.exists(tmp):
++                os.unlink(tmp)
++            raise
++
++    def get(self, key):
++        """Return cached bytes for ``key`` or None if absent."""
++        path = self._path_for(key)
++        if not os.path.exists(path):
++            return None
++        with open(path, "rb") as fh:
++            return fh.read()
++
++    def exists(self, key):
++        return os.path.exists(self._path_for(key))

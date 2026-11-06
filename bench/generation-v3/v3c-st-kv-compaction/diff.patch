@@ -1,0 +1,77 @@
+diff --git a/app/kv_store.py b/app/kv_store.py
+new file mode 100644
+--- /dev/null
++++ b/app/kv_store.py
+@@ -0,0 +1,72 @@
++"""Append-log key-value file store with compaction.
++
++Contract:
++- ``put`` and ``delete`` append one JSON record per line, flushed
++  and fsynced; the last record for a key wins, and a delete
++  record is a tombstone that makes the key absent.
++- ``compact`` rewrites the store keeping exactly the live keys
++  (one record each, sorted by key) and atomically replaces the
++  file, so tombstones and overwritten values disappear.
++- Reopening the store replays the log and yields the same state
++  before and after compaction.
++- Missing keys return the caller's default.
++"""
++import json
++import os
++import tempfile
++
++
++class KvStore:
++    """JSON-lines key-value store with tombstone deletes."""
++
++    def __init__(self, path):
++        self._path = os.fspath(path)
++        self._data = {}
++        if os.path.exists(self._path):
++            with open(self._path, encoding="utf-8") as fh:
++                for line in fh:
++                    if line.strip():
++                        self._apply(json.loads(line))
++
++    def _apply(self, record):
++        if record.get("deleted"):
++            self._data.pop(record["k"], None)
++        else:
++            self._data[record["k"]] = record["v"]
++
++    def _append(self, record):
++        with open(self._path, "a", encoding="utf-8") as fh:
++            fh.write(json.dumps(record, ensure_ascii=False) + "\n")
++            fh.flush()
++            os.fsync(fh.fileno())
++        self._apply(record)
++
++    def put(self, key, value):
++        self._append({"k": key, "v": value})
++
++    def delete(self, key):
++        self._append({"k": key, "deleted": True})
++
++    def get(self, key, default=None):
++        return self._data.get(key, default)
++
++    def __len__(self):
++        return len(self._data)
++
++    def compact(self):
++        """Atomically rewrite the file with live keys only."""
++        directory = os.path.dirname(os.path.abspath(self._path))
++        fd, tmp = tempfile.mkstemp(dir=directory, suffix=".tmp")
++        try:
++            with os.fdopen(fd, "w", encoding="utf-8") as fh:
++                for key in sorted(self._data):
++                    fh.write(json.dumps(
++                        {"k": key, "v": self._data[key]},
++                        ensure_ascii=False) + "\n")
++                fh.flush()
++                os.fsync(fh.fileno())
++            os.replace(tmp, self._path)
++        except BaseException:
++            if os.path.exists(tmp):
++                os.unlink(tmp)
++            raise

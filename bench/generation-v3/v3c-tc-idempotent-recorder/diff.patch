@@ -1,0 +1,55 @@
+diff --git a/app/order_recorder.py b/app/order_recorder.py
+new file mode 100644
+--- /dev/null
++++ b/app/order_recorder.py
+@@ -0,0 +1,50 @@
++"""Idempotent order recorder keyed by a client-supplied key.
++
++Contract:
++- ``record(key, payload)`` creates one entry per distinct key and
++  returns its record dict {key, sequence, payload}.
++- Recording the SAME key again returns the ORIGINAL record (same
++  sequence, original payload) and creates no new entry, even if the
++  new payload differs.
++- The check-and-insert is atomic under one lock, so concurrent
++  duplicate calls still create exactly one entry.
++- An empty or non-string key raises ValueError. Returned records are
++  deep copies: mutating one (including its payload) does not corrupt
++  the stored entry, and later mutation of the caller's payload
++  object does not change the stored record either.
++"""
++import copy
++import threading
++
++
++class OrderRecorder:
++    """Store orders exactly once per idempotency key."""
++
++    def __init__(self):
++        self._lock = threading.Lock()
++        self._by_key = {}
++        self._next_seq = 1
++
++    def record(self, key, payload):
++        """Record payload under key, or return the existing record."""
++        if not isinstance(key, str) or not key:
++            raise ValueError("key must be a non-empty string")
++        with self._lock:
++            existing = self._by_key.get(key)
++            if existing is not None:
++                return copy.deepcopy(existing)
++            entry = {"key": key, "sequence": self._next_seq,
++                     "payload": copy.deepcopy(payload)}
++            self._next_seq += 1
++            self._by_key[key] = entry
++            return copy.deepcopy(entry)
++
++    def get(self, key):
++        """Return a deep copy of the record for key, or None."""
++        with self._lock:
++            entry = self._by_key.get(key)
++            return copy.deepcopy(entry) if entry is not None else None
++
++    def __len__(self):
++        with self._lock:
++            return len(self._by_key)

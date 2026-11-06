@@ -1,0 +1,11 @@
+{
+  "id": "v3c-tc-lease-fencing",
+  "title": "Lease manager with strictly increasing fencing tokens",
+  "category": "clean",
+  "split": "holdout",
+  "source": "Authored for the CodeReview benchmark corpus (generation-v3 clean-authored stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "clean-authored",
+  "false_flag_note": "A reviewer might flag that an expired lease's value stays readable or that tokens are global rather than per-name. Both are stated: fencing guards writes, reads return the last accepted value, and a manager-wide counter trivially guarantees the per-name strict increase the contract requires."
+}

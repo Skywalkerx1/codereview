@@ -1,0 +1,11 @@
+{
+  "id": "v3r-json-tool-utf8",
+  "title": "JSON pretty-printer opens its files with an explicit UTF-8 encoding",
+  "category": "clean",
+  "split": "holdout",
+  "source": "CPython commit 808769f3a4cbdc47cf1a5708dd61b1787bb192d4 (bpo-33684, GH-17460; 3.7 backport e0f148e6635480521036415bd782c3424fe6c619 dated 2019-12-04) fixing Lib/json/tool.py",
+  "license": "PSF",
+  "expected": [],
+  "stratum": "clean-realworld",
+  "false_flag_note": "A reviewer might flag hard-coding UTF-8 as locale-hostile, or worry it changes behaviour for files in legacy encodings. It does not: JSON is defined as Unicode text and is exchanged in UTF-8, so input in a legacy encoding was never valid input for this tool; previously the tool simply crashed on non-ASCII documents whenever the process locale was not UTF-8. The serialised output is unchanged (still ASCII-escaped by default); only the file decoding and encoding are pinned."
+}

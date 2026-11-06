@@ -1,0 +1,623 @@
+{
+  "schema": "codereview.benchcorpus/1",
+  "stratum": "generation-v3",
+  "version": "0",
+  "cases": [
+    {
+      "id": "v3c-io-bounded-reader",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-io-chunk-assembler",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-io-client-ip",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-io-content-disposition",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-io-cookie-matching",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-io-filename-sanitizer",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-io-gzip-cap",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-io-header-injection-guard",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-io-html-to-text",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-io-redirect-follower",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-io-request-id",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-io-safe-path-join",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-io-upload-type-guard",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-io-url-canonicalizer",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-md-bill-splitter",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-md-bulk-upsert",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-md-config-parser",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-md-csv-importer",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-md-cursor-pagination",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-md-duration-parser",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-md-guarded-batch-delete",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-md-invoice-totals",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-md-jsonl-reader",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-md-log-parser",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-md-money-minor-units",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-md-price-parser",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-md-refund-proration",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-md-semver-comparator",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-st-audit-log",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-st-config-snapshots",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-st-csv-ledger",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-st-file-cache",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-st-flag-store",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-st-job-guard",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-st-kv-compaction",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-st-monotonic-counter",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-st-session-store",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-st-sqlite-settings",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-st-upload-offsets",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-st-upload-staging",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-st-work-queue",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-st-worker-heartbeat",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-tc-bounded-pool",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-tc-circuit-breaker",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-tc-deadline",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-tc-debouncer-maxwait",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-tc-health-aggregator",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-tc-idempotent-recorder",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-tc-job-queue-visibility",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-tc-lease-fencing",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-tc-next-run-dst",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-tc-retry-backoff",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-tc-singleflight",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-tc-token-bucket",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-tc-ttl-cache-grace",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3c-tc-webhook-signature",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-authored"
+    },
+    {
+      "id": "v3d-batch-delete-tenant",
+      "category": "data-loss",
+      "split": "holdout",
+      "expected_defects": 1,
+      "stratum": "defect-injected"
+    },
+    {
+      "id": "v3d-cache-key-user",
+      "category": "security",
+      "split": "holdout",
+      "expected_defects": 1,
+      "stratum": "defect-injected"
+    },
+    {
+      "id": "v3d-charge-idempotency-order",
+      "category": "correctness",
+      "split": "holdout",
+      "expected_defects": 1,
+      "stratum": "defect-injected"
+    },
+    {
+      "id": "v3d-csv-formula-export",
+      "category": "security",
+      "split": "holdout",
+      "expected_defects": 1,
+      "stratum": "defect-injected"
+    },
+    {
+      "id": "v3d-daily-recurrence-dst",
+      "category": "correctness",
+      "split": "holdout",
+      "expected_defects": 1,
+      "stratum": "defect-injected"
+    },
+    {
+      "id": "v3d-decode-latin1-fallback",
+      "category": "correctness",
+      "split": "holdout",
+      "expected_defects": 1,
+      "stratum": "defect-injected"
+    },
+    {
+      "id": "v3d-download-path-traversal",
+      "category": "security",
+      "split": "holdout",
+      "expected_defects": 1,
+      "stratum": "defect-injected"
+    },
+    {
+      "id": "v3d-money-float",
+      "category": "correctness",
+      "split": "holdout",
+      "expected_defects": 1,
+      "stratum": "defect-injected"
+    },
+    {
+      "id": "v3d-pagination-cursor-tiebreak",
+      "category": "correctness",
+      "split": "holdout",
+      "expected_defects": 1,
+      "stratum": "defect-injected"
+    },
+    {
+      "id": "v3d-redirect-header-leak",
+      "category": "security",
+      "split": "holdout",
+      "expected_defects": 1,
+      "stratum": "defect-injected"
+    },
+    {
+      "id": "v3d-response-size-cap",
+      "category": "reliability",
+      "split": "holdout",
+      "expected_defects": 1,
+      "stratum": "defect-injected"
+    },
+    {
+      "id": "v3d-retry-unbounded-create",
+      "category": "reliability",
+      "split": "holdout",
+      "expected_defects": 1,
+      "stratum": "defect-injected"
+    },
+    {
+      "id": "v3d-tax-rounding-half-up",
+      "category": "correctness",
+      "split": "holdout",
+      "expected_defects": 1,
+      "stratum": "defect-injected"
+    },
+    {
+      "id": "v3d-token-expiry-tz",
+      "category": "correctness",
+      "split": "holdout",
+      "expected_defects": 1,
+      "stratum": "defect-injected"
+    },
+    {
+      "id": "v3r-json-tool-utf8",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-realworld"
+    },
+    {
+      "id": "v3r-logging-adapter-merge-extra",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-realworld"
+    },
+    {
+      "id": "v3r-numeric-range-slicing",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-realworld"
+    },
+    {
+      "id": "v3r-random-randbelow-mro",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-realworld"
+    },
+    {
+      "id": "v3r-robotparser-decimal-digits",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-realworld"
+    },
+    {
+      "id": "v3r-robotparser-normalize-urls",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-realworld"
+    },
+    {
+      "id": "v3r-statistics-inf-nan-stdev",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-realworld"
+    },
+    {
+      "id": "v3r-textwrap-trailing-space",
+      "category": "clean",
+      "split": "holdout",
+      "expected_defects": 0,
+      "stratum": "clean-realworld"
+    },
+    {
+      "id": "v3w-aiohttp-static-traversal",
+      "category": "security",
+      "split": "holdout",
+      "expected_defects": 1,
+      "stratum": "defect-realworld"
+    },
+    {
+      "id": "v3w-attempt-rows-malformed",
+      "category": "reliability",
+      "split": "holdout",
+      "expected_defects": 1,
+      "stratum": "defect-realworld"
+    },
+    {
+      "id": "v3w-discovery-duplicate-seat",
+      "category": "correctness",
+      "split": "holdout",
+      "expected_defects": 1,
+      "stratum": "defect-realworld"
+    },
+    {
+      "id": "v3w-error-detail-presence",
+      "category": "data-loss",
+      "split": "holdout",
+      "expected_defects": 1,
+      "stratum": "defect-realworld"
+    },
+    {
+      "id": "v3w-incomplete-capture-marker",
+      "category": "reliability",
+      "split": "holdout",
+      "expected_defects": 1,
+      "stratum": "defect-realworld"
+    },
+    {
+      "id": "v3w-migrations-whitespace-pattern",
+      "category": "security",
+      "split": "holdout",
+      "expected_defects": 1,
+      "stratum": "defect-realworld"
+    },
+    {
+      "id": "v3w-pyjwt-hmac-key-confusion",
+      "category": "security",
+      "split": "holdout",
+      "expected_defects": 1,
+      "stratum": "defect-realworld"
+    },
+    {
+      "id": "v3w-urllib-query-crlf",
+      "category": "security",
+      "split": "holdout",
+      "expected_defects": 1,
+      "stratum": "defect-realworld"
+    },
+    {
+      "id": "v3w-urlsplit-leading-blank",
+      "category": "security",
+      "split": "holdout",
+      "expected_defects": 1,
+      "stratum": "defect-realworld"
+    },
+    {
+      "id": "v3w-urlsplit-nfkc-netloc",
+      "category": "security",
+      "split": "holdout",
+      "expected_defects": 1,
+      "stratum": "defect-realworld"
+    }
+  ]
+}

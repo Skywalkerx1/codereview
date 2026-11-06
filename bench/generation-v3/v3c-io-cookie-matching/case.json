@@ -1,0 +1,11 @@
+{
+  "id": "v3c-io-cookie-matching",
+  "title": "Cookie matching honours host-only flags, dot boundaries and path scope",
+  "category": "clean",
+  "split": "holdout",
+  "source": "Authored for the CodeReview benchmark corpus (generation-v3 clean-authored stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "clean-authored",
+  "false_flag_note": "A reviewer might flag endswith-based domain matching as substring matching in disguise. The check is host == domain or host.endswith('.' + domain), which requires the dot boundary, so badexample.com and example.com.evil.test do not match; host-only cookies use strict equality and never reach subdomains."
+}

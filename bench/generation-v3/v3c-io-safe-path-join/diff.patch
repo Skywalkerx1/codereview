@@ -1,0 +1,64 @@
+diff --git a/storage/paths.py b/storage/paths.py
+new file mode 100644
+--- /dev/null
++++ b/storage/paths.py
+@@ -0,0 +1,59 @@
++"""Joining untrusted path fragments under a storage base.
++
++Contract for ``join_under_base`` (the host is POSIX, but
++fragments may come from Windows clients, so BOTH ``/`` and
++``\\`` are treated as separators when judging a fragment):
++- The result always lies inside the resolved base directory.
++- A fragment that is absolute (leading ``/`` or ``\\``, a UNC
++  ``\\\\host`` prefix, or a drive form such as ``C:`` / ``C:/``)
++  raises :class:`PathEscapeError` instead of being honoured.
++- Any ``..`` component in a fragment raises
++  :class:`PathEscapeError`, even one that would later come back
++  inside the base.  ``.`` and empty components are ignored.
++- A NUL byte in a fragment raises :class:`PathEscapeError`.
++- The base itself is returned when no fragments are given.
++"""
++
++from __future__ import annotations
++
++import os
++import re
++from pathlib import Path
++
++_DRIVE = re.compile(r"^[A-Za-z]:")
++
++
++class PathEscapeError(ValueError):
++    """A fragment was absolute or tried to escape the base."""
++
++
++def _components(part: str) -> list:
++    if "\x00" in part:
++        raise PathEscapeError("NUL byte in path fragment")
++    text = str(part)
++    if _DRIVE.match(text):
++        raise PathEscapeError("drive-absolute path fragment")
++    normalised = text.replace("\\", "/")
++    if normalised.startswith("/"):
++        raise PathEscapeError("absolute path fragment")
++    pieces = []
++    for piece in normalised.split("/"):
++        if piece in ("", "."):
++            continue
++        if piece == "..":
++            raise PathEscapeError("parent traversal in fragment")
++        pieces.append(piece)
++    return pieces
++
++
++def join_under_base(base, *parts) -> Path:
++    """Join ``parts`` under ``base`` and return the safe Path."""
++    root = Path(base).resolve()
++    pieces: list = []
++    for part in parts:
++        pieces.extend(_components(part))
++    candidate = root.joinpath(*pieces) if pieces else root
++    # Defence in depth: re-check containment after joining.
++    if os.path.commonpath([str(root), str(candidate)]) != str(root):
++        raise PathEscapeError("joined path escapes the base")
++    return candidate

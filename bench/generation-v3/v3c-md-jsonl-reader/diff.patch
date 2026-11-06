@@ -1,0 +1,32 @@
+diff --git a/ingest/jsonl_reader.py b/ingest/jsonl_reader.py
+new file mode 100644
+--- /dev/null
++++ b/ingest/jsonl_reader.py
+@@ -0,0 +1,27 @@
++"""Read JSON Lines text under an all-or-error contract.
++
++Contract: blank lines (empty or whitespace-only) are skipped.
++Every other line must be a JSON OBJECT. If any line is malformed
++JSON or not an object, ``ValueError`` is raised naming the 1-based
++line number (e.g. ``"line 3: ..."``) and NO records are returned --
++valid records before the bad line are never silently handed back
++as if the file were fine. On success all records are returned as a
++list of dicts, in file order. Empty input returns ``[]``.
++"""
++import json
++
++
++def read_jsonl(text):
++    """Return all records in ``text``, or raise ``ValueError``."""
++    records = []
++    for line_no, raw in enumerate(text.splitlines(), start=1):
++        if not raw.strip():
++            continue
++        try:
++            value = json.loads(raw)
++        except json.JSONDecodeError as exc:
++            raise ValueError(f"line {line_no}: invalid JSON: {exc}") from exc
++        if not isinstance(value, dict):
++            raise ValueError(f"line {line_no}: record is not a JSON object")
++        records.append(value)
++    return records

@@ -1,0 +1,57 @@
+diff --git a/app/token_bucket.py b/app/token_bucket.py
+new file mode 100644
+--- /dev/null
++++ b/app/token_bucket.py
+@@ -0,0 +1,52 @@
++"""Thread-safe token-bucket rate limiter.
++
++Contract:
++- Capacity C and refill rate R tokens/second. The bucket starts full,
++  so the initial burst is exactly C tokens.
++- Refill is computed from elapsed monotonic time (an injectable clock)
++  and the balance never exceeds C and never goes negative.
++- ``try_acquire(n)`` atomically consumes n tokens iff available; it
++  never partially consumes. n must be positive; n > C always fails.
++- All state changes hold one lock: no check-then-act race.
++"""
++import threading
++import time
++
++
++class TokenBucket:
++    """A token bucket driven by an injectable monotonic clock."""
++
++    def __init__(self, capacity, refill_per_second, clock=time.monotonic):
++        if capacity <= 0 or refill_per_second <= 0:
++            raise ValueError("capacity and refill rate must be positive")
++        self._capacity = float(capacity)
++        self._rate = float(refill_per_second)
++        self._clock = clock
++        self._tokens = float(capacity)
++        self._last = float(clock())
++        self._lock = threading.Lock()
++
++    def _refill_locked(self):
++        now = float(self._clock())
++        elapsed = max(0.0, now - self._last)
++        if elapsed:
++            self._tokens = min(self._capacity,
++                               self._tokens + elapsed * self._rate)
++            self._last = now
++
++    def try_acquire(self, n=1):
++        """Consume n tokens if available; return whether it succeeded."""
++        if n <= 0:
++            raise ValueError("n must be positive")
++        with self._lock:
++            self._refill_locked()
++            if n > self._capacity or self._tokens < n:
++                return False
++            self._tokens -= n
++            return True
++
++    def available(self):
++        """Return the current token balance after refill."""
++        with self._lock:
++            self._refill_locked()
++            return self._tokens

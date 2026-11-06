@@ -1,0 +1,11 @@
+{
+  "id": "v3c-st-job-guard",
+  "title": "Singleton job guard with atomic heartbeat lease and TTL boundary",
+  "category": "clean",
+  "split": "holdout",
+  "source": "Authored for the CodeReview benchmark corpus (generation-v3 clean-authored stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "clean-authored",
+  "false_flag_note": "A reviewer might read the strict-greater-than comparison as an off-by-one that holds a lease too long. It is the stated boundary: a lease is stale only when older than the TTL, so at exactly TTL it remains held, which the check pins down on both sides of the boundary."
+}

@@ -1,0 +1,77 @@
+diff --git a/inventory/csv_import.py b/inventory/csv_import.py
+new file mode 100644
+--- /dev/null
++++ b/inventory/csv_import.py
+@@ -0,0 +1,72 @@
++"""Import inventory rows from CSV text under a strict schema.
++
++Schema (header, exactly): ``sku,quantity,unit_price``. Types are
++coerced per column: ``sku`` non-empty text, ``quantity`` a positive
++int, ``unit_price`` a non-negative ``Decimal``. Blank lines are
++skipped. Every bad row is collected -- validation does not stop at
++the first error -- as ``(row_number, message)`` where row 1 is the
++header and the first data row is row 2. The import is
++ALL-OR-NOTHING: on any error an ``ImportFailure`` is raised, its
++``errors`` list carries every problem, and the caller's store is
++left completely unchanged; only a fully valid file is committed.
++"""
++import csv
++import io
++from decimal import Decimal, InvalidOperation
++
++HEADER = ["sku", "quantity", "unit_price"]
++
++
++class ImportFailure(Exception):
++    """Raised when any row fails; ``errors`` lists all problems."""
++
++    def __init__(self, errors):
++        super().__init__(f"{len(errors)} import error(s)")
++        self.errors = errors
++
++
++def _coerce(row_no, cells, errors):
++    sku, qty_text, price_text = cells
++    if not sku:
++        errors.append((row_no, "sku is empty")); return None
++    qty_clean = qty_text.strip()
++    if not (qty_clean.isascii() and qty_clean.isdigit()):
++        errors.append((row_no, f"bad quantity: {qty_text!r}")); return None
++    qty = int(qty_clean)
++    if qty <= 0:
++        errors.append((row_no, f"bad quantity: {qty_text!r}")); return None
++    try:
++        price = Decimal(price_text)
++    except InvalidOperation:
++        errors.append((row_no, f"bad unit_price: {price_text!r}")); return None
++    if not price.is_finite():
++        errors.append((row_no, f"bad unit_price: {price_text!r}")); return None
++    if price < 0:
++        errors.append((row_no, "unit_price is negative")); return None
++    return {"sku": sku, "quantity": qty, "unit_price": price}
++
++
++def import_csv(text, store):
++    """Validate ``text`` and, only if fully valid, extend ``store``.
++
++    Returns the list of imported records. Raises ``ImportFailure``
++    (store untouched) when the header or any row is invalid.
++    """
++    rows = list(csv.reader(io.StringIO(text)))
++    if not rows or rows[0] != HEADER:
++        raise ImportFailure([(1, "header must be sku,quantity,unit_price")])
++    errors = []
++    records = []
++    for row_no, cells in enumerate(rows[1:], start=2):
++        if not cells or all(not c.strip() for c in cells):
++            continue
++        if len(cells) != 3:
++            errors.append((row_no, f"expected 3 columns, got {len(cells)}"))
++            continue
++        record = _coerce(row_no, [c.strip() for c in cells], errors)
++        if record is not None:
++            records.append(record)
++    if errors:
++        raise ImportFailure(errors)
++    store.extend(records)
++    return records

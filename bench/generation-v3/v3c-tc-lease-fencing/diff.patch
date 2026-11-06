@@ -1,0 +1,73 @@
+diff --git a/app/lease_manager.py b/app/lease_manager.py
+new file mode 100644
+--- /dev/null
++++ b/app/lease_manager.py
+@@ -0,0 +1,68 @@
++"""Lease manager with fencing tokens (injected clock).
++
++Contract:
++- ``acquire(name, holder, ttl)`` returns a Lease with a fencing token,
++  or None while another holder's lease on that name is unexpired.
++  Tokens are issued from one manager-wide counter, so they are
++  strictly increasing across ALL acquisitions (and therefore per name).
++- A lease expires at ``acquired_at + ttl`` on the injected clock;
++  after expiry the name can be re-acquired, always with a higher token.
++- ``write(name, token, value)`` stores value ONLY if token equals the
++  name's current token and that lease is unexpired; a stale holder's
++  write (older token) is rejected and returns False, as is a write
++  with an unknown name or after expiry.
++- ``release(name, token)`` frees the lease only for the current token.
++"""
++from collections import namedtuple
++
++Lease = namedtuple("Lease", ["name", "holder", "token", "expires_at"])
++
++
++class LeaseManager:
++    """Named leases guarded by strictly increasing fencing tokens."""
++
++    def __init__(self, clock):
++        self._clock = clock
++        self._next_token = 1
++        self._leases = {}  # name -> Lease
++        self._values = {}  # name -> last fenced value
++
++    def _current(self, name):
++        lease = self._leases.get(name)
++        if lease is None:
++            return None
++        if float(self._clock()) >= lease.expires_at:
++            return None  # expired leases hold nothing
++        return lease
++
++    def acquire(self, name, holder, ttl=30.0):
++        """Acquire name for holder, or return None if it is held."""
++        if ttl <= 0:
++            raise ValueError("ttl must be positive")
++        if self._current(name) is not None:
++            return None
++        lease = Lease(name, holder, self._next_token,
++                      float(self._clock()) + float(ttl))
++        self._next_token += 1
++        self._leases[name] = lease
++        return lease
++
++    def write(self, name, token, value):
++        """Store value iff token is the current, unexpired token."""
++        lease = self._current(name)
++        if lease is None or lease.token != token:
++            return False
++        self._values[name] = value
++        return True
++
++    def read(self, name):
++        """Return the last fenced value stored under name, or None."""
++        return self._values.get(name)
++
++    def release(self, name, token):
++        """Free the lease iff token is the current token."""
++        lease = self._leases.get(name)
++        if lease is None or lease.token != token:
++            return False
++        del self._leases[name]
++        return True

@@ -1,0 +1,48 @@
+diff --git a/app/jsonfmt.py b/app/jsonfmt.py
+new file mode 100644
+--- /dev/null
++++ b/app/jsonfmt.py
+@@ -0,0 +1,43 @@
++"""Pretty-print a JSON document read from a file or standard input.
++
++The tool normalises JSON config files in deployment pipelines.
++Input and output are always UTF-8, whatever the locale encoding of
++the machine running the tool happens to be: JSON is exchanged in
++UTF-8, and a document containing non-ASCII text must not fail just
++because the process locale is not UTF-8.  The output is the parsed
++value re-serialised with four-space indentation and the default
++ASCII escaping, followed by a newline.
++"""
++
++import argparse
++import json
++import sys
++
++
++def build_parser():
++    """Build the command-line parser for the formatter."""
++    parser = argparse.ArgumentParser(description="Pretty-print JSON.")
++    parser.add_argument("infile", nargs="?",
++                        type=argparse.FileType(encoding="utf-8"),
++                        default="-",
++                        help="input file (default: standard input)")
++    parser.add_argument("outfile", nargs="?",
++                        type=argparse.FileType("w", encoding="utf-8"),
++                        default="-",
++                        help="output file (default: standard output)")
++    parser.add_argument("--sort-keys", action="store_true",
++                        help="sort object keys in the output")
++    return parser
++
++
++def main(argv=None):
++    """Read JSON from infile and write it indented to outfile."""
++    args = build_parser().parse_args(argv)
++    obj = json.load(args.infile)
++    json.dump(obj, args.outfile, indent=4, sort_keys=args.sort_keys)
++    args.outfile.write("\n")
++    return 0
++
++
++if __name__ == "__main__":
++    sys.exit(main())

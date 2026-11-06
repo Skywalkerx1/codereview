@@ -1,0 +1,27 @@
+{
+  "id": "v3w-urlsplit-leading-blank",
+  "title": "URL parser misses the scheme of a URL prefixed with blank characters, defeating scheme blocklists",
+  "category": "security",
+  "split": "holdout",
+  "source": "Real-world defect (reconstruction): CPython urllib.parse.urlsplit pre-fix logic for CVE-2023-24329 (blocklist bypass via URLs starting with blank characters), fixed upstream by CPython commit 2f630e1ce18ad2e07428296532a68b11dc66ad10 (gh-102153, GH-102508, first released in 3.11.4); the defective function is reconstructed standalone in this case, 2026-11-05",
+  "license": "PSF-2.0",
+  "expected": [
+    {
+      "severity": "major",
+      "category": "security",
+      "file": "app/url_guard.py",
+      "line": 23,
+      "title": "URL parser misses the scheme of a URL prefixed with blank characters, defeating scheme blocklists",
+      "keywords": [
+        "urlsplit",
+        "leading",
+        "blank",
+        "scheme",
+        "blocklist",
+        "bypass",
+        "c0"
+      ]
+    }
+  ],
+  "stratum": "defect-realworld"
+}

@@ -1,0 +1,71 @@
+diff --git a/app/upload_offsets.py b/app/upload_offsets.py
+new file mode 100644
+--- /dev/null
++++ b/app/upload_offsets.py
+@@ -0,0 +1,66 @@
++"""Resumable-upload offset tracker persisted in a state file.
++
++Contract:
++- Completed chunk indexes are recorded per upload id in a JSON
++  state file, written atomically (temp file plus os.replace), so
++  progress survives a restart and is never half-written.
++- Recording a chunk is idempotent: duplicates change nothing.
++- ``next_offset`` returns the byte offset of the first missing
++  chunk: the smallest non-negative chunk index not yet recorded,
++  multiplied by the chunk size. Unknown uploads start at 0.
++- Negative chunk indexes are rejected with ValueError.
++"""
++import json
++import os
++import tempfile
++
++
++class UploadTracker:
++    """Per-upload record of completed chunk indexes."""
++
++    def __init__(self, state_path, chunk_size):
++        if chunk_size <= 0:
++            raise ValueError("chunk_size must be positive")
++        self._path = os.fspath(state_path)
++        self._chunk = int(chunk_size)
++
++    def _load(self):
++        if not os.path.exists(self._path):
++            return {}
++        with open(self._path, encoding="utf-8") as fh:
++            return json.load(fh)
++
++    def _save(self, state):
++        directory = os.path.dirname(os.path.abspath(self._path))
++        fd, tmp = tempfile.mkstemp(dir=directory, suffix=".tmp")
++        try:
++            with os.fdopen(fd, "w", encoding="utf-8") as fh:
++                json.dump(state, fh, sort_keys=True)
++                fh.flush()
++                os.fsync(fh.fileno())
++            os.replace(tmp, self._path)
++        except BaseException:
++            if os.path.exists(tmp):
++                os.unlink(tmp)
++            raise
++
++    def record_chunk(self, upload_id, index):
++        """Mark chunk ``index`` complete for ``upload_id``."""
++        if index < 0:
++            raise ValueError("chunk index must be non-negative")
++        state = self._load()
++        done = sorted(set(state.get(upload_id, [])) | {int(index)})
++        state[upload_id] = done
++        self._save(state)
++
++    def completed(self, upload_id):
++        """Return the sorted completed chunk indexes."""
++        return list(self._load().get(upload_id, []))
++
++    def next_offset(self, upload_id):
++        """Byte offset where the upload should resume."""
++        done = set(self.completed(upload_id))
++        index = 0
++        while index in done:
++            index += 1
++        return index * self._chunk

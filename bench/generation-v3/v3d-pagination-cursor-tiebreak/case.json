@@ -1,0 +1,25 @@
+{
+  "id": "v3d-pagination-cursor-tiebreak",
+  "title": "Pagination cursor without an id tiebreak skips rows with tied timestamps",
+  "category": "correctness",
+  "split": "holdout",
+  "source": "Authored for the CodeReview benchmark corpus (generation-v3 defect-injected stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [
+    {
+      "severity": "major",
+      "category": "correctness",
+      "file": "app/feed_pagination.py",
+      "line": 14,
+      "title": "Pagination cursor is keyed on created_at alone with no id tiebreak, so rows sharing the last row's timestamp are skipped between pages",
+      "keywords": [
+        "pagination",
+        "cursor",
+        "tiebreak",
+        "created_at",
+        "skipped rows"
+      ]
+    }
+  ],
+  "stratum": "defect-injected"
+}

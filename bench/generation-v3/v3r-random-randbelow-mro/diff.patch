@@ -1,0 +1,84 @@
+diff --git a/app/randcore.py b/app/randcore.py
+new file mode 100644
+--- /dev/null
++++ b/app/randcore.py
+@@ -0,0 +1,79 @@
++"""Core of a small random-number service.
++
++``RandomCore`` is subclassed by generator backends.  A backend
++supplies randomness through ``random()``, through ``getrandbits()``,
++or through both.  Integer generation (``randrange``) must use
++whichever primitive the subclass actually provides, so the
++``_randbelow`` implementation is selected when the subclass is
++created: the subclass's method resolution order is walked and the
++*nearest* definition of ``getrandbits`` or ``random`` wins.  An
++override inherited from an intermediate class, or supplied by a
++mixin, therefore counts exactly as much as one defined directly on
++the subclass.  A subclass may also define ``_randbelow`` itself,
++in which case it is inherited unchanged.
++"""
++
++import warnings
++from math import floor as _floor
++
++BPF = 53
++RECIP_BPF = 2 ** -BPF
++
++
++class RandomCore:
++    """Base class for generators; see the module docstring."""
++
++    def random(self):
++        """Return the next random floating point number in [0.0, 1.0)."""
++        return self.getrandbits(BPF) * RECIP_BPF
++
++    def getrandbits(self, k):
++        """Return an int with k random bits; backends may override."""
++        raise NotImplementedError("this backend supplies random() only")
++
++    def __init_subclass__(cls, /, **kwargs):
++        """Select the _randbelow implementation for a new subclass."""
++        super().__init_subclass__(**kwargs)
++        for c in cls.__mro__:
++            if "_randbelow" in c.__dict__:
++                # Just inherit it.
++                break
++            if "getrandbits" in c.__dict__:
++                cls._randbelow = cls._randbelow_with_getrandbits
++                break
++            if "random" in c.__dict__:
++                cls._randbelow = cls._randbelow_without_getrandbits
++                break
++
++    def _randbelow_with_getrandbits(self, n):
++        """Return a random int in the range [0, n) using getrandbits()."""
++        if not n:
++            return 0
++        getrandbits = self.getrandbits
++        k = n.bit_length()
++        r = getrandbits(k)
++        while r >= n:
++            r = getrandbits(k)
++        return r
++
++    def _randbelow_without_getrandbits(self, n, maxsize=1 << BPF):
++        """Return a random int in the range [0, n) using only random()."""
++        random = self.random
++        if n >= maxsize:
++            warnings.warn("Underlying random() generator does not supply "
++                          "enough bits to choose from a range this large.")
++            return _floor(random() * n)
++        rem = maxsize % n
++        limit = (maxsize - rem) / maxsize
++        r = random()
++        while r >= limit:
++            r = random()
++        return _floor(r * maxsize) % n
++
++    _randbelow = _randbelow_with_getrandbits
++
++    def randrange(self, n):
++        """Return a random int in the range [0, n); n must be positive."""
++        if n <= 0:
++            raise ValueError("empty range for randrange()")
++        return self._randbelow(n)

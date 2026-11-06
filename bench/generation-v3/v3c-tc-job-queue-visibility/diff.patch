@@ -1,0 +1,64 @@
+diff --git a/app/job_queue.py b/app/job_queue.py
+new file mode 100644
+--- /dev/null
++++ b/app/job_queue.py
+@@ -0,0 +1,59 @@
++"""In-memory job queue with a visibility timeout (injected clock).
++
++Contract:
++- ``enqueue(payload)`` returns a monotonically increasing job id.
++- ``fetch()`` returns the oldest VISIBLE job (a Job with id, payload,
++  deliveries) or None, and makes it invisible until
++  ``clock() + visibility_timeout``.
++- A fetched job that is not acked becomes visible again once its
++  timeout elapses, and its delivery count increments on re-fetch.
++- ``ack(job_id)`` removes the job permanently and returns True;
++  acking an unknown or already-acked id returns False. Acked jobs
++  never reappear, however much time passes.
++"""
++from collections import namedtuple
++
++Job = namedtuple("Job", ["id", "payload", "deliveries"])
++
++
++class JobQueue:
++    """FIFO queue where fetching hides a job for a bounded time."""
++
++    def __init__(self, clock, visibility_timeout=30.0):
++        if visibility_timeout <= 0:
++            raise ValueError("visibility_timeout must be positive")
++        self._clock = clock
++        self._timeout = float(visibility_timeout)
++        self._next_id = 1
++        self._jobs = {}  # id -> [payload, visible_at, deliveries]
++        self._order = []  # ids in enqueue order
++
++    def enqueue(self, payload):
++        """Add a job and return its id."""
++        job_id = self._next_id
++        self._next_id += 1
++        self._jobs[job_id] = [payload, float(self._clock()), 0]
++        self._order.append(job_id)
++        return job_id
++
++    def fetch(self):
++        """Return the oldest visible job, hiding it, or None."""
++        now = float(self._clock())
++        for job_id in self._order:
++            payload, visible_at, deliveries = self._jobs[job_id]
++            if visible_at <= now:
++                self._jobs[job_id][1] = now + self._timeout
++                self._jobs[job_id][2] = deliveries + 1
++                return Job(job_id, payload, deliveries + 1)
++        return None
++
++    def ack(self, job_id):
++        """Permanently remove a job; False if the id is unknown."""
++        if job_id not in self._jobs:
++            return False
++        del self._jobs[job_id]
++        self._order.remove(job_id)
++        return True
++
++    def __len__(self):
++        return len(self._jobs)

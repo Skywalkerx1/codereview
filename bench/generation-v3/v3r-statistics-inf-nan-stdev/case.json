@@ -1,0 +1,11 @@
+{
+  "id": "v3r-statistics-inf-nan-stdev",
+  "title": "stdev and pstdev raise ValueError when the data contains infinity or NaN",
+  "category": "clean",
+  "split": "holdout",
+  "source": "CPython commit f0a8bc737ab2f04d4196eee154cb1e17e26ad585 (gh-140938, GH-141531) dated 2025-11-14, fixing Lib/statistics.py",
+  "license": "PSF",
+  "expected": [],
+  "stratum": "clean-realworld",
+  "false_flag_note": "A reviewer might flag catching AttributeError as fragile control flow, or ask why variance() was not changed too. The try/except sits exactly where the failure surfaced: for infinite or NaN input the mean square is a float, which has no .numerator, so callers previously got AttributeError ('float' object has no attribute 'numerator') from deep inside a statistics call. Converting that point into a ValueError that names the actual cause ('inf or nan encountered in data') is the minimal correct fix; the exact-arithmetic path for finite data is untouched."
+}

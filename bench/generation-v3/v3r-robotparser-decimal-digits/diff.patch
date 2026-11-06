@@ -1,0 +1,93 @@
+diff --git a/app/robotdelays.py b/app/robotdelays.py
+new file mode 100644
+--- /dev/null
++++ b/app/robotdelays.py
+@@ -0,0 +1,88 @@
++"""Crawl-delay and Request-rate directives from robots.txt.
++
++Site owners may throttle crawlers with ``Crawl-delay: <seconds>``
++and ``Request-rate: <requests>/<seconds>`` lines inside a user
++agent group.  The values must be decimal integers.  A value
++written with non-decimal Unicode digits -- for example U+00B2
++SUPERSCRIPT TWO, which ``str.isdigit()`` accepts but ``int()``
++rejects -- is not an error: the directive is silently ignored
++and parsing of the rest of the file continues unaffected.
++"""
++
++import collections
++
++RequestRate = collections.namedtuple("RequestRate", "requests seconds")
++
++
++class _Entry:
++    def __init__(self):
++        self.useragents = []
++        self.delay = None
++        self.req_rate = None
++
++
++class RobotDelays:
++    """Parse robots.txt lines; answer crawl_delay / request_rate."""
++
++    def __init__(self):
++        self.entries = []
++        self.default_entry = None
++
++    def _add_entry(self, entry):
++        if "*" in entry.useragents:
++            if self.default_entry is None:
++                self.default_entry = entry
++        else:
++            self.entries.append(entry)
++
++    def parse(self, lines):
++        """Parse robots.txt lines into per-agent throttle entries."""
++        entry = _Entry()
++        state = 0  # 0: start, 1: saw user-agent, 2: saw a directive
++        for raw in lines:
++            line = raw.split("#", 1)[0].strip()
++            if not line:
++                continue
++            field, sep, value = line.partition(":")
++            if not sep:
++                continue
++            field = field.strip().lower()
++            value = value.strip()
++            if field == "user-agent":
++                if state == 2:
++                    self._add_entry(entry)
++                    entry = _Entry()
++                entry.useragents.append(value)
++                state = 1
++            elif field == "crawl-delay" and state != 0:
++                # int() accepts exactly the decimal digits, so the
++                # guard is isdecimal(), not the broader isdigit().
++                if value.isdecimal():
++                    entry.delay = int(value)
++                state = 2
++            elif field == "request-rate" and state != 0:
++                numbers = value.split("/")
++                if (len(numbers) == 2
++                        and numbers[0].strip().isdecimal()
++                        and numbers[1].strip().isdecimal()):
++                    entry.req_rate = RequestRate(int(numbers[0]),
++                                                 int(numbers[1]))
++                state = 2
++        if state != 0:
++            self._add_entry(entry)
++
++    def _find_entry(self, useragent):
++        for entry in self.entries:
++            if useragent in entry.useragents:
++                return entry
++        return self.default_entry
++
++    def crawl_delay(self, useragent):
++        """Return the crawl delay in seconds for useragent, or None."""
++        entry = self._find_entry(useragent)
++        return entry.delay if entry is not None else None
++
++    def request_rate(self, useragent):
++        """Return the RequestRate for useragent, or None."""
++        entry = self._find_entry(useragent)
++        return entry.req_rate if entry is not None else None

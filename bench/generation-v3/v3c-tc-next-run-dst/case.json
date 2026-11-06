@@ -1,0 +1,11 @@
+{
+  "id": "v3c-tc-next-run-dst",
+  "title": "Daily 09:30 next-run computation correct across DST gap and overlap",
+  "category": "clean",
+  "split": "holdout",
+  "source": "Authored for the CodeReview benchmark corpus (generation-v3 clean-authored stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "clean-authored",
+  "false_flag_note": "A reviewer might flag the round-trip through UTC or the fold=0 choice as arbitrary. Both are the stated contract: fold=0 is the earlier overlap occurrence, and the UTC round-trip is the standard zoneinfo test for a nonexistent wall time, with the shift equal to the offset gap."
+}

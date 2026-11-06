@@ -1,0 +1,26 @@
+{
+  "id": "v3w-aiohttp-static-traversal",
+  "title": "Static-file resolver skips root containment entirely when follow_symlinks is enabled",
+  "category": "security",
+  "split": "holdout",
+  "source": "Real-world defect (reconstruction): aiohttp static-resource handling pre-fix for CVE-2024-23334 (GHSA-5h86-8mv2-jq9f; directory traversal when follow_symlinks=True), fixed upstream by aiohttp commit 1c335944d6a8b1298baf179b7c0b3069f10c514b (PR 8079, released in 3.9.2); the defective resolution logic is reconstructed standalone in this case, 2026-11-05",
+  "license": "Apache-2.0",
+  "expected": [
+    {
+      "severity": "major",
+      "category": "security",
+      "file": "app/static_resolve.py",
+      "line": 30,
+      "title": "Static-file resolver skips root containment entirely when follow_symlinks is enabled",
+      "keywords": [
+        "static",
+        "traversal",
+        "follow_symlinks",
+        "containment",
+        "root",
+        "dotdot"
+      ]
+    }
+  ],
+  "stratum": "defect-realworld"
+}

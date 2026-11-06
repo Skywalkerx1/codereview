@@ -1,0 +1,55 @@
+diff --git a/app/ttl_cache.py b/app/ttl_cache.py
+new file mode 100644
+--- /dev/null
++++ b/app/ttl_cache.py
+@@ -0,0 +1,50 @@
++"""TTL cache with an explicit stale-grace window (injected clock).
++
++Contract:
++- ``put(key, value)`` stores the value with the current clock time.
++- ``lookup(key)`` returns ``(value, stale)`` or ``None`` on a miss:
++  * age < ttl: fresh, stale is False;
++  * ttl <= age < ttl + grace: served with stale True;
++  * age >= ttl + grace: a miss, and the entry is evicted.
++- An expired entry is NEVER returned as fresh, and a missing key is
++  indistinguishable from an expired one (both are None).
++- ``invalidate(key)`` removes an entry; ``len`` counts stored entries
++  that have not been evicted (expiry is lazy, on lookup).
++"""
++
++
++class TTLCache:
++    """Time-bounded cache distinguishing fresh, stale, and miss."""
++
++    def __init__(self, clock, ttl=60.0, grace=30.0):
++        if ttl <= 0 or grace < 0:
++            raise ValueError("ttl must be positive, grace non-negative")
++        self._clock = clock
++        self._ttl = float(ttl)
++        self._grace = float(grace)
++        self._entries = {}  # key -> (value, stored_at)
++
++    def put(self, key, value):
++        """Store value under key, stamped with the injected clock."""
++        self._entries[key] = (value, float(self._clock()))
++
++    def lookup(self, key):
++        """Return (value, stale) for key, or None on a miss."""
++        entry = self._entries.get(key)
++        if entry is None:
++            return None
++        value, stored_at = entry
++        age = float(self._clock()) - stored_at
++        if age < self._ttl:
++            return (value, False)
++        if age < self._ttl + self._grace:
++            return (value, True)
++        del self._entries[key]  # beyond grace: evict and miss
++        return None
++
++    def invalidate(self, key):
++        """Remove key if present."""
++        self._entries.pop(key, None)
++
++    def __len__(self):
++        return len(self._entries)

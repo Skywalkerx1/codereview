@@ -1,0 +1,11 @@
+{
+  "id": "v3c-io-chunk-assembler",
+  "title": "Chunk assembler verifies SHA-256 manifest and writes only on full success",
+  "category": "clean",
+  "split": "holdout",
+  "source": "Authored for the CodeReview benchmark corpus (generation-v3 clean-authored stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "clean-authored",
+  "false_flag_note": "A reviewer might flag buffering the whole payload in memory as wasteful, or the temp-file rename as needless ceremony. Buffering until every hash verifies is what makes the never-write-a-partial guarantee possible, and the atomic rename ensures a concurrent reader never observes a half-written output file."
+}

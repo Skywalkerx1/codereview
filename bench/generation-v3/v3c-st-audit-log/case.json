@@ -1,0 +1,11 @@
+{
+  "id": "v3c-st-audit-log",
+  "title": "Append-only audit log with size rotation keeping exactly N backups",
+  "category": "clean",
+  "split": "holdout",
+  "source": "Authored for the CodeReview benchmark corpus (generation-v3 clean-authored stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "clean-authored",
+  "false_flag_note": "A reviewer might flag that rotation happens before rather than after an append, or that one oversized entry can exceed max_bytes. Both are the stated contract: pre-append rotation keeps a finished file within the bound, and an oversized entry on an empty file must be written rather than discarded or rotated endlessly."
+}

@@ -1,0 +1,11 @@
+{
+  "id": "v3c-st-config-snapshots",
+  "title": "Versioned config snapshots retaining only the newest five",
+  "category": "clean",
+  "split": "holdout",
+  "source": "Authored for the CodeReview benchmark corpus (generation-v3 clean-authored stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "clean-authored",
+  "false_flag_note": "A reviewer might suspect an off-by-one in the pruning slice, either keeping 4 or 6 snapshots. The slice removes all but the last keep versions only when more than keep exist, and the check saves eight versions and asserts exactly versions 4-8 remain on disk."
+}

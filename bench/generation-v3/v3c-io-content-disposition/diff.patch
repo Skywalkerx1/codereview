@@ -1,0 +1,77 @@
+diff --git a/httputil/disposition.py b/httputil/disposition.py
+new file mode 100644
+--- /dev/null
++++ b/httputil/disposition.py
+@@ -0,0 +1,72 @@
++"""Extracting a download filename from Content-Disposition.
++
++Contract for ``extract_filename``:
++- An RFC 5987 ``filename*`` parameter wins when present: its
++  value is ``charset'lang'percent-encoded``; the bytes are
++  percent-decoded and decoded with the named charset (UTF-8 in
++  practice).  A malformed ``filename*`` falls back to
++  ``filename=`` rather than failing.
++- Otherwise the plain ``filename=`` value is used, quoted or
++  unquoted; a quoted value may itself contain semicolons.
++- The chosen name passes through traversal stripping: directory
++  components (``/`` and ``\\``) are removed and control
++  characters dropped, exactly as for any untrusted filename.
++- ``None`` is returned when the header is missing/empty or no
++  usable filename remains after stripping.
++"""
++
++from __future__ import annotations
++
++import re
++from urllib.parse import unquote_to_bytes
++
++_EXTENDED = re.compile(r"filename\*\s*=\s*(\"[^\"]*\"|[^;]+)",
++                       re.IGNORECASE)
++_PLAIN_QUOTED = re.compile(r"filename\s*=\s*\"([^\"]*)\"",
++                           re.IGNORECASE)
++_PLAIN_TOKEN = re.compile(r"filename\s*=\s*([^;]+)",
++                          re.IGNORECASE)
++
++
++def _decode_extended(value: str):
++    value = value.strip().strip('"')
++    first = value.find("'")
++    second = value.find("'", first + 1) if first >= 0 else -1
++    if first < 0 or second < 0:
++        return None
++    charset = value[:first] or "utf-8"
++    encoded = value[second + 1:]
++    try:
++        return unquote_to_bytes(encoded).decode(charset)
++    except (UnicodeDecodeError, LookupError):
++        return None
++
++
++def _strip_traversal(name: str):
++    cleaned = "".join(ch for ch in name
++                      if ord(ch) >= 32 and ord(ch) != 127)
++    cleaned = cleaned.replace("\\", "/").split("/")[-1]
++    cleaned = cleaned.strip().rstrip(". ")
++    return cleaned or None
++
++
++def extract_filename(header_value):
++    """Return the sanitised filename from a header, or None."""
++    if not header_value:
++        return None
++    text = str(header_value)
++    chosen = None
++    match = _EXTENDED.search(text)
++    if match:
++        chosen = _decode_extended(match.group(1))
++    if chosen is None:
++        match = _PLAIN_QUOTED.search(text)
++        if match:
++            chosen = match.group(1)
++        else:
++            match = _PLAIN_TOKEN.search(text)
++            if match:
++                chosen = match.group(1).strip().strip('"')
++    if chosen is None:
++        return None
++    return _strip_traversal(chosen)

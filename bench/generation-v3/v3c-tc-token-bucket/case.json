@@ -1,0 +1,11 @@
+{
+  "id": "v3c-tc-token-bucket",
+  "title": "Thread-safe token bucket refilling by monotonic elapsed time",
+  "category": "clean",
+  "split": "holdout",
+  "source": "Authored for the CodeReview benchmark corpus (generation-v3 clean-authored stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [],
+  "stratum": "clean-authored",
+  "false_flag_note": "A reviewer might worry the float balance drifts or that refill uses wall time. The clock is monotonic (injectable for tests), elapsed time is clamped non-negative, and the balance is clamped to [0, capacity] on every operation under one lock."
+}

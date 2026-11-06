@@ -1,0 +1,25 @@
+{
+  "id": "v3d-retry-unbounded-create",
+  "title": "Create operation is retried forever with uncapped backoff",
+  "category": "reliability",
+  "split": "holdout",
+  "source": "Authored for the CodeReview benchmark corpus (generation-v3 defect-injected stratum), 2026-11-05",
+  "license": "MIT (original to this repository)",
+  "expected": [
+    {
+      "severity": "major",
+      "category": "reliability",
+      "file": "app/mailbox_provisioning.py",
+      "line": 31,
+      "title": "Retry loop for a resource-creating call has no maximum attempts and no backoff cap, so a persistent failure retries forever and can pile up duplicate remote resources",
+      "keywords": [
+        "retry",
+        "unbounded",
+        "max attempts",
+        "backoff cap",
+        "duplicate resources"
+      ]
+    }
+  ],
+  "stratum": "defect-injected"
+}

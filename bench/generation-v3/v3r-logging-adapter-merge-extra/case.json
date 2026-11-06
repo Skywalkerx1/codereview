@@ -1,0 +1,11 @@
+{
+  "id": "v3r-logging-adapter-merge-extra",
+  "title": "LoggerAdapter with merge_extra=True tolerates a missing extra on either side",
+  "category": "clean",
+  "split": "holdout",
+  "source": "CPython commit 327dbbedffa3f2c95e70129a11974b83e27864f9 (gh-138162, GH-140511) dated 2025-10-30, fixing Lib/logging/__init__.py",
+  "license": "PSF",
+  "expected": [],
+  "stratum": "clean-realworld",
+  "false_flag_note": "A reviewer might flag testing kwargs.get('extra') is not None instead of 'extra' in kwargs as a semantic change: a call that passes extra=None now receives the adapter's dict instead of an explicit None. That is the intent, not a regression -- to the logging module itself extra=None means 'no extra', and the old code crashed with TypeError ('NoneType' object is not a mapping) in both None combinations whenever merge_extra was on. When both sides supply real dicts the merge, and the per-call precedence, are exactly as before."
+}

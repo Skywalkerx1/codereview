@@ -1,0 +1,60 @@
+diff --git a/app/deadline.py b/app/deadline.py
+new file mode 100644
+--- /dev/null
++++ b/app/deadline.py
+@@ -0,0 +1,55 @@
++"""Monotonic deadline object and a chunked-work helper.
++
++Contract:
++- A Deadline is anchored to an injected monotonic clock at creation:
++  ``end = clock() + duration``. Wall-clock changes never affect it.
++- ``remaining()`` is ``max(0, end - clock())``: never negative.
++- ``expired()`` is False before the end and True at or after it
++  (it flips exactly at the deadline).
++- A zero duration deadline is already expired. A negative duration
++  raises ValueError.
++- ``run_chunks`` checks the deadline BEFORE each chunk; on expiry it
++  raises DeadlineExceeded and does not run that or later chunks.
++  Results of completed chunks are not returned in that case.
++"""
++import time
++
++
++class DeadlineExceeded(RuntimeError):
++    """Raised when work is attempted after a deadline has passed."""
++
++
++class Deadline:
++    """A monotonic countdown with an injectable clock."""
++
++    def __init__(self, duration, clock=time.monotonic):
++        if duration < 0:
++            raise ValueError("duration must be non-negative")
++        self._clock = clock
++        self._end = float(clock()) + float(duration)
++
++    def remaining(self):
++        """Seconds left, clamped at zero."""
++        return max(0.0, self._end - float(self._clock()))
++
++    def expired(self):
++        """True once the clock reaches the deadline."""
++        return float(self._clock()) >= self._end
++
++    def raise_if_expired(self):
++        """Raise DeadlineExceeded if the deadline has passed."""
++        if self.expired():
++            raise DeadlineExceeded("deadline exceeded")
++
++
++def run_chunks(chunks, deadline):
++    """Run each callable chunk in order, checking the deadline first.
++
++    Returns the list of chunk results. Raises DeadlineExceeded
++    before running a chunk if the deadline has expired.
++    """
++    results = []
++    for chunk in chunks:
++        deadline.raise_if_expired()
++        results.append(chunk())
++    return results

@@ -1,0 +1,46 @@
+diff --git a/app/logadapter.py b/app/logadapter.py
+new file mode 100644
+--- /dev/null
++++ b/app/logadapter.py
+@@ -0,0 +1,41 @@
++"""Logger adapter that attaches contextual fields to log records.
++
++A ``LoggerAdapter`` wraps a logger with a dict of contextual
++information (``extra``).  With ``merge_extra=True``, the ``extra``
++dict of an individual log call is merged over the adapter's dict,
++and per-call keys win on conflict.  Either side may be missing:
++an adapter may be created without ``extra``, and a log call may
++pass no ``extra`` at all or ``extra=None``.  In those cases the
++remaining dict (if any) is used as-is, and logging must not fail.
++"""
++
++
++class LoggerAdapter:
++    """Adapt a logger to add contextual information to its records."""
++
++    def __init__(self, logger, extra=None, merge_extra=False):
++        self.logger = logger
++        self.extra = extra
++        self.merge_extra = merge_extra
++
++    def process(self, msg, kwargs):
++        """Merge the contextual information into the log call kwargs."""
++        if self.merge_extra and kwargs.get("extra") is not None:
++            if self.extra is not None:
++                kwargs["extra"] = {**self.extra, **kwargs["extra"]}
++        else:
++            kwargs["extra"] = self.extra
++        return msg, kwargs
++
++    def log(self, level, msg, *args, **kwargs):
++        """Log msg at the given level after processing the kwargs."""
++        msg, kwargs = self.process(msg, kwargs)
++        self.logger.log(level, msg, *args, **kwargs)
++
++    def info(self, msg, *args, **kwargs):
++        """Log msg at INFO level; see log()."""
++        self.log("INFO", msg, *args, **kwargs)
++
++    def critical(self, msg, *args, **kwargs):
++        """Log msg at CRITICAL level; see log()."""
++        self.log("CRITICAL", msg, *args, **kwargs)
