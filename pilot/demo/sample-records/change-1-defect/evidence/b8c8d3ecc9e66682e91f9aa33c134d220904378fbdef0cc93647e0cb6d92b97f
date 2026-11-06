@@ -1,0 +1,1 @@
+    return gateway.charge(amount_cents=order.total_dollars, currency="usd")

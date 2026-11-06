@@ -1,0 +1,328 @@
+{
+  "schema": "codereview.report/1",
+  "version": "0.12.1",
+  "mode": "review",
+  "created_at": "2026-11-06T05:10:32+00:00",
+  "patch_sha256": "9f5fb68e78330d6ed6041b7048375ea69d4e4ab353fa592506d4d41a5efad26e",
+  "patch_chars": 523,
+  "files": [
+    "billing.py"
+  ],
+  "context": "",
+  "private": false,
+  "supported_platforms": {
+    "os": [
+      "posix"
+    ],
+    "python": ">=3.11"
+  },
+  "coverage": {
+    "batch_count": 1,
+    "truncated": false,
+    "complete": true,
+    "omissions": [],
+    "files": {
+      "billing.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      }
+    }
+  },
+  "test_results": [],
+  "deterministic_findings": [],
+  "reviewer_reports": [
+    {
+      "provider": "stub-b",
+      "lens": "operations",
+      "batch": 1,
+      "status": "ok",
+      "error": "",
+      "summary": "charge_order passes the dollar amount to a gateway parameter that expects integer cents.",
+      "findings": [
+        {
+          "id": "7ff7b0375451",
+          "rule": "",
+          "severity": "major",
+          "category": "correctness",
+          "file": "billing.py",
+          "line": 27,
+          "title": "Dollar amount passed where the gateway expects cents",
+          "evidence": "return gateway.charge(amount_cents=order.total_dollars, currency=\"usd\")",
+          "evidence_quote": "    return gateway.charge(amount_cents=order.total_dollars, currency=\"usd\")",
+          "trigger": "",
+          "recommendation": "Convert before the call: amount_cents = dollars_to_cents(order.total_dollars), and pass amount_cents to the gateway.",
+          "confidence": 0.95,
+          "sources": [
+            "stub-b",
+            "stub-a"
+          ],
+          "consensus": false,
+          "source_lenses": {
+            "stub-b": [
+              "operations"
+            ]
+          },
+          "grounding": "grounded",
+          "evidence_ref": {
+            "sha256": "0e13dd32018328c834eabb4cc520e8822ccc399391721a5abb351d2658e0b2d1",
+            "length": 71,
+            "truncated": false
+          },
+          "evidence_quote_ref": {
+            "sha256": "b8c8d3ecc9e66682e91f9aa33c134d220904378fbdef0cc93647e0cb6d92b97f",
+            "length": 75,
+            "truncated": false
+          }
+        }
+      ],
+      "attempts": 1,
+      "error_classes": [],
+      "duration_ms": 56,
+      "prompt_chars": 3700,
+      "family": "agent",
+      "tier": "unknown",
+      "seat_state": {
+        "state": "done",
+        "class": null,
+        "evidence": {},
+        "transitions": [
+          {
+            "state": "pending",
+            "class": null,
+            "at_ms": 0
+          },
+          {
+            "state": "working",
+            "class": null,
+            "at_ms": 0
+          },
+          {
+            "state": "done",
+            "class": null,
+            "at_ms": 56,
+            "terminal": true
+          }
+        ]
+      }
+    },
+    {
+      "provider": "stub-a",
+      "lens": "correctness",
+      "batch": 1,
+      "status": "ok",
+      "error": "",
+      "summary": "charge_order passes the dollar amount to a gateway parameter that expects integer cents.",
+      "findings": [
+        {
+          "id": "7ff7b0375451",
+          "rule": "",
+          "severity": "major",
+          "category": "correctness",
+          "file": "billing.py",
+          "line": 27,
+          "title": "Dollar amount passed where the gateway expects cents",
+          "evidence": "return gateway.charge(amount_cents=order.total_dollars, currency=\"usd\")",
+          "evidence_quote": "    return gateway.charge(amount_cents=order.total_dollars, currency=\"usd\")",
+          "trigger": "",
+          "recommendation": "Convert before the call: amount_cents = dollars_to_cents(order.total_dollars), and pass amount_cents to the gateway.",
+          "confidence": 0.95,
+          "sources": [
+            "stub-a"
+          ],
+          "consensus": false,
+          "source_lenses": {
+            "stub-a": [
+              "correctness"
+            ]
+          },
+          "grounding": "grounded",
+          "evidence_ref": {
+            "sha256": "0e13dd32018328c834eabb4cc520e8822ccc399391721a5abb351d2658e0b2d1",
+            "length": 71,
+            "truncated": false
+          },
+          "evidence_quote_ref": {
+            "sha256": "b8c8d3ecc9e66682e91f9aa33c134d220904378fbdef0cc93647e0cb6d92b97f",
+            "length": 75,
+            "truncated": false
+          }
+        }
+      ],
+      "attempts": 1,
+      "error_classes": [],
+      "duration_ms": 57,
+      "prompt_chars": 3629,
+      "family": "agent",
+      "tier": "unknown",
+      "seat_state": {
+        "state": "done",
+        "class": null,
+        "evidence": {},
+        "transitions": [
+          {
+            "state": "pending",
+            "class": null,
+            "at_ms": 0
+          },
+          {
+            "state": "working",
+            "class": null,
+            "at_ms": 0
+          },
+          {
+            "state": "done",
+            "class": null,
+            "at_ms": 57,
+            "terminal": true
+          }
+        ]
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "7ff7b0375451",
+      "rule": "",
+      "severity": "major",
+      "category": "correctness",
+      "file": "billing.py",
+      "line": 27,
+      "title": "Dollar amount passed where the gateway expects cents",
+      "evidence": "return gateway.charge(amount_cents=order.total_dollars, currency=\"usd\")",
+      "evidence_quote": "    return gateway.charge(amount_cents=order.total_dollars, currency=\"usd\")",
+      "trigger": "",
+      "recommendation": "Convert before the call: amount_cents = dollars_to_cents(order.total_dollars), and pass amount_cents to the gateway.",
+      "confidence": 0.95,
+      "sources": [
+        "stub-b",
+        "stub-a"
+      ],
+      "consensus": true,
+      "source_lenses": {
+        "stub-b": [
+          "operations"
+        ],
+        "stub-a": [
+          "correctness"
+        ]
+      },
+      "grounding": "grounded",
+      "line_basis": "blob",
+      "evidence_class": "E3",
+      "cross_family": "unavailable",
+      "evidence_ref": {
+        "sha256": "0e13dd32018328c834eabb4cc520e8822ccc399391721a5abb351d2658e0b2d1",
+        "length": 71,
+        "truncated": false
+      },
+      "evidence_quote_ref": {
+        "sha256": "b8c8d3ecc9e66682e91f9aa33c134d220904378fbdef0cc93647e0cb6d92b97f",
+        "length": 75,
+        "truncated": false
+      }
+    }
+  ],
+  "degraded": false,
+  "truncated": false,
+  "degraded_causes": [],
+  "gate": "blocked",
+  "gate_reasons": [
+    "1 blocking finding(s) (major)"
+  ],
+  "gate_profile": {
+    "profile": "strict",
+    "source": "default",
+    "demotions": []
+  },
+  "open_disputes": {
+    "count": 0,
+    "ids": []
+  },
+  "schema_version": "1.0.0",
+  "verdict": "BLOCKED",
+  "scope": {
+    "files": [
+      "billing.py"
+    ],
+    "patch_sha256": "9f5fb68e78330d6ed6041b7048375ea69d4e4ab353fa592506d4d41a5efad26e",
+    "patch_chars": 523,
+    "range": null,
+    "head": null,
+    "previous_gate": null
+  },
+  "checks": {
+    "run": [
+      "deterministic_scan",
+      "reviewer_panel",
+      "coverage"
+    ],
+    "not_run": [
+      "tests",
+      "evidence",
+      "policy"
+    ],
+    "unavailable": []
+  },
+  "panel": {
+    "seats": [
+      {
+        "provider": "stub-a",
+        "lens": "correctness",
+        "family": "agent",
+        "tier": "unknown",
+        "status": "ok"
+      },
+      {
+        "provider": "stub-b",
+        "lens": "operations",
+        "family": "agent",
+        "tier": "unknown",
+        "status": "ok"
+      }
+    ],
+    "families": [
+      "agent"
+    ],
+    "seat_count": 2,
+    "ok_count": 2,
+    "degraded": false,
+    "degraded_causes": []
+  },
+  "cost": {
+    "status": "not_available",
+    "amount_usd": null,
+    "currency": "USD",
+    "reason": "core providers return review text only and report no usage/cost to the core; bench wrappers may estimate cost outside this record (codereview.benchresult/1 cost_usd)"
+  },
+  "duration_ms": 60,
+  "waivers": [],
+  "provenance": {
+    "generator": "codereview",
+    "generator_version": "0.12.1",
+    "patch_sha256": "9f5fb68e78330d6ed6041b7048375ea69d4e4ab353fa592506d4d41a5efad26e",
+    "range": null,
+    "head": null
+  },
+  "record_identity": {
+    "id": "4c91b50beb512c09f7f8c49c2dda2e182357c50463300cd12b6acf6cd2c951f9",
+    "path": "codereview-20261106-051032.json"
+  },
+  "verdict_semantics": {
+    "pass_means": "no actionable issue found under the checks that ran (see the checks section)",
+    "pass_is_not": "not a correctness guarantee: checks that did not run are listed in checks.not_run / checks.unavailable, and a degraded panel is labelled in panel / degraded_causes"
+  },
+  "evidence_sidecars": {
+    "dir": "evidence",
+    "files": 2,
+    "refs": 6
+  }
+}

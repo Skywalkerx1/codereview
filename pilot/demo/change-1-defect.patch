@@ -1,0 +1,12 @@
+diff --git a/billing.py b/billing.py
+index 48648fa..427659f 100644
+--- a/billing.py
++++ b/billing.py
+@@ -23,5 +23,5 @@ def charge_order(gateway, order):
+     The gateway API expects ``amount_cents``: an integer number
+     of cents (so $49.99 is passed as 4999).
+     """
+-    amount_cents = dollars_to_cents(order.total_dollars)
+-    return gateway.charge(amount_cents=amount_cents, currency="usd")
++    # The gateway takes the amount directly.
++    return gateway.charge(amount_cents=order.total_dollars, currency="usd")

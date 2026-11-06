@@ -1,0 +1,208 @@
+{
+  "schema": "codereview.report/1",
+  "version": "0.12.1",
+  "mode": "review",
+  "created_at": "2026-11-06T05:10:32+00:00",
+  "patch_sha256": "a99591da65d2ac91a42f7f3c48136324ee1be55905e3fc40a75cbcfd51e7775b",
+  "patch_chars": 1044,
+  "files": [
+    "billing.py"
+  ],
+  "context": "",
+  "private": false,
+  "supported_platforms": {
+    "os": [
+      "posix"
+    ],
+    "python": ">=3.11"
+  },
+  "coverage": {
+    "batch_count": 1,
+    "truncated": false,
+    "complete": true,
+    "omissions": [],
+    "files": {
+      "billing.py": {
+        "batches": [
+          1
+        ],
+        "lenses": {
+          "correctness": [
+            1
+          ],
+          "operations": [
+            1
+          ]
+        }
+      }
+    }
+  },
+  "test_results": [],
+  "deterministic_findings": [],
+  "reviewer_reports": [
+    {
+      "provider": "stub-a",
+      "lens": "correctness",
+      "batch": 1,
+      "status": "ok",
+      "error": "",
+      "summary": "No issue found in this change under this lens.",
+      "findings": [],
+      "attempts": 1,
+      "error_classes": [],
+      "duration_ms": 55,
+      "prompt_chars": 4150,
+      "family": "agent",
+      "tier": "unknown",
+      "seat_state": {
+        "state": "done",
+        "class": null,
+        "evidence": {},
+        "transitions": [
+          {
+            "state": "pending",
+            "class": null,
+            "at_ms": 0
+          },
+          {
+            "state": "working",
+            "class": null,
+            "at_ms": 0
+          },
+          {
+            "state": "done",
+            "class": null,
+            "at_ms": 55,
+            "terminal": true
+          }
+        ]
+      }
+    },
+    {
+      "provider": "stub-b",
+      "lens": "operations",
+      "batch": 1,
+      "status": "ok",
+      "error": "",
+      "summary": "No issue found in this change under this lens.",
+      "findings": [],
+      "attempts": 1,
+      "error_classes": [],
+      "duration_ms": 55,
+      "prompt_chars": 4221,
+      "family": "agent",
+      "tier": "unknown",
+      "seat_state": {
+        "state": "done",
+        "class": null,
+        "evidence": {},
+        "transitions": [
+          {
+            "state": "pending",
+            "class": null,
+            "at_ms": 0
+          },
+          {
+            "state": "working",
+            "class": null,
+            "at_ms": 0
+          },
+          {
+            "state": "done",
+            "class": null,
+            "at_ms": 55,
+            "terminal": true
+          }
+        ]
+      }
+    }
+  ],
+  "findings": [],
+  "degraded": false,
+  "truncated": false,
+  "degraded_causes": [],
+  "gate": "pass",
+  "gate_reasons": [],
+  "gate_profile": {
+    "profile": "strict",
+    "source": "default",
+    "demotions": []
+  },
+  "open_disputes": {
+    "count": 0,
+    "ids": []
+  },
+  "schema_version": "1.0.0",
+  "verdict": "PASS",
+  "scope": {
+    "files": [
+      "billing.py"
+    ],
+    "patch_sha256": "a99591da65d2ac91a42f7f3c48136324ee1be55905e3fc40a75cbcfd51e7775b",
+    "patch_chars": 1044,
+    "range": null,
+    "head": null,
+    "previous_gate": null
+  },
+  "checks": {
+    "run": [
+      "deterministic_scan",
+      "reviewer_panel",
+      "coverage"
+    ],
+    "not_run": [
+      "tests",
+      "evidence",
+      "policy"
+    ],
+    "unavailable": []
+  },
+  "panel": {
+    "seats": [
+      {
+        "provider": "stub-a",
+        "lens": "correctness",
+        "family": "agent",
+        "tier": "unknown",
+        "status": "ok"
+      },
+      {
+        "provider": "stub-b",
+        "lens": "operations",
+        "family": "agent",
+        "tier": "unknown",
+        "status": "ok"
+      }
+    ],
+    "families": [
+      "agent"
+    ],
+    "seat_count": 2,
+    "ok_count": 2,
+    "degraded": false,
+    "degraded_causes": []
+  },
+  "cost": {
+    "status": "not_available",
+    "amount_usd": null,
+    "currency": "USD",
+    "reason": "core providers return review text only and report no usage/cost to the core; bench wrappers may estimate cost outside this record (codereview.benchresult/1 cost_usd)"
+  },
+  "duration_ms": 58,
+  "waivers": [],
+  "provenance": {
+    "generator": "codereview",
+    "generator_version": "0.12.1",
+    "patch_sha256": "a99591da65d2ac91a42f7f3c48136324ee1be55905e3fc40a75cbcfd51e7775b",
+    "range": null,
+    "head": null
+  },
+  "record_identity": {
+    "id": "10df870133d4e7b23b7647737533975175d9ecb3e37a8b7c0e332736ea2d7f1b",
+    "path": "codereview-20261106-051032.json"
+  },
+  "verdict_semantics": {
+    "pass_means": "no actionable issue found under the checks that ran (see the checks section)",
+    "pass_is_not": "not a correctness guarantee: checks that did not run are listed in checks.not_run / checks.unavailable, and a degraded panel is labelled in panel / degraded_causes"
+  }
+}

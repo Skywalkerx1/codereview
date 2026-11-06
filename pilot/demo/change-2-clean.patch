@@ -1,0 +1,30 @@
+diff --git a/billing.py b/billing.py
+index 48648fa..1302360 100644
+--- a/billing.py
++++ b/billing.py
+@@ -25,3 +25,25 @@ def charge_order(gateway, order):
+     """
+     amount_cents = dollars_to_cents(order.total_dollars)
+     return gateway.charge(amount_cents=amount_cents, currency="usd")
++
++
++def charge_order_with_retry(gateway, order, attempts=3, timeout_seconds=10):
++    """Charge an order, retrying transient gateway failures.
++
++    Each attempt uses the same converted cent amount and passes
++    an explicit per-attempt timeout to the gateway.
++    """
++    amount_cents = dollars_to_cents(order.total_dollars)
++    last_error = None
++    for attempt in range(attempts):
++        try:
++            return gateway.charge(
++                amount_cents=amount_cents,
++                currency="usd",
++                timeout=timeout_seconds,
++            )
++        except GatewayError as exc:
++            last_error = exc
++            if attempt < attempts - 1:
++                time.sleep(0.1 * (attempt + 1))
++    raise last_error
