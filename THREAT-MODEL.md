@@ -135,27 +135,45 @@ or a container.
    only that proxy variables are stripped; direct connections
    still work. The record says `env-only` so this is never
    mistaken for the namespace mode.
-7. **Namespace mode trades kernel surface for isolation.**
+7. **`env-only` mode exposes sibling processes'
+   environments.** Env-only mode has no pid namespace and
+   no `/proc` masking: a sandboxed child running as the
+   operator's uid can read `/proc/<pid>/environ` of any
+   other dumpable same-uid process — the operator's shell,
+   IDE, or another agent holding provider keys in its
+   environment. The gate hardens its *own* process
+   (`PR_SET_DUMPABLE, 0`, Phase 3 P3-04), but sibling
+   processes are not ours to harden. So the "provider keys
+   never reach an evidence process" property depends on
+   namespace mode: in env-only mode it holds only for keys
+   no same-uid process carries. **Env-only mode is not
+   suitable for untrusted trees** on a machine where other
+   processes hold credentials in their environment. When a
+   run executes env-only while the gate process's own
+   environment carries key-shaped variable names, the run
+   warns on stderr and records the exposure in the
+   evidence record.
+8. **Namespace mode trades kernel surface for isolation.**
    `unshare -rn` runs the child as root inside its own user
    namespace (not host root). User namespaces are themselves
    kernel attack surface; on a host where that trade is
    unwanted, the honest fallback is `env-only` — which is
    risk 6, not a quiet upgrade.
-8. **Cleanup is best-effort.** If the gate process itself is
+9. **Cleanup is best-effort.** If the gate process itself is
    killed (`SIGKILL`, power loss), the `finally` never runs
    and a `codereview-evidence-*` / `codereview-claims-*`
    directory remains in the temp dir (the prefix makes it
    findable). A child that chmods the copy can defeat
    `rmtree`. Leftovers contain a copy of the reviewed tree
    and no secrets — the environment never had any.
-9. **The copy is a snapshot.** Evidence attests to the tree
+10. **The copy is a snapshot.** Evidence attests to the tree
    as copied at run start. Another process mutating the
    source mid-run is out of scope.
-10. **`PATH` is the operator's.** Tools are found through
+11. **`PATH` is the operator's.** Tools are found through
     the operator's own `PATH` (allow-listed in). A poisoned
     operator `PATH` is the operator's configuration — the
     same trust as the commands themselves.
-11. **Redaction is pattern-based.** `redact_secrets` covers
+12. **Redaction is pattern-based.** `redact_secrets` covers
     the known key/token shapes; a novel secret format could
     evade a pattern. Exposure is bounded by design: only a
     4 000-char tail is ever stored.

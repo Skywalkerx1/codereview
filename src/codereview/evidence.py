@@ -375,6 +375,65 @@ def _captured(out_sink, err_sink, incomplete=False):
     return output
 
 
+# ------------------------------------------------- env-only exposure note
+
+# P3-04 follow-up: env-only mode has no pid namespace, so a
+# sandboxed child running as the operator's uid can read
+# /proc/<pid>/environ of ANY dumpable same-uid process. The
+# gate's own process is hardened (hardening.make_non_
+# dumpable), but sibling processes — the operator's shell,
+# IDE, other agents — are not ours to harden, and namespace
+# mode is the only mode that closes the channel. When a run
+# actually executes env-only while the gate process's own
+# environment carries key-shaped variable NAMES, the run
+# says so: once on stderr, and in the evidence record.
+_KEY_SHAPED_NAME_RE = re.compile(r"API_KEY|SECRET|TOKEN|PASSWORD")
+_ENV_ONLY_WARNING_EMITTED = False
+
+
+def _key_shaped_env_names(environ=None):
+    """Names (never values) of key-shaped variables in the
+    gate process's own environment — the names a sandboxed
+    child could go hunting for in a sibling process."""
+    env = os.environ if environ is None else environ
+    return sorted(
+        name for name in env
+        if _KEY_SHAPED_NAME_RE.search(name)
+        or name.endswith("_KEY"))
+
+
+def _env_only_key_warning(names):
+    return (
+        "sandbox ran in env-only mode (no namespace): a "
+        "sandboxed command running as this user can read the "
+        "environment of any dumpable same-user process via "
+        "/proc/<pid>/environ; key-shaped environment "
+        "variables are present ("
+        + ", ".join(names) +
+        "), so the 'provider keys never reach an evidence "
+        "process' property does not hold in this mode — "
+        "see THREAT-MODEL.md residual 7.")
+
+
+def _note_env_only_exposure(network_mode):
+    """Return the env-only exposure warning text when this
+    execution ran env-only with key-shaped names in the gate
+    environment, else None. The first such execution in the
+    process also prints the warning to stderr (once per
+    run, not per command)."""
+    global _ENV_ONLY_WARNING_EMITTED
+    if network_mode != "env-only":
+        return None
+    names = _key_shaped_env_names()
+    if not names:
+        return None
+    text = _env_only_key_warning(names)
+    if not _ENV_ONLY_WARNING_EMITTED:
+        _ENV_ONLY_WARNING_EMITTED = True
+        print(f"codereview: warning: {text}", file=sys.stderr)
+    return text
+
+
 def _execute(argv, cwd, timeout, env, allow_network,
              settle_s=_KILL_SETTLE_S):
     """Run one argv in the sandbox; return (status, exit_code,
@@ -398,6 +457,10 @@ def _execute(argv, cwd, timeout, env, allow_network,
     if not allow_network and _unshare_ok():
         run_argv = ["unshare", "-rn"] + run_argv
         network_mode = "namespace"
+    if network_mode == "env-only":
+        # Surface the sibling-/proc residual (THREAT-MODEL
+        # residual 7) when it is live for this run.
+        _note_env_only_exposure(network_mode)
     started = time.monotonic()
     try:
         proc = subprocess.Popen(
@@ -644,32 +707,47 @@ def collect(config, source_dir, environ=None):
                  if it.get("network_mode")}
         network_mode = (modes.pop() if len(modes) == 1
                         else "mixed" if modes else "not-run")
+        sandbox_warning = None
+        if any(it.get("network_mode") == "env-only"
+               for it in items):
+            names = _key_shaped_env_names()
+            if names:
+                sandbox_warning = _env_only_key_warning(names)
         return _record(config, source_dir, items,
-                       network_mode=network_mode)
+                       network_mode=network_mode,
+                       sandbox_warning=sandbox_warning)
     finally:
         shutil.rmtree(sandbox_root, ignore_errors=True)
 
 
-def _record(config, source_dir, items, network_mode):
+def _record(config, source_dir, items, network_mode,
+            sandbox_warning=None):
     default_timeout = _resolve_timeout(
         config.get("timeout"), "'timeout'", DEFAULT_TIMEOUT)
+    sandbox = {
+        "kind": "temp-copy (source tree minus .git, deleted "
+                "after the run)",
+        "env": "allow-list only (no provider keys or tokens); "
+               "HOME/TMPDIR inside the sandbox",
+        "network": network_mode,
+        "limits": {
+            "timeout_s_default": default_timeout,
+            "cpu_slack_s": _CPU_SLACK,
+            "file_size_limit_bytes": _FILE_SIZE_LIMIT,
+            "output_cap_bytes_per_stream": _OUTPUT_CAP_BYTES,
+        },
+    }
+    if sandbox_warning:
+        # Present only when the exposure it names was live
+        # for this run (env-only mode + key-shaped names in
+        # the gate environment); absent otherwise, so a
+        # record without it is the unexposed shape.
+        sandbox["warning"] = sandbox_warning
     return {
         "schema": SCHEMA,
         "created_at": _now_iso(),
         "source": str(source_dir),
-        "sandbox": {
-            "kind": "temp-copy (source tree minus .git, deleted "
-                    "after the run)",
-            "env": "allow-list only (no provider keys or tokens); "
-                   "HOME/TMPDIR inside the sandbox",
-            "network": network_mode,
-            "limits": {
-                "timeout_s_default": default_timeout,
-                "cpu_slack_s": _CPU_SLACK,
-                "file_size_limit_bytes": _FILE_SIZE_LIMIT,
-                "output_cap_bytes_per_stream": _OUTPUT_CAP_BYTES,
-            },
-        },
+        "sandbox": sandbox,
         "items": items,
     }
 

@@ -551,6 +551,85 @@ class ParentEnvironHardeningTests(unittest.TestCase):
         self.assertNotIn("s3cr3t-value", item["output_tail"])
 
 
+class EnvOnlyKeyExposureWarningTests(unittest.TestCase):
+    """P3-04 follow-up: env-only mode has no pid namespace,
+    so a sandboxed child can read a SIBLING same-uid
+    process's environ via /proc (THREAT-MODEL residual 7) —
+    not ours to close for processes we do not own. When the
+    gate environment carries key-shaped variable names, the
+    run surfaces the exposure: once on stderr, and as a
+    warning in the evidence record's sandbox section."""
+
+    def setUp(self):
+        from codereview import evidence as ev
+        ev._ENV_ONLY_WARNING_EMITTED = False
+        self.addCleanup(setattr, ev,
+                        "_ENV_ONLY_WARNING_EMITTED", False)
+
+    def _collect(self):
+        from codereview import evidence as ev
+        cfg = {"commands": [{"name": "c", "timeout": 20,
+                             "command": "true"}]}
+        with tempfile.TemporaryDirectory() as d:
+            with open(os.path.join(d, "a"), "w") as fh:
+                fh.write("x")
+            err = io.StringIO()
+            with redirect_stderr(err):
+                record = ev.collect(cfg, d)
+        return record, err.getvalue()
+
+    def test_env_only_with_key_names_warns_and_records(self):
+        from unittest import mock
+
+        from codereview import evidence as ev
+        with mock.patch.object(ev, "_UNSHARE_OK", False):
+            with mock.patch.dict(
+                    os.environ,
+                    {"CODEREVIEW_TEST_API_KEY": "fake-value"}):
+                record, err = self._collect()
+        self.assertEqual(record["sandbox"]["network"],
+                         "env-only")
+        warning = record["sandbox"].get("warning")
+        self.assertIsNotNone(warning)
+        self.assertIn("CODEREVIEW_TEST_API_KEY", warning)
+        self.assertIn("env-only", err)
+        self.assertIn("CODEREVIEW_TEST_API_KEY", err)
+        # Names only — values are never surfaced.
+        self.assertNotIn("fake-value", warning)
+        self.assertNotIn("fake-value", err)
+
+    def test_env_only_without_key_names_is_silent(self):
+        from unittest import mock
+
+        from codereview import evidence as ev
+        clean = {k: v for k, v in os.environ.items()
+                 if not ev._KEY_SHAPED_NAME_RE.search(k)
+                 and not k.endswith("_KEY")}
+        with mock.patch.object(ev, "_UNSHARE_OK", False):
+            with mock.patch.dict(os.environ, clean,
+                                 clear=True):
+                record, err = self._collect()
+        self.assertEqual(record["sandbox"]["network"],
+                         "env-only")
+        self.assertNotIn("warning", record["sandbox"])
+        self.assertEqual(err, "")
+
+    def test_namespace_mode_with_key_names_is_silent(self):
+        from unittest import mock
+
+        from codereview import evidence as ev
+        if not ev._unshare_ok():
+            self.skipTest("user namespaces unavailable here")
+        with mock.patch.dict(
+                os.environ,
+                {"CODEREVIEW_TEST_API_KEY": "fake-value"}):
+            record, err = self._collect()
+        self.assertEqual(record["sandbox"]["network"],
+                         "namespace")
+        self.assertNotIn("warning", record["sandbox"])
+        self.assertEqual(err, "")
+
+
 class McpNestedFrameTests(unittest.TestCase):
     """P3-05: a JSON frame nested deeper than the interpreter
     limit raised RecursionError out of json.loads, killing
