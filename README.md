@@ -377,6 +377,23 @@ A sustain decision counts only with a quote that validates against the cited reg
 
 Provider failure degrades the review (noted in the report); it never silently passes a change, and in `--strict` mode it blocks the pass.
 
+## The verdict record — schema v1.0.0
+
+Every surface — CLI, MCP server (`run_gate` / `get_verdict`), GitHub adapter, agent skills, the loop/workflow drivers — calls the same core, and the core emits **one versioned JSON verdict record** (`codereview-out/*.json`, next to the Markdown report). The contract is locked as **schema v1.0.0**: the definition and the stdlib-only validator live in `src/codereview/record_schema.py` (`RECORD_SCHEMA`, `validate_record`), the core validates every record at emission and again before it is written to disk, and golden records for all three verdicts live in `tests/fixtures/record_schema/`.
+
+A v1 record carries, alongside the historical fields (the `schema: "codereview.report/1"` tag is unchanged; `schema_version: "1.0.0"` rides next to it):
+
+- **Verdict, in both spellings:** `gate` (legacy lowercase: `pass` / `blocked` / `inconclusive`) and `verdict` (uppercase: `PASS` / `BLOCKED` / `INCONCLUSIVE`) — they must agree. **Exit/status semantics are stable:** CLI exit code **0 = PASS, 1 = BLOCKED, 2 = INCONCLUSIVE** (2 is also the code for a run that could not produce a record at all); the MCP `run_gate` payload returns the same verdict plus `exit_code`, and `get_verdict` reads the same record back.
+- **What PASS means — and does not.** The record's `verdict_semantics` section states it in the record itself: a PASS means *no actionable issue was found under the checks that ran*. It is **not a correctness guarantee**.
+- **Checks that did not run are visible:** `checks` lists every check in exactly one of `run` / `not_run` / `unavailable` (attempted, but produced no result — e.g. every reviewer seat errored). A PASS over a partial check set reads as one.
+- **Findings with evidence:** each finding carries its severity, category, file/line, evidence quote, and (when stamped) its `evidence_class` — E0 deterministic, E2 probe-confirmed, E1 corroborated, E3 single-source. Absent means unstamped, never silently E0.
+- **Panel composition and health:** `panel` lists each seat (provider, lens, vendor family, tier, status), the distinct families, and the degraded state; `degraded` + `degraded_causes` on the record say *why* a run degraded. Degraded-provider behaviour is never substituted silently — fallbacks are recorded per seat as before.
+- **Scope, provenance, identity:** `scope` (files, patch hash, git `range`/`head` when the caller recorded them), `provenance` (generator + product version + patch hash), and `record_identity` — a content-hash `id` stamped at emission, plus the record's file name stamped by the writer (the full path travels outside the record, e.g. as the MCP payload's `record_path`).
+- **Cost and duration:** `duration_ms` is the core's wall clock for the round. `cost` is explicit rather than absent: `{"status": "not_available", ...}` — core providers return review text only and report no usage to the core, so the core invents no figure. (The benchmark wrapper estimates cost from its own seat prices, outside this record, under its separate `codereview.benchresult/1` schema.)
+- **Waivers:** `waivers` lists the waivers the caller recorded for the round, verbatim.
+
+Known, documented gaps (in the schema, not hidden): the **verification round** recomputes no per-file coverage and collects no evidence/policy sections — its record lists `coverage` / `evidence` / `policy` under `checks.not_run`, and its `waivers` is always empty (verification waivers live in the loop/workflow state). The **loop summary** record (`mode: "loop"`) is a container of verdict records, not itself a v1 verdict record. Records written before v1.0.0 carry the legacy tag without `schema_version` — they are legacy records, not corrupt ones, and `record-verify`'s eligibility checks (a separate concern from schema validation) judge them by the standard of their era.
+
 ## Gate profiles
 
 The gate's admission rule for blocking findings is a **profile**: set it per project in `.codereview.toml` (`[gate] profile`) or per run with `--gate-profile` (the flag wins over the file; the file wins over the default). Every record names the effective profile and where it came from in its `gate_profile` section.

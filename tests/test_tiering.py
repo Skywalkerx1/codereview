@@ -564,7 +564,12 @@ class RunReviewTieringTests(unittest.TestCase):
         # appears on either side.
         def _strip(report):
             out = dict(report)
-            for key in ("created_at", "policy", "risk"):
+            # duration_ms and record_identity (schema v1.0.0)
+            # are volatile by construction — a wall clock and
+            # an identity hashed from created_at — same class
+            # as created_at itself.
+            for key in ("created_at", "policy", "risk",
+                        "duration_ms", "record_identity"):
                 out.pop(key, None)
             reps = []
             for rec in report["reviewer_reports"]:

@@ -1,5 +1,33 @@
 # Changelog
 
+## Unreleased — verdict record schema v1.0.0
+
+The run record is now a formal, versioned contract
+(`src/codereview/record_schema.py`): `RECORD_SCHEMA` +
+a stdlib-only validator, with every record validated by
+the core at emission and re-validated by `write_report`
+before it reaches disk — so the CLI, MCP, GitHub, and loop
+surfaces all emit the same v1 record. Added sections:
+`schema_version` ("1.0.0", alongside the unchanged
+`codereview.report/1` tag), uppercase `verdict` beside the
+legacy lowercase `gate`, `scope`, `checks` (run / not_run /
+unavailable — checks that did not run are visible),
+`panel` (seats, families, degraded state), `cost`
+(explicitly `not_available`: the core has no cost data and
+invents none), `duration_ms`, `waivers`, `provenance`,
+`record_identity` (content-hash id; writer-stamped file
+name), and `verdict_semantics` (a PASS means no actionable
+issue found under the checks that ran — not a correctness
+guarantee). Emission fixes, no verdict-logic changes:
+verify-mode records now carry `degraded_causes` and
+`patch_chars` (both previously absent there). Documented
+gaps, stated in the schema and README: verify mode lists
+coverage/evidence/policy as `checks.not_run`; the loop
+summary is a container, not a v1 verdict record; legacy
+records without `schema_version` are pre-v1, not corrupt.
+Golden PASS / BLOCKED / INCONCLUSIVE fixtures and parity,
+tamper, and self-tests in `tests/test_record_schema.py`.
+
 ## Unreleased — Epic E2 + E4 (tiered panels + escalation)
 
 E1's risk band now sizes the panel that reviews a change,

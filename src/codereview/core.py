@@ -51,6 +51,7 @@ import time
 
 from . import diversity as diversity_mod
 from . import herdrhost
+from . import record_schema as record_schema_mod
 from . import notify as notify_mod
 from . import policy as policy_mod
 from . import seatstate
@@ -4130,6 +4131,7 @@ def run_review(patch, providers, context="", test_results=None,
     [diversity] configuration the round is byte-identical to
     the pre-E3 construction; the bench and registered
     confirmation runs never configure it."""
+    _record_started = time.monotonic()
     test_results = test_results or []
     # Gate profile resolution (step 6): explicit argument >
     # policy file's [gate] profile > "strict" default. An
@@ -5799,6 +5801,16 @@ def run_review(patch, providers, context="", test_results=None,
     if record_extra:
         report.update({k: v for k, v in record_extra.items()
                        if v is not None})
+    # Record schema v1.0.0: stamp the versioned sections
+    # (scope / checks / panel / cost / provenance / identity /
+    # verdict semantics) and validate the finished record at
+    # emission — a record that claims v1 must BE v1, on every
+    # surface, because every surface returns this same dict.
+    record_schema_mod.finalize_record(
+        report,
+        duration_ms=int((time.monotonic() - _record_started)
+                        * 1000),
+        waivers=waivers)
     # Epic L4: the gate is final — notify the verdict and
     # record every notification outcome on the way out.
     _notify_verdict(
@@ -5935,6 +5947,7 @@ def run_verification(patch, providers, previous_report, builder_response,
     combined by _combine_resolution, and `truncated` now means
     batching INCOMPLETE (kept content could not be placed), the
     review path's semantics."""
+    _record_started = time.monotonic()
     test_results = test_results or []
     # Epic L4: same notification wiring as run_review — the
     # verification gate is a gate verdict too (see there).
@@ -6328,6 +6341,16 @@ def run_verification(patch, providers, previous_report, builder_response,
         "created_at": _now_iso(),
         "patch_sha256": hashlib.sha256(
             patch.encode("utf-8")).hexdigest(),
+        "patch_chars": len(patch),
+        "_scope_files": [name for name, _text in sections],
+        # v1.0.0: verify records historically carried NO
+        # degraded_causes field at all (review records did) —
+        # a degraded verification was visible only in prose.
+        # In this round `degraded` is set in exactly one place,
+        # a reviewer job failing, so the cause is stated
+        # plainly rather than reconstructed by readers.
+        "degraded_causes": (["reviewer failure"] if degraded
+                            else []),
         "previous_gate": previous_report.get("gate"),
         "private": bool(private),
         "test_results": test_results,
@@ -6351,6 +6374,14 @@ def run_verification(patch, providers, previous_report, builder_response,
     if record_extra:
         report.update({k: v for k, v in record_extra.items()
                        if v is not None})
+    # Record schema v1.0.0: same emission contract as
+    # run_review (see there). No waivers reach this round —
+    # finalize records the empty list, visibly.
+    record_schema_mod.finalize_record(
+        report,
+        duration_ms=int((time.monotonic() - _record_started)
+                        * 1000),
+        waivers=None)
     # Epic L4: verdict notification + outcomes, as run_review.
     _notify_verdict(
         notify, report,
@@ -8227,6 +8258,23 @@ def write_report(report, out_dir, stem=None):
     record = _attach_evidence_sidecars(report, out_dir)
     jpath = os.path.join(out_dir, stem + ".json")
     mpath = os.path.join(out_dir, stem + ".md")
+    if record.get("schema_version"):
+        # Record schema v1.0.0: the writer assigns the path, so
+        # the writer stamps it (base name — the record travels
+        # with its directory; the MCP payload carries the full
+        # path outside the record) and re-validates the exact
+        # copy being written. Legacy (pre-v1) records carry no
+        # schema_version and are written exactly as before.
+        identity = dict(record.get("record_identity") or {})
+        identity["path"] = os.path.basename(jpath)
+        record["record_identity"] = identity
+        problems = record_schema_mod.validate_record(record)
+        if problems:
+            raise ValueError(
+                "verdict record failed schema v"
+                + record_schema_mod.SCHEMA_VERSION
+                + " validation before writing: "
+                + "; ".join(problems))
     with open(jpath, "w", encoding="utf-8") as fh:
         json.dump(record, fh, ensure_ascii=False, indent=2)
         fh.write("\n")
