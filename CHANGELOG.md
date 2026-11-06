@@ -79,6 +79,46 @@ before landing:
   and the summary is capped at 500 chars with an ellipsis
   marker.
 
+Follow-up completions from the tester's response to the
+Phase 2/3 follow-ups (2026-11-06), each independently
+re-verified against master before landing:
+
+- **P3-02 follow-up — the 16K scan cap is removed.** The
+  prefix cap above blinded every rule past 16,384 chars
+  (a fake AWS key planted at offset 20,000 of one line
+  produced zero findings). The bounded regex gaps did
+  the DoS work — a ~1 MB pathological line scans in ~3 s,
+  near-linear — so lines are now scanned IN FULL up to a
+  1,000,000-char hard bound. Past the bound the prefix is
+  scanned and a minor `scan-line-truncated` finding
+  records that the tail was not checked: a line that long
+  never silently passes. (The residual that stands: SQL
+  keywords and their concatenation markers more than 200
+  chars apart are not one statement construction for the
+  `sql-string-build` rule.)
+- **P3-04 follow-up — the sibling-process residual is
+  documented and surfaced, not closed.** `PR_SET_DUMPABLE`
+  protects only the gate process; in env-only mode a
+  sandboxed child can still read any dumpable same-uid
+  sibling process's environment via `/proc/<pid>/environ`
+  (shell, IDE, other agents). THREAT-MODEL gains residual
+  7 (the "provider keys never reach an evidence process"
+  property depends on namespace mode; env-only is not
+  suitable for untrusted trees), the README sandbox
+  paragraph carries the same qualification, and a run
+  that executes env-only while the gate environment
+  carries key-shaped variable names warns once on stderr
+  and records the exposure in the evidence record's
+  sandbox section (variable names only, never values).
+- **P3-01 follow-up — MCP verdicts carry policy
+  visibility.** `run_gate` captures the CLI's stderr and
+  discards it on success, so the discovered-policy
+  warning never reached MCP clients. The verdict payload
+  (both `run_gate` and `get_verdict`) now carries
+  `policy_origin` and `policy_self_modification` from the
+  record — always present (null / [] when the run had no
+  policy section), so clients can rely on the shape.
+
 ## Unreleased — 0.13.0.dev0 (external Phase 2 test fixes)
 
 Fixes from the external tester's Phase 2 report (2026-11-06),
