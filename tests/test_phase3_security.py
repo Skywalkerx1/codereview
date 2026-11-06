@@ -207,5 +207,220 @@ class DeterministicScanBoundsTests(unittest.TestCase):
         self.assertLess(elapsed, 5.0)
 
 
+class RedactionCoverageTests(unittest.TestCase):
+    """P3-03: redact_secrets covered 7 of 32 secret shapes.
+    The table mirrors the external test pass's shape list;
+    the generic-encoded family (and a markerless PEM body
+    line, and the case-transformed key id) are the accepted
+    residual — pattern-based best-effort, no entropy games."""
+
+    J = staticmethod("".join)
+    AKID = J(["AKIA", "IOSFODNN7", "EXAMPLE"])
+
+    def _cases(self):
+        J = self.J
+        akid = self.AKID
+        import base64
+        import urllib.parse
+        return {
+            "aws-akid": (akid, akid),
+            "aws-temp-ASIA": (J(["ASIA", "IOSFODNN7", "EXAMPLE"]),
+                              J(["ASIA", "IOSFODNN7", "EXAMPLE"])),
+            "aws-secret-unquoted": (
+                "aws_secret_access_key = "
+                + J(["wJalrXUtnFEMI/K7MDENG",
+                     "/bPxRfiCYEXAMPLEKEY"]),
+                J(["wJalrXUtnFEMI/K7MDENG",
+                   "/bPxRfiCYEXAMPLEKEY"])),
+            "github-pat": (
+                J(["gh", "p_",
+                   "A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8"]),
+                J(["gh", "p_",
+                   "A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8"])),
+            "github-fine": (
+                J(["github_", "pat_",
+                   "11ABCDEFG0abcdefghijkl_",
+                   "abcdefghijklmnopqrstuvwxyz0123456789"
+                   "ABCDEFGHIJKLMNOPQRST"]),
+                J(["github_", "pat_",
+                   "11ABCDEFG0abcdefghijkl_",
+                   "abcdefghijklmnopqrstuvwxyz0123456789"
+                   "ABCDEFGHIJKLMNOPQRST"])),
+            "openai-sk": (
+                J(["s", "k-", "proj-",
+                   "A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6"]),
+                J(["s", "k-", "proj-",
+                   "A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6"])),
+            "anthropic": (
+                J(["sk-", "ant-", "api03-",
+                   "A1b2C3d4E5f6G7h8I9j0K1l2M3n4"
+                   "O5p6Q7r8S9t0"]),
+                J(["sk-", "ant-", "api03-",
+                   "A1b2C3d4E5f6G7h8I9j0K1l2M3n4"
+                   "O5p6Q7r8S9t0"])),
+            "slack-bot": (
+                J(["xo", "xb-", "123456789012-",
+                   "123456789012-",
+                   "AbCdEfGhIjKlMnOpQrStUvWx"]),
+                J(["xo", "xb-", "123456789012-",
+                   "123456789012-",
+                   "AbCdEfGhIjKlMnOpQrStUvWx"])),
+            "stripe-live": (
+                J(["sk_", "live_",
+                   "51HabcdEFGH1234567890abcdef"]),
+                J(["sk_", "live_",
+                   "51HabcdEFGH1234567890abcdef"])),
+            "google-api": (
+                J(["AI", "za",
+                   "SyA1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6"]),
+                J(["AI", "za",
+                   "SyA1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6"])),
+            "jwt": (
+                J(["eyJhbGciOiJIUzI1NiJ9.",
+                   "eyJzdWIiOiIxMjM0NTY3ODkwIn0.",
+                   "SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJ"
+                   "V_adQssw5c"]),
+                J(["eyJhbGciOiJIUzI1NiJ9.",
+                   "eyJzdWIiOiIxMjM0NTY3ODkwIn0.",
+                   "SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJ"
+                   "V_adQssw5c"])),
+            "db-url-password": (
+                "postgres://admin:" + J(["Sup3r", "S3cretPw"])
+                + "@db.internal:5432/app",
+                J(["Sup3r", "S3cretPw"])),
+            "yaml-password-unquoted": (
+                "password: " + J(["Sup3r", "S3cretPw"]),
+                J(["Sup3r", "S3cretPw"])),
+            "env-style-unquoted": (
+                "API_KEY=" + J(["abcd1234", "efgh5678"]),
+                J(["abcd1234", "efgh5678"])),
+            "env-style-quoted": (
+                "API_KEY='" + J(["abcd1234", "efgh5678"]) + "'",
+                J(["abcd1234", "efgh5678"])),
+            "json-quoted-key": (
+                '"password": "' + J(["Sup3r", "S3cretPw"]) + '"',
+                J(["Sup3r", "S3cretPw"])),
+            "basic-auth-header": (
+                "Authorization: Basic "
+                + base64.b64encode(
+                    b"admin:Sup3rS3cretPw").decode(),
+                base64.b64encode(
+                    b"admin:Sup3rS3cretPw").decode()),
+            "bearer": (
+                "Authorization: Bearer "
+                + J(["abcdEFGH1234", "ijklMNOP5678"]),
+                J(["abcdEFGH1234", "ijklMNOP5678"])),
+            "pem-header": ("-----BEGIN RSA " "PRIVATE KEY-----",
+                           "-----BEGIN RSA " "PRIVATE KEY-----"),
+            "pem-body-line": (
+                "MIIEowIBAAKCAQEA" + "x7Jq" * 16,
+                "MIIEowIBAAKCAQEA" + "x7Jq" * 16),
+            "openssh-header": (
+                "-----BEGIN OPENSSH " "PRIVATE KEY-----",
+                "-----BEGIN OPENSSH " "PRIVATE KEY-----"),
+            "akid-base64": (
+                base64.b64encode(akid.encode()).decode(),
+                base64.b64encode(akid.encode()).decode()),
+            "akid-urlencoded-split": (
+                urllib.parse.quote(akid[:10]) + "%0A" + akid[10:],
+                urllib.parse.quote(akid[:10]) + "%0A"
+                + akid[10:]),
+            "akid-linewrapped": (
+                akid[:8] + "\\\n" + akid[8:],
+                akid[:8] + "\\\n" + akid[8:]),
+            "akid-in-hex": (akid.encode().hex(),
+                            akid.encode().hex()),
+            "akid-lowercase": (akid.lower(), akid.lower()),
+            "private_key_assign": (
+                'private_key = "' + J(["abcdefghij", "klmnop"])
+                + '"',
+                J(["abcdefghij", "klmnop"])),
+            "token-with-spaces-assign": (
+                "token = '" + J(["abc", "def", "ghi"]) + "'",
+                J(["abc", "def", "ghi"])),
+            "passwd-single-char-key": (
+                'PASSWORD="short"', "short"),
+            "secret-ts-template": (
+                "const secret = `" + J(["abcdEFGH1234",
+                                        "ijklMNOP"]) + "`",
+                J(["abcdEFGH1234", "ijklMNOP"])),
+            "secret-fstring": (
+                "secret = f\"" + J(["abcdEFGH1234",
+                                    "ijklMNOP"]) + "\"",
+                J(["abcdEFGH1234", "ijklMNOP"])),
+            "secret-triple-quote": (
+                'secret = """' + J(["abcdEFGH1234",
+                                    "ijklMNOP"]) + '"""',
+                J(["abcdEFGH1234", "ijklMNOP"])),
+        }
+
+    # The accepted residual: transformed forms of a key carry
+    # no pattern a linear regex can honestly match.
+    RESIDUAL = {"akid-base64", "akid-urlencoded-split",
+                "akid-linewrapped", "akid-in-hex",
+                "akid-lowercase", "pem-body-line"}
+
+    def test_shape_table(self):
+        for name, (text, payload) in self._cases().items():
+            with self.subTest(shape=name):
+                out = core.redact_secrets("+" + text)
+                if name in self.RESIDUAL:
+                    self.assertIn(payload, out,
+                                  "residual shape changed — "
+                                  "update the residual list")
+                else:
+                    self.assertNotIn(payload, out)
+
+    def test_full_pem_block_redacted_wholesale(self):
+        body = "MIIEowIBAAKCAQEA" + "x7Jq" * 16
+        text = ("-----BEGIN RSA " "PRIVATE KEY-----\n" + body
+                + "\n-----END RSA " "PRIVATE KEY-----\n")
+        out = core.redact_secrets(text)
+        self.assertNotIn(body, out)
+        self.assertNotIn("MIIEowIBAAKCAQEA", out)
+        self.assertIn("[REDACTED-PRIVATE-KEY]", out)
+
+    def test_redaction_is_linear_on_pathological_text(self):
+        # A long word-run with no keyword and no separator must
+        # not send the assignment patterns quadratic (the
+        # unbounded-lazy-prefix failure mode).
+        text = ('var a="x",b="update",c=function(){return a+b};'
+                * 2000 + "z" * 100000)
+        started = time.monotonic()
+        core.redact_secrets(text)
+        self.assertLess(time.monotonic() - started, 5.0)
+
+    def test_call_targets_are_not_redacted(self):
+        # An unquoted value that is a call target is code, not
+        # a secret literal.
+        self.assertEqual(
+            core.redact_secrets("token = compute_total(items)"),
+            "token = compute_total(items)")
+        self.assertIn(
+            "os.environ.get",
+            core.redact_secrets('password = os.environ.get("P")'))
+
+    def test_scanner_flags_provider_token_prefixes(self):
+        shapes = [
+            ("ghp_" + "A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8",
+             "provider-token"),
+            ("sk_live_51HabcdEFGH1234567890abcdef",
+             "provider-token"),
+            ("eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkw"
+             "In0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
+             "provider-token"),
+            ("ASIA" + "IOSFODNN7" + "EXAMPLE", "aws-access-key"),
+            ("xoxb-123456789012-123456789012-AbCdEfGhIjKl",
+             "provider-token"),
+        ]
+        for i, (token, rule) in enumerate(shapes):
+            with self.subTest(rule=rule, token=token[:12]):
+                findings = core.deterministic_scan(
+                    _patch_for(f"tok{i}.py",
+                               [f'value = "{token}"']))
+                self.assertIn(rule,
+                              [f["rule"] for f in findings])
+
+
 if __name__ == "__main__":
     unittest.main()

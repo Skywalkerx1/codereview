@@ -156,7 +156,7 @@ Any other OpenAI-compatible endpoint works too, either fully custom:
 
 or via the generic escape hatch `--provider "openai-compatible:https://api.example.com/v1|model-id|MY_KEY_ENV"`. (Anthropic's native Messages API and Gemini's native API are wired directly; everything else rides the OpenAI-compatible shape most vendors now expose.)
 
-Keys come from environment variables only — bring your own key for every provider; nothing is stored or logged. Secrets in the diff are redacted before anything is sent to a provider, and the diff is treated as untrusted data — reviewers are instructed to ignore instructions embedded in code and comments.
+Keys come from environment variables only — bring your own key for every provider; nothing is stored or logged. Secrets in the diff are redacted before anything is sent to a provider: the redaction is pattern-based best-effort, covering known token formats (cloud and provider API keys, private-key blocks, credential-bearing URLs, and keyword-named assignments) — it is not a guarantee, and encoded forms of a key (base64, hex, split across lines) are not caught. The diff is treated as untrusted data — reviewers are instructed to ignore instructions embedded in code and comments.
 
 ### Pick the model for each role
 

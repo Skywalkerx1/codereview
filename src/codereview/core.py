@@ -434,22 +434,201 @@ def added_lines(patch):
 
 # ------------------------------------------------------------------ redaction
 
-_SECRET_VALUE_RES = [
-    re.compile(r"(?i)(api[_-]?key|secret|passwd|password|token|"
-               r"private[_-]?key)(\s*[:=]\s*)['\"][^'\"]{6,}['\"]"),
-    re.compile(r"AKIA[0-9A-Z]{16}"),
-    re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----"),
-    re.compile(r"(?i)(bearer\s+)[A-Za-z0-9._\-]{16,}"),
-]
+# Redaction (Phase 3, P3-03): pattern-based, best-effort. The
+# shapes covered are the known token formats below plus
+# keyword-named assignments, quoted or not. Generic ENCODED
+# forms of a key (base64, hex, URL-encoded, line-wrapped,
+# case-transformed) are an accepted residual — no entropy
+# detection is attempted, and the README says so. Every
+# pattern is linear-time: bounded classes only, no stacked
+# unbounded repetitions (the P3-02 / P2-07 lesson).
+
+# A keyword anywhere inside an assignment's name marks the
+# value as secret-bearing (aws_secret_access_key, MY_API_TOKEN).
+# The name expansion around a keyword hit is bounded (64 chars
+# left — see _redact_assignments), which every real compound
+# name satisfies.
+_SECRET_NAME_RE = (r"api[_-]?key|access[_-]?key|secret|passwd|"
+                   r"password|token|private[_-]?key")
+
+_PEM_BLOCK_RE = re.compile(
+    r"-----BEGIN [A-Z ]*PRIVATE KEY-----.{0,16384}?"
+    r"-----END [A-Z ]*PRIVATE KEY-----", re.DOTALL)
+_PEM_HEADER_RE = re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----")
+_AWS_KEY_ID_RE = re.compile(r"\b(?:AKIA|ASIA)[0-9A-Z]{16}\b")
+_PROVIDER_TOKEN_RE = re.compile(
+    r"ghp_[A-Za-z0-9]{36,}"
+    r"|github_pat_[A-Za-z0-9_]{20,}"
+    r"|sk-ant-[A-Za-z0-9_\-]{16,}"
+    r"|sk-proj-[A-Za-z0-9_\-]{16,}"
+    r"|(?<![\w\-])sk-[A-Za-z0-9]{20,}"
+    r"|(?<![\w\-])(?:sk|rk|pk)_(?:live|test)_[A-Za-z0-9]{10,}"
+    r"|xox[baprs]-[A-Za-z0-9\-]{10,}"
+    r"|AIza[0-9A-Za-z_\-]{30,}"
+    r"|eyJ[A-Za-z0-9_\-]{8,}\.eyJ[A-Za-z0-9_\-]{8,}"
+    r"\.[A-Za-z0-9_\-]{8,}")
+def _redact_url_credentials(text):
+    """Redact the password in scheme://user:password@host
+    URLs. Procedural (anchored on the literal "://") for the
+    same reason as _redact_assignments: the regex form's
+    scheme class backtracks over every long word-run."""
+    spans = []
+    pos = 0
+    while True:
+        i = text.find("://", pos)
+        if i < 0:
+            break
+        pos = i + 3
+        # A scheme must end at "://": scheme chars to its
+        # left, and the scheme itself starts at the first
+        # letter of that run (a diff's "+" marker or a leading
+        # digit is not part of it).
+        s = i
+        while s > 0 and (text[s - 1].isalnum()
+                         or text[s - 1] in "+.-"):
+            s -= 1
+        while s < i and not text[s].isalpha():
+            s += 1
+        if s == i:
+            continue
+        user_end = pos
+        while user_end < len(text) \
+                and text[user_end] not in " \t\r\n/:@":
+            user_end += 1
+        if user_end >= len(text) or text[user_end] != ":" \
+                or user_end == pos:
+            continue
+        pw_start = user_end + 1
+        pw_end = pw_start
+        while pw_end < len(text) \
+                and text[pw_end] not in " \t\r\n/@":
+            pw_end += 1
+        if pw_end > pw_start and pw_end < len(text) \
+                and text[pw_end] == "@":
+            spans.append((pw_start, pw_end))
+    if not spans:
+        return text
+    out = []
+    prev = 0
+    for start, end in spans:
+        out.append(text[prev:start])
+        out.append("[REDACTED]")
+        prev = end
+    out.append(text[prev:])
+    return "".join(out)
+_BASIC_AUTH_RE = re.compile(
+    r"(?i)(authorization\s*:\s*basic\s+)[A-Za-z0-9+/]{8,}={0,2}")
+_BEARER_RE = re.compile(r"(?i)(bearer\s+)[A-Za-z0-9._\-]{16,}")
+# Keyword-named assignments are redacted PROCEDURALLY, not
+# by regex substitution: a pattern of the form PREFIX*?
+# KEYWORD makes the engine re-attempt the keyword window from
+# every position (quadratic on long word-runs — measured).
+# Finding keyword occurrences is a fast anchored scan; the
+# name expansion and value validation around each hit are
+# local, bounded work. The value floor is 4 (PASSWORD="short"
+# leaked at the old regex's 6).
+_KEYWORD_FIND_RE = re.compile(r"(?i)" + _SECRET_NAME_RE)
+_NAME_CHARS = frozenset(
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    "0123456789_.-")
+_VALUE_STOP_CHARS = frozenset(" \t\r\n,'\"`(){}\[]")
+_QUOTE_CHARS = "\"'`"
+
+
+def _redact_assignments(text):
+    """Redact the values of keyword-named assignments
+    (api_key = ..., "password": '...', TOKEN=`...`), quoted or
+    not. The name is re-emitted verbatim; only the value is
+    replaced."""
+    spans = []
+    covered_until = -1
+    for match in _KEYWORD_FIND_RE.finditer(text):
+        if match.start() < covered_until:
+            continue  # inside a span already redacted
+        # Expand to the full name token (bounded left, as
+        # documented at _SECRET_NAME_RE).
+        start = match.start()
+        while start > 0 and text[start - 1] in _NAME_CHARS \
+                and match.start() - start < 64:
+            start -= 1
+        if start > 0 and text[start - 1] in "\"'":
+            start -= 1  # the name's opening quote (JSON form)
+        end = match.end()
+        while end < len(text) and text[end] in _NAME_CHARS:
+            end += 1
+        j = end
+        if j < len(text) and text[j] in "\"'":
+            j += 1  # the name's closing quote
+        k = j
+        while k < len(text) and text[k] in " \t":
+            k += 1
+        if k >= len(text) or text[k] not in ":=":
+            continue
+        k += 1
+        while k < len(text) and text[k] in " \t":
+            k += 1
+        # A string prefix (f"...", rb'...') belongs to the
+        # value's opening, not the value.
+        p = k
+        while p < len(text) and text[p] in "fFbBrRuU" \
+                and p - k < 2:
+            p += 1
+        if p > k and p < len(text) and text[p] in _QUOTE_CHARS:
+            k = p
+        if k < len(text) and text[k] in _QUOTE_CHARS:
+            quote = text[k]
+            if text[k:k + 3] in ('"""', "'''"):
+                quote = text[k:k + 3]
+            body = k + len(quote)
+            stop = body
+            while stop < len(text) \
+                    and text[stop] not in _QUOTE_CHARS:
+                stop += 1
+            if stop - body >= 4 \
+                    and text[stop:stop + len(quote)] == quote:
+                spans.append((start, stop + len(quote),
+                              text[start:k] + quote
+                              + "[REDACTED]" + quote))
+                covered_until = stop + len(quote)
+            continue
+        stop = k
+        while stop < len(text) \
+                and text[stop] not in _VALUE_STOP_CHARS:
+            stop += 1
+        # A value immediately followed by "(" is a call target
+        # (token = compute_total(...)), not a secret literal —
+        # leave the code readable.
+        if stop - k >= 4 and (stop >= len(text)
+                              or text[stop] != "("):
+            spans.append((start, stop,
+                          text[start:k] + "[REDACTED]"))
+            covered_until = stop
+    if not spans:
+        return text
+    out = []
+    pos = 0
+    for start, end, replacement in spans:
+        out.append(text[pos:start])
+        out.append(replacement)
+        pos = end
+    out.append(text[pos:])
+    return "".join(out)
 
 
 def redact_secrets(text):
-    """Replace secret-shaped values before the diff leaves the machine."""
+    """Replace secret-shaped values before the diff leaves the
+    machine. Pattern-based best-effort (see the note above):
+    known token formats and keyword assignments are covered;
+    encoded transforms of a key are not."""
     out = text
-    out = _SECRET_VALUE_RES[0].sub(r"\1\2'[REDACTED]'", out)
-    out = _SECRET_VALUE_RES[1].sub("[REDACTED-AWS-KEY]", out)
-    out = _SECRET_VALUE_RES[2].sub("[REDACTED-PRIVATE-KEY]", out)
-    out = _SECRET_VALUE_RES[3].sub(r"\1[REDACTED]", out)
+    out = _PEM_BLOCK_RE.sub("[REDACTED-PRIVATE-KEY]", out)
+    out = _PEM_HEADER_RE.sub("[REDACTED-PRIVATE-KEY]", out)
+    out = _AWS_KEY_ID_RE.sub("[REDACTED-AWS-KEY]", out)
+    out = _PROVIDER_TOKEN_RE.sub("[REDACTED]", out)
+    out = _redact_url_credentials(out)
+    out = _BASIC_AUTH_RE.sub(r"\1[REDACTED]", out)
+    out = _BEARER_RE.sub(r"\1[REDACTED]", out)
+    out = _redact_assignments(out)
     return out
 
 
@@ -468,9 +647,20 @@ _RULES = [
      "Move the value to the secret store / environment and rotate it "
      "if it was ever real."),
     ("aws-access-key", "blocker", "security",
-     re.compile(r"AKIA[0-9A-Z]{16}"),
+     re.compile(r"(?:AKIA|ASIA)[0-9A-Z]{16}"),
      "AWS access key id in added code",
      "Remove and rotate the key; load credentials from the environment."),
+    ("provider-token", "blocker", "security",
+     re.compile(r"ghp_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{20,}"
+                r"|sk-(?:proj-|ant-)?[A-Za-z0-9_\-]{20,}"
+                r"|(?:sk|rk|pk)_(?:live|test)_[A-Za-z0-9]{10,}"
+                r"|xox[baprs]-[A-Za-z0-9\-]{10,}"
+                r"|AIza[0-9A-Za-z_\-]{30,}"
+                r"|eyJ[A-Za-z0-9_\-]{8,}\.eyJ[A-Za-z0-9_\-]{8,}"
+                r"\.[A-Za-z0-9_\-]{8,}"),
+     "Provider API token in added code",
+     "Remove and rotate the token; load credentials from the "
+     "environment or the secret store."),
     ("private-key", "blocker", "security",
      re.compile(r"BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY"),
      "Private key material in added code",
