@@ -49,6 +49,7 @@ sys.path.insert(0, os.path.join(ROOT, "src"))
 sys.path.insert(0, os.path.join(ROOT, "bench"))
 
 from codereview import core, herdrhost, policy, providers  # noqa: E402
+from codereview import seatstate  # noqa: E402
 import generation as gen  # noqa: E402
 
 GOOD_JSON = json.dumps({"summary": "ok", "findings": []})
@@ -407,6 +408,119 @@ class EmptyContentKindTests(unittest.TestCase):
             [("content_invalid", "empty")])
         self.assertEqual(s("p"), GOOD_JSON)
         self.assertEqual(len(calls), 2)
+
+
+def _write_cli(tmp, name, body):
+    path = os.path.join(tmp, name)
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write("#!" + sys.executable + "\n" + body)
+    os.chmod(path, os.stat(path).st_mode | stat.S_IEXEC)
+    return path
+
+
+class SeatStateAnchorTests(unittest.TestCase):
+    """P4-06: the failure patterns are anchored to the CLI's own
+    unquoted diagnostic lines. The verbatim vendor lines (with
+    their lead-ins) still match; a warning quoting a component's
+    state, and verdict text quoting a diff, do not."""
+
+    BENIGN = ("warning: MCP server 'docs' not logged in; "
+              "continuing without it\n")
+
+    def test_benign_warning_matches_nothing(self):
+        self.assertIsNone(
+            seatstate.match_failure("claude", self.BENIGN))
+
+    def test_verbatim_auth_line_still_matches(self):
+        hit = seatstate.match_failure(
+            "claude", "Not logged in · Please run /login\n")
+        self.assertIsNotNone(hit)
+        self.assertEqual(hit["class"], "auth")
+        self.assertEqual(hit["pattern"],
+                         "claude-auth-not-logged-in")
+
+    def test_verbatim_lead_ins_still_match(self):
+        # The vendor lead-ins the evidence ships with: a
+        # contraction, an ERROR label, status prefixes, and the
+        # real codex capture's timestamped logger lines.
+        hit = seatstate.match_failure(
+            "claude", "You’ve hit your weekly limit\n")
+        self.assertEqual(hit["class"], "quota")
+        hit = seatstate.match_failure(
+            "codex", "ERROR: You’ve hit your usage limit. "
+                     "Upgrade to Pro\n")
+        self.assertEqual(hit["class"], "quota")
+        hit = seatstate.match_failure(
+            "codex", "HTTP error: 401 Unauthorized\n"
+                     "unexpected status 401 Unauthorized: "
+                     "Missing bearer\n")
+        self.assertEqual(hit["class"], "auth")
+        self.assertEqual(hit["pattern"], "codex-auth-401")
+        hit = seatstate.match_failure(
+            "codex", "2026-11-05T13:33:58Z ERROR "
+                     "codex_api::endpoint::responses_websocket: "
+                     "failed to connect to websocket: HTTP "
+                     "error: 401 Unauthorized, url: wss://x\n")
+        self.assertEqual(hit["class"], "auth")
+        hit = seatstate.match_failure(
+            "gemini", "API error: 429 - Resource exhausted\n")
+        self.assertEqual(hit["class"], "quota")
+
+    def test_diff_quoted_stdout_no_longer_classifies_auth(self):
+        verdict = json.dumps({
+            "verdict": "pass", "summary":
+            "reviewing a diff containing: Not logged in",
+            "findings": []})
+        state, cls, ev = seatstate.classify_exit(
+            "claude", 3, verdict, "")
+        self.assertEqual((state, cls), ("failed", "error"))
+        self.assertEqual(ev, {"exit_code": 3})
+
+    def test_failure_as_result_stdout_still_classifies(self):
+        # Claude Code's failure-as-result channel (stdout on a
+        # non-zero exit) is deliberate and preserved.
+        state, cls, ev = seatstate.classify_exit(
+            "claude", 1, "Not logged in · Please run /login", "")
+        self.assertEqual((state, cls), ("blocked", "auth"))
+        self.assertEqual(ev["source"], "stdout")
+
+    def test_benign_warning_seat_completes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            good = json.dumps({"summary": "ok", "findings": []})
+            body = (
+                "import sys, time\n"
+                "sys.stderr.write(\"warning: MCP server 'docs' "
+                "not logged in; continuing without it\\n\")\n"
+                "sys.stderr.flush()\n"
+                "time.sleep(0.6)\n"
+                f"sys.stdout.write({good!r})\n")
+            path = _write_cli(tmp, "claude", body)
+            fn = providers.command_agent(
+                path, timeout=30, stall_after=60.0,
+                block_grace=0.2)
+            text = fn("brief")
+        self.assertIn('"summary": "ok"', text)
+
+    def test_verbatim_auth_line_still_terminates_early(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            body = (
+                "import sys, time\n"
+                "sys.stderr.write('Not logged in · Please run "
+                "/login\\n')\n"
+                "sys.stderr.flush()\n"
+                "time.sleep(30)\n")
+            path = _write_cli(tmp, "claude", body)
+            fn = providers.command_agent(
+                path, timeout=30, stall_after=60.0,
+                block_grace=0.3)
+            started = time.monotonic()
+            with self.assertRaises(providers.ProviderError) as cm:
+                fn("brief")
+            self.assertLess(time.monotonic() - started, 15)
+        facts = cm.exception.seat_facts
+        self.assertEqual(facts["state"], "blocked")
+        self.assertEqual(facts["class"], "auth")
+        self.assertTrue(facts["evidence"]["early_terminated"])
 
 
 if __name__ == "__main__":

@@ -46,6 +46,19 @@ Vocabulary notes:
     the result on stdout; a successful run's stdout is never
     scanned, so a verdict quoting failure text from the diff
     under review cannot misclassify its own seat).
+  * Matching is ANCHORED to the CLI's own voice (Phase 4,
+    P4-06): a pattern counts only when, on its line, the text
+    before the match is an unquoted lead-in — timestamps, a log
+    level, a logger path, the vendor's own lead-ins ("You've",
+    "HTTP error:") — never quoted matter. The verbatim vendor
+    messages carry such lead-ins, so position-0 matching would
+    reject the very evidence the table ships on; what the
+    anchor rejects is the core appearing inside quotes: a
+    warning about a named component ("MCP server 'docs' not
+    logged in") states the COMPONENT's state, not the CLI's,
+    and verdict or diff text quoting the words is content
+    under review. An unanchored substring match killed a
+    healthy seat on exactly that warning.
 """
 
 from __future__ import annotations
@@ -160,18 +173,46 @@ def cli_key_for_argv(argv):
     return base if base in _COMPILED else None
 
 
+_QUOTE_CHARS = ('"', "“", "”", "`")
+
+
+def _unquoted_lead_in(prefix):
+    """True when `prefix` (the line text before a match) states
+    no quoted matter: no quote characters, and every apostrophe
+    word-internal (You've — the vendor's own voice), never a
+    quote opening or closing a span ('docs', "…")."""
+    for i, ch in enumerate(prefix):
+        if ch in _QUOTE_CHARS:
+            return False
+        if ch in ("'", "’"):
+            left = prefix[i - 1] if i else ""
+            right = prefix[i + 1] if i + 1 < len(prefix) else ""
+            if not (left.isalpha() and right.isalpha()):
+                return False
+    return True
+
+
 def match_failure(cli_key, text):
     """First tabled pattern matching `text` for `cli_key`, as
     {class, pattern, matched} — or None. Unknown CLI or no
-    match both mean: no textual classification, by design."""
+    match both mean: no textual classification, by design.
+
+    A match counts only under the P4-06 anchor: scanning line
+    by line, the text before the match on its line must be an
+    unquoted lead-in (see the module docstring). Pattern
+    priority is the table's, exactly as when the whole text was
+    searched at once."""
     if not cli_key or not text:
         return None
+    lines = text.splitlines()
     for entry in _COMPILED.get(cli_key, ()):
-        m = entry["rx"].search(text)
-        if m:
-            return {"class": entry["class"],
-                    "pattern": entry["id"],
-                    "matched": m.group(0)[:80]}
+        rx = entry["rx"]
+        for line in lines:
+            for m in rx.finditer(line):
+                if _unquoted_lead_in(line[:m.start()]):
+                    return {"class": entry["class"],
+                            "pattern": entry["id"],
+                            "matched": m.group(0)[:80]}
     return None
 
 
