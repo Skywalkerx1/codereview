@@ -695,5 +695,68 @@ class MissingRepoValidationTests(unittest.TestCase):
             tools.run_gate({"repo": "", "patch": SIMPLE_PATCH})
 
 
+class McpProtocolStrictnessTests(unittest.TestCase):
+    """P3-10: _handle never read the jsonrpc field (a "1.0"
+    or versionless frame was served as 2.0), and a NaN id was
+    echoed through json.dumps' default allow_nan=True,
+    emitting invalid JSON."""
+
+    def _serve(self, frames):
+        from codereview import mcp_transport
+
+        def dispatch(method, _params, _notification):
+            return {"echo": method}
+
+        raw_in = io.BytesIO(b"".join(frames))
+        raw_out = io.BytesIO()
+        server = mcp_transport.StdioServer(
+            dispatch, stdin=raw_in, stdout=raw_out,
+            log=lambda _t: None)
+        server.serve_forever()
+        return raw_out.getvalue(), server
+
+    def test_wrong_or_missing_jsonrpc_rejected(self):
+        from codereview import mcp_transport
+        for frame in (
+                b'{"jsonrpc":"1.0","method":"ping","id":1}\n',
+                b'{"method":"ping","id":1}\n'):
+            with self.subTest(frame=frame):
+                raw, server = self._serve(
+                    [frame,
+                     b'{"jsonrpc":"2.0","method":"ping",'
+                     b'"id":2}\n'])
+                responses = [json.loads(line) for line in
+                             raw.decode().splitlines()]
+                self.assertEqual(
+                    responses[0]["error"]["code"],
+                    mcp_transport.INVALID_REQUEST)
+                self.assertEqual(responses[1]["id"], 2)
+                self.assertEqual(
+                    responses[1]["result"], {"echo": "ping"})
+
+    def test_bad_version_notification_gets_no_response(self):
+        raw, server = self._serve(
+            [b'{"jsonrpc":"1.0","method":"ping"}\n',
+             b'{"jsonrpc":"2.0","method":"ping","id":2}\n'])
+        responses = [json.loads(line) for line in
+                     raw.decode().splitlines()]
+        self.assertEqual(len(responses), 1)
+        self.assertEqual(responses[0]["id"], 2)
+        self.assertEqual([e["kind"] for e in server.errors],
+                         ["invalid_request"])
+
+    def test_nan_id_echoed_as_null_strict_json(self):
+        raw, _server = self._serve(
+            [b'{"jsonrpc":"2.0","method":"ping","id":NaN}\n'])
+
+        def no_constants(value):
+            raise ValueError(value)
+
+        parsed = json.loads(raw.decode(),
+                            parse_constant=no_constants)
+        self.assertIsNone(parsed["id"])
+        self.assertEqual(parsed["result"], {"echo": "ping"})
+
+
 if __name__ == "__main__":
     unittest.main()

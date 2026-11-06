@@ -31,6 +31,7 @@ package.
 """
 
 import json
+import math
 import sys
 
 # JSON-RPC 2.0 error codes used by this layer.
@@ -56,6 +57,16 @@ class JsonRpcError(Exception):
         self.code = code
         self.message = message
         self.data = data
+
+
+def _sanitised_id(req_id):
+    """A request id is echoed verbatim — except a non-finite
+    float. Python's json accepts NaN/Infinity by default, so
+    a frame can carry one as its id; echoing it would emit
+    invalid JSON (P3-10). It is answered as null."""
+    if isinstance(req_id, float) and not math.isfinite(req_id):
+        return None
+    return req_id
 
 
 def result_response(req_id, result):
@@ -120,7 +131,19 @@ class StdioServer:
         return b"", True
 
     def _send(self, message):
-        data = (json.dumps(message, ensure_ascii=False)
+        try:
+            data = (json.dumps(message, ensure_ascii=False,
+                               allow_nan=False)
+                    + "\n").encode("utf-8")
+        except (TypeError, ValueError):
+            # allow_nan=False refuses a non-finite float
+            # anywhere in the payload (P3-10): the wire must
+            # never carry NaN/Infinity literals — they are
+            # not JSON. Answer with a plain internal error
+            # instead of killing the loop.
+            data = (json.dumps(error_response(
+                None, INTERNAL_ERROR,
+                "response was not JSON-serialisable"))
                 + "\n").encode("utf-8")
         self._stdout.write(data)
         self._stdout.flush()
@@ -172,16 +195,30 @@ class StdioServer:
                 None, INVALID_REQUEST,
                 "request must be a JSON object"))
             return
+        req_id = _sanitised_id(message.get("id"))
+        if message.get("jsonrpc") != "2.0":
+            # P3-10: the version field was never read — a
+            # "1.0" frame, or one with no version at all, was
+            # served as if it were 2.0. Fail closed with
+            # -32600; a notification-shaped frame (no id)
+            # keeps notification semantics — ledger only,
+            # never a response.
+            self._record("invalid_request",
+                         "jsonrpc field is not \"2.0\"")
+            if "id" in message:
+                self._send(error_response(
+                    req_id, INVALID_REQUEST,
+                    "jsonrpc field must be \"2.0\""))
+            return
         method = message.get("method")
         if not isinstance(method, str) or not method:
             self._record("invalid_request",
                          "request has no method")
             self._send(error_response(
-                message.get("id"), INVALID_REQUEST,
+                req_id, INVALID_REQUEST,
                 "request has no method"))
             return
         notification = "id" not in message
-        req_id = message.get("id")
         try:
             result = self._dispatch(
                 method, message.get("params"), notification)
