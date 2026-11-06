@@ -60,6 +60,17 @@ except ImportError:  # standalone module load
 DEFAULT_TIMEOUT = 240
 AGENT_TIMEOUT = 900
 
+# Herdr watch discipline (P4-07): a failed pane poll is an event
+# break, reconciled via snapshot — but a herdr that keeps
+# failing the poll while the snapshot stays healthy must not be
+# polled at full loop pace forever. Consecutive pane-get
+# failures back off exponentially from the loop pace to the
+# cap, and a bounded streak of them ends the seat with the
+# recorded herdr-unreachable outcome.
+_HERDR_GET_BACKOFF_BASE_S = 0.05
+_HERDR_GET_BACKOFF_CAP_S = 2.0
+_HERDR_GET_MAX_FAILURES = 20
+
 
 class ProviderError(Exception):
     """A provider/seat failure. `retryable` tells the account pool
@@ -583,9 +594,13 @@ def _run_hosted_seat(host, receipt, pane_id, out_path, err_path,
     decides the outcome. A failed poll is an event break
     (events_lost at the socket layer): reconcile via
     session.snapshot — same pane, same terminal_id, or the
-    seat fails. Returns the headless outcome shapes
-    ({"kind": "exit", "returncode": N} / "timeout" /
-    "blocked") plus {"kind": "herdr-failure", ...}."""
+    seat fails. Consecutive poll failures back off
+    exponentially (P4-07) and a bounded streak of them, with
+    reconciliation still proving the session healthy, ends
+    the seat as herdr-unreachable. Returns the headless
+    outcome shapes ({"kind": "exit", "returncode": N} /
+    "timeout" / "blocked") plus {"kind": "herdr-failure",
+    ...}."""
 
     def _size(path):
         try:
@@ -609,6 +624,8 @@ def _run_hosted_seat(host, receipt, pane_id, out_path, err_path,
     last_status = None
     advisory_blocked = False
     terminal_id = None
+    get_failures = 0
+    pace = _HERDR_GET_BACKOFF_BASE_S
 
     def _observe(pane, via):
         """Fold one pane observation into the receipt (+ the
@@ -723,13 +740,36 @@ def _run_hosted_seat(host, receipt, pane_id, out_path, err_path,
                              "transport": "herdr"}}}
         # The watch: one pane poll per loop is the subscription
         # at the wrapper layer. Herdr CLI calls are quick; the
-        # seat timeout bounds the whole loop regardless.
+        # seat timeout bounds the whole loop regardless. A
+        # failed poll is reconciled, and consecutive failures
+        # back the loop off exponentially (P4-07): a persistent
+        # failure with a healthy snapshot otherwise spawned a
+        # herdr process ~13 times a second for the whole seat
+        # timeout. A bounded streak ends the seat with the same
+        # herdr-unreachable outcome a failed reconciliation
+        # produces.
         try:
             failure = _observe(host.pane_get(pane_id), "pane.get")
+            get_failures = 0
+            pace = _HERDR_GET_BACKOFF_BASE_S
         except herdrhost.HerdrError:
             receipt["events_lost"] = \
                 receipt.get("events_lost", 0) + 1
+            get_failures += 1
             failure = _reconcile()
+            if failure is None \
+                    and get_failures >= _HERDR_GET_MAX_FAILURES:
+                failure = {
+                    "kind": "herdr-failure",
+                    "stage": "herdr-unreachable",
+                    "detail": f"pane get failed {get_failures} "
+                              f"times in a row while "
+                              f"reconciliation kept proving the "
+                              f"session healthy; the watch is "
+                              f"given up as unreachable"}
+            pace = min(_HERDR_GET_BACKOFF_CAP_S,
+                       _HERDR_GET_BACKOFF_BASE_S
+                       * (2 ** get_failures))
         if failure is not None:
             return failure
         # Fresh clock, not the iteration-start sample: a slow
@@ -751,7 +791,7 @@ def _run_hosted_seat(host, receipt, pane_id, out_path, err_path,
                          "evidence": {"timeout_s": timeout,
                                       "transport": "herdr"}}
             return {"kind": "timeout", "facts": facts}
-        time.sleep(0.05)
+        time.sleep(min(pace, max(0.05, deadline - now)))
 
 
 def _call_hosted(host, argv, prompt, timeout, private_home,

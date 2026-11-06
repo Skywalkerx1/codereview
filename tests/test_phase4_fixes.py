@@ -42,6 +42,7 @@ import tempfile
 import threading
 import time
 import unittest
+import unittest.mock
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 ROOT = os.path.join(os.path.dirname(__file__), "..")
@@ -521,6 +522,101 @@ class SeatStateAnchorTests(unittest.TestCase):
         self.assertEqual(facts["state"], "blocked")
         self.assertEqual(facts["class"], "auth")
         self.assertTrue(facts["evidence"]["early_terminated"])
+
+
+class FakeHerdrHost:
+    """A duck-typed herdrhost stand-in for the hosted watch:
+    pane_get fails a scripted number of times (or forever);
+    snapshot always proves the same pane under the same
+    terminal — the P4-07 precondition."""
+
+    def __init__(self, fail_first=0, fail_forever=False):
+        self.get_calls = 0
+        self.snap_calls = 0
+        self.fail_first = fail_first
+        self.fail_forever = fail_forever
+
+    def pane_get(self, pane_id):
+        self.get_calls += 1
+        if self.fail_forever or self.get_calls <= self.fail_first:
+            raise herdrhost.HerdrError("connection refused")
+        return {"pane_id": pane_id, "terminal_id": "t1",
+                "agent_status": "working"}
+
+    def snapshot(self):
+        self.snap_calls += 1
+        return {"panes": [{"pane_id": "p1", "terminal_id": "t1",
+                           "agent_status": "working"}]}
+
+
+class HerdrWatchBackoffTests(unittest.TestCase):
+    """P4-07: the hosted watch had no backoff or bound on
+    pane-get failures (~13 spawns/s forever)."""
+
+    def _watch(self, host, timeout=60.0):
+        tmp = tempfile.mkdtemp()
+        out_path = os.path.join(tmp, "out")
+        err_path = os.path.join(tmp, "err")
+        rc_path = os.path.join(tmp, "rc")
+        open(out_path, "w").close()
+        open(err_path, "w").close()
+        receipt = {"transport": "herdr"}
+        outcome = providers._run_hosted_seat(
+            host, receipt, "p1", out_path, err_path, rc_path,
+            None, None, timeout, 3600.0, 10.0)
+        return outcome, receipt
+
+    def test_persistent_failure_gives_up_bounded(self):
+        host = FakeHerdrHost(fail_forever=True)
+        with unittest.mock.patch.object(
+                providers, "_HERDR_GET_MAX_FAILURES", 5):
+            started = time.monotonic()
+            outcome, receipt = self._watch(host)
+            elapsed = time.monotonic() - started
+        self.assertEqual(outcome["kind"], "herdr-failure")
+        self.assertEqual(outcome["stage"], "herdr-unreachable")
+        self.assertEqual(host.get_calls, 5)
+        self.assertEqual(host.snap_calls, 5)
+        self.assertEqual(receipt["events_lost"], 5)
+        # The backoff actually paced the loop: 0.1+0.2+0.4+0.8
+        # of sleeps separate the five failures.
+        self.assertGreaterEqual(elapsed, 1.4)
+
+    def test_spawn_rate_collapses_under_persistent_failure(self):
+        host = FakeHerdrHost(fail_forever=True)
+        outcome, receipt = self._watch(host, timeout=1.2)
+        self.assertEqual(outcome["kind"], "timeout")
+        # Unbacked-off this window held ~24 polls; backed off
+        # (0.1, 0.2, 0.4, 0.8, ...) it holds a handful.
+        self.assertLessEqual(host.get_calls, 8)
+        self.assertEqual(receipt["events_lost"], host.get_calls)
+
+    def test_transient_failures_recover(self):
+        host = FakeHerdrHost(fail_first=2)
+        tmp = tempfile.mkdtemp()
+        out_path = os.path.join(tmp, "out")
+        err_path = os.path.join(tmp, "err")
+        rc_path = os.path.join(tmp, "rc")
+        open(out_path, "w").close()
+        open(err_path, "w").close()
+
+        def write_rc():
+            with open(rc_path, "w") as fh:
+                fh.write("0")
+
+        timer = threading.Timer(0.5, write_rc)
+        timer.start()
+        try:
+            receipt = {"transport": "herdr"}
+            outcome = providers._run_hosted_seat(
+                host, receipt, "p1", out_path, err_path, rc_path,
+                None, None, 30.0, 3600.0, 10.0)
+        finally:
+            timer.cancel()
+        self.assertEqual(outcome,
+                         {"kind": "exit", "returncode": 0})
+        self.assertEqual(receipt["events_lost"], 2)
+        self.assertGreaterEqual(host.get_calls, 3)
 
 
 if __name__ == "__main__":
