@@ -4207,6 +4207,16 @@ def run_review(patch, providers, context="", test_results=None,
             sections.append((_name, _text))
     batches, batch_files, truncated = _batch_sections_detailed(
         sections, max_patch_chars)
+    # Phase 3 (P3-01 observability): a change that itself adds
+    # or modifies the gate's own configuration files — the
+    # project policy or the AGENTS.md guidance — is flagged on
+    # the record (policy_self_modification below): the run's
+    # rules may have been authored by the change under review,
+    # and that fact must be visible wherever the record is read.
+    policy_self_modification = sorted({
+        _name for _name, _text in all_sections
+        if _name.rsplit("/", 1)[-1] in (".codereview.toml",
+                                        "AGENTS.md")})
     tests_txt = _test_summary(test_results)
     section_text = {}
     for name, text in sections:
@@ -5808,9 +5818,19 @@ def run_review(patch, providers, context="", test_results=None,
         report["policy"] = {
             "path": policy.get("path"),
             "sha256": policy.get("sha256"),
+            # P3-01 observability: where the applied policy
+            # came from — "discovered-in-repo" when the CLI
+            # found it in the tree under review, "explicit"
+            # when the operator named it (--policy, or a
+            # library caller handing a policy in). No policy
+            # section at all is the "none" state.
+            "origin": policy.get("origin") or "explicit",
             "applied": policy_outcome["applied"],
             "violations": policy_outcome["violations"],
         }
+    if policy_self_modification:
+        report["policy_self_modification"] = \
+            policy_self_modification
     if risk_section is not None:
         # E1: the deterministic risk score for this change
         # (score + band + reasons) — see risk.py.

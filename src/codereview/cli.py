@@ -2110,10 +2110,20 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
               f"dropped", file=sys.stderr)
     project_policy = None
     policy_path = args.policy
+    # P3-01 observability: a policy DISCOVERED in the reviewed
+    # repo is repo-supplied configuration — it is applied
+    # exactly like an operator-named --policy (changing that
+    # trust decision is an owner call, not made here), but the
+    # two origins are no longer indistinguishable: the origin
+    # is stamped on the policy, lands in the record's policy
+    # section, and a discovered policy warns on stderr.
+    policy_origin = "explicit" if policy_path is not None \
+        else None
     if policy_path is None:
         discovered = policy_mod.find_policy(args.repo or ".")
         if discovered:
             policy_path = discovered
+            policy_origin = "discovered-in-repo"
     if policy_path:
         try:
             project_policy = policy_mod.load_policy(policy_path)
@@ -2121,11 +2131,19 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
             print(f"codereview: could not load the project "
                   f"policy: {exc}", file=sys.stderr)
             return 2
+        project_policy["origin"] = policy_origin
         print(f"codereview: project policy: "
               f"{len(project_policy['paths'])} path rule(s) from "
               f"{policy_path} — the gate enforces it and the "
               f"record lists every rule applied",
               file=sys.stderr)
+        if policy_origin == "discovered-in-repo":
+            print(f"codereview: WARNING: that policy was "
+                  f"discovered in the reviewed repository "
+                  f"({policy_path}) — it comes from the tree "
+                  f"under review, not from the operator; the "
+                  f"record's policy section states this origin",
+                  file=sys.stderr)
     # Epic L3: lifecycle hooks from the policy's [hooks] table.
     # The runner is created here (no side effects) and fired at
     # the lifecycle points below; with no [hooks] commands it
