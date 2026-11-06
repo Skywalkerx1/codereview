@@ -250,6 +250,20 @@ class PlanStagesTests(unittest.TestCase):
         self.assertEqual(plan["stage1_seats"], ["a", "b", "c"])
         self.assertIsNone(plan["fallback_to_full"])
 
+    def test_duplicate_missing_seat_recorded_once(self):
+        # Survivor 95: a seat named twice in the config is
+        # recorded once in missing_seats, both bands.
+        plan = tiering.plan_stages(
+            "low", TASKS3,
+            {"prescreen_seats": ["zzz", "zzz", "c"]})
+        self.assertEqual(plan["missing_seats"], ["zzz"])
+        self.assertEqual(plan["stage1_seats"], ["c"])
+        plan = tiering.plan_stages(
+            "medium", TASKS3,
+            {"medium_seats": ["zzz", "zzz", "c"]})
+        self.assertEqual(plan["missing_seats"], ["zzz"])
+        self.assertEqual(plan["stage1_seats"], ["c"])
+
 
 def _rep(provider="a", lens="correctness", status="ok",
          findings=()):

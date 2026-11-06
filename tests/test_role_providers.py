@@ -324,5 +324,50 @@ class RoleAssignmentTests(unittest.TestCase):
             "deepseek")
 
 
+class LensPinEdgeTests(unittest.TestCase):
+    """Survivors 26–30, edges only (the main pin path is
+    pinned by test_lens_pin_is_honoured_and_default_is_unchanged
+    above): stale or partial pins must never drop a lens."""
+
+    @staticmethod
+    def _served(items, pins):
+        tasks = core._reviewer_tasks(items, lens_seats=pins)
+        return {(name, lens) for name, _fn, lens in tasks}
+
+    def setUp(self):
+        def seat(_prompt):
+            return PASS_JSON
+        self.items = [("a", seat), ("b", seat), ("c", seat)]
+
+    def test_pin_naming_a_nonexistent_seat_is_ignored(self):
+        served = self._served(self.items,
+                              {"operations": "ghost"})
+        # Falls back to the cycle: every lens tasked, the
+        # ghost seat serving nothing.
+        self.assertEqual(
+            served, {("a", "correctness"), ("b", "operations")})
+
+    def test_pin_naming_an_unknown_lens_is_ignored(self):
+        served = self._served(self.items, {"bogus": "a"})
+        self.assertEqual(
+            served, {("a", "correctness"), ("b", "operations")})
+
+    def test_single_seat_pinned_serves_remaining_lens_too(self):
+        seat = self.items[0][1]
+        served = self._served([("a", seat)],
+                              {"operations": "a"})
+        # The `or list(provider_items)` fallback: with the only
+        # seat pinned, it also fills the unpinned lens.
+        self.assertEqual(
+            served, {("a", "operations"), ("a", "correctness")})
+
+    def test_two_simultaneous_pins_both_honoured(self):
+        served = self._served(
+            self.items,
+            {"correctness": "c", "operations": "a"})
+        self.assertEqual(
+            served, {("c", "correctness"), ("a", "operations")})
+
+
 if __name__ == "__main__":
     unittest.main()

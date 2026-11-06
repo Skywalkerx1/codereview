@@ -282,6 +282,49 @@ class MergeOrderInvarianceTests(unittest.TestCase):
                 self.assertEqual(outcome(perm), expected)
 
 
+class SurvivorPinTests(unittest.TestCase):
+    """Mutation-survivor pins from the Phase 2 pass — behaviours
+    verified present, now held by tests."""
+
+    def test_balanced_never_demotes_unattributed_source(self):
+        # Survivor 6: a finding whose source_lenses lacks an
+        # entry for one source is unattributed and is NEVER
+        # demoted, however demotable its stamped lens looks.
+        finding = dict(FINDING)
+        finding["sources"] = ["ops-seat", "mystery"]
+        finding["source_lenses"] = {"ops-seat": ["operations"]}
+        out, _demoted = core._apply_gate_profile(
+            [finding], "balanced")
+        self.assertEqual(out[0]["severity"], "blocker")
+        # Control: fully attributed, the same finding demotes.
+        finding["source_lenses"] = {
+            "ops-seat": ["operations"],
+            "mystery": ["operations"]}
+        out, demoted = core._apply_gate_profile(
+            [finding], "balanced")
+        self.assertEqual(out[0]["severity"], "minor")
+        self.assertEqual(len(demoted), 1)
+
+    def test_deterministic_source_gains_its_stamp(self):
+        # Survivor 34: a finding listing "deterministic" in
+        # sources with no stamped entry gains the synthetic
+        # attribution instead of counting as unattributed.
+        finding = {"sources": ["deterministic", "seat-a"],
+                   "source_lenses": {"seat-a": ["operations"]}}
+        out = core._source_lenses_of(finding)
+        self.assertEqual(out["deterministic"], ["deterministic"])
+        self.assertEqual(out["seat-a"], ["operations"])
+
+    def test_stamped_deterministic_entry_not_overwritten(self):
+        # Survivor 35: a stamped deterministic entry is kept
+        # as-is — not overwritten, not duplicated.
+        finding = {"sources": ["deterministic"],
+                   "source_lenses": {"deterministic":
+                                     ["correctness"]}}
+        out = core._source_lenses_of(finding)
+        self.assertEqual(out, {"deterministic": ["correctness"]})
+
+
 class RunReviewProfileTests(unittest.TestCase):
     """Profile plumbing through a full review round."""
 
