@@ -3002,6 +3002,18 @@ def evaluate_gate_policy(findings, profile, family_by_source=None,
         confirm_fn=confirm_fn, require_trigger=require_trigger)
 
 
+def _merge_sort_key(f):
+    """P2-02: the canonical content key merge_findings sorts
+    its input by, so the merge result is a function of the
+    finding SET, never of arrival order. Deliberately NOT the
+    finding id — ids are assignment-order artefacts."""
+    line = f.get("line")
+    return (f["file"], f["category"],
+            line if line is not None else -1,
+            f["title"], _SEV_RANK[f["severity"]],
+            tuple(sorted(f.get("sources") or ())))
+
+
 def merge_findings(findings):
     """Merge near-duplicate findings across reviewers.
 
@@ -3018,6 +3030,14 @@ def merge_findings(findings):
     merge. Merging keeps the worst severity and the highest
     confidence, and marks consensus when more than one source
     reported it."""
+    # P2-02: the greedy pass below compares each finding only
+    # against each group's founding title (a group's title never
+    # updates on merge), so grouping — and under the balanced
+    # profile, the verdict — depended on input order. Sorting
+    # the input by a canonical content key first makes the
+    # result a deterministic function of the finding set; every
+    # merge rule after this line is unchanged.
+    findings = sorted(findings, key=_merge_sort_key)
     merged = []
     for f in findings:
         placed = False

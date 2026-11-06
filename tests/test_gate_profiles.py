@@ -17,9 +17,12 @@ was rejected on the sweep evidence and must stay unimplemented
 — an unknown profile is a loud error, never a silent fallback.
 """
 
+import copy
 import io
+import itertools
 import json
 import os
+import random
 import sys
 import tempfile
 import unittest
@@ -195,6 +198,88 @@ class MergeLensAttributionTests(unittest.TestCase):
                           "ops-seat": ["operations"]})
         self.assertEqual(sorted(merged[0]["sources"]),
                          ["corr-seat", "ops-seat"])
+
+
+def _merge_finding(title, severity, source, lens, line=4,
+                   category="reliability", file="app/x.py"):
+    return {"title": title, "severity": severity,
+            "category": category, "file": file, "line": line,
+            "confidence": 0.9, "sources": [source],
+            "consensus": False,
+            "source_lenses": {source: [lens]}}
+
+
+def _merged_signature(merged):
+    return sorted(
+        (f["file"], f["category"],
+         f["line"] if f["line"] is not None else -1, f["title"],
+         f["severity"], tuple(sorted(f["sources"])),
+         f["consensus"],
+         tuple(sorted((s, tuple(l)) for s, l in
+                      (f.get("source_lenses") or {}).items())))
+        for f in merged)
+
+
+class MergeOrderInvarianceTests(unittest.TestCase):
+    """P2-02 — merge_findings must be a deterministic function
+    of the finding SET: the greedy pass compares against each
+    group's founding title only, so without a canonical input
+    order the grouping (and, under balanced, the verdict)
+    flipped with arrival order."""
+
+    CHAIN = [
+        _merge_finding("timeout result", "major", "ops1",
+                       "operations"),
+        _merge_finding("timeout empty", "minor", "ops2",
+                       "operations"),
+        _merge_finding("empty crash", "minor", "corr1",
+                       "correctness"),
+    ]
+
+    def test_chain_case_identical_across_all_permutations(self):
+        # 'timeout result' ~ 'timeout empty' and 'timeout empty'
+        # ~ 'empty crash' merge via the same-line route, but
+        # 'timeout result' ~ 'empty crash' do not — pre-fix the
+        # grouping depended on which title founded the group.
+        expected = None
+        for perm in itertools.permutations(self.CHAIN):
+            sig = _merged_signature(
+                core.merge_findings(copy.deepcopy(list(perm))))
+            if expected is None:
+                expected = sig
+            self.assertEqual(sig, expected)
+
+    def test_random_sets_invariant_across_permutations(self):
+        rng = random.Random(20261106)
+        words = ["timeout", "empty", "crash", "retry", "leak",
+                 "guard", "result", "overflow"]
+        for _ in range(150):
+            findings = []
+            for i in range(rng.randint(2, 6)):
+                title = " ".join(
+                    rng.sample(words, rng.randint(1, 3)))
+                lens = rng.choice(["operations", "correctness"])
+                findings.append(_merge_finding(
+                    title,
+                    rng.choice(["blocker", "major", "minor"]),
+                    f"seat{i}", lens,
+                    line=rng.choice([None, 4, 4, 7]),
+                    category=rng.choice(
+                        ["reliability", "security"]),
+                    file=rng.choice(["app/x.py", "app/y.py"])))
+
+            def outcome(items):
+                merged = core.merge_findings(copy.deepcopy(items))
+                applied, _ = core._apply_gate_profile(
+                    copy.deepcopy(merged), "balanced")
+                verdict, _ = core._gate(applied)
+                return _merged_signature(merged), verdict
+
+            expected = outcome(findings)
+            for _ in range(8):
+                perm = list(findings)
+                rng.shuffle(perm)
+                self.assertEqual(outcome(perm), expected)
 
 
 class RunReviewProfileTests(unittest.TestCase):
