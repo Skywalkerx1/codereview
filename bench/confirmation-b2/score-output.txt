@@ -1,0 +1,373 @@
+{
+ "run": "b2-confirmation",
+ "records": 88,
+ "expected_cases": 88,
+ "unscored_cases": [],
+ "corroboration_unavailable_cases": [],
+ "cap_used": 0,
+ "cap": 4,
+ "void": false,
+ "views": {
+  "scored_only": {
+   "clean": {
+    "cases": 64,
+    "blocked": 6,
+    "rate": 0.09375,
+    "wilson95": [
+     0.044,
+     0.19
+    ],
+    "bootstrap95": [
+     0.031,
+     0.172
+    ]
+   },
+   "defects": {
+    "defects": 24,
+    "found_any_severity": 24,
+    "recall_any_severity": 1.0,
+    "recall_any_bootstrap95": [
+     1.0,
+     1.0
+    ],
+    "recall_any_wilson95": [
+     0.862,
+     1.0
+    ],
+    "found_blocking_tier": 7,
+    "recall_blocking_tier": 0.2916666666666667,
+    "recall_blocking_bootstrap95": [
+     0.125,
+     0.458
+    ],
+    "recall_blocking_wilson95": [
+     0.149,
+     0.492
+    ],
+    "merged_blocking_precision": 0.7777777777777778,
+    "precision_D": 7,
+    "precision_U": 2,
+    "precision_duplicates_removed": 2,
+    "precision_bootstrap95": [
+     0.455,
+     1.0
+    ],
+    "precision_wilson95": [
+     0.453,
+     0.937
+    ]
+   },
+   "precision_all_cases_descriptive": 0.4375,
+   "precision_all_cases_D": 7,
+   "precision_all_cases_U": 9,
+   "J_any_severity": 0.90625,
+   "J_blocking_tier": 0.19791666666666669,
+   "thresholds": {
+    "clean_blocked_point": true,
+    "clean_blocked_wilson_upper": true,
+    "recall_blocking_tier_primary": false,
+    "recall_any_severity_floor": true,
+    "merged_blocking_precision": true
+   },
+   "thresholds_all": false
+  },
+  "pessimistic": {
+   "clean": {
+    "cases": 64,
+    "blocked": 6,
+    "rate": 0.09375,
+    "wilson95": [
+     0.044,
+     0.19
+    ],
+    "bootstrap95": [
+     0.031,
+     0.172
+    ]
+   },
+   "defects": {
+    "defects": 24,
+    "found_any_severity": 24,
+    "recall_any_severity": 1.0,
+    "recall_any_bootstrap95": [
+     1.0,
+     1.0
+    ],
+    "recall_any_wilson95": [
+     0.862,
+     1.0
+    ],
+    "found_blocking_tier": 7,
+    "recall_blocking_tier": 0.2916666666666667,
+    "recall_blocking_bootstrap95": [
+     0.125,
+     0.458
+    ],
+    "recall_blocking_wilson95": [
+     0.149,
+     0.492
+    ],
+    "merged_blocking_precision": 0.7777777777777778,
+    "precision_D": 7,
+    "precision_U": 2,
+    "precision_duplicates_removed": 2,
+    "precision_bootstrap95": [
+     0.455,
+     1.0
+    ],
+    "precision_wilson95": [
+     0.453,
+     0.937
+    ]
+   },
+   "precision_all_cases_descriptive": 0.4375,
+   "precision_all_cases_D": 7,
+   "precision_all_cases_U": 9,
+   "J_any_severity": 0.90625,
+   "J_blocking_tier": 0.19791666666666669,
+   "thresholds": {
+    "clean_blocked_point": true,
+    "clean_blocked_wilson_upper": true,
+    "recall_blocking_tier_primary": false,
+    "recall_any_severity_floor": true,
+    "merged_blocking_precision": true
+   },
+   "thresholds_all": false
+  }
+ },
+ "strata": {
+  "clean-authored": {
+   "cases": 56,
+   "scored": 56,
+   "unscored": 0,
+   "clean_scored_only": {
+    "cases": 56,
+    "blocked": 6,
+    "rate": 0.10714285714285714,
+    "wilson95": [
+     0.05,
+     0.215
+    ],
+    "bootstrap95": [
+     0.036,
+     0.196
+    ]
+   }
+  },
+  "clean-realworld": {
+   "cases": 8,
+   "scored": 8,
+   "unscored": 0,
+   "clean_scored_only": {
+    "cases": 8,
+    "blocked": 0,
+    "rate": 0.0,
+    "wilson95": [
+     0.0,
+     0.324
+    ],
+    "bootstrap95": [
+     0.0,
+     0.0
+    ]
+   }
+  },
+  "defect-injected": {
+   "cases": 14,
+   "scored": 14,
+   "unscored": 0,
+   "defects_scored_only": {
+    "defects": 14,
+    "found_any_severity": 14,
+    "recall_any_severity": 1.0,
+    "recall_any_bootstrap95": [
+     1.0,
+     1.0
+    ],
+    "recall_any_wilson95": [
+     0.785,
+     1.0
+    ],
+    "found_blocking_tier": 4,
+    "recall_blocking_tier": 0.2857142857142857,
+    "recall_blocking_bootstrap95": [
+     0.071,
+     0.5
+    ],
+    "recall_blocking_wilson95": [
+     0.117,
+     0.546
+    ],
+    "merged_blocking_precision": 0.8,
+    "precision_D": 4,
+    "precision_U": 1,
+    "precision_duplicates_removed": 1,
+    "precision_bootstrap95": [
+     0.333,
+     1.0
+    ],
+    "precision_wilson95": [
+     0.376,
+     0.964
+    ]
+   }
+  },
+  "defect-realworld": {
+   "cases": 10,
+   "scored": 10,
+   "unscored": 0,
+   "defects_scored_only": {
+    "defects": 10,
+    "found_any_severity": 10,
+    "recall_any_severity": 1.0,
+    "recall_any_bootstrap95": [
+     1.0,
+     1.0
+    ],
+    "recall_any_wilson95": [
+     0.722,
+     1.0
+    ],
+    "found_blocking_tier": 3,
+    "recall_blocking_tier": 0.3,
+    "recall_blocking_bootstrap95": [
+     0.0,
+     0.6
+    ],
+    "recall_blocking_wilson95": [
+     0.108,
+     0.603
+    ],
+    "merged_blocking_precision": 0.75,
+    "precision_D": 3,
+    "precision_U": 1,
+    "precision_duplicates_removed": 1,
+    "precision_bootstrap95": [
+     0.2,
+     1.0
+    ],
+    "precision_wilson95": [
+     0.301,
+     0.954
+    ]
+   }
+  }
+ },
+ "baselines": {
+  "live_corroborated": {
+   "clean_blocked_rate": 0.09375,
+   "recall_any_severity": 1.0,
+   "recall_blocking_tier": 0.2916666666666667,
+   "merged_blocking_precision": 0.7777777777777778,
+   "J_any_severity": 0.90625,
+   "J_blocking_tier": 0.19791666666666669
+  },
+  "strict_paired": {
+   "clean_blocked_rate": 0.921875,
+   "recall_any_severity": 1.0,
+   "recall_blocking_tier": 1.0,
+   "merged_blocking_precision": 0.6,
+   "J_any_severity": 0.078125,
+   "J_blocking_tier": 0.078125
+  },
+  "corroborated_paired": {
+   "clean_blocked_rate": 0.09375,
+   "recall_any_severity": 1.0,
+   "recall_blocking_tier": 0.2916666666666667,
+   "merged_blocking_precision": 0.7777777777777778,
+   "J_any_severity": 0.90625,
+   "J_blocking_tier": 0.19791666666666669
+  },
+  "deterministic_only": {
+   "clean_blocked_rate": 0.0,
+   "recall_any_severity": 0.0,
+   "recall_blocking_tier": 0.0,
+   "merged_blocking_precision": 0.0,
+   "J_any_severity": 0.0,
+   "J_blocking_tier": 0.0
+  },
+  "always_pass": {
+   "clean_blocked_rate": 0.0,
+   "recall_any_severity": 0.0,
+   "recall_blocking_tier": 0.0,
+   "merged_blocking_precision": null,
+   "J_any_severity": 0.0,
+   "J_blocking_tier": 0.0
+  },
+  "always_block": {
+   "clean_blocked_rate": 1.0,
+   "recall_any_severity": 1.0,
+   "recall_blocking_tier": 1.0,
+   "merged_blocking_precision": null,
+   "J_any_severity": 0.0,
+   "J_blocking_tier": 0.0
+  }
+ },
+ "secondary": {
+  "blocking_findings_by_evidence_class": {
+   "E1": 17,
+   "E0": 1
+  },
+  "corroboration_outcomes": {
+   "refuted": 73,
+   "unresolved": 129,
+   "confirmed": 11
+  },
+  "unverified_majors_total": 129,
+  "degraded_by_stratum": {},
+  "degraded_causes_tally": {},
+  "paired_replay_agreement": {
+   "cases": 88,
+   "agree": 88
+  },
+  "fallback_records_by_stratum": {
+   "clean-authored": 12,
+   "clean-realworld": 5
+  },
+  "failure_vs_features": {
+   "pearson_failures_vs_diff_chars": 0.612,
+   "by_stratum": {
+    "clean-authored": {
+     "cases": 56,
+     "failures": 67,
+     "retries": 15
+    },
+    "defect-injected": {
+     "cases": 14,
+     "failures": 0,
+     "retries": 0
+    },
+    "clean-realworld": {
+     "cases": 8,
+     "failures": 18,
+     "retries": 5
+    },
+    "defect-realworld": {
+     "cases": 10,
+     "failures": 1,
+     "retries": 0
+    }
+   },
+   "note": "descriptive only (\u00a77 item 3): if failures correlate with case features the reported bounds are widened and the correlation stated \u2014 no such widening is applied mechanically here; the correlation is reported for the results document."
+  }
+ },
+ "prediction_registered": {
+  "clean_blocked_point": 0.08,
+  "clean_blocked_interval95": [
+   0.022,
+   0.25
+  ],
+  "recall_any_severity_point": 1.0,
+  "recall_any_severity_interval95": [
+   0.898,
+   1.0
+  ],
+  "recall_blocking_tier_point": 0.706,
+  "recall_blocking_tier_interval95": [
+   0.538,
+   0.832
+  ],
+  "merged_blocking_precision_point": 1.0
+ },
+ "verdict": "FAIL"
+}

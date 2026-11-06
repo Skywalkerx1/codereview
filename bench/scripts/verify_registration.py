@@ -139,10 +139,16 @@ REGISTRATION_B2_FOOTER_HASH = \
 REGISTRATION_B2_BODY_SHA256_POST_SIGNATURE = \
     "35620d5ee6f7cd457ad71b6bf24be6a500238deb51457a12136647b11295303d"
 # Body hash after the §13 runner/scorer hash-pin fill of
-# 2026-11-06 (§8 (a)–(e)) — the current authoritative state
-# of the B2 registration, verified by strict equality.
-REGISTRATION_B2_BODY_SHA256_CURRENT = \
+# 2026-11-06 (§8 (a)–(e)). Superseded by the §13 outcome
+# fill below.
+REGISTRATION_B2_BODY_SHA256_POST_PIN = \
     "368e5012654e5fffff3383678ff1179ac5af09fe3e330687a23c26ce644ef6ee"
+# Body hash after the §13 outcome fill of 2026-11-06 (the
+# registered run scored; §9 row 2 fired) — the current
+# authoritative state of the B2 registration, verified by
+# strict equality.
+REGISTRATION_B2_BODY_SHA256_CURRENT = \
+    "eba186518565bdab5fbe357c0a631d2e46b9a62d7327e94ffbd16f004cea18ad"
 
 
 def sha256(data):
@@ -365,7 +371,15 @@ def main():
                      "SUPERSEDED"
                      if body7 == REGISTRATION_B2_BODY_SHA256_CURRENT
                      else "FAIL"))
-        check("B2 registration body hash (post-runner-pin fill, "
+        rows.append(("B2 registration body hash (post-runner-pin "
+                     "fill, §13)",
+                     REGISTRATION_B2_BODY_SHA256_POST_PIN,
+                     "superseded by the §13 outcome fill "
+                     "(2026-11-06)",
+                     "SUPERSEDED"
+                     if body7 == REGISTRATION_B2_BODY_SHA256_CURRENT
+                     else "FAIL"))
+        check("B2 registration body hash (post-outcome fill, "
               "§13)", REGISTRATION_B2_BODY_SHA256_CURRENT, body7)
     except (OSError, ValueError, IndexError) as exc:
         rows.append(("B2 registration integrity (§10d)",

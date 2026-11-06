@@ -1,0 +1,223 @@
+config: panel-baseline-2026-11-04 sha=3a2395618f00d63a81c194bdb2739483caafdbf1b85b4178adb1ed95348a2ec4
+panel (registered order): ['openai', 'nvidia', 'deepseek']
+seat_lenses (explicit): {'openai': ['correctness'], 'nvidia': ['operations'], 'deepseek': ['correctness']}
+fallbacks (pre-declared): {'correctness': 'openai'}
+{
+ "preflight": {
+  "gemini": {
+   "model": "gemini-3.8-flash",
+   "ok": false,
+   "error": "ProviderError: gemini quota: HTTP 429",
+   "latency_s": 0.6
+  },
+  "nvidia": {
+   "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+   "ok": false,
+   "error": "ProviderError: nvidia quota: HTTP 429",
+   "latency_s": 0.8
+  },
+  "openai": {
+   "model": "gpt-5.4",
+   "configured": true,
+   "ok": true,
+   "sample": "{\"ok\": true}",
+   "latency_s": 2.0
+  },
+  "deepseek": {
+   "model": "deepseek-flash",
+   "configured": true,
+   "ok": true,
+   "sample": "{\"ok\": true}",
+   "latency_s": 1.8
+  }
+ }
+}
+note: ['nvidia'] dead at preflight — they stay IN the panel (S1); their cases record unscored-infra and complete on a later resume.
+cases: 88 (generation-v3, all strata)
+[holdout] v3c-io-bounded-reader: complete=True gate=pass shadow=$0.0000
+[holdout] v3c-io-chunk-assembler: complete=True gate=pass shadow=$0.0000
+[holdout] v3c-io-client-ip: complete=True gate=pass shadow=$0.0000
+[holdout] v3c-io-content-disposition: complete=True gate=pass shadow=$0.0000
+[holdout] v3c-io-cookie-matching: complete=True gate=pass shadow=$0.0000
+[holdout] v3c-io-filename-sanitizer: complete=True gate=blocked shadow=$0.0000
+[holdout] v3c-io-gzip-cap: complete=True gate=pass shadow=$0.0157
+[holdout] v3c-io-header-injection-guard: complete=True gate=blocked shadow=$0.0000
+[holdout] v3c-io-html-to-text: complete=True gate=pass shadow=$0.0000
+[holdout] v3c-io-redirect-follower: complete=True gate=pass shadow=$0.0042
+[holdout] v3c-io-request-id: complete=True gate=pass shadow=$0.0000
+[holdout] v3c-io-safe-path-join: complete=True gate=pass shadow=$0.0000
+[holdout] v3c-io-upload-type-guard: complete=True gate=pass shadow=$0.0000
+[holdout] v3c-io-url-canonicalizer: complete=True gate=pass shadow=$0.0036
+[holdout] v3c-md-bill-splitter: complete=True gate=pass shadow=$0.0000
+[holdout] v3c-md-bulk-upsert: complete=True gate=pass shadow=$0.0000
+[holdout] v3c-md-config-parser: complete=True gate=pass shadow=$0.0000
+[holdout] v3c-md-csv-importer: complete=True gate=blocked shadow=$0.0000
+[holdout] v3c-md-cursor-pagination: complete=True gate=pass shadow=$0.0000
+[holdout] v3c-md-duration-parser: complete=True gate=pass shadow=$0.0000
+[holdout] v3c-md-guarded-batch-delete: complete=True gate=pass shadow=$0.0088
+[holdout] v3c-md-invoice-totals: complete=True gate=pass shadow=$0.0000
+[holdout] v3c-md-jsonl-reader: complete=True gate=pass shadow=$0.0000
+[holdout] v3c-md-log-parser: complete=True gate=pass shadow=$0.0000
+[holdout] v3c-md-money-minor-units: complete=True gate=pass shadow=$0.0000
+[holdout] v3c-md-price-parser: complete=True gate=pass shadow=$0.0104
+[holdout] v3c-md-refund-proration: complete=True gate=pass shadow=$0.0000
+[holdout] v3c-md-semver-comparator: complete=True gate=pass shadow=$0.0000
+[holdout] v3c-st-audit-log: complete=True gate=pass shadow=$0.0088
+[holdout] v3c-st-config-snapshots: complete=True gate=pass shadow=$0.0000
+[holdout] v3c-st-csv-ledger: complete=True gate=pass shadow=$0.0166
+[holdout] v3c-st-file-cache: complete=True gate=pass shadow=$0.0178
+[holdout] v3c-st-flag-store: complete=True gate=blocked shadow=$0.0167
+[holdout] v3c-st-job-guard: complete=True gate=blocked shadow=$0.0182
+[holdout] v3c-st-kv-compaction: complete=True gate=pass shadow=$0.0166
+[holdout] v3c-st-monotonic-counter: complete=True gate=pass shadow=$0.0176
+[holdout] v3c-st-session-store: complete=True gate=pass shadow=$0.0108
+[holdout] v3c-st-sqlite-settings: complete=True gate=pass shadow=$0.0090
+[holdout] v3c-st-upload-offsets: complete=True gate=pass shadow=$0.0074
+[holdout] v3c-st-upload-staging: complete=True gate=pass shadow=$0.0233
+[holdout] v3c-st-work-queue: complete=True gate=pass shadow=$0.0209
+[holdout] v3c-st-worker-heartbeat: complete=True gate=pass shadow=$0.0146
+[holdout] v3c-tc-bounded-pool: complete=True gate=pass shadow=$0.0202
+[holdout] v3c-tc-circuit-breaker: complete=True gate=pass shadow=$0.0065
+[holdout] v3c-tc-deadline: complete=True gate=pass shadow=$0.0070
+[holdout] v3c-tc-debouncer-maxwait: complete=True gate=pass shadow=$0.0177
+[holdout] v3c-tc-health-aggregator: complete=True gate=pass shadow=$0.0197
+[holdout] v3c-tc-idempotent-recorder: complete=True gate=pass shadow=$0.0077
+[holdout] v3c-tc-job-queue-visibility: complete=True gate=pass shadow=$0.0179
+[holdout] v3c-tc-lease-fencing: complete=True gate=pass shadow=$0.0214
+[holdout] v3c-tc-next-run-dst: complete=True gate=pass shadow=$0.0202
+[holdout] v3c-tc-retry-backoff: complete=True gate=pass shadow=$0.0139
+[holdout] v3c-tc-singleflight: complete=True gate=blocked shadow=$0.0218
+[holdout] v3c-tc-token-bucket: complete=True gate=pass shadow=$0.0139
+[holdout] v3c-tc-ttl-cache-grace: complete=True gate=pass shadow=$0.0074
+[holdout] v3c-tc-webhook-signature: complete=True gate=pass shadow=$0.0152
+[holdout] v3d-batch-delete-tenant: complete=True gate=blocked shadow=$0.0072
+[holdout] v3d-cache-key-user: complete=True gate=pass shadow=$0.0107
+[holdout] v3d-charge-idempotency-order: complete=True gate=blocked shadow=$0.0096
+[holdout] v3d-csv-formula-export: complete=True gate=pass shadow=$0.0125
+[holdout] v3d-daily-recurrence-dst: complete=True gate=pass shadow=$0.0155
+[holdout] v3d-decode-latin1-fallback: complete=True gate=pass shadow=$0.0105
+[holdout] v3d-download-path-traversal: complete=True gate=pass shadow=$0.0161
+[holdout] v3d-money-float: complete=True gate=pass shadow=$0.0147
+[holdout] v3d-pagination-cursor-tiebreak: complete=True gate=blocked shadow=$0.0162
+[holdout] v3d-redirect-header-leak: complete=True gate=pass shadow=$0.0096
+[holdout] v3d-response-size-cap: complete=True gate=pass shadow=$0.0109
+[holdout] v3d-retry-unbounded-create: complete=True gate=blocked shadow=$0.0191
+[holdout] v3d-tax-rounding-half-up: complete=True gate=pass shadow=$0.0110
+[holdout] v3d-token-expiry-tz: complete=True gate=blocked shadow=$0.0217
+[holdout] v3r-json-tool-utf8: complete=True gate=pass shadow=$0.0156
+[holdout] v3r-logging-adapter-merge-extra: complete=True gate=pass shadow=$0.0177
+[holdout] v3r-numeric-range-slicing: complete=True gate=pass shadow=$0.0098
+[holdout] v3r-random-randbelow-mro: complete=True gate=pass shadow=$0.0073
+[holdout] v3r-robotparser-decimal-digits: complete=True gate=pass shadow=$0.0200
+[holdout] v3r-robotparser-normalize-urls: complete=True gate=pass shadow=$0.0051
+[holdout] v3r-statistics-inf-nan-stdev: complete=True gate=pass shadow=$0.0093
+[holdout] v3r-textwrap-trailing-space: complete=True gate=pass shadow=$0.0085
+[holdout] v3w-aiohttp-static-traversal: complete=True gate=pass shadow=$0.0135
+[holdout] v3w-attempt-rows-malformed: complete=True gate=blocked shadow=$0.0124
+[holdout] v3w-discovery-duplicate-seat: complete=True gate=pass shadow=$0.0095
+[holdout] v3w-error-detail-presence: complete=True gate=blocked shadow=$0.0102
+[holdout] v3w-incomplete-capture-marker: complete=True gate=pass shadow=$0.0081
+[holdout] v3w-migrations-whitespace-pattern: complete=True gate=blocked shadow=$0.0098
+[holdout] v3w-pyjwt-hmac-key-confusion: complete=True gate=pass shadow=$0.0140
+[holdout] v3w-urllib-query-crlf: complete=True gate=blocked shadow=$0.0132
+[holdout] v3w-urlsplit-leading-blank: complete=True gate=pass shadow=$0.0203
+[holdout] v3w-urlsplit-nfkc-netloc: complete=True gate=pass shadow=$0.0189
+{
+ "complete": [
+  "v3c-io-bounded-reader",
+  "v3c-io-chunk-assembler",
+  "v3c-io-client-ip",
+  "v3c-io-content-disposition",
+  "v3c-io-cookie-matching",
+  "v3c-io-filename-sanitizer",
+  "v3c-io-gzip-cap",
+  "v3c-io-header-injection-guard",
+  "v3c-io-html-to-text",
+  "v3c-io-redirect-follower",
+  "v3c-io-request-id",
+  "v3c-io-safe-path-join",
+  "v3c-io-upload-type-guard",
+  "v3c-io-url-canonicalizer",
+  "v3c-md-bill-splitter",
+  "v3c-md-bulk-upsert",
+  "v3c-md-config-parser",
+  "v3c-md-csv-importer",
+  "v3c-md-cursor-pagination",
+  "v3c-md-duration-parser",
+  "v3c-md-guarded-batch-delete",
+  "v3c-md-invoice-totals",
+  "v3c-md-jsonl-reader",
+  "v3c-md-log-parser",
+  "v3c-md-money-minor-units",
+  "v3c-md-price-parser",
+  "v3c-md-refund-proration",
+  "v3c-md-semver-comparator",
+  "v3c-st-audit-log",
+  "v3c-st-config-snapshots",
+  "v3c-st-csv-ledger",
+  "v3c-st-file-cache",
+  "v3c-st-flag-store",
+  "v3c-st-job-guard",
+  "v3c-st-kv-compaction",
+  "v3c-st-monotonic-counter",
+  "v3c-st-session-store",
+  "v3c-st-sqlite-settings",
+  "v3c-st-upload-offsets",
+  "v3c-st-upload-staging",
+  "v3c-st-work-queue",
+  "v3c-st-worker-heartbeat",
+  "v3c-tc-bounded-pool",
+  "v3c-tc-circuit-breaker",
+  "v3c-tc-deadline",
+  "v3c-tc-debouncer-maxwait",
+  "v3c-tc-health-aggregator",
+  "v3c-tc-idempotent-recorder",
+  "v3c-tc-job-queue-visibility",
+  "v3c-tc-lease-fencing",
+  "v3c-tc-next-run-dst",
+  "v3c-tc-retry-backoff",
+  "v3c-tc-singleflight",
+  "v3c-tc-token-bucket",
+  "v3c-tc-ttl-cache-grace",
+  "v3c-tc-webhook-signature",
+  "v3d-batch-delete-tenant",
+  "v3d-cache-key-user",
+  "v3d-charge-idempotency-order",
+  "v3d-csv-formula-export",
+  "v3d-daily-recurrence-dst",
+  "v3d-decode-latin1-fallback",
+  "v3d-download-path-traversal",
+  "v3d-money-float",
+  "v3d-pagination-cursor-tiebreak",
+  "v3d-redirect-header-leak",
+  "v3d-response-size-cap",
+  "v3d-retry-unbounded-create",
+  "v3d-tax-rounding-half-up",
+  "v3d-token-expiry-tz",
+  "v3r-json-tool-utf8",
+  "v3r-logging-adapter-merge-extra",
+  "v3r-numeric-range-slicing",
+  "v3r-random-randbelow-mro",
+  "v3r-robotparser-decimal-digits",
+  "v3r-robotparser-normalize-urls",
+  "v3r-statistics-inf-nan-stdev",
+  "v3r-textwrap-trailing-space",
+  "v3w-aiohttp-static-traversal",
+  "v3w-attempt-rows-malformed",
+  "v3w-discovery-duplicate-seat",
+  "v3w-error-detail-presence",
+  "v3w-incomplete-capture-marker",
+  "v3w-migrations-whitespace-pattern",
+  "v3w-pyjwt-hmac-key-confusion",
+  "v3w-urllib-query-crlf",
+  "v3w-urlsplit-leading-blank",
+  "v3w-urlsplit-nfkc-netloc"
+ ],
+ "incomplete": {},
+ "shadow_cost_usd": 0.86004,
+ "tokens_in": 497119,
+ "tokens_out": 333114,
+ "generation_records": "/home/hatch/workspace/codereview/bench/confirmation-b2/generation-attempt-1.jsonl",
+ "attempt_records": "/home/hatch/workspace/codereview/bench/confirmation-b2/attempt-1.jsonl",
+ "manifest": "/home/hatch/workspace/codereview/bench/confirmation-b2/generation-manifest-attempt-1.json"
+}
