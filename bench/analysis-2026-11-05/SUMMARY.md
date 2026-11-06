@@ -178,3 +178,33 @@ this SUMMARY. Left UNCOMMITTED: repo HEAD moved c9568eb → c4d34d1
 during the A1 run (another actor's owner-disposition commit);
 committing the analysis is the parent's call. Pre-existing
 untracked `bench/generation-cache/` is not part of this work.
+
+## Addendum — Step 2+3 single-scoring refactor (2026-11-05)
+
+Per the expert solution §6.1 ("one scoring implementation;
+replay = live"), `analysis_sweep.py`'s A3 transforms now call
+the product's ONE evaluation entry point,
+`core.evaluate_gate_policy` (grouping included), instead of
+re-deriving policy behaviour locally. Re-running the sweep
+after the refactor:
+
+- Every headline number is UNCHANGED: R0/R1/R2/R3 clean
+  rates, any-severity recall, merged precision, J, and the
+  shortlist verdicts (R2/R3 PASS) reproduce Step 1 exactly;
+  all sanity checks still pass.
+- Two diagnostics moved, both because evaluation now goes
+  through the live grouping (the product is canonical):
+  `precision_duplicates_removed` counts shift (the live
+  merge fuses some stored findings before matching), and
+  R2/R3 supplementary BLOCKING-tier recall rises 0.484 →
+  0.516 combined (0.458 → 0.500 public): the live grouping
+  corroborates one more labelled defect than the stored
+  grouping did. Direction favours B2; the Step-1 text above
+  keeps the original figures as first measured.
+- One product bug found and fixed by the refactor: the
+  product's evidence class counted a stored record's §2c
+  `cross_family` stamp as corroboration. In the live
+  pipeline the profile pass runs BEFORE §2c, so that stamp
+  cannot exist at evaluation time; `_evidence_class` no
+  longer reads it (the B2-native `corroboration` record,
+  written by the profile pass itself, still counts).

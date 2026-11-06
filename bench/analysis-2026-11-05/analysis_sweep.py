@@ -14,6 +14,16 @@ Definitions (per the Step-1 brief, exactly):
 - Public ground truth = ORIGINAL labels only: expected entries
   carrying an "adjudication_added" marker are excluded.
 - BLOCKING = severity in (blocker, major).
+
+Step 2+3 refactor (expert solution §6.1 — replay = live): the A3
+rule transforms no longer re-derive policy behaviour locally.
+R0/R1/R2/R3 severities come from the product's ONE evaluation
+entry point, core.evaluate_gate_policy (grouping included),
+with the panel family map for B2's family-aware classes and
+require_trigger=False (the stored findings predate the trigger
+field; R4 stays a pilot item, exactly as Step 1 concluded).
+The local evidence_class() below remains only for A2/A4/A5's
+descriptive tallies.
 """
 import copy
 import importlib.util
@@ -298,13 +308,17 @@ BASELINE_LENS = {"openai": "correctness", "deepseek": "correctness",
 
 
 def tf_r0(rec):
-    return base_findings(rec)
+    applied, _dem = core_mod.evaluate_gate_policy(
+        base_findings(rec), "strict", family_by_source=FAMILY,
+        require_trigger=False)
+    return applied
 
 
 def tf_r1(rec, source):
     if source == "attempt":
         return copy.deepcopy(rec["findings"])  # stored severities ARE B1
-    # public: stamp source_lenses from reviewer_reports, then live B1
+    # public: stamp source_lenses from reviewer_reports, then the
+    # product's one evaluation entry point under B1.
     lens_by_provider = {}
     for rep in rec.get("reviewer_reports") or []:
         prov, lens = rep.get("provider"), rep.get("lens")
@@ -323,17 +337,19 @@ def tf_r1(rec, source):
                 sl[src] = [BASELINE_LENS[src]]
         g["source_lenses"] = sl
         out.append(g)
-    applied, _dem = core_mod._apply_gate_profile(out, "balanced")
+    applied, _dem = core_mod.evaluate_gate_policy(
+        out, "balanced", require_trigger=False)
     return applied
 
 
 def tf_r2(rec):
-    out = base_findings(rec)
-    for f in out:
-        if is_blocking(f.get("severity")) \
-                and evidence_class(f) == "E3":
-            f["severity"] = "minor"
-    return out
+    # R2/R3 severities = policy B2's evidence-class demotion
+    # with NO confirmation channel (offline R3 ≡ R2, as Step 1
+    # stated) and no trigger rule (R4 is not evaluable offline).
+    applied, _dem = core_mod.evaluate_gate_policy(
+        base_findings(rec), "corroborated", family_by_source=FAMILY,
+        require_trigger=False)
+    return applied
 
 
 def score_scope(pairs):
@@ -467,8 +483,8 @@ def run_a3():
                            "is NOT simulated offline. Counts = E3 "
                            "blocking findings (base severity) R3 "
                            "would send to confirmation.")
-    rules["R1"]["note"] = ("Public R1 = the live B1 function "
-                           "core._apply_gate_profile applied to "
+    rules["R1"]["note"] = ("Public R1 = the product evaluation "
+                           "entry point core.evaluate_gate_policy (B1) applied to "
                            "stored merged findings after stamping "
                            "source_lenses from each record's "
                            "reviewer_reports (provider -> lens) "

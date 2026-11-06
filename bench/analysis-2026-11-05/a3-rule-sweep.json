@@ -35,7 +35,7 @@
     "merged_blocking_precision": 0.8275862068965517,
     "precision_D": 24,
     "precision_U": 5,
-    "precision_duplicates_removed": 61
+    "precision_duplicates_removed": 54
    },
    "combined_defects": {
     "defects_total": 31,
@@ -46,7 +46,7 @@
     "merged_blocking_precision": 0.7560975609756098,
     "precision_D": 31,
     "precision_U": 10,
-    "precision_duplicates_removed": 79
+    "precision_duplicates_removed": 72
    },
    "clean_blocked": {
     "expanded_clean": {
@@ -108,7 +108,7 @@
     "merged_blocking_precision": 0.96,
     "precision_D": 24,
     "precision_U": 1,
-    "precision_duplicates_removed": 42
+    "precision_duplicates_removed": 36
    },
    "combined_defects": {
     "defects_total": 31,
@@ -119,7 +119,7 @@
     "merged_blocking_precision": 0.9393939393939394,
     "precision_D": 31,
     "precision_U": 2,
-    "precision_duplicates_removed": 54
+    "precision_duplicates_removed": 48
    },
    "clean_blocked": {
     "expanded_clean": {
@@ -159,7 +159,7 @@
     }
    },
    "shortlist_combined_pass": false,
-   "note": "Public R1 = the live B1 function core._apply_gate_profile applied to stored merged findings after stamping source_lenses from each record's reviewer_reports (provider -> lens) plus deterministic -> [deterministic]; attempt-1 R1 = records as recorded (stored severities/gates ARE B1)."
+   "note": "Public R1 = the product evaluation entry point core.evaluate_gate_policy (B1) applied to stored merged findings after stamping source_lenses from each record's reviewer_reports (provider -> lens) plus deterministic -> [deterministic]; attempt-1 R1 = records as recorded (stored severities/gates ARE B1)."
   },
   "R2": {
    "a5": {
@@ -177,23 +177,23 @@
     "defects_total": 24,
     "defects_matched": 24,
     "recall": 1.0,
-    "supplementary_blocking_recall": 0.4583333333333333,
-    "supplementary_escaped_defects": 13,
+    "supplementary_blocking_recall": 0.5,
+    "supplementary_escaped_defects": 12,
     "merged_blocking_precision": 1.0,
-    "precision_D": 11,
+    "precision_D": 12,
     "precision_U": 0,
-    "precision_duplicates_removed": 2
+    "precision_duplicates_removed": 5
    },
    "combined_defects": {
     "defects_total": 31,
     "defects_matched": 31,
     "recall": 1.0,
-    "supplementary_blocking_recall": 0.4838709677419355,
-    "supplementary_escaped_defects": 16,
+    "supplementary_blocking_recall": 0.5161290322580645,
+    "supplementary_escaped_defects": 15,
     "merged_blocking_precision": 1.0,
-    "precision_D": 15,
+    "precision_D": 16,
     "precision_U": 0,
-    "precision_duplicates_removed": 3
+    "precision_duplicates_removed": 6
    },
    "clean_blocked": {
     "expanded_clean": {
@@ -250,23 +250,23 @@
     "defects_total": 24,
     "defects_matched": 24,
     "recall": 1.0,
-    "supplementary_blocking_recall": 0.4583333333333333,
-    "supplementary_escaped_defects": 13,
+    "supplementary_blocking_recall": 0.5,
+    "supplementary_escaped_defects": 12,
     "merged_blocking_precision": 1.0,
-    "precision_D": 11,
+    "precision_D": 12,
     "precision_U": 0,
-    "precision_duplicates_removed": 2
+    "precision_duplicates_removed": 5
    },
    "combined_defects": {
     "defects_total": 31,
     "defects_matched": 31,
     "recall": 1.0,
-    "supplementary_blocking_recall": 0.4838709677419355,
-    "supplementary_escaped_defects": 16,
+    "supplementary_blocking_recall": 0.5161290322580645,
+    "supplementary_escaped_defects": 15,
     "merged_blocking_precision": 1.0,
-    "precision_D": 15,
+    "precision_D": 16,
     "precision_U": 0,
-    "precision_duplicates_removed": 3
+    "precision_duplicates_removed": 6
    },
    "clean_blocked": {
     "expanded_clean": {
