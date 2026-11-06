@@ -2002,6 +2002,20 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
                          "root, when present. An invalid policy "
                          "file stops the run — it is never "
                          "silently ignored")
+    ap.add_argument("--trust-repo-policy", action="store_true",
+                    help="honour a policy DISCOVERED in the "
+                         "reviewed repository in full, including "
+                         "its [hooks] and gate-weakening keys. "
+                         "Without this flag a discovered policy "
+                         "keeps only its strengthening keys: "
+                         "hooks, a weaker-than-strict gate "
+                         "profile, advisory path rules, waiver "
+                         "leniency, diversity degrade/exclusion "
+                         "and risk tiering are ignored and named "
+                         "in the record's policy.ignored_keys "
+                         "(P3-01 trust restriction). A policy "
+                         "named with --policy is always honoured "
+                         "in full")
     ap.add_argument("--tech-lead",
                     help="designate the seat that serves as Tech "
                          "Lead for adjudicating refuted findings "
@@ -2121,13 +2135,17 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
               f"dropped", file=sys.stderr)
     project_policy = None
     policy_path = args.policy
-    # P3-01 observability: a policy DISCOVERED in the reviewed
-    # repo is repo-supplied configuration — it is applied
-    # exactly like an operator-named --policy (changing that
-    # trust decision is an owner call, not made here), but the
-    # two origins are no longer indistinguishable: the origin
-    # is stamped on the policy, lands in the record's policy
-    # section, and a discovered policy warns on stderr.
+    # P3-01: a policy DISCOVERED in the reviewed repo is
+    # repo-supplied configuration. The origin is stamped on
+    # the policy, lands in the record's policy section, and a
+    # discovered policy warns on stderr. And since the owner's
+    # 2026-11-06 ruling (option 1), a discovered policy is no
+    # longer applied in full: unless the operator passes
+    # --trust-repo-policy, the restriction in policy.py drops
+    # its hooks and gate-weakening keys back to defaults HERE,
+    # at load — before the hook runner is built from the
+    # policy below and before the gate reads it — and names
+    # every dropped key on the record (policy.ignored_keys).
     policy_origin = "explicit" if policy_path is not None \
         else None
     if policy_path is None:
@@ -2143,6 +2161,11 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
                   f"policy: {exc}", file=sys.stderr)
             return 2
         project_policy["origin"] = policy_origin
+        ignored_keys = []
+        if policy_origin == "discovered-in-repo" \
+                and not args.trust_repo_policy:
+            ignored_keys = policy_mod \
+                .apply_discovered_restrictions(project_policy)
         print(f"codereview: project policy: "
               f"{len(project_policy['paths'])} path rule(s) from "
               f"{policy_path} — the gate enforces it and the "
@@ -2155,6 +2178,15 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
                   f"under review, not from the operator; the "
                   f"record's policy section states this origin",
                   file=sys.stderr)
+            if ignored_keys:
+                print(f"codereview: WARNING: "
+                      f"{len(ignored_keys)} gate-weakening "
+                      f"key(s) in that policy were ignored "
+                      f"under the discovered-policy trust "
+                      f"restriction ({', '.join(ignored_keys)}) "
+                      f"— pass --trust-repo-policy to honour "
+                      f"the repository's policy in full",
+                      file=sys.stderr)
     # Epic L3: lifecycle hooks from the policy's [hooks] table.
     # The runner is created here (no side effects) and fired at
     # the lifecycle points below; with no [hooks] commands it

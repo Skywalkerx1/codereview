@@ -90,6 +90,19 @@ TOOL_DEFS = [
                                    "at the repo root, when "
                                    "present",
                 },
+                "trust_repo_policy": {
+                    "type": "boolean",
+                    "description": "honour a policy discovered "
+                                   "in the reviewed repository "
+                                   "in full, including its hooks "
+                                   "and gate-weakening keys; "
+                                   "without it a discovered "
+                                   "policy keeps only its "
+                                   "strengthening keys (P3-01 "
+                                   "trust restriction) and the "
+                                   "dropped keys are returned as "
+                                   "policy_ignored_keys",
+                },
                 "out": {
                     "type": "string",
                     "description": "output directory for the "
@@ -156,15 +169,18 @@ def _verdict_payload(record, record_path):
     its reasons, the findings (summarised — the full record
     stays on disk at record_path), and severity counts.
 
-    Policy visibility (P3-01 follow-up): the payload also
-    carries the record's policy origin and self-modification
-    flag. The CLI's stderr warning is captured and discarded
-    on a successful run_gate, so without these fields an MCP
-    client could not tell that the verdict was produced
-    under a policy discovered in the reviewed repo, or that
-    the change touched the policy file itself. Both keys are
-    always present (null / [] when the run had no policy
-    section) so clients can rely on the shape."""
+    Policy visibility (P3-01 follow-ups): the payload also
+    carries the record's policy origin, its self-modification
+    flag, and — since the trust restriction landed — the keys
+    dropped from a repo-discovered policy. The CLI's stderr
+    warning is captured and discarded on a successful
+    run_gate, so without these fields an MCP client could not
+    tell that the verdict was produced under a policy
+    discovered in the reviewed repo, which of its keys were
+    ignored, or that the change touched the policy file
+    itself. The keys are always present (null / [] when the
+    run had no policy section) so clients can rely on the
+    shape."""
     findings = [_finding_summary(f)
                 for f in record.get("findings") or []]
     by_severity = {}
@@ -178,6 +194,7 @@ def _verdict_payload(record, record_path):
         "mode": record.get("mode"),
         "degraded": bool(record.get("degraded")),
         "policy_origin": policy.get("origin"),
+        "policy_ignored_keys": policy.get("ignored_keys") or [],
         "policy_self_modification":
             record.get("policy_self_modification") or [],
         "record_path": record_path,
@@ -221,7 +238,12 @@ class GateTools:
                 raise ToolError(
                     f"{tool}: unknown argument {key!r} "
                     f"(allowed: {', '.join(sorted(allowed))})")
-            if not isinstance(value, str):
+            if allowed[key].get("type") == "boolean":
+                if not isinstance(value, bool):
+                    raise ToolError(
+                        f"{tool}: argument {key!r} must be "
+                        f"a boolean")
+            elif not isinstance(value, str):
                 raise ToolError(
                     f"{tool}: argument {key!r} must be a string")
         for key in schema.get("required", []):
@@ -256,6 +278,8 @@ class GateTools:
             argv += ["--range", args["range"]]
         if args.get("policy"):
             argv += ["--policy", args["policy"]]
+        if args.get("trust_repo_policy"):
+            argv += ["--trust-repo-policy"]
         if args.get("context"):
             argv += ["--context", args["context"]]
         patch_file = None

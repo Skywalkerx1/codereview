@@ -409,6 +409,8 @@ Where B1 comes from, stated as replay rather than as a live result: in the step-
 
 A repository can carry its own review contract in `.codereview.toml` at its root (the review command discovers it there; `--policy PATH` overrides). The policy is the *project's* rules — distinct from your per-user setup, which only chooses your models. The gate enforces it on every review, and the record lists every rule that applied and every violation found. A blocking violation turns a PASS into BLOCKED; an `advisory` path-rule violation is recorded only.
 
+**Discovered-policy trust.** A policy the command *discovers* in the repository under review comes from the tree itself, so it is honoured only where it can strengthen a review: panel minimums, evidence requirements, path `require_*` rules, strict waiver terms. Its `[hooks]`, a weaker-than-`strict` gate profile, `advisory` path rules, waiver leniency, `[diversity]` degrade/exclusion and `[risk]` tiering are ignored — dropped to defaults before the run, named in the record's `policy.ignored_keys`, and counted in a stderr warning. To honour a repository's policy in full, pass `--trust-repo-policy`; a policy you name yourself with `--policy` is always honoured in full.
+
 ```toml
 [panel]
 min_seats = 2                    # successful seats required

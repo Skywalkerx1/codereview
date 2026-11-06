@@ -80,6 +80,34 @@ it that way here too.
 - The MCP server's `run_gate` calls the CLI's own `main()`,
   so MCP-served runs get exactly this sandbox — and exactly
   its limits below.
+- **The project policy may come from the reviewed tree.**
+  The review command discovers `.codereview.toml` at the
+  reviewed repository's root — a file the tree's author
+  controls, like the code under review itself (P3-01; owner
+  ruling 2026-11-06, option 1). A discovered policy is
+  therefore honoured only where it can *strengthen* a review:
+  panel minimums, evidence requirements, path `require_*`
+  rules, the strict waiver values, `[diversity]
+  enforce = "block"`, a `"strict"` gate profile. What it may
+  not do is execute code or weaken the gate: its `[hooks]`
+  commands and timeout, a weaker-than-strict `[gate]`
+  profile, `[[paths]] enforce = "advisory"`, the waiver
+  leniency values, `[diversity] enforce = "degrade"` and
+  `exclude_builder_family`, and `[risk]` tiering with its
+  seat selection are dropped back to defaults at load, before
+  anything applies the policy — the dropped keys are named in
+  the record (`policy.ignored_keys`), counted in the CLI's
+  stderr warning, and returned to MCP clients
+  (`policy_ignored_keys`). (Why hooks matter here: they run
+  through this sandbox, so a planted hook's confinement is
+  exactly the residual-1 limit below — absolute-path writes
+  at the operator's uid. The restriction removes the tree's
+  ability to fire one at all.) An operator who trusts the
+  repository's policy opts in explicitly: `--policy PATH`
+  (operator-named policies are always honoured in full) or
+  `--trust-repo-policy` for the discovered file. The keys a
+  discovered policy may not set are enumerated in one place:
+  `policy.DISCOVERED_POLICY_RESTRICTED_KEYS`.
 
 ## Residual risks — stated plainly
 

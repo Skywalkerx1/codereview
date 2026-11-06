@@ -6082,6 +6082,15 @@ def run_review(patch, providers, context="", test_results=None,
             # library caller handing a policy in). No policy
             # section at all is the "none" state.
             "origin": policy.get("origin") or "explicit",
+            # P3-01 trust restriction (owner ruling
+            # 2026-11-06, option 1): the keys the CLI dropped
+            # from a repo-discovered policy before applying
+            # it — hooks and gate-weakening keys are honoured
+            # only from an operator-named policy or with
+            # --trust-repo-policy. Always present ([] when
+            # nothing was dropped) so consumers can rely on
+            # the shape.
+            "ignored_keys": policy.get("ignored_keys") or [],
             "applied": policy_outcome["applied"],
             "violations": policy_outcome["violations"],
         }

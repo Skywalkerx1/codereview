@@ -172,6 +172,19 @@ Schema (every key optional; defaults in parentheses):
 With no policy file, the effective policy is the defaults
 above: no requirements at all. CodeReview ships no imposed
 project policy, exactly as it ships no default panel.
+
+Trust (P3-01, owner ruling 2026-11-06, option 1): a policy the
+review command DISCOVERS in the repository under review is the
+tree's own file, not the operator's. From a discovered policy
+the gate honours only what can strengthen a review; the keys
+that execute code or weaken the gate
+(DISCOVERED_POLICY_RESTRICTED_KEYS below) are honoured only
+from an operator-named --policy, or from a discovered policy
+the operator explicitly trusts with --trust-repo-policy.
+Dropped keys are reset to their defaults before the policy is
+applied anywhere, and every dropped key is named on the run
+record (policy.ignored_keys) and counted in the CLI's stderr
+warning.
 """
 
 from __future__ import annotations
@@ -220,6 +233,55 @@ _DIVERSITY_KEYS = ("min_families", "exclude_builder_family",
 _DIVERSITY_ENFORCE_LEVELS = ("degrade", "block")
 _TABLES = ("panel", "evidence", "gate", "paths", "waivers",
            "hooks", "risk", "diversity")
+
+# P3-01 trust restriction (owner ruling 2026-11-06, option 1):
+# the keys a repo-DISCOVERED policy may not set. Everything not
+# listed here — panel minimums, evidence requirements, path
+# require_* rules, [diversity] min_families, the strengthening
+# waiver values (allow = false, require_reason = true,
+# max_age_days > 0), [diversity] enforce = "block", a [gate]
+# profile of "strict" — is strengthening or neutral and stays
+# honoured from a discovered policy. This tuple is the single
+# audit point for the boundary: a future key that can execute
+# code or weaken the gate joins this list FIRST, and
+# apply_discovered_restrictions() is its only enforcement.
+# (Precedent: the L4 notifier command is likewise not
+# policy-settable at all — notify.py; hooks were the anomaly.)
+DISCOVERED_POLICY_RESTRICTED_KEYS = (
+    # [hooks] — tree-supplied shell commands, the timeout
+    # included: never honoured from a discovered policy.
+    "hooks.pre_run",
+    "hooks.post_verdict",
+    "hooks.on_blocked",
+    "hooks.timeout",
+    # [gate] profile — when it selects anything weaker than
+    # "strict" ("balanced" or "corroborated").
+    "gate.profile",
+    # [[paths]] enforce — when "advisory" (violations recorded
+    # but never gate-changing).
+    "paths.enforce",
+    # [waivers] leniency — waivers permitted at all
+    # (allow = true), without a recorded reason
+    # (require_reason = false), or never expiring
+    # (max_age_days = 0). These values EQUAL the defaults, so
+    # for them the drop is nominal — the defaults govern, not
+    # the tree — but the attempt is still recorded.
+    "waivers.allow",
+    "waivers.require_reason",
+    "waivers.max_age_days",
+    # [diversity] enforce — when "degrade" (violations label
+    # the run degraded but never block; also the default, so
+    # nominal like the waiver values above).
+    "diversity.enforce",
+    # [diversity] exclude_builder_family — when true (panel
+    # seats of the builder's family are dropped).
+    "diversity.exclude_builder_family",
+    # [risk] tiering — when true (low/medium bands run reduced
+    # panels), and its seat selection.
+    "risk.tiering",
+    "risk.prescreen_seats",
+    "risk.medium_seats",
+)
 
 
 class PolicyError(ValueError):
@@ -573,6 +635,101 @@ def load_policy(path):
                   "enforce")
         policy["diversity"]["enforce"] = diversity["enforce"]
     return policy
+
+
+def _raw_policy_tables(path):
+    """The policy file's raw tables (tomllib), or {} when the
+    file cannot be re-read. Serves only the explicitness
+    checks in apply_discovered_restrictions — the loader has
+    already validated the file by the time this runs."""
+    if not path:
+        return {}
+    try:
+        with open(path, "rb") as fh:
+            text = fh.read().decode("utf-8-sig")
+        return tomllib.loads(text)
+    except Exception:  # noqa: BLE001 — best-effort provenance
+        return {}
+
+
+def apply_discovered_restrictions(policy):
+    """Enforce the P3-01 trust restriction on a policy that was
+    DISCOVERED in the reviewed repository (owner ruling
+    2026-11-06, option 1): reset every
+    DISCOVERED_POLICY_RESTRICTED_KEYS value to its default,
+    stamp the policy with the sorted dotted names dropped
+    (policy["ignored_keys"]), and return that list.
+
+    The caller is the CLI, at load time — before the policy is
+    applied anywhere (before the hook runner is built from it,
+    before the gate reads it) — when the policy's origin is
+    "discovered-in-repo" and the operator passed neither an
+    explicit --policy for the file nor --trust-repo-policy.
+    An operator-named policy never passes through here.
+
+    Most restricted values are visible in the effective policy
+    alone: a set hook, a non-"strict" profile, an "advisory"
+    path rule, tiering switched on, non-empty tier seat lists,
+    builder-family exclusion — none of those is a default. The
+    exceptions are the leniency values that EQUAL the defaults
+    ([waivers] allow = true / require_reason = false /
+    max_age_days = 0, [diversity] enforce = "degrade"): for
+    those, explicitness is read back from the file itself via
+    policy["path"], and presence in the file is what is
+    recorded — the drop is nominal there (the defaults govern,
+    not the tree) but the tree's attempt to set gate terms is
+    still named on the record."""
+    ignored = set()
+    defaults = default_policy()
+
+    hooks = policy.get("hooks") or {}
+    if any(hooks.get(key) is not None for key in _HOOK_KEYS):
+        for key in _HOOK_KEYS:
+            if hooks.get(key) is not None:
+                ignored.add(f"hooks.{key}")
+        policy["hooks"] = dict(defaults["hooks"])
+
+    gate = policy.get("gate") or {}
+    if gate.get("profile") not in (None, "strict"):
+        ignored.add("gate.profile")
+        gate["profile"] = "strict"
+
+    for rule in policy.get("paths") or []:
+        if rule.get("enforce") == "advisory":
+            ignored.add(f"paths[{rule.get('match')}].enforce")
+            rule["enforce"] = "block"
+
+    diversity = policy.get("diversity") or {}
+    if diversity.get("exclude_builder_family"):
+        ignored.add("diversity.exclude_builder_family")
+        diversity["exclude_builder_family"] = False
+
+    risk = policy.get("risk") or {}
+    if risk.get("tiering"):
+        ignored.add("risk.tiering")
+        risk["tiering"] = False
+    for key in ("prescreen_seats", "medium_seats"):
+        if risk.get(key):
+            ignored.add(f"risk.{key}")
+            risk[key] = []
+
+    raw = _raw_policy_tables(policy.get("path"))
+    raw_waivers = raw.get("waivers") or {}
+    if raw_waivers.get("allow") is True:
+        ignored.add("waivers.allow")
+    if raw_waivers.get("require_reason") is False:
+        ignored.add("waivers.require_reason")
+    if raw_waivers.get("max_age_days") == 0 \
+            and not isinstance(raw_waivers.get("max_age_days"),
+                               bool) \
+            and "max_age_days" in raw_waivers:
+        ignored.add("waivers.max_age_days")
+    raw_diversity = raw.get("diversity") or {}
+    if raw_diversity.get("enforce") == "degrade":
+        ignored.add("diversity.enforce")
+
+    policy["ignored_keys"] = sorted(ignored)
+    return policy["ignored_keys"]
 
 
 def render_effective(policy):
