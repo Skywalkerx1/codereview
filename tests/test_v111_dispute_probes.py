@@ -45,9 +45,13 @@ def ok(prompt):
 
 class RegenerationAgreementTests(unittest.TestCase):
     def test_verify_renderer_agrees_with_stored_json(self):
+        # Fixture copy of
+        # review-v15-verify1/codereview-20261104-225424.json
+        # (D-003: the sdist ships tests/fixtures, not the repo-root
+        # run-output dirs; the original stays untouched).
         path = os.path.join(
-            REPO, "review-v15-verify1",
-            "codereview-20261104-225424.json")
+            REPO, "tests", "fixtures", "historical-records",
+            "review-v15-verify1", "codereview-20261104-225424.json")
         with open(path, encoding="utf-8") as fh:
             rec = json.load(fh)
         md = core.render_markdown(rec)

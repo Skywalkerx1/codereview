@@ -321,9 +321,12 @@ class RealRecordTests(unittest.TestCase):
     validation, with a spot check on a known finding."""
 
     def test_v096_record_converts_and_validates(self):
+        # Fixture copy of review-v096/codereview-20261104-233259.json
+        # (D-003: the sdist ships tests/fixtures, not the repo-root
+        # run-output dirs; the original stays untouched).
         path = os.path.join(
-            REPO_ROOT, "review-v096",
-            "codereview-20261104-233259.json")
+            REPO_ROOT, "tests", "fixtures", "historical-records",
+            "review-v096", "codereview-20261104-233259.json")
         with open(path, encoding="utf-8") as fh:
             record = json.load(fh)
         log = sarif.record_to_sarif(record)

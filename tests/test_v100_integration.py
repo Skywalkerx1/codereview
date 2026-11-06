@@ -494,8 +494,12 @@ class EvidenceSidecarTests(unittest.TestCase):
         # A real pre-sidecar record (review-v096, written by
         # v0.9.6): no refs anywhere -> the check passes as
         # not-applicable and nothing else about the record's
-        # verification changes.
-        repo = os.path.join(os.path.dirname(__file__), "..")
+        # verification changes. Read from the fixture copy under
+        # tests/fixtures/historical-records/ (D-003: the sdist
+        # ships tests/fixtures, not the repo-root run-output
+        # dirs; the original stays untouched).
+        repo = os.path.join(os.path.dirname(__file__), "fixtures",
+                            "historical-records")
         rdir = os.path.join(repo, "review-v096")
         names = [n for n in os.listdir(rdir) if n.endswith(".json")]
         self.assertTrue(names)

@@ -17,3 +17,32 @@ graft probes
 graft bench/corpus
 graft examples
 include CHANGELOG.md precedents.json fixtures-manifest.json THREAT-MODEL.md
+# D-003 closure (2026-11-06): the first widening still left 12
+# unpacked-suite errors, all traced to three more bench reads —
+# the generation machinery module (test_generation,
+# test_generation_driver, test_error_persistence), the bench
+# scripts incl. the confirmation scorer (test_score_confirmation_v3
+# and the generation driver; the scripts dir holds code and
+# scripted-seat fixtures only — no seals, sets, or outputs), and
+# the baseline doc the claim lint guards (test_claim_lint).
+# Single bench files are included individually; bench/ as a
+# whole is still NOT grafted, and the sealed/registered trees
+# (bench/sealed, bench/generation-v2, bench/generation-v3,
+# bench/confirmation-b2) stay out of the distribution.
+include bench/generation.py bench/BASELINE-2026-11-04.md
+graft bench/scripts
+# Same closure, second layer (the import fixes unmasked three
+# deeper reads): the panel configs the v3 scorer's family map
+# loads (bench/configs — five small JSONs: panel configs and
+# scripted-seat fixtures), the shipped v1 baseline results the
+# legacy-record test loads (single file), and the expanded-clean
+# stratum the registered v2 scorer loads whole via
+# load_expanded_clean() (manifest + every case's case.json and
+# diff.patch). expanded-clean is attempt-1's CONSUMED clean
+# stratum — post-run, A1-adjudicated dev data, not a sealed or
+# live registered set; the sealed/live trees (bench/sealed,
+# bench/generation-v2, bench/generation-v3,
+# bench/confirmation-b2) remain excluded.
+graft bench/configs
+graft bench/expanded-clean
+include bench/baseline-2026-11-04-results.jsonl
