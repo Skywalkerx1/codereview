@@ -823,5 +823,58 @@ class FutureWaiverTests(unittest.TestCase):
         self.assertEqual(len(out["violations"]), 1)
 
 
+PATCH = ("diff --git a/a.py b/a.py\n--- a/a.py\n+++ b/a.py\n"
+         "@@ -1,1 +1,2 @@\n x=1\n+y=2\n")
+
+
+def _clean_seat(_prompt):
+    return json.dumps({"verdict": "pass", "summary": "fine",
+                       "findings": []})
+
+
+class SingleFamilyPanelTests(unittest.TestCase):
+    """P4-11: a multi-seat single-family panel passed silently,
+    looking like independent review; the solo label keyed on
+    seat count only."""
+
+    def _run(self, panel):
+        providers = {name: _clean_seat for name in panel}
+        meta = {name: {"family": fam, "tier": "unknown"}
+                for name, fam in panel.items()}
+        return core.run_review(PATCH, providers, seat_meta=meta)
+
+    def test_two_seats_one_family_labelled(self):
+        report = self._run({"a": "local", "b": "local"})
+        self.assertEqual(report["gate"], "pass")
+        self.assertIn("single-family panel — no independent "
+                      "review", report["gate_reasons"])
+        self.assertNotIn("solo panel — no independent review",
+                         report["gate_reasons"])
+
+    def test_family_match_is_normalised(self):
+        report = self._run({"a": "Local", "b": " local "})
+        self.assertIn("single-family panel — no independent "
+                      "review", report["gate_reasons"])
+
+    def test_two_families_no_label(self):
+        report = self._run({"a": "openai", "b": "google"})
+        self.assertEqual(report["gate"], "pass")
+        self.assertNotIn("single-family panel — no independent "
+                         "review", report["gate_reasons"])
+
+    def test_unknown_families_no_label(self):
+        report = self._run({"a": "unknown", "b": "unknown"})
+        self.assertEqual(report["gate"], "pass")
+        self.assertNotIn("single-family panel — no independent "
+                         "review", report["gate_reasons"])
+
+    def test_single_seat_keeps_solo_label(self):
+        report = self._run({"a": "local"})
+        self.assertIn("solo panel — no independent review",
+                      report["gate_reasons"])
+        self.assertNotIn("single-family panel — no independent "
+                         "review", report["gate_reasons"])
+
+
 if __name__ == "__main__":
     unittest.main()

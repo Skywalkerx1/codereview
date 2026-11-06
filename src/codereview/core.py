@@ -5792,6 +5792,20 @@ def run_review(patch, providers, context="", test_results=None,
                 f"for the {', '.join(missing)} lens"] + reasons
         elif len(providers) <= 1:
             reasons = reasons + ["solo panel — no independent review"]
+        elif len(ok_seats) > 1:
+            # Single-family panel (P4-11): the solo label keys on
+            # seat COUNT, so a two-seat panel from one model
+            # family passed silently looking like independent
+            # review. When every serving seat's family is known
+            # and they all share one, say so — a label only, no
+            # verdict change, and not the [diversity] machinery
+            # (which stays an operator-configured assessment).
+            fams = {diversity_mod._norm_family(fam_by_seat.get(s))
+                    for s in ok_seats}
+            if len(fams) == 1 and fams != {"unknown"} \
+                    and fams != {""}:
+                reasons = reasons + [
+                    "single-family panel — no independent review"]
     if gate == "pass" and (disputed_findings or weak_findings
                            or escalated_findings
                            or unresolved_grounding):
