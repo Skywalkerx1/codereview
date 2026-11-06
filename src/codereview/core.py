@@ -120,6 +120,27 @@ FILE_CONTEXT_PER_FILE_CAP = 24000
 FILE_CONTEXT_TOTAL_CAP = 60000
 
 
+def _is_within(path, root):
+    """True when `path` resolves inside `root` — failing
+    closed. THE shared containment helper (P3-11): the CLI's
+    fixture/precedent loaders, the file-context collector
+    below, and the AGENTS.md collector all use this one
+    implementation, so the sites cannot drift apart.
+
+    os.path.commonpath raises ValueError for paths on
+    different drives (Windows) or when mixing absolute and
+    relative paths; a containment question that cannot be
+    evaluated is a containment failure, never a pass
+    (v0.9.6, disputed findings eae8137a6db3 / 3cecf66f6ce5:
+    the mechanism was real, the severity was not)."""
+    try:
+        p = os.path.realpath(path)
+        r = os.path.realpath(root)
+        return os.path.commonpath([p, r]) == r
+    except ValueError:
+        return False
+
+
 def _range_target_ref(range_spec):
     """The ref whose tree is a diff range's post-change state:
     the right side of ``A..B`` / ``A...B``, or the ref itself
@@ -202,7 +223,7 @@ def collect_file_context(repo, patch, range_spec=None, staged=False,
             else:
                 full = os.path.realpath(os.path.join(repo, name))
                 root = os.path.realpath(repo)
-                if os.path.commonpath([full, root]) != root:
+                if not _is_within(full, root):
                     entry["skipped"] = "outside_repo"
                     continue
                 with open(full, encoding="utf-8",

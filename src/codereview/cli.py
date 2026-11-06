@@ -88,22 +88,11 @@ def _load_patch(args):
                                   staged=args.staged)
 
 
-def _is_within(path, root):
-    """True when `path` resolves inside `root` — failing closed.
-
-    os.path.commonpath raises ValueError for paths on different
-    drives (Windows) or when mixing absolute and relative paths;
-    a containment question that cannot be evaluated is a
-    containment failure, never a pass (v0.9.6, disputed findings
-    eae8137a6db3 / 3cecf66f6ce5: the mechanism was real, the
-    severity was not — one shared helper, used at both loader
-    call sites, so the two cannot drift apart again)."""
-    try:
-        p = os.path.realpath(path)
-        r = os.path.realpath(root)
-        return os.path.commonpath([p, r]) == r
-    except ValueError:
-        return False
+# The shared containment helper lives in core (P3-11: the
+# CLI loaders, core's file-context collector and the
+# AGENTS.md collector use ONE implementation). This alias
+# keeps the historical cli._is_within name working.
+_is_within = core._is_within
 
 
 def _load_fixture_scope(path, repo="."):

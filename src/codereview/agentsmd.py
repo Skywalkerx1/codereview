@@ -60,7 +60,8 @@ import hashlib
 import os
 import re
 
-from .core import _archived_rule, redact_secrets, split_patch_sections
+from .core import (_archived_rule, _is_within, redact_secrets,
+                   split_patch_sections)
 
 AGENTS_FILENAME = "AGENTS.md"
 AGENTS_PER_FILE_CAP = 16000
@@ -170,7 +171,7 @@ def collect_agents_context(repo, patch,
         full = os.path.realpath(
             os.path.join(repo, *rel.split("/")))
         root = os.path.realpath(repo)
-        if os.path.commonpath([full, root]) != root:
+        if not _is_within(full, root):
             entry["skipped"] = "outside_repo"
             continue
         try:

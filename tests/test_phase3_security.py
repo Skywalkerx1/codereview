@@ -758,5 +758,33 @@ class McpProtocolStrictnessTests(unittest.TestCase):
         self.assertEqual(parsed["result"], {"echo": "ping"})
 
 
+class SharedContainmentHelperTests(unittest.TestCase):
+    """P3-11: cli._is_within was the shared fail-closed
+    helper, but agentsmd and core's file-context collector
+    called os.path.commonpath directly (agentsmd's site did
+    not even catch the cross-drive ValueError locally). One
+    implementation now lives in core."""
+
+    def test_all_sites_use_the_one_implementation(self):
+        from codereview import agentsmd, cli
+        self.assertIs(cli._is_within, core._is_within)
+        self.assertIs(agentsmd._is_within, core._is_within)
+
+    def test_helper_semantics(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            inner = os.path.join(tmp, "a", "b.txt")
+            self.assertTrue(core._is_within(inner, tmp))
+            self.assertTrue(core._is_within(tmp, tmp))
+            self.assertFalse(
+                core._is_within(os.path.join(tmp, "..", "x"),
+                                tmp))
+
+    def test_commonpath_value_error_fails_closed(self):
+        from unittest import mock
+        with mock.patch("os.path.commonpath",
+                        side_effect=ValueError("mixed drives")):
+            self.assertFalse(core._is_within("/a/b", "/a"))
+
+
 if __name__ == "__main__":
     unittest.main()
