@@ -250,6 +250,55 @@ class DeterministicScanBoundsTests(unittest.TestCase):
         self.assertLess(elapsed, 5.0)
 
 
+class ScanCapEvasionTests(unittest.TestCase):
+    """P3-02 follow-up (tester pushback on our fix): the
+    original 16K prefix cap blinded EVERY rule past 16K — a
+    key planted at offset 20,000 of one line produced zero
+    findings. Lines are now scanned in full up to a 1M hard
+    bound; past it, the scan covers the prefix and the
+    truncation is itself a minor finding. Secret-shaped
+    literals are fragmented (see the fixture-hygiene note in
+    RedactionCoverageTests)."""
+
+    def test_key_planted_past_16k_is_found(self):
+        key = "AK" + "IA" + "1234567890ABCDEF"
+        line = "var x = '" + "a" * 20000 + "'; // " + key
+        findings = core.deterministic_scan(
+            _patch_for("bundle.min.js", [line]))
+        self.assertIn("aws-access-key",
+                      [f["rule"] for f in findings])
+
+    def test_private_key_header_and_eval_past_16k_found(self):
+        header = "-----BEGIN RSA " + "PRIVATE KEY-----"
+        line1 = "b" * 20000 + header
+        line2 = "c" * 20000 + "; eval(user_input)"
+        findings = core.deterministic_scan(
+            _patch_for("late.py", [line1, line2]))
+        rules = [f["rule"] for f in findings]
+        self.assertIn("private-key", rules)
+        self.assertIn("eval-exec", rules)
+
+    def test_line_past_hard_bound_reports_truncation(self):
+        key = "AK" + "IA" + "1234567890ABCDEF"
+        line = "d" * 1_000_001 + key
+        findings = core.deterministic_scan(
+            _patch_for("huge.js", [line]))
+        trunc = [f for f in findings
+                 if f["rule"] == "scan-line-truncated"]
+        self.assertEqual(len(trunc), 1)
+        self.assertEqual(trunc[0]["severity"], "minor")
+        # The key sits past the bound: the scan does not
+        # claim to have seen it.
+        self.assertNotIn("aws-access-key",
+                         [f["rule"] for f in findings])
+
+    def test_megabyte_pathological_line_scans_fast(self):
+        line = "'x' + " * 150000  # ~900 KB of quote-plus
+        started = time.monotonic()
+        core.deterministic_scan(_patch_for("patho.js", [line]))
+        self.assertLess(time.monotonic() - started, 10.0)
+
+
 class RedactionCoverageTests(unittest.TestCase):
     """P3-03: redact_secrets covered 7 of 32 secret shapes.
     The table mirrors the external test pass's shape list;

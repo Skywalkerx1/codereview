@@ -667,9 +667,19 @@ def redact_secrets(text):
 
 # ------------------------------------------------------- deterministic scan
 
-# Per-line scan bound (P3-02): added lines longer than this are
-# scanned only through their first _MAX_SCAN_LINE_CHARS chars.
-_MAX_SCAN_LINE_CHARS = 16384
+# Per-line hard scan bound: added lines are scanned in FULL
+# (the bounded-gap regexes made that safe — see sql-string-
+# build below) up to this many chars. A line past the bound
+# is scanned through its first _MAX_SCAN_LINE_CHARS chars
+# AND the truncation is itself a finding (rule
+# "scan-line-truncated"): content the scan never saw must
+# not silently pass. The original 16K prefix-only bound
+# (P3-02) blinded every rule past 16K — a key planted at
+# offset 20,000 of a minified line produced zero findings —
+# while contributing nothing to the DoS fix, which the
+# {0,200} regex gaps did (a 1MB pathological line scans in
+# ~3s, near-linear).
+_MAX_SCAN_LINE_CHARS = 1_000_000
 
 _RULES = [
     # (rule_id, severity, category, regex, title, recommendation)
@@ -782,12 +792,20 @@ def deterministic_scan(patch, test_results=None):
 
     alert_files = {}
     for file, lineno, text in added_lines(patch):
-        # P3-02: the scan sees at most the first
-        # _MAX_SCAN_LINE_CHARS of any single added line — a
-        # minified bundle line is not 200KB of reviewable code,
-        # and unbounded per-line scanning is a denial-of-service
-        # surface against the gate itself.
-        text = text[:_MAX_SCAN_LINE_CHARS]
+        if len(text) > _MAX_SCAN_LINE_CHARS:
+            # Past the hard bound: scan the prefix, and record
+            # the truncation as a finding in its own right —
+            # the unscanned tail must be visible on the
+            # record, never a silent pass.
+            add("scan-line-truncated", "minor", "quality",
+                file, lineno,
+                "Added line truncated for scanning — content "
+                "beyond the scan bound was not checked",
+                text[:120] + f" … [{len(text)} chars total]",
+                "Split the line (or land the content in a "
+                "smaller file) so the deterministic scan can "
+                "cover it in full.")
+            text = text[:_MAX_SCAN_LINE_CHARS]
         for rule_id, sev, cat, rx, title, rec in _RULES:
             if rx.search(text):
                 if rule_id == "hardcoded-secret" and re.search(
