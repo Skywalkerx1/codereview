@@ -103,12 +103,17 @@ _PATH_PATTERNS = {
     "crypto": re.compile(
         r"(^|/)(crypto|crypt|encryption|decrypt|ciphers?|"
         r"hashing)([./_-]|$)"),
+    # P2-05: migrations / secrets / deserialization are
+    # component-anchored like the auth/payments/crypto rules
+    # above — a keyword buried inside a longer component
+    # ("im**migration**", "no**secrets**.py") must not score.
     "migrations": re.compile(
-        r"(^|/)migrations?(/|$)|(^|/)alembic(/|$)|"
-        r"(^|/)flyway(/|$)|(^|/)liquibase(/|$)|migration"),
+        r"(^|/)migrations?([./_-]|$)|(^|/)alembic(/|$)|"
+        r"(^|/)flyway(/|$)|(^|/)liquibase(/|$)"),
     "secrets": re.compile(
-        r"(secrets?|credentials?)(\.|/|_|-|$)|(^|/)\.env(\.|$)"),
-    "deserialization": re.compile(r"deserial"),
+        r"(^|/)(secrets?|credentials?)(\.|/|_|-|$)|"
+        r"(^|/)\.env(\.|$)"),
+    "deserialization": re.compile(r"(^|/)deserial"),
 }
 
 _CONTENT_PATTERNS = {

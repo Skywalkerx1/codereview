@@ -481,5 +481,44 @@ class RunReviewRiskTests(unittest.TestCase):
         self.assertNotIn("risk", control)
 
 
+class PathPatternAnchorTests(unittest.TestCase):
+    """P2-05 — the migrations / secrets / deserialization path
+    patterns are component-anchored like auth/payments/crypto:
+    a keyword inside a longer component must not score, and
+    the canonical sensitive paths must keep scoring."""
+
+    def _class_points(self, path):
+        out = risk.score_sections([(path, "")])
+        return {s["class"]: s["points"]
+                for s in out["signals"]["patterns"]}
+
+    def test_migrations_directory_scores(self):
+        self.assertEqual(
+            self._class_points("db/migrations/0001_init.py")
+            .get("migrations"), 20)
+
+    def test_immigration_scores_nothing(self):
+        self.assertNotIn("migrations",
+                         self._class_points("app/immigration_form.py"))
+
+    def test_secrets_file_scores(self):
+        self.assertEqual(
+            self._class_points("config/secrets.yaml")
+            .get("secrets"), 25)
+
+    def test_dotenv_scores_as_secrets(self):
+        self.assertEqual(
+            self._class_points(".env").get("secrets"), 25)
+
+    def test_nosecrets_scores_nothing(self):
+        self.assertNotIn("secrets",
+                         self._class_points("app/nosecrets.py"))
+
+    def test_deserialize_module_scores(self):
+        self.assertEqual(
+            self._class_points("lib/deserialize.py")
+            .get("deserialization"), 20)
+
+
 if __name__ == "__main__":
     unittest.main()
