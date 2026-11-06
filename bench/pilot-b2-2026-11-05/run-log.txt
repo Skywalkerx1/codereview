@@ -1,0 +1,35 @@
+{
+ "preflight": {
+  "gemini": {
+   "model": "gemini-3.8-flash",
+   "ok": false,
+   "error": "ProviderError: gemini quota: HTTP 429",
+   "latency_s": 0.8
+  },
+  "nvidia": {
+   "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+   "ok": true,
+   "sample": "{\"ok\": true}",
+   "latency_s": 0.8
+  },
+  "openai": {
+   "model": "gpt-5.4",
+   "configured": true,
+   "ok": true,
+   "sample": "{\"ok\": true}",
+   "latency_s": 1.6
+  },
+  "deepseek": {
+   "model": "deepseek-flash",
+   "configured": true,
+   "ok": true,
+   "sample": "{\"ok\": true}",
+   "latency_s": 1.9
+  }
+ }
+}
+cases: 27 public + 35 expanded = 62
+[public] auth-check-removed: gate=pass degraded=False findings=3 unverified=3 (23.7s)
+[public] clean-add-tests: gate=pass degraded=False findings=1 unverified=0 (5.2s)
+
+ABORTED partial run: case universe verified at 62 (27 public + 35 expanded) — the run itself was correctly scoped; restarted in full after scorer fixes. Partial records deleted deliberately.

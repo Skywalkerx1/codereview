@@ -1,0 +1,495 @@
+{
+ "adjusted_clean_live": {
+  "blocked": 2,
+  "cases": 25,
+  "rate": 0.08,
+  "wilson95": [
+   0.022,
+   0.25
+  ]
+ },
+ "amended_cases_excluded_from_adjusted_clean": [
+  "xc-batch-delete-guarded",
+  "xc-bounded-response-read",
+  "xc-circuit-breaker",
+  "xc-context-http-timeout",
+  "xc-deadletter-worker",
+  "xc-decimal-money",
+  "xc-fetch-timeout-abort",
+  "xc-guarded-migration",
+  "xc-idempotency-keys",
+  "xc-intl-currency-format",
+  "xc-jdbc-prepared",
+  "xc-password-hash-verify",
+  "xc-ssrf-allowlist-fetch",
+  "xc-strict-json-body",
+  "xc-tz-aware-scheduling"
+ ],
+ "baselines": {
+  "always_block": {
+   "J": 0.0,
+   "clean_rate": 1.0,
+   "recall_any": 1.0
+  },
+  "always_pass": {
+   "J": 0.0,
+   "clean_rate": 0.0,
+   "recall_any": 0.0
+  },
+  "deterministic_only": {
+   "J": 0.23970588235294119,
+   "clean": {
+    "blocked": 1,
+    "cases": 40,
+    "rate": 0.025,
+    "wilson95": [
+     0.004,
+     0.129
+    ]
+   },
+   "defects": {
+    "defects": 34,
+    "merged_blocking_precision": 1.0,
+    "precision_D": 8,
+    "precision_U": 0,
+    "precision_duplicates_removed": 1,
+    "recall_any_severity": 0.2647058823529412,
+    "recall_blocking_tier": 0.2647058823529412,
+    "wilson_recall_any": [
+     0.146,
+     0.431
+    ],
+    "wilson_recall_blocking": [
+     0.146,
+     0.431
+    ]
+   }
+  }
+ },
+ "live_extras": {
+  "blocking_findings_by_evidence_class": {
+   "E0": 10,
+   "E1": 21
+  },
+  "corroboration_outcomes": {
+   "confirmed": 14,
+   "refuted": 55,
+   "unavailable": 1,
+   "unresolved": 69
+  },
+  "degraded_cases": [
+   "clean-health-guard-fix",
+   "xc-batch-delete-guarded",
+   "xc-circuit-breaker",
+   "xc-constant-time-compare",
+   "xc-debounce-search",
+   "xc-decimal-money",
+   "xc-pagination-bounds",
+   "xc-pdo-prepared",
+   "xc-redacted-logging",
+   "xc-retry-backoff-jitter",
+   "xc-safe-yaml-config",
+   "xc-ssrf-allowlist-fetch",
+   "xc-timeout-http-fetch",
+   "xc-token-bucket-limiter"
+  ],
+  "degraded_causes_tally": {
+   "corroboration unavailable for 1 unverified major(s) under gate profile 'corroborated' (policy B2 degraded mode)": 1,
+   "coverage incomplete": 1,
+   "reviewer failure": 14
+  },
+  "unverified_majors_total": 70
+ },
+ "paired_replay_agreement": {
+  "agree": 62,
+  "cases": 62
+ },
+ "prediction": {
+  "basis": "live corroborated pilot, combined dev bundles; clean point from the label-adjusted stratum (amended cases excluded)",
+  "clean_BLOCKED_as_labelled_point": 0.125,
+  "clean_BLOCKED_interval95": [
+   0.022,
+   0.25
+  ],
+  "clean_BLOCKED_point": 0.08,
+  "merged_blocking_precision_point": 1.0,
+  "note": "Fresh-set sampling error on >=60 clean cases will be narrower than the pilot interval; the registered prediction is this point + interval as written, per solution \u00a76.3.",
+  "recall_any_severity_interval95": [
+   0.898,
+   1.0
+  ],
+  "recall_any_severity_point": 1.0,
+  "recall_blocking_tier_interval95": [
+   0.538,
+   0.832
+  ],
+  "recall_blocking_tier_point": 0.7058823529411765
+ },
+ "profiles": {
+  "balanced": {
+   "bundles": {
+    "combined": {
+     "J": 0.375,
+     "clean": {
+      "blocked": 25,
+      "cases": 40,
+      "rate": 0.625,
+      "wilson95": [
+       0.47,
+       0.758
+      ]
+     },
+     "defects": {
+      "defects": 34,
+      "merged_blocking_precision": 1.0,
+      "precision_D": 23,
+      "precision_U": 0,
+      "precision_duplicates_removed": 31,
+      "recall_any_severity": 1.0,
+      "recall_blocking_tier": 0.9411764705882353,
+      "wilson_recall_any": [
+       0.898,
+       1.0
+      ],
+      "wilson_recall_blocking": [
+       0.809,
+       0.984
+      ]
+     }
+    },
+    "expanded": {
+     "J": null,
+     "clean": {
+      "blocked": 24,
+      "cases": 35,
+      "rate": 0.6857142857142857,
+      "wilson95": [
+       0.52,
+       0.814
+      ]
+     },
+     "defects": {
+      "defects": 0,
+      "merged_blocking_precision": null,
+      "precision_D": 0,
+      "precision_U": 0,
+      "precision_duplicates_removed": 0,
+      "recall_any_severity": null,
+      "recall_blocking_tier": null,
+      "wilson_recall_any": [
+       null,
+       null
+      ],
+      "wilson_recall_blocking": [
+       null,
+       null
+      ]
+     }
+    },
+    "public": {
+     "J": 0.8,
+     "clean": {
+      "blocked": 1,
+      "cases": 5,
+      "rate": 0.2,
+      "wilson95": [
+       0.036,
+       0.624
+      ]
+     },
+     "defects": {
+      "defects": 34,
+      "merged_blocking_precision": 1.0,
+      "precision_D": 23,
+      "precision_U": 0,
+      "precision_duplicates_removed": 31,
+      "recall_any_severity": 1.0,
+      "recall_blocking_tier": 0.9411764705882353,
+      "wilson_recall_any": [
+       0.898,
+       1.0
+      ],
+      "wilson_recall_blocking": [
+       0.809,
+       0.984
+      ]
+     }
+    }
+   }
+  },
+  "corroborated": {
+   "bundles": {
+    "combined": {
+     "J": 0.875,
+     "clean": {
+      "blocked": 5,
+      "cases": 40,
+      "rate": 0.125,
+      "wilson95": [
+       0.055,
+       0.261
+      ]
+     },
+     "defects": {
+      "defects": 34,
+      "merged_blocking_precision": 1.0,
+      "precision_D": 20,
+      "precision_U": 0,
+      "precision_duplicates_removed": 6,
+      "recall_any_severity": 1.0,
+      "recall_blocking_tier": 0.7058823529411765,
+      "wilson_recall_any": [
+       0.898,
+       1.0
+      ],
+      "wilson_recall_blocking": [
+       0.538,
+       0.832
+      ]
+     }
+    },
+    "expanded": {
+     "J": null,
+     "clean": {
+      "blocked": 5,
+      "cases": 35,
+      "rate": 0.14285714285714285,
+      "wilson95": [
+       0.063,
+       0.294
+      ]
+     },
+     "defects": {
+      "defects": 0,
+      "merged_blocking_precision": null,
+      "precision_D": 0,
+      "precision_U": 0,
+      "precision_duplicates_removed": 0,
+      "recall_any_severity": null,
+      "recall_blocking_tier": null,
+      "wilson_recall_any": [
+       null,
+       null
+      ],
+      "wilson_recall_blocking": [
+       null,
+       null
+      ]
+     }
+    },
+    "public": {
+     "J": 1.0,
+     "clean": {
+      "blocked": 0,
+      "cases": 5,
+      "rate": 0.0,
+      "wilson95": [
+       0.0,
+       0.434
+      ]
+     },
+     "defects": {
+      "defects": 34,
+      "merged_blocking_precision": 1.0,
+      "precision_D": 20,
+      "precision_U": 0,
+      "precision_duplicates_removed": 6,
+      "recall_any_severity": 1.0,
+      "recall_blocking_tier": 0.7058823529411765,
+      "wilson_recall_any": [
+       0.898,
+       1.0
+      ],
+      "wilson_recall_blocking": [
+       0.538,
+       0.832
+      ]
+     }
+    }
+   }
+  },
+  "live": {
+   "bundles": {
+    "combined": {
+     "J": 0.875,
+     "clean": {
+      "blocked": 5,
+      "cases": 40,
+      "rate": 0.125,
+      "wilson95": [
+       0.055,
+       0.261
+      ]
+     },
+     "defects": {
+      "defects": 34,
+      "merged_blocking_precision": 1.0,
+      "precision_D": 20,
+      "precision_U": 0,
+      "precision_duplicates_removed": 6,
+      "recall_any_severity": 1.0,
+      "recall_blocking_tier": 0.7058823529411765,
+      "wilson_recall_any": [
+       0.898,
+       1.0
+      ],
+      "wilson_recall_blocking": [
+       0.538,
+       0.832
+      ]
+     }
+    },
+    "expanded": {
+     "J": null,
+     "clean": {
+      "blocked": 5,
+      "cases": 35,
+      "rate": 0.14285714285714285,
+      "wilson95": [
+       0.063,
+       0.294
+      ]
+     },
+     "defects": {
+      "defects": 0,
+      "merged_blocking_precision": null,
+      "precision_D": 0,
+      "precision_U": 0,
+      "precision_duplicates_removed": 0,
+      "recall_any_severity": null,
+      "recall_blocking_tier": null,
+      "wilson_recall_any": [
+       null,
+       null
+      ],
+      "wilson_recall_blocking": [
+       null,
+       null
+      ]
+     }
+    },
+    "public": {
+     "J": 1.0,
+     "clean": {
+      "blocked": 0,
+      "cases": 5,
+      "rate": 0.0,
+      "wilson95": [
+       0.0,
+       0.434
+      ]
+     },
+     "defects": {
+      "defects": 34,
+      "merged_blocking_precision": 1.0,
+      "precision_D": 20,
+      "precision_U": 0,
+      "precision_duplicates_removed": 6,
+      "recall_any_severity": 1.0,
+      "recall_blocking_tier": 0.7058823529411765,
+      "wilson_recall_any": [
+       0.898,
+       1.0
+      ],
+      "wilson_recall_blocking": [
+       0.538,
+       0.832
+      ]
+     }
+    }
+   }
+  },
+  "strict": {
+   "bundles": {
+    "combined": {
+     "J": 0.07499999999999996,
+     "clean": {
+      "blocked": 37,
+      "cases": 40,
+      "rate": 0.925,
+      "wilson95": [
+       0.801,
+       0.974
+      ]
+     },
+     "defects": {
+      "defects": 34,
+      "merged_blocking_precision": 1.0,
+      "precision_D": 23,
+      "precision_U": 0,
+      "precision_duplicates_removed": 51,
+      "recall_any_severity": 1.0,
+      "recall_blocking_tier": 0.9705882352941176,
+      "wilson_recall_any": [
+       0.898,
+       1.0
+      ],
+      "wilson_recall_blocking": [
+       0.851,
+       0.995
+      ]
+     }
+    },
+    "expanded": {
+     "J": null,
+     "clean": {
+      "blocked": 34,
+      "cases": 35,
+      "rate": 0.9714285714285714,
+      "wilson95": [
+       0.855,
+       0.995
+      ]
+     },
+     "defects": {
+      "defects": 0,
+      "merged_blocking_precision": null,
+      "precision_D": 0,
+      "precision_U": 0,
+      "precision_duplicates_removed": 0,
+      "recall_any_severity": null,
+      "recall_blocking_tier": null,
+      "wilson_recall_any": [
+       null,
+       null
+      ],
+      "wilson_recall_blocking": [
+       null,
+       null
+      ]
+     }
+    },
+    "public": {
+     "J": 0.4,
+     "clean": {
+      "blocked": 3,
+      "cases": 5,
+      "rate": 0.6,
+      "wilson95": [
+       0.231,
+       0.882
+      ]
+     },
+     "defects": {
+      "defects": 34,
+      "merged_blocking_precision": 1.0,
+      "precision_D": 23,
+      "precision_U": 0,
+      "precision_duplicates_removed": 51,
+      "recall_any_severity": 1.0,
+      "recall_blocking_tier": 0.9705882352941176,
+      "wilson_recall_any": [
+       0.898,
+       1.0
+      ],
+      "wilson_recall_blocking": [
+       0.851,
+       0.995
+      ]
+     }
+    }
+   }
+  }
+ },
+ "run": "b2-dev-pilot"
+}

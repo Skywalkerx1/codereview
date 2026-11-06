@@ -1,0 +1,93 @@
+{
+ "preflight": {
+  "gemini": {
+   "model": "gemini-3.8-flash",
+   "ok": false,
+   "error": "ProviderError: gemini quota: HTTP 429",
+   "latency_s": 0.7
+  },
+  "nvidia": {
+   "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+   "ok": true,
+   "sample": "{\"ok\": true}",
+   "latency_s": 0.9
+  },
+  "openai": {
+   "model": "gpt-5.4",
+   "configured": true,
+   "ok": true,
+   "sample": "{\"ok\": true}",
+   "latency_s": 2.1
+  },
+  "deepseek": {
+   "model": "deepseek-flash",
+   "configured": true,
+   "ok": true,
+   "sample": "{\"ok\": true}",
+   "latency_s": 2.0
+  }
+ }
+}
+cases: 27 public + 35 expanded = 62
+[public] auth-check-removed: gate=pass degraded=False findings=4 unverified=3 (18.2s)
+[public] clean-add-tests: gate=pass degraded=False findings=1 unverified=0 (11.5s)
+[public] clean-add-timeout-retry: gate=pass degraded=False findings=5 unverified=1 (66.0s)
+[public] clean-health-guard-fix: gate=pass degraded=True findings=3 unverified=0 (62.6s)
+[public] clean-parameterized-query: gate=pass degraded=False findings=0 unverified=0 (8.0s)
+[public] clean-refactor-rename: gate=pass degraded=False findings=1 unverified=0 (5.7s)
+[public] command-injection-shell: gate=blocked degraded=False findings=5 unverified=1 (12.4s)
+[public] debug-breakpoint: gate=blocked degraded=False findings=4 unverified=1 (16.2s)
+[public] delete-no-where: gate=blocked degraded=False findings=4 unverified=1 (9.4s)
+[public] disabled-test: gate=blocked degraded=False findings=5 unverified=1 (19.5s)
+[public] error-swallow-bare-except: gate=blocked degraded=False findings=4 unverified=2 (14.4s)
+[public] eval-user-input: gate=blocked degraded=False findings=4 unverified=1 (11.1s)
+[public] float-money-total: gate=blocked degraded=False findings=4 unverified=1 (19.4s)
+[public] http-no-timeout: gate=blocked degraded=False findings=4 unverified=1 (14.2s)
+[public] off-by-one-pagination: gate=pass degraded=False findings=3 unverified=3 (15.1s)
+[public] path-traversal-upload: gate=blocked degraded=False findings=2 unverified=1 (11.2s)
+[public] payment-amount-dollars-cents: gate=blocked degraded=False findings=3 unverified=1 (11.5s)
+[public] payment-quantity-dropped: gate=blocked degraded=False findings=2 unverified=1 (8.1s)
+[public] plaintext-password-store: gate=blocked degraded=False findings=4 unverified=3 (19.3s)
+[public] race-counter-increment: gate=pass degraded=False findings=4 unverified=3 (23.2s)
+[public] real-buggy-alert-flood: gate=blocked degraded=False findings=12 unverified=6 (42.6s)
+[public] secret-hardcoded-api-key: gate=blocked degraded=False findings=3 unverified=0 (9.4s)
+[public] secret-private-key: gate=blocked degraded=False findings=2 unverified=0 (13.2s)
+[public] sensitive-data-logging: gate=blocked degraded=False findings=3 unverified=2 (17.5s)
+[public] sql-injection-fstring: gate=blocked degraded=False findings=5 unverified=0 (10.5s)
+[public] ssrf-fetch: gate=blocked degraded=False findings=4 unverified=1 (19.2s)
+[public] unbounded-query: gate=blocked degraded=False findings=3 unverified=2 (18.1s)
+[expanded-clean] xc-atomic-state-writer: gate=pass degraded=False findings=11 unverified=1 (62.2s)
+[expanded-clean] xc-batch-delete-guarded: gate=blocked degraded=True findings=6 unverified=1 (60.1s)
+[expanded-clean] xc-bigdecimal-invoice: gate=blocked degraded=False findings=10 unverified=2 (29.1s)
+[expanded-clean] xc-bounded-response-read: gate=pass degraded=False findings=7 unverified=1 (103.0s)
+[expanded-clean] xc-circuit-breaker: gate=pass degraded=True findings=5 unverified=1 (65.2s)
+[expanded-clean] xc-constant-time-compare: gate=pass degraded=True findings=2 unverified=0 (56.9s)
+[expanded-clean] xc-context-http-timeout: gate=pass degraded=False findings=6 unverified=3 (31.4s)
+[expanded-clean] xc-csrf-token-check: gate=blocked degraded=False findings=8 unverified=4 (41.8s)
+[expanded-clean] xc-deadletter-worker: gate=pass degraded=False findings=10 unverified=3 (149.1s)
+[expanded-clean] xc-debounce-search: gate=pass degraded=True findings=1 unverified=0 (53.6s)
+[expanded-clean] xc-decimal-money: gate=pass degraded=True findings=2 unverified=1 (50.5s)
+[expanded-clean] xc-double-checked-cache: gate=pass degraded=False findings=4 unverified=0 (22.2s)
+[expanded-clean] xc-errgroup-drain: gate=pass degraded=False findings=3 unverified=0 (20.8s)
+[expanded-clean] xc-escaped-rendering: gate=pass degraded=False findings=5 unverified=0 (32.8s)
+[expanded-clean] xc-fetch-timeout-abort: gate=blocked degraded=False findings=8 unverified=1 (45.7s)
+[expanded-clean] xc-graceful-http-shutdown: gate=pass degraded=False findings=8 unverified=1 (94.3s)
+[expanded-clean] xc-graceful-shutdown: gate=pass degraded=False findings=9 unverified=3 (102.1s)
+[expanded-clean] xc-guarded-migration: gate=pass degraded=False findings=4 unverified=2 (35.7s)
+[expanded-clean] xc-health-guard-selfcheck: gate=pass degraded=False findings=7 unverified=2 (54.4s)
+[expanded-clean] xc-idempotency-keys: gate=pass degraded=False findings=8 unverified=2 (83.4s)
+[expanded-clean] xc-intl-currency-format: gate=pass degraded=False findings=3 unverified=1 (23.3s)
+[expanded-clean] xc-jdbc-prepared: gate=pass degraded=False findings=4 unverified=1 (26.4s)
+[expanded-clean] xc-locked-counter: gate=pass degraded=False findings=2 unverified=0 (53.9s)
+[expanded-clean] xc-mutex-guarded-map: gate=pass degraded=False findings=6 unverified=0 (35.4s)
+[expanded-clean] xc-pagination-bounds: gate=pass degraded=True findings=3 unverified=0 (52.5s)
+[expanded-clean] xc-password-hash-verify: gate=pass degraded=False findings=7 unverified=0 (46.3s)
+[expanded-clean] xc-pdo-prepared: gate=pass degraded=True findings=3 unverified=1 (48.2s)
+[expanded-clean] xc-redacted-logging: gate=inconclusive degraded=True findings=1 unverified=1 (44.2s)
+[expanded-clean] xc-retry-backoff-jitter: gate=pass degraded=True findings=5 unverified=0 (54.8s)
+[expanded-clean] xc-safe-yaml-config: gate=pass degraded=True findings=2 unverified=0 (112.3s)
+[expanded-clean] xc-ssrf-allowlist-fetch: gate=pass degraded=True findings=5 unverified=0 (52.3s)
+[expanded-clean] xc-strict-json-body: gate=blocked degraded=False findings=7 unverified=1 (47.5s)
+[expanded-clean] xc-timeout-http-fetch: gate=pass degraded=True findings=5 unverified=0 (50.2s)
+[expanded-clean] xc-token-bucket-limiter: gate=pass degraded=True findings=0 unverified=0 (53.6s)
+[expanded-clean] xc-tz-aware-scheduling: gate=pass degraded=False findings=5 unverified=1 (49.0s)
