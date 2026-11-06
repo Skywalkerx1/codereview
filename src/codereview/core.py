@@ -3567,10 +3567,18 @@ def _classify_error(exc):
       transient  5xx / overloaded / timeouts — backoff, up to 3.
       provider   a typed error (v0.7.1's retryable flag): the flag
                  decides, ahead of any string matching.
+      empty      a typed kind="empty" error: the provider answered
+                 with an empty content channel (the content-class
+                 failure of the 2026-11-05 empty-content fix) —
+                 re-drawn like the product's own repair flow
+                 re-draws it, up to 3 tries, never a transport
+                 latch (P4-05).
       unknown    anything else — a single try; do not guess."""
     typed = getattr(exc, "retryable", None)
     if typed is not None:
         return "provider", 3 if typed else 1
+    if getattr(exc, "kind", None) == "empty":
+        return "empty", 3
     msg = str(exc).lower()
 
     def has_code(code):
@@ -3603,6 +3611,11 @@ def _classify_error(exc):
 
 
 _RETRY_DELAYS = (0.5, 1.5)
+
+# The most a server's Retry-After hint may add to a retry delay
+# (P4-01): the hint is honoured as a floor, but a broken or
+# hostile header must not park a seat for longer than this.
+_RETRY_AFTER_CAP_S = 120.0
 
 # Hard cap on provider calls spent on ONE reviewer job, primary
 # and fallback combined (clean-gate solution §4): a per-seat retry
@@ -3642,6 +3655,16 @@ def _call_with_retry(fn, prompt, sleep=None, tally=None,
                 raise
             delay = _RETRY_DELAYS[min(tally["attempts"] - 1,
                                       len(_RETRY_DELAYS) - 1)]
+            retry_after = getattr(exc, "retry_after", None)
+            if retry_after is not None:
+                # The server named its own backoff (Retry-After):
+                # it floors the delay, capped at
+                # _RETRY_AFTER_CAP_S (P4-01).
+                try:
+                    delay = max(delay, min(float(retry_after),
+                                           _RETRY_AFTER_CAP_S))
+                except (TypeError, ValueError):
+                    pass
             sleep(delay + random.uniform(0, 0.25))
 
 

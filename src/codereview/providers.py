@@ -32,6 +32,8 @@ Agent:   agent:<name>:<command> — a local agent CLI (Claude Code,
 
 from __future__ import annotations
 
+import datetime
+import http.client
 import json
 import os
 import re
@@ -64,11 +66,22 @@ class ProviderError(Exception):
     whether rotating to another account could help: True/False when
     the failure class is known (quota vs. a local agent command that
     will fail identically on every account), None to fall back to
-    the message heuristics in is_retryable."""
+    the message heuristics in is_retryable.
 
-    def __init__(self, message, retryable=None):
+    `kind` is the typed failure kind when the failure class is
+    known at the raise site (today: "empty" — the provider
+    answered with an empty content channel, the content-class
+    failure the bench generation layer re-draws; see
+    bench/generation.py). `retry_after` carries the server's
+    Retry-After hint in seconds when one was sent, for the retry
+    layer to honour as a delay floor (P4-01)."""
+
+    def __init__(self, message, retryable=None, kind=None,
+                 retry_after=None):
         super().__init__(message)
         self.retryable = retryable
+        self.kind = kind
+        self.retry_after = retry_after
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -76,7 +89,97 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
         raise ProviderError("redirect refused on authenticated request")
 
 
+# Response discipline for _post_json (Phase 4 failure injection):
+# an HTTP error's body is read (bounded) so the retry classifier
+# can see the provider's own error codes (P4-01); the whole call
+# lives under ONE deadline derived from `timeout`, not urllib's
+# per-socket-operation timeout, so a slow-trickle endpoint cannot
+# hold a seat past it (P4-02); a success body is streamed under a
+# hard size cap instead of being buffered unbounded (P4-03); and
+# transport garbage — malformed JSON, non-UTF-8 bytes, a body
+# truncated in transit — is raised as ProviderError with a
+# transient reading, never as a raw decode/parse error the retry
+# layer would mistake for a model-output failure (P4-04).
+_MAX_RESPONSE_BYTES = 16 * 1024 * 1024
+_ERROR_BODY_BYTES = 64 * 1024
+
+
+def _retry_after_seconds(headers):
+    """The Retry-After header as a delay in seconds, or None.
+    Both wire forms (RFC 9110): a delay in seconds, or an
+    HTTP-date (converted against now; a past date means no
+    wait). An unparseable header is no hint at all."""
+    raw = None
+    if headers is not None:
+        try:
+            raw = headers.get("Retry-After")
+        except Exception:  # noqa: BLE001 — header containers vary
+            raw = None
+    if not raw:
+        return None
+    raw = str(raw).strip()
+    try:
+        return max(0.0, float(raw))
+    except ValueError:
+        pass
+    try:
+        from email.utils import parsedate_to_datetime
+        when = parsedate_to_datetime(raw)
+    except (TypeError, ValueError):
+        return None
+    if when is None:
+        return None
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=datetime.timezone.utc)
+    return max(0.0, (when - datetime.datetime.now(
+        datetime.timezone.utc)).total_seconds())
+
+
+def _read_response_body(resp, deadline, host, timeout):
+    """Stream a response body under the call's overall deadline
+    and the size cap. read1() performs at most one socket read
+    per call, so a trickling endpoint is re-checked against the
+    deadline after every byte instead of once per buffer-fill.
+    The per-socket timeout urllib set still bounds any single
+    silent stretch; this deadline bounds the whole body."""
+    chunks = []
+    total = 0
+    declared = None
+    try:
+        declared = int(resp.headers.get("Content-Length"))
+    except (TypeError, ValueError):
+        declared = None
+    while True:
+        if time.monotonic() > deadline:
+            raise ProviderError(
+                f"response from {host} did not finish within "
+                f"{timeout:g}s overall (temporary transport "
+                f"timeout)")
+        try:
+            chunk = resp.read1(65536)
+        except http.client.HTTPException as e:
+            raise ProviderError(
+                f"response body from {host} broke in transit "
+                f"(temporary transport failure): {e}") from e
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > _MAX_RESPONSE_BYTES:
+            raise ProviderError(
+                f"response body from {host} exceeded the "
+                f"{_MAX_RESPONSE_BYTES}-byte cap (temporary "
+                f"transport failure)")
+        chunks.append(chunk)
+    if declared is not None and total < declared:
+        raise ProviderError(
+            f"response body from {host} was truncated: {total} "
+            f"of {declared} bytes arrived (temporary transport "
+            f"failure)")
+    return b"".join(chunks)
+
+
 def _post_json(url, headers, payload, timeout=DEFAULT_TIMEOUT):
+    host = url.split("/")[2]
     req = urllib.request.Request(
         url, data=json.dumps(payload).encode("utf-8"),
         headers={"Content-Type": "application/json", **headers},
@@ -84,11 +187,53 @@ def _post_json(url, headers, payload, timeout=DEFAULT_TIMEOUT):
     opener = urllib.request.build_opener(_NoRedirect())
     try:
         with opener.open(req, timeout=timeout) as resp:
-            return json.loads(resp.read().decode("utf-8"))
+            body = _read_response_body(
+                resp, time.monotonic() + timeout, host, timeout)
     except urllib.error.HTTPError as e:
-        raise ProviderError(f"HTTP {e.code} from {url.split('/')[2]}") from e
+        # The provider's error body carries the class-deciding
+        # codes (insufficient_quota, RESOURCE_EXHAUSTED, ...):
+        # read it (bounded, tolerant of a broken error body) and
+        # carry an excerpt in the error, so _classify_error's
+        # quota rules can fire for API seats exactly as they do
+        # for agent seats (P4-01).
+        excerpt = ""
+        try:
+            raw = e.read(_ERROR_BODY_BYTES + 1)
+            excerpt = raw[:_ERROR_BODY_BYTES].decode(
+                "utf-8", "replace").strip()
+        except Exception:  # noqa: BLE001 — an unreadable error
+            excerpt = ""      # body must not mask the status
+        msg = f"HTTP {e.code} from {host}"
+        if excerpt:
+            msg += f": {excerpt[:2000]}"
+        raise ProviderError(
+            msg, retry_after=_retry_after_seconds(
+                getattr(e, "headers", None)
+                or getattr(e, "hdrs", None))) from e
     except (TimeoutError, ConnectionError, urllib.error.URLError) as e:
         raise ProviderError(f"network error: {e}") from e
+    try:
+        text = body.decode("utf-8")
+    except UnicodeDecodeError as e:
+        raise ProviderError(
+            f"response body from {host} is not valid UTF-8 "
+            f"(temporary transport failure): {e}") from e
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError as e:
+        raise ProviderError(
+            f"response body from {host} is not valid JSON "
+            f"(temporary transport failure): {e}") from e
+
+
+def _post(url, headers, payload, timeout):
+    """_post_json under the factory timeout convention: `timeout`
+    None keeps _post_json's own default (DEFAULT_TIMEOUT), so the
+    default lives in exactly one place; a value bounds the call
+    overall (P4-02)."""
+    if timeout is None:
+        return _post_json(url, headers, payload)
+    return _post_json(url, headers, payload, timeout=timeout)
 
 
 def _key(key_env):
@@ -110,7 +255,8 @@ _SOLVER_SYSTEM = ("You are the solver in a software-maintenance "
 
 
 def openai_compatible(base_url, model, key_env, extra_payload=None,
-                      system=_SYSTEM, omit_temperature=False):
+                      system=_SYSTEM, omit_temperature=False,
+                      timeout=None):
     """Callable for any OpenAI-compatible chat completions endpoint.
 
     `omit_temperature` drops the temperature field entirely for
@@ -136,22 +282,23 @@ def openai_compatible(base_url, model, key_env, extra_payload=None,
             payload.update(extra_payload)
         headers = {} if key_env is None else {
             "Authorization": f"Bearer {_key(key_env)}"}
-        data = _post_json(
+        data = _post(
             base_url.rstrip("/") + "/chat/completions",
-            headers, payload)
+            headers, payload, timeout)
         try:
             text = (data["choices"][0]["message"].get("content")
                     or "").strip()
         except (KeyError, IndexError, TypeError, AttributeError) as e:
             raise ProviderError(f"bad response shape: {e}") from e
         if not text:
-            raise ProviderError("empty content from model")
+            raise ProviderError("empty content from model",
+                                kind="empty")
         return text
     return call
 
 
 def gemini(model, key_env="GEMINI_API_KEY", system=_SYSTEM,
-           json_mode=True):
+           json_mode=True, timeout=None):
     """Callable for the Gemini generateContent API.
 
     json_mode (the reviewer default) asks the API for a JSON body;
@@ -168,19 +315,22 @@ def gemini(model, key_env="GEMINI_API_KEY", system=_SYSTEM,
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": generation,
         }
-        data = _post_json(url, {"x-goog-api-key": _key(key_env)}, payload)
+        data = _post(url, {"x-goog-api-key": _key(key_env)},
+                     payload, timeout)
         try:
             parts = data["candidates"][0]["content"]["parts"]
             text = "".join(p.get("text", "") for p in parts).strip()
         except (KeyError, IndexError, TypeError, AttributeError) as e:
             raise ProviderError(f"bad response shape: {e}") from e
         if not text:
-            raise ProviderError("empty content from model")
+            raise ProviderError("empty content from model",
+                                kind="empty")
         return text
     return call
 
 
-def anthropic(model, key_env="ANTHROPIC_API_KEY", system=_SYSTEM):
+def anthropic(model, key_env="ANTHROPIC_API_KEY", system=_SYSTEM,
+              timeout=None):
     """Callable for the Anthropic Messages API (native wire shape:
     x-api-key + anthropic-version headers, system as a top-level
     field, the answer in content blocks)."""
@@ -192,10 +342,10 @@ def anthropic(model, key_env="ANTHROPIC_API_KEY", system=_SYSTEM):
             "system": system,
             "messages": [{"role": "user", "content": prompt}],
         }
-        data = _post_json(
+        data = _post(
             "https://api.anthropic.com/v1/messages",
             {"x-api-key": _key(key_env),
-             "anthropic-version": "2023-06-01"}, payload)
+             "anthropic-version": "2023-06-01"}, payload, timeout)
         try:
             text = "".join(
                 b.get("text", "") for b in data["content"]
@@ -203,7 +353,8 @@ def anthropic(model, key_env="ANTHROPIC_API_KEY", system=_SYSTEM):
         except (KeyError, TypeError, AttributeError) as e:
             raise ProviderError(f"bad response shape: {e}") from e
         if not text:
-            raise ProviderError("empty content from model")
+            raise ProviderError("empty content from model",
+                                kind="empty")
         return text
     return call
 
@@ -1055,7 +1206,14 @@ def build_provider(spec, occurrence=1, text_mode=False,
 
     `text_mode` builds a solver callable instead of a reviewer: a
     solver-persona system prompt and, for Gemini, no JSON response
-    mode — the answer is a Markdown plan."""
+    mode — the answer is a Markdown plan.
+
+    `agent_timeout` is the operator's per-seat timeout (the CLI's
+    --timeout): it bounds agent seats (default AGENT_TIMEOUT) and,
+    since the Phase 4 failure-injection fixes, API seats too —
+    an API callable built with it passes it to _post_json as the
+    call's overall deadline; without it, API seats keep
+    DEFAULT_TIMEOUT (P4-02)."""
     system = _SOLVER_SYSTEM if text_mode else _SYSTEM
     if spec.startswith("agent:"):
         agent_name, options, command = _parse_agent_spec(spec)
@@ -1076,7 +1234,7 @@ def build_provider(spec, occurrence=1, text_mode=False,
         desc = describe_spec(spec)
         return desc["seat"], openai_compatible(
             desc["base_url"], desc["model"], desc["key_env"],
-            system=system), desc["key_env"]
+            system=system, timeout=agent_timeout), desc["key_env"]
     if spec.strip().lower().startswith(registry.LOCAL_SPEC_PREFIX):
         # Epic L5 named local endpoint: keyless by construction
         # (key_env None — no credential read, no Authorization
@@ -1085,7 +1243,8 @@ def build_provider(spec, occurrence=1, text_mode=False,
         desc = describe_spec(spec)
         return desc["seat"], openai_compatible(
             desc["base_url"], desc["model"], None,
-            system=system), f"local:{desc['seat']}"
+            system=system, timeout=agent_timeout), \
+            f"local:{desc['seat']}"
     if "|" in spec:
         parts = [p.strip() for p in spec.split("|")]
         if len(parts) != 5:
@@ -1095,13 +1254,16 @@ def build_provider(spec, occurrence=1, text_mode=False,
         name, kind, base, model, key_env = parts
         if kind == "gemini":
             return name, gemini(model, key_env, system=system,
-                                json_mode=not text_mode), key_env
+                                json_mode=not text_mode,
+                                timeout=agent_timeout), key_env
         if kind == "anthropic":
             return name, anthropic(model, key_env,
-                                   system=system), key_env
+                                   system=system,
+                                   timeout=agent_timeout), key_env
         if kind == "openai-compatible":
-            return name, openai_compatible(base, model, key_env,
-                                           system=system), key_env
+            return name, openai_compatible(
+                base, model, key_env, system=system,
+                timeout=agent_timeout), key_env
         raise ProviderError(f"unknown provider type {kind!r}")
     desc = describe_spec(spec)
     name = desc["preset"]
@@ -1114,10 +1276,12 @@ def build_provider(spec, occurrence=1, text_mode=False,
         key_env = f"{key_env}_{occurrence}"
     if kind == "gemini":
         return name, gemini(model, key_env, system=system,
-                            json_mode=not text_mode), key_env
+                            json_mode=not text_mode,
+                            timeout=agent_timeout), key_env
     if kind == "anthropic":
         return name, anthropic(model, key_env,
-                               system=system), key_env
+                               system=system,
+                               timeout=agent_timeout), key_env
     # The account label is the key env for keyed presets; a
     # keyless local preset (Epic L5) labels itself local:<preset>
     # — records show what served, and there is no credential
@@ -1125,7 +1289,8 @@ def build_provider(spec, occurrence=1, text_mode=False,
     label = key_env if key_env is not None else f"local:{name}"
     return name, openai_compatible(
         base, model, key_env, extra, system=system,
-        omit_temperature=registry.omit_temperature(name, model)), \
+        omit_temperature=registry.omit_temperature(name, model),
+        timeout=agent_timeout), \
         label
 
 
