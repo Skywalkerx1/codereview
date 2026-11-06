@@ -2520,6 +2520,28 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
             agents_context=agents_context, notify=notify,
             tech_lead_timeout=args.timeout, **review_kwargs)
 
+    if policy_origin == "discovered-in-repo" \
+            and not args.verify_previous and not args.range:
+        # P3-01(c), working-tree half: `git diff` never shows
+        # an untracked or modified .codereview.toml as a patch
+        # section, so run_review's section-based
+        # policy_self_modification flag cannot see the common
+        # case — the applied policy file is itself part of the
+        # uncommitted change. Ask git about the file directly.
+        try:
+            _pol_status = core._git(
+                args.repo or ".", "status", "--porcelain",
+                "--", policy_mod.POLICY_FILENAME)
+        except Exception:  # noqa: BLE001 — the flag is
+            # best-effort observability, never a run failure.
+            _pol_status = ""
+        if _pol_status.strip():
+            _touched = report.setdefault(
+                "policy_self_modification", [])
+            if policy_mod.POLICY_FILENAME not in _touched:
+                report["policy_self_modification"] = sorted(
+                    _touched + [policy_mod.POLICY_FILENAME])
+
     if hook_runner is not None:
         # Epic L3: the blocked trigger is a fact of the finished
         # round; the record is written WITH the hooks section

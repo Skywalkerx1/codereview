@@ -9,6 +9,7 @@ import io
 import json
 import os
 import re
+import shutil
 import sys
 import tempfile
 import time
@@ -133,6 +134,47 @@ class PolicyOriginObservabilityTests(unittest.TestCase):
             self.assertEqual(
                 record["policy_self_modification"],
                 [".codereview.toml", "docs/AGENTS.md"])
+
+    def test_git_mode_untracked_policy_file_is_flagged(self):
+        # The external pass's scenario: the policy file is
+        # part of the working-tree change but UNTRACKED, so
+        # git diff never shows it as a patch section.
+        import subprocess
+        if not shutil.which("git"):
+            self.skipTest("git not available")
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = os.path.join(tmp, "repo")
+            os.makedirs(repo)
+
+            def git(*a):
+                subprocess.run(["git", "-C", repo, *a],
+                               check=True, capture_output=True)
+
+            git("init", "-q")
+            with open(os.path.join(repo, "app.py"),
+                      "w") as fh:
+                fh.write("import os\n")
+            git("add", ".")
+            git("-c", "user.email=a@b", "-c", "user.name=a",
+                "commit", "-qm", "base")
+            with open(os.path.join(repo, "app.py"),
+                      "a") as fh:
+                fh.write("VALUE = 1\n")
+            with open(os.path.join(repo, ".codereview.toml"),
+                      "w") as fh:
+                fh.write('[gate]\nprofile = "strict"\n')
+            outdir = os.path.join(tmp, "out")
+            rc, _out, err = run_cli(
+                ["--repo", repo, "--out", outdir],
+                providers_override={"a": pass_provider})
+            self.assertEqual(rc, 0)
+            record = read_record(outdir)
+            self.assertEqual(record["policy"]["origin"],
+                             "discovered-in-repo")
+            self.assertEqual(
+                record["policy_self_modification"],
+                [".codereview.toml"])
+            self.assertIn("WARNING", err)
 
     def test_ordinary_change_has_no_self_modification_flag(self):
         with tempfile.TemporaryDirectory() as tmp:
