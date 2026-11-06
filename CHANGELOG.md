@@ -1,5 +1,65 @@
 # Changelog
 
+## Unreleased — 0.13.0.dev0 (external Phase 5 test fixes)
+
+Fixes from the external tester's Phase 5 report (2026-11-06 —
+interfaces and protocol conformance), each independently
+verified against master before landing. Two items needed no
+fix: the missing/wrong-`jsonrpc` half of P5-05 was already
+closed by P3-10, and P5-09's help exit codes by D-004/D-005
+(now pinned for every subcommand):
+
+- **SARIF conformance (P5-01).** `artifactLocation.uri` is
+  now a percent-encoded relative URI reference: drive
+  letters, leading slashes and `.`/`..` segments are dropped
+  rather than resolved, and each remaining segment is
+  percent-encoded. `startLine` is clamped to a positive
+  int32, and control characters are stripped from
+  `message.text`. Fingerprints and same-input determinism
+  are unchanged.
+- **PR posting boundary (P5-02, P5-03, P5-04, P5-11).**
+  `pr --post` without `GITHUB_TOKEN` fails fast with exit 2
+  before any provider call. A comment or status POST failure
+  no longer discards the completed review: the failure and
+  what was already posted are recorded on the report
+  (`posting`), the local report is written, and the exit
+  code still reflects the posting failure. Rendered PR
+  comments neutralise untrusted model/diff-derived text
+  (@mentions, markdown images and links, raw HTML render
+  inert; the comment's own structure is untouched). The
+  inconclusive gate keeps its documented `pending` commit
+  status, and the status description now says the gate was
+  inconclusive, explicitly.
+- **MCP envelope validation (P5-05).** A request id that is
+  a bool, float, null, object or array is an invalid request
+  (-32600, answered with a null id); string and integer ids
+  behave as before, and an absent id keeps notification
+  semantics.
+- **Wizard interrupts (P5-06, P5-13).** Ctrl-C in
+  `codereview setup` prints "cancelled — nothing saved." and
+  exits 130 — no traceback, no config written. The EOF path
+  prints its abort message once, not twice.
+- **Unwritable `--out` refused up front (P5-07).** Every
+  command that accepts `--out` (main gate, `pr`, `loop`,
+  `workflow`, `intake`, `bench`) validates the target at
+  argument time and exits 2 before any provider call, where
+  it previously ran the full review and then lost the
+  result to a raw traceback.
+- **Claim lint (P5-08).** The claim lint is now
+  paragraph-level over all shipped reader docs (registered
+  run records excluded by name as immutable), with a pattern
+  table covering decimal, percentage and phrasing variants
+  of the headline figures. All 11 of the tester's
+  unqualified mutation variants now fail it; existing docs
+  were qualified in place, never the lint weakened.
+- **Docs and wording (P5-10, P5-12, P5-14).** Hook
+  positional arguments are documented where hooks are
+  documented (a bare script path receives none; a shell
+  string forwards `"$1" "$2"`), the MCP server's
+  single-threaded cancellation limit is documented, and the
+  herdr plugin launcher says "is not a directory" for a
+  path that exists but is a file.
+
 ## Unreleased — 0.13.0.dev0 (external Phase 4 test fixes)
 
 Fixes from the external tester's Phase 4 report (2026-11-06 —
