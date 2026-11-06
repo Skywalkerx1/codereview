@@ -45,7 +45,14 @@ def _load_driver():
     return module
 
 
-driver = _load_driver()
+try:
+    driver = _load_driver()
+except ModuleNotFoundError as exc:  # env dependent
+    if exc.name != "llm_chain":
+        raise
+    raise unittest.SkipTest(
+        "bench/scripts/run_generation_v2.py needs the swarm "
+        "environment's llm_chain module, which is not importable")
 
 GOOD = json.dumps({"summary": "fine", "findings": []})
 USAGE = {"prompt_tokens": 1000, "completion_tokens": 500}

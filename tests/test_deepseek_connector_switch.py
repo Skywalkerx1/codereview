@@ -24,7 +24,14 @@ AGENTS = os.environ.get(
     "/home/hatch/workspace/mitbbs-ai-swarm/agents")
 sys.path.insert(0, AGENTS)
 
-import llm_chain  # noqa: E402
+try:
+    import llm_chain  # noqa: E402
+except ModuleNotFoundError as exc:  # env dependent
+    if exc.name != "llm_chain":
+        raise
+    raise unittest.SkipTest(
+        "llm_chain (the swarm environment's connector module) is not "
+        "importable; set SWARM_AGENTS_DIR to run this file")
 
 CANNED = {
     "choices": [{"message": {"content": "ok"}}],
