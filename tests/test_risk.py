@@ -465,6 +465,7 @@ class RunReviewRiskTests(unittest.TestCase):
         def _strip(report):
             out = dict(report)
             out.pop("created_at", None)
+            out.pop("duration_ms", None)
             out.pop("policy", None)
             out.pop("risk", None)
             reps = []

@@ -75,6 +75,7 @@ def _strip_volatile(report):
     else about two reports on the same inputs must agree."""
     out = dict(report)
     out.pop("created_at", None)
+    out.pop("duration_ms", None)
     out.pop("notifications", None)
     reps = []
     for rec in report["reviewer_reports"]:
