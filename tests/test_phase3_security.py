@@ -786,5 +786,45 @@ class SharedContainmentHelperTests(unittest.TestCase):
             self.assertFalse(core._is_within("/a/b", "/a"))
 
 
+class NotifierSummaryHygieneTests(unittest.TestCase):
+    """P3-12: _one_line collapsed whitespace only — ESC/BEL/
+    OSC escape bytes and unbounded strings reached both the
+    notifier argv and the recorded outcome verbatim."""
+
+    def _fire(self, summary):
+        from codereview import notify
+        captured = []
+
+        def runner(argv, _timeout):
+            captured.append(argv)
+            return 0
+
+        notifier = notify.Notifier(["notify-cmd"], runner=runner)
+        outcome = notifier.fire("verdict", summary)
+        return captured[0], outcome
+
+    def test_escape_bytes_never_reach_argv_or_record(self):
+        hostile = ["\x1b[2J", "\x1b]0;pwn\x07evil",
+                   "\x1b]8;;https://x\x1b\\click\x07",
+                   "bell\x07here", "del\x7fhere"]
+        for text in hostile:
+            with self.subTest(text=text):
+                argv, outcome = self._fire("seat " + text)
+                self.assertNotIn("\x1b", argv[2])
+                self.assertNotIn("\x07", argv[2])
+                self.assertNotIn("\x7f", argv[2])
+                self.assertEqual(outcome["summary"], argv[2])
+
+    def test_summary_capped_at_500_with_marker(self):
+        _argv, outcome = self._fire("x" * 100000)
+        self.assertEqual(len(outcome["summary"]), 500)
+        self.assertTrue(outcome["summary"].endswith("…"))
+
+    def test_ordinary_summary_unchanged(self):
+        _argv, outcome = self._fire("gate blocked: 3 findings")
+        self.assertEqual(outcome["summary"],
+                         "gate blocked: 3 findings")
+
+
 if __name__ == "__main__":
     unittest.main()

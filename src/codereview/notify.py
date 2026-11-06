@@ -78,11 +78,30 @@ def _default_runner(argv, timeout):
     return completed.returncode
 
 
+# The summary length ceiling (P3-12): a notification is a
+# doorbell, not a document — past this the summary is cut
+# and marked with an ellipsis.
+_SUMMARY_CAP_CHARS = 500
+
+
 def _one_line(text):
-    """The summary argv is one line by contract: collapse any
-    whitespace run (a seat name is operator config and could
-    in principle carry a newline) to single spaces."""
-    return " ".join(str(text or "").split())
+    """The summary as it reaches BOTH the notifier argv and
+    the recorded outcome: one line, no control bytes, capped.
+
+    Whitespace runs collapse to single spaces (a seat name is
+    operator config and could carry a newline). Every other
+    control/escape byte (C0, DEL, C1 — ESC and BEL included,
+    so ANSI/OSC sequences lose their teeth) is dropped
+    (P3-12): a hostile or merely odd seat name must not
+    smuggle terminal escapes into a notifier UI that renders
+    raw argv, nor a 100KB string into the record."""
+    line = " ".join(str(text or "").split())
+    line = "".join(
+        ch for ch in line
+        if not (ord(ch) < 0x20 or 0x7F <= ord(ch) <= 0x9F))
+    if len(line) > _SUMMARY_CAP_CHARS:
+        line = line[:_SUMMARY_CAP_CHARS - 1] + "…"
+    return line
 
 
 class Notifier:
