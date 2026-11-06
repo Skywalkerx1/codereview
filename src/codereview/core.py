@@ -3809,7 +3809,10 @@ def _gate(findings, allow_major=False, degraded=False, incomplete=False,
     if incomplete:
         reasons.append("part of the diff could not be batched "
                        "within the size budget")
-        if strict:
+        # P2-01: the same guard the degraded branch carries — a
+        # blocking finding is never downgraded to inconclusive by
+        # incomplete coverage under strict mode.
+        if strict and not blocking:
             return "inconclusive", reasons
     if degraded:
         # The reason must state the degraded CAUSE and must never

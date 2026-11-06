@@ -114,6 +114,42 @@ class GateLineCauseTests(unittest.TestCase):
         self.assertIn("(2 of 2 reviewers succeeded)", gate_line)
         self.assertNotIn("at least one reviewer failed", gate_line)
 
+class GateStrictIncompleteTests(unittest.TestCase):
+    """P2-01 — the strict+incomplete branch of core._gate must
+    carry the same blocking guard as the degraded branch: a
+    blocking finding is never downgraded to inconclusive by
+    incomplete coverage. Plus the survivor-17 pins on the
+    any_success guard above it."""
+
+    BLOCKER = {"severity": "major"}
+
+    def test_strict_incomplete_with_blocker_stays_blocked(self):
+        gate, reasons = core._gate([self.BLOCKER], incomplete=True,
+                                   strict=True)
+        self.assertEqual(gate, "blocked")
+        self.assertIn("part of the diff could not be batched",
+                      "; ".join(reasons))
+
+    def test_strict_incomplete_without_blocker_inconclusive(self):
+        gate, _reasons = core._gate([], incomplete=True, strict=True)
+        self.assertEqual(gate, "inconclusive")
+
+    def test_non_strict_incomplete_with_blocker_blocked(self):
+        gate, _reasons = core._gate([self.BLOCKER], incomplete=True)
+        self.assertEqual(gate, "blocked")
+
+    def test_no_success_with_deterministic_blocker_blocked(self):
+        # Survivor 17: the any_success guard yields to a
+        # deterministic blocker.
+        gate, _reasons = core._gate([self.BLOCKER], any_success=False)
+        self.assertEqual(gate, "blocked")
+
+    def test_no_success_without_blocker_inconclusive(self):
+        # Survivor 17: ... and only to a blocker.
+        gate, reasons = core._gate([], any_success=False)
+        self.assertEqual(gate, "inconclusive")
+        self.assertIn("no reviewer succeeded", "; ".join(reasons))
+
 
 class RoleModelFidelityTests(unittest.TestCase):
     """Fix 2 — packet #16 (78ddf4d5ea27): the packet's own repro.
