@@ -8,6 +8,7 @@ these tests fail on the pre-fix code and pass after.
 import io
 import json
 import os
+import re
 import sys
 import tempfile
 import time
@@ -493,6 +494,49 @@ class McpNestedFrameTests(unittest.TestCase):
         self.assertEqual(out[1]["id"], "after")
         self.assertIn("parse_error",
                       [e["kind"] for e in server.errors])
+
+
+class SandboxGroupKillTests(unittest.TestCase):
+    """P3-06: _kill_group ran only on the timeout path; a
+    backgrounded child with redirected stdio survived a
+    passed run."""
+
+    def test_background_child_killed_on_normal_exit(self):
+        from codereview import evidence as ev
+        cfg = {"commands": [{
+            "name": "c", "timeout": 20,
+            "command": "sleep 60 >/dev/null 2>&1 & "
+                       "echo bgpid=$!; echo done"}]}
+        with tempfile.TemporaryDirectory() as d:
+            with open(os.path.join(d, "a"), "w") as fh:
+                fh.write("x")
+            item = ev.collect(cfg, d)["items"][0]
+        self.assertEqual(item["status"], "passed")
+        match = re.search(r"bgpid=(\d+)", item["output_tail"])
+        self.assertIsNotNone(match, item["output_tail"])
+        pid = int(match.group(1))
+
+        def dead():
+            try:
+                with open(f"/proc/{pid}/stat") as fh:
+                    return fh.read().rsplit(")", 1)[1] \
+                        .split()[0] == "Z"
+            except FileNotFoundError:
+                return True
+            except OSError:
+                return False
+
+        try:
+            deadline = time.monotonic() + 5
+            while not dead() and time.monotonic() < deadline:
+                time.sleep(0.05)
+            self.assertTrue(
+                dead(), f"background pid {pid} survived the run")
+        finally:
+            try:
+                os.kill(pid, 9)
+            except OSError:
+                pass
 
 
 if __name__ == "__main__":

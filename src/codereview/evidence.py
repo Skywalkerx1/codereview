@@ -291,7 +291,15 @@ def _kill_group(proc):
     session), so a timed-out command leaves no grandchildren
     behind — the same discipline as the agent seats."""
     try:
-        os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+        pgid = os.getpgid(proc.pid)
+    except (ProcessLookupError, PermissionError, OSError):
+        # The child has exited and been reaped (the normal-exit
+        # path, P3-06): its pid is gone, but it WAS its group
+        # leader (start_new_session), so the pid IS the pgid —
+        # and the group can still hold live grandchildren.
+        pgid = proc.pid
+    try:
+        os.killpg(pgid, signal.SIGKILL)
     except (ProcessLookupError, PermissionError, OSError):
         try:
             proc.kill()
@@ -467,6 +475,12 @@ def _supervise_sandbox_run(proc, readers, timeout, started,
             _captured(out_sink, err_sink, incomplete=not final), \
             network_mode
     status = "passed" if proc.returncode == 0 else "failed"
+    # P3-06: the timeout path kills the process group; the
+    # normal path must too — a backgrounded child with
+    # redirected stdio (sleep 60 >/dev/null &) otherwise
+    # survives a passed run and outlives the sandbox.
+    # _kill_group tolerates an already-dead group.
+    _kill_group(proc)
     return status, proc.returncode, time.monotonic() - started, \
         _captured(out_sink, err_sink), network_mode
 
