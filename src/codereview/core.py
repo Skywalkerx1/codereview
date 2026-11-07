@@ -584,12 +584,13 @@ def added_lines(patch):
 
 # Redaction (Phase 3, P3-03): pattern-based, best-effort. The
 # shapes covered are the known token formats below plus
-# keyword-named assignments, quoted or not. Generic ENCODED
-# forms of a key (base64, hex, URL-encoded, line-wrapped,
-# case-transformed) are an accepted residual — no entropy
-# detection is attempted, and the README says so. Every
-# pattern is linear-time: bounded classes only, no stacked
-# unbounded repetitions (the P3-02 / P2-07 lesson).
+# keyword-named assignments, quoted or not, and a bare PEM
+# body line that carries a key's DER/OpenSSH start (L8).
+# Generic ENCODED forms of a key (base64, hex, URL-encoded,
+# line-wrapped, case-transformed) are an accepted residual —
+# no entropy detection is attempted, and the README says so.
+# Every pattern is linear-time: bounded classes only, no
+# stacked unbounded repetitions (the P3-02 / P2-07 lesson).
 
 # A keyword anywhere inside an assignment's name marks the
 # value as secret-bearing (aws_secret_access_key, MY_API_TOKEN).
@@ -603,6 +604,43 @@ _PEM_BLOCK_RE = re.compile(
     r"-----BEGIN [A-Z ]*PRIVATE KEY-----.{0,16384}?"
     r"-----END [A-Z ]*PRIVATE KEY-----", re.DOTALL)
 _PEM_HEADER_RE = re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----")
+# A bare PEM body line (L8): a diff hunk can start mid-key, so
+# the header line is gone and the body line stands alone. The
+# line is covered only when it carries the key's start — a
+# DER SEQUENCE prefix (MII / MHc / MHQ / MIG: PKCS#8, PKCS#1,
+# SEC1 bodies all open with the ASN.1 sequence tag) or the
+# OpenSSH "openssh-key-v1" base64 prefix — and is the whole
+# line (modulo diff marker, indent, one quote, one comma).
+# Later body lines of a headerless fragment carry no such
+# prefix and stay residual, as do all encoded transforms:
+# generic base64 on its own line is NOT redacted (encoded
+# data is a documented non-goal, not a shape). Minimum token
+# length 44 — a real key body line is never shorter in
+# practice, and the floor keeps short base64 fragments
+# (hashes, ids) out of scope.
+_BARE_PEM_LINE_RE = re.compile(
+    r"^([ \t]*[+\- ]?[ \t]*[\"']?)"
+    r"(?:b3BlbnNzaC1rZXktdjE[A-Za-z0-9+/]{25,}"
+    r"|MII[A-Za-z0-9+/]{41,}|MH[cQ][A-Za-z0-9+/]{41,}"
+    r"|MIG[A-Za-z0-9+/]{41,})"
+    r"(={0,2})([\"']?,?[ \t\r]*)$")
+
+
+def _redact_bare_pem_body(text):
+    """Redact standalone PEM body lines that carry a key's
+    DER/OpenSSH start (see _BARE_PEM_LINE_RE). Line-local and
+    linear: each line is tested once against a bounded-class
+    pattern."""
+    if "MII" not in text and "b3Bl" not in text \
+            and "MH" not in text and "MIG" not in text:
+        return text
+    lines = text.split("\n")
+    for i, line in enumerate(lines):
+        m = _BARE_PEM_LINE_RE.match(line)
+        if m:
+            lines[i] = (m.group(1) + "[REDACTED-PRIVATE-KEY]"
+                        + m.group(3))
+    return "\n".join(lines)
 _AWS_KEY_ID_RE = re.compile(r"\b(?:AKIA|ASIA)[0-9A-Z]{16}\b")
 _PROVIDER_TOKEN_RE = re.compile(
     r"ghp_[A-Za-z0-9]{36,}"
@@ -778,11 +816,13 @@ def _redact_assignments(text):
 def redact_secrets(text):
     """Replace secret-shaped values before the diff leaves the
     machine. Pattern-based best-effort (see the note above):
-    known token formats and keyword assignments are covered;
-    encoded transforms of a key are not."""
+    known token formats, keyword assignments and bare PEM
+    body lines carrying a key's start are covered; encoded
+    transforms of a key are not."""
     out = text
     out = _PEM_BLOCK_RE.sub("[REDACTED-PRIVATE-KEY]", out)
     out = _PEM_HEADER_RE.sub("[REDACTED-PRIVATE-KEY]", out)
+    out = _redact_bare_pem_body(out)
     out = _AWS_KEY_ID_RE.sub("[REDACTED-AWS-KEY]", out)
     out = _PROVIDER_TOKEN_RE.sub("[REDACTED]", out)
     out = _redact_url_credentials(out)

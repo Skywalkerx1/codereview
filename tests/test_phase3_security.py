@@ -302,9 +302,10 @@ class ScanCapEvasionTests(unittest.TestCase):
 class RedactionCoverageTests(unittest.TestCase):
     """P3-03: redact_secrets covered 7 of 32 secret shapes.
     The table mirrors the external test pass's shape list;
-    the generic-encoded family (and a markerless PEM body
-    line, and the case-transformed key id) are the accepted
-    residual — pattern-based best-effort, no entropy games."""
+    the generic-encoded family (and the case-transformed
+    key id) are the accepted residual — pattern-based
+    best-effort, no entropy games. The bare PEM body line
+    joined the covered shapes at L8 (2026-11-07): 27 of 32."""
 
     J = staticmethod("".join)
     AKID = J(["AKIA", "IOSFODNN7", "EXAMPLE"])
@@ -450,7 +451,7 @@ class RedactionCoverageTests(unittest.TestCase):
     # no pattern a linear regex can honestly match.
     RESIDUAL = {"akid-base64", "akid-urlencoded-split",
                 "akid-linewrapped", "akid-in-hex",
-                "akid-lowercase", "pem-body-line"}
+                "akid-lowercase"}
 
     def test_shape_table(self):
         for name, (text, payload) in self._cases().items():
@@ -462,6 +463,38 @@ class RedactionCoverageTests(unittest.TestCase):
                                   "update the residual list")
                 else:
                     self.assertNotIn(payload, out)
+
+    def test_bare_pem_body_line_shapes(self):
+        # L8: a diff hunk that starts mid-key has no header
+        # line; the body line is covered when it carries the
+        # key's DER/OpenSSH start and stands alone on its line.
+        body = "MIIEowIBAAKCAQEA" + "x7Jq" * 16
+        for text in ("+" + body,
+                     " " + body,
+                     "    \"" + body + "\",",
+                     "+" + "b3BlbnNzaC1rZXktdjEAAAAA"
+                     + "x7Jq" * 10):
+            with self.subTest(text=text[:24]):
+                out = core.redact_secrets(text)
+                self.assertIn("[REDACTED-PRIVATE-KEY]", out)
+                self.assertNotIn("x7Jqx7Jq", out)
+
+    def test_bare_pem_body_residual_edges_stay(self):
+        # The boundary, pinned: later body lines of a
+        # headerless fragment (no key-start prefix), generic
+        # base64, and short fragments are NOT redacted —
+        # encoded data is the documented residual, and the
+        # shape is the key's start, not base64 itself.
+        import base64
+        for text in ("+" + "x7Jq" * 20,
+                     "+" + base64.b64encode(
+                         b"hello world, plain data").decode()
+                     * 4,
+                     "+MIIEowIBAAKCAQEA",
+                     "the MIIEowIBAAKCAQEA value in prose"
+                     " is not a body line"):
+            with self.subTest(text=text[:24]):
+                self.assertEqual(core.redact_secrets(text), text)
 
     def test_full_pem_block_redacted_wholesale(self):
         body = "MIIEowIBAAKCAQEA" + "x7Jq" * 16
