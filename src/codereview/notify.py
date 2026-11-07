@@ -36,9 +36,16 @@ NOTIFY_TIMEOUT_S; the outcome (status ok / failed / timeout
 record's `notifications` section. A failing, missing, or
 hanging notifier is recorded and never delays the run beyond
 the bound, never changes a finding or the verdict, and never
-raises into the review. Duplicate suppression is per run: a
-seat that ends blocked in several jobs notifies once per
-(seat, class); the verdict notifies once.
+raises into the review. The command runs in its own process
+group, and the group is killed when the invocation ends —
+on timeout (L10/NT9: a timed-out notifier leaves no
+grandchildren behind) and on normal exit (a notifier that
+backgrounds a helper and returns leaves nothing running;
+a helper that must outlive the notification has to detach
+into its own session, the documented setsid boundary).
+Duplicate suppression is per run: a seat that ends blocked
+in several jobs notifies once per (seat, class); the
+verdict notifies once.
 
 Deliberately distinct from Epic L3's lifecycle hooks: L3 is
 project-level deterministic automation declared in the
@@ -50,6 +57,8 @@ environment — it is a doorbell, not a build step.
 
 from __future__ import annotations
 
+import os
+import signal
 import subprocess
 import time
 
@@ -64,6 +73,57 @@ EVENT_SEAT_BLOCKED = "seat_blocked"
 EVENT_VERDICT = "verdict"
 
 
+def _kill_notify_group(proc):
+    """Kill the notifier's whole process group (it runs in
+    its own session), so a timed-out — or merely
+    backgrounding — notifier leaves no children behind.
+    Mirrors probe._kill_probe_group (the C5 pattern). Never
+    raises."""
+    killpg = getattr(os, "killpg", None)
+    if killpg is not None:
+        try:
+            pgid = os.getpgid(proc.pid)
+        except (ProcessLookupError, PermissionError, OSError):
+            # The child has exited and been reaped: it WAS
+            # its group leader (start_new_session), so the
+            # pid IS the pgid — and the group can still hold
+            # live grandchildren.
+            pgid = proc.pid
+        try:
+            killpg(pgid, signal.SIGKILL)
+            return
+        except (ProcessLookupError, PermissionError, OSError):
+            pass
+    try:
+        proc.kill()
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _supervise_notify_run(proc, timeout):
+    """The notifier's supervised wait — the pairing the
+    subprocess-timeout guard accepts by name, as it does the
+    probe harness's and the evidence sandbox's: the wait is
+    deadline-bounded (wait(timeout=...)) and expiry kills
+    the whole process group, not just the direct child
+    (L10/NT9). The group is swept on normal exit too, so a
+    notifier that backgrounds a helper and returns leaves
+    nothing behind (the P3-06 rule). Raises
+    subprocess.TimeoutExpired on a hang, exactly as
+    subprocess.run(timeout=...) did."""
+    try:
+        proc.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        _kill_notify_group(proc)
+        try:
+            proc.wait(timeout=5)
+        except Exception:  # noqa: BLE001 — reaping is
+            pass  # best-effort; the kill already landed
+        raise
+    _kill_notify_group(proc)
+    return proc.returncode
+
+
 def _default_runner(argv, timeout):
     """Run argv directly (no shell), bounded by `timeout`,
     output discarded (the notification is the side effect;
@@ -71,11 +131,11 @@ def _default_runner(argv, timeout):
     business, not the record's). Returns the exit code.
     Raises subprocess.TimeoutExpired on a hang, OSError when
     the command cannot be started at all."""
-    completed = subprocess.run(
-        argv, timeout=timeout, stdin=subprocess.DEVNULL,
+    proc = subprocess.Popen(
+        argv, stdin=subprocess.DEVNULL,
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-        shell=False)
-    return completed.returncode
+        shell=False, start_new_session=True)
+    return _supervise_notify_run(proc, timeout)
 
 
 # The summary length ceiling (P3-12): a notification is a

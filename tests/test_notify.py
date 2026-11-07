@@ -206,6 +206,85 @@ class RealRunnerTests(unittest.TestCase):
         self.assertEqual(outcome["status"], "error")
         self.assertIsNone(outcome["exit_code"])
 
+    def _grandchild_stub(self, tmp, hang):
+        """A notifier stub that spawns a grandchild (which
+        records its pid, then sleeps) and either hangs itself
+        or exits at once."""
+        pidfile = os.path.join(tmp, "grandchild.pid")
+        child = (
+            "import os, time\n"
+            f"with open({pidfile!r}, 'w') as fh:\n"
+            "    fh.write(str(os.getpid()))\n"
+            "time.sleep(60)\n")
+        child_path = os.path.join(tmp, "grandchild.py")
+        with open(child_path, "w", encoding="utf-8") as fh:
+            fh.write(child)
+        body = ("import subprocess, sys, time\n"
+                f"subprocess.Popen([sys.executable, {child_path!r}])\n")
+        if hang:
+            body += "time.sleep(60)\n"
+        return self._write_stub(tmp, body), pidfile
+
+    def _assert_dead(self, pidfile):
+        with open(pidfile, encoding="utf-8") as fh:
+            pid = int(fh.read().strip())
+        for _ in range(50):
+            try:
+                os.kill(pid, 0)
+            except ProcessLookupError:
+                return
+            except PermissionError:
+                self.fail(f"grandchild {pid} alive (other uid)")
+            time.sleep(0.1)
+        self.fail(f"grandchild {pid} survived the notifier")
+
+    @unittest.skipUnless(hasattr(os, "killpg"),
+                         "POSIX process groups required")
+    def test_timeout_kills_the_whole_process_group(self):
+        # L10 / NT9: subprocess.run's timeout killed only the
+        # direct child; a grandchild the notifier spawned
+        # survived it. The group now dies with the timeout.
+        with tempfile.TemporaryDirectory() as tmp:
+            stub, pidfile = self._grandchild_stub(tmp, hang=True)
+            n = notify.Notifier([sys.executable, stub],
+                                timeout=1.0)
+            outcome = n.verdict("gate pass: 0 finding(s)")
+            self.assertEqual(outcome["status"], "timeout")
+            self._assert_dead(pidfile)
+
+    @unittest.skipUnless(hasattr(os, "killpg"),
+                         "POSIX process groups required")
+    def test_normal_exit_sweeps_backgrounded_grandchild(self):
+        # The P3-06 rule, applied to the notifier: a command
+        # that backgrounds a helper and returns leaves
+        # nothing running.
+        with tempfile.TemporaryDirectory() as tmp:
+            stub, pidfile = self._grandchild_stub(tmp, hang=False)
+            n = notify.Notifier([sys.executable, stub],
+                                timeout=5.0)
+            outcome = n.verdict("gate pass: 0 finding(s)")
+            self.assertEqual(outcome["status"], "ok")
+            self._assert_dead(pidfile)
+
+    def test_real_runner_summary_is_capped(self):
+        # L10 / NT5 through the real runner: a 100 KB summary
+        # reaches the command (and the record) at the
+        # 500-char cap, never whole.
+        with tempfile.TemporaryDirectory() as tmp:
+            log = os.path.join(tmp, "calls.jsonl")
+            stub = self._write_stub(
+                tmp,
+                "import json, sys\n"
+                f"with open({log!r}, 'a', encoding='utf-8') as fh:\n"
+                "    fh.write(json.dumps(sys.argv[1:]) + '\\n')\n")
+            n = notify.Notifier([sys.executable, stub])
+            outcome = n.verdict("x" * 100000)
+            self.assertEqual(outcome["status"], "ok")
+            self.assertEqual(len(outcome["summary"]), 500)
+            with open(log, encoding="utf-8") as fh:
+                argv = json.loads(fh.read().strip())
+            self.assertEqual(len(argv[1]), 500)
+
 
 class UserConfigNotifyTests(unittest.TestCase):
     """The [notify] table lives in the user setup and follows

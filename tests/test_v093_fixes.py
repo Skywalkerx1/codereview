@@ -349,7 +349,14 @@ _SUPERVISED_WAITS = ("_run_seat_process",
                      # wait — same contract again (deadline-
                      # bounded waits, process-group kill on
                      # expiry, capped drained output).
-                     "_supervise_probe_execution")
+                     "_supervise_probe_execution",
+                     # L10: the notifier's supervised wait —
+                     # same contract again (deadline-bounded
+                     # wait, whole process group killed on
+                     # expiry and on normal exit; the
+                     # notifier discards output, so there is
+                     # nothing to drain).
+                     "_supervise_notify_run")
 
 
 class SubprocessTimeoutGuardTests(unittest.TestCase):
@@ -377,7 +384,13 @@ class SubprocessTimeoutGuardTests(unittest.TestCase):
     hands the child to — deadline-bounded waits and bounded
     drainer joins, the whole process group killed on expiry
     (and on normal exit, so no backgrounded child survives),
-    output drained under the same per-stream cap."""
+    output drained under the same per-stream cap. The L10
+    notifier fix adds the fifth accepted pairing by the same
+    rule: notify's _supervise_notify_run, which the runner's
+    Popen hands the child to — a deadline-bounded wait and
+    the whole process group killed on expiry (and swept on
+    normal exit); the notifier discards the child's output,
+    so there are no drainers to join."""
 
     def _files(self):
         for fname in sorted(os.listdir(SRC)):
