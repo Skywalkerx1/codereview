@@ -47,7 +47,7 @@ from .core import VERSION
 
 PING_SCHEMA = "codereview.crash-ping/1"
 ENDPOINT = ""            # set by the owner before launch
-ISSUES_URL = ""          # public tracker; set by the owner
+ISSUES_URL = "https://gitlab.com/superstartelecom/codereview/-/issues"
 TIMEOUT_S = 3.0
 DAILY_CAP = 5
 _MAX_RESPONSE = 65536

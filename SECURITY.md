@@ -7,12 +7,12 @@ its environment, so a security problem in the tool itself matters.
 
 **Do not open a public issue for a security problem.**
 
-Send it privately to: **<SECURITY-CONTACT-ADDRESS — TO BE SET BEFORE LAUNCH>**
+Send it privately to: **support@phpatch.com**
 
 Please include the version (`codereview --version`), what you did,
 what you expected and what happened. A `codereview support-bundle`
 is welcome (read it first; see below). We aim to acknowledge a
-report within **<N — TO BE SET BEFORE LAUNCH>** working days.
+report within **5** working days.
 
 ## What counts
 

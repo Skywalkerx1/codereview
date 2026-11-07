@@ -25,9 +25,9 @@ codereview = "codereview.cli:console_main"
 reviewloop = "codereview.cli:console_main"
 
 [project.urls]
-Homepage = "https://CHANGE-ME-BEFORE-LAUNCH.invalid/codereview"
-Issues = "https://CHANGE-ME-BEFORE-LAUNCH.invalid/codereview/issues"
-Security = "https://CHANGE-ME-BEFORE-LAUNCH.invalid/codereview/security"
+Homepage = "https://gitlab.com/superstartelecom/codereview"
+Issues = "https://gitlab.com/superstartelecom/codereview/-/issues"
+Security = "https://gitlab.com/superstartelecom/codereview/-/blob/master/SECURITY.md"
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -29,8 +29,13 @@ most one ping per kind of crash per day.
 
 ## Retention and deletion
 
-<RETENTION, ACCESS AND DELETION CONTACT — TO BE SET BEFORE LAUNCH>
+Data received through the feedback features above is kept for
+at most 90 days and then deleted, and access is limited to the
+project maintainers. To ask what we hold or to have it deleted
+sooner, use the contact below. A bundle you attach to a public
+issue yourself stays in that issue until you or we remove it —
+ask and we will.
 
 ## Contact
 
-<PRIVACY-CONTACT-ADDRESS — TO BE SET BEFORE LAUNCH>
+support@phpatch.com

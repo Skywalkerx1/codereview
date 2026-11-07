@@ -1,5 +1,25 @@
 # Changelog
 
+## Unreleased — final build candidate: positioning copy + launch placeholders (2026-11-07)
+
+- Positioning copy (owner-approved exact text) is the README
+  lead and intro, and the setup wizard's opening line.
+- Launch placeholders filled: security contact
+  `support@phpatch.com` with a 5-working-day acknowledgement
+  target; privacy / deletion contact `support@phpatch.com`,
+  retention 90 days, access limited to the maintainers;
+  `[project.urls]` and the report command's tracker URL point
+  at the live GitLab project. Provider-family label in the
+  crash ping: none (the spec default — the ping carries no
+  provider field).
+- Deliberately NOT set: the feedback collector endpoint
+  (`feedback.ENDPOINT`). No receiving service exists yet;
+  `report` and the crash ping stay inert and the manual
+  support-bundle route is the live channel until the owner
+  stands one up (it needs its own security review — see the
+  L19 request). `CODEREVIEW_RELEASE_CHECK=1` flags exactly
+  this one remainder.
+
 ## Unreleased — crash handling and user feedback (L17–L19)
 
 - **L17 — crash handling.** `codereview` now runs under a top-level
