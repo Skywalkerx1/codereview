@@ -216,6 +216,17 @@ def _post_json(url, headers, payload, timeout=DEFAULT_TIMEOUT):
             excerpt = ""      # body must not mask the status
         msg = f"HTTP {e.code} from {host}"
         if excerpt:
+            # The body is provider-controlled text that lands in
+            # the record and report: redact secret-shaped values
+            # (an auth error can echo the key it rejected) before
+            # it enters the message (P4-01b). Redact the whole
+            # excerpt first, then truncate, so a secret cannot
+            # straddle the cut.
+            try:
+                from . import core as _core
+                excerpt = _core.redact_secrets(excerpt)
+            except Exception:  # noqa: BLE001 — never mask status
+                excerpt = ""
             msg += f": {excerpt[:2000]}"
         raise ProviderError(
             msg, retry_after=_retry_after_seconds(
