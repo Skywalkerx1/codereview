@@ -311,7 +311,22 @@ class FeedbackTests(Base):
 
     def test_no_endpoint_baked_in(self):
         from codereview import feedback
-        self.assertEqual(feedback.ENDPOINT, "")  # owner sets at release
+        # Pre-release this pinned "" (nothing could send until the
+        # owner acted). The owner set the endpoint at release
+        # (2026-11-07); the pin now fixes exactly that value, so
+        # the endpoint can never drift silently.
+        self.assertEqual(feedback.ENDPOINT,
+                         "https://phpatch.com/codereview/report")
+        # The no-endpoint branch stays covered in-process: with
+        # the constant blanked, resolve_endpoint must refuse.
+        saved = feedback.ENDPOINT
+        try:
+            feedback.ENDPOINT = ""
+            url, problem = feedback.resolve_endpoint({})
+            self.assertIsNone(url)
+            self.assertTrue(problem)
+        finally:
+            feedback.ENDPOINT = saved
 
     def test_report_without_confirmation_sends_nothing(self):
         s = _Server()
@@ -345,7 +360,16 @@ class FeedbackTests(Base):
         r = self.cr(["report", "--yes"],
                     {"CODEREVIEW_FEEDBACK_URL": s.url})
         self.assertEqual(r.returncode, 2)
-        r = self.cr(["report", "--yes"])  # no endpoint at all
+        # Was "no endpoint at all" pre-release; with the owner's
+        # endpoint baked in (2026-11-07) that state no longer
+        # exists in a default run — and the leg really sent to
+        # the live collector from any networked sandbox. The
+        # exit-2 contract is now pinned against an unreachable
+        # loopback endpoint instead (deterministic everywhere);
+        # the no-endpoint branch is covered in-process by
+        # test_no_endpoint_baked_in.
+        r = self.cr(["report", "--yes"],
+                    {"CODEREVIEW_FEEDBACK_URL": "http://127.0.0.1:9/"})
         self.assertEqual(r.returncode, 2)
 
     def test_report_redirect_not_followed(self):
