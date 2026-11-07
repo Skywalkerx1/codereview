@@ -170,6 +170,40 @@ class PresetRequestShapeTests(unittest.TestCase):
         self.assertFalse(registry.omit_temperature("deepseek",
                                                    "deepseek-chat"))
 
+    def test_token_cap_parameter_per_model_family(self):
+        # The L3 smoke bug (2026-11-07): the openai preset's
+        # default model, gpt-5-mini, rejects `max_tokens`
+        # (HTTP 400) and requires `max_completion_tokens` —
+        # every CLI request through the preset failed, while
+        # the llm_chain path (different payload builder) was
+        # unaffected. The cap's parameter NAME now follows
+        # the registry quirk table, per model family.
+        _n, _t, call = self._call("openai")
+        self.assertEqual(call["payload"]["model"], "gpt-5-mini")
+        self.assertEqual(
+            call["payload"]["max_completion_tokens"], 8192)
+        self.assertNotIn("max_tokens", call["payload"])
+        _n, _t, call = self._call("openai:gpt-5.4")
+        self.assertEqual(
+            call["payload"]["max_completion_tokens"], 8192)
+        self.assertNotIn("max_tokens", call["payload"])
+        # The smoke's documented override keeps max_tokens.
+        _n, _t, call = self._call("openai:gpt-4.1")
+        self.assertEqual(call["payload"]["max_tokens"], 8192)
+        self.assertNotIn("max_completion_tokens",
+                         call["payload"])
+        # Other presets are untouched by the quirk.
+        _n, _t, call = self._call("deepseek")
+        self.assertEqual(call["payload"]["max_tokens"], 8192)
+        self.assertNotIn("max_completion_tokens",
+                         call["payload"])
+        self.assertTrue(registry.completion_tokens(
+            "openai", "gpt-5-mini"))
+        self.assertFalse(registry.completion_tokens(
+            "openai", "gpt-4.1"))
+        self.assertFalse(registry.completion_tokens(
+            "deepseek", "deepseek-chat"))
+
     def test_openai_compatible_escape_hatch(self):
         fake, calls = stub_post(OC_RESPONSE)
         with mock.patch.dict(os.environ, KEYS), \

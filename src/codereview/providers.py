@@ -286,13 +286,22 @@ _SOLVER_SYSTEM = ("You are the solver in a software-maintenance "
 
 def openai_compatible(base_url, model, key_env, extra_payload=None,
                       system=_SYSTEM, omit_temperature=False,
-                      timeout=None):
+                      completion_tokens=False, timeout=None):
     """Callable for any OpenAI-compatible chat completions endpoint.
 
     `omit_temperature` drops the temperature field entirely for
     models whose API rejects a caller-set value (registry quirk
     table — e.g. OpenAI's gpt-5 line answers HTTP 400); the field
     is omitted, never replaced with a fabricated default.
+
+    `completion_tokens` sends the token cap as
+    `max_completion_tokens` instead of `max_tokens`, for models
+    whose API rejects the old name (registry quirk table — the
+    same gpt-5 / o-series lines answer HTTP 400 to `max_tokens`;
+    the L3 smoke's first pass failed on exactly this, the openai
+    preset's default model being gpt-5-mini). Models outside the
+    quirk table keep `max_tokens` — several compatible endpoints
+    require it.
 
     `key_env` None is the keyless local form (Epic L5): no
     credential is read and NO Authorization header is sent — the
@@ -304,7 +313,8 @@ def openai_compatible(base_url, model, key_env, extra_payload=None,
             "model": model,
             "messages": [{"role": "system", "content": system},
                          {"role": "user", "content": prompt}],
-            "max_tokens": 8192,
+            ("max_completion_tokens" if completion_tokens
+             else "max_tokens"): 8192,
         }
         if not omit_temperature:
             payload["temperature"] = 0.1
@@ -1401,6 +1411,7 @@ def build_provider(spec, occurrence=1, text_mode=False,
     return name, openai_compatible(
         base, model, key_env, extra, system=system,
         omit_temperature=registry.omit_temperature(name, model),
+        completion_tokens=registry.completion_tokens(name, model),
         timeout=agent_timeout), \
         label
 

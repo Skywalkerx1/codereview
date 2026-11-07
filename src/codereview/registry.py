@@ -70,6 +70,13 @@ LENS_ROLES = {"correctness": "correctness",
 #                 caller-set temperature (the gpt-5 lesson: HTTP
 #                 400 on temperature != default) — for those models
 #                 the field is OMITTED, never faked
+#   completion_tokens  model-name prefixes whose API rejects
+#                 `max_tokens` and requires `max_completion_tokens`
+#                 instead (the second gpt-5 lesson, from the L3
+#                 smoke: the openai preset's default gpt-5-mini
+#                 answered HTTP 400 to every CLI request because
+#                 the payload carried max_tokens) — for those
+#                 models the token cap is sent under the new name
 #   recipe        (local presets only) the short operator recipe
 #                 the setup wizard prints: start the server, then
 #                 pick the preset, then probe with `doctor`
@@ -82,6 +89,7 @@ PRESETS = {
         "family": "openai",
         "extra": None,
         "no_temperature": ("gpt-5", "o1", "o3", "o4"),
+        "completion_tokens": ("gpt-5", "o1", "o3", "o4"),
     },
     "gemini": {
         "kind": "gemini",
@@ -91,6 +99,7 @@ PRESETS = {
         "family": "google",
         "extra": None,
         "no_temperature": (),
+        "completion_tokens": (),
     },
     "anthropic": {
         "kind": "anthropic",
@@ -100,6 +109,7 @@ PRESETS = {
         "family": "anthropic",
         "extra": None,
         "no_temperature": (),
+        "completion_tokens": (),
     },
     "deepseek": {
         "kind": "openai-compatible",
@@ -109,6 +119,7 @@ PRESETS = {
         "family": "deepseek",
         "extra": None,
         "no_temperature": (),
+        "completion_tokens": (),
     },
     "minimax": {
         "kind": "openai-compatible",
@@ -118,6 +129,7 @@ PRESETS = {
         "family": "minimax",
         "extra": None,
         "no_temperature": (),
+        "completion_tokens": (),
     },
     "moonshot": {
         "kind": "openai-compatible",
@@ -127,6 +139,7 @@ PRESETS = {
         "family": "moonshot",
         "extra": None,
         "no_temperature": (),
+        "completion_tokens": (),
     },
     "nvidia": {
         "kind": "openai-compatible",
@@ -136,6 +149,7 @@ PRESETS = {
         "family": "nvidia",
         "extra": {"chat_template_kwargs": {"enable_thinking": False}},
         "no_temperature": (),
+        "completion_tokens": (),
     },
     "xai": {
         "kind": "openai-compatible",
@@ -145,6 +159,7 @@ PRESETS = {
         "family": "xai",
         "extra": None,
         "no_temperature": (),
+        "completion_tokens": (),
     },
     "mistral": {
         "kind": "openai-compatible",
@@ -154,6 +169,7 @@ PRESETS = {
         "family": "mistral",
         "extra": None,
         "no_temperature": (),
+        "completion_tokens": (),
     },
     "openrouter": {
         "kind": "openai-compatible",
@@ -167,6 +183,7 @@ PRESETS = {
         "family": "openrouter",
         "extra": None,
         "no_temperature": (),
+        "completion_tokens": (),
     },
     # Local model servers (Epic L5): first-class presets for
     # endpoints the user runs on their own machine. Keyless by
@@ -186,6 +203,7 @@ PRESETS = {
         "family": "local",
         "extra": None,
         "no_temperature": (),
+        "completion_tokens": (),
         "recipe": "start Ollama (`ollama serve`, or open the "
                   "Ollama app) and pull a model (`ollama pull "
                   "<model>`), then pick this preset and run "
@@ -199,6 +217,7 @@ PRESETS = {
         "family": "local",
         "extra": None,
         "no_temperature": (),
+        "completion_tokens": (),
         "recipe": "open LM Studio, load a model, and start its "
                   "local server (Developer tab; default port "
                   "1234), then pick this preset and run "
@@ -241,6 +260,15 @@ def omit_temperature(preset_name, model):
     caller-set temperature and the field must be omitted."""
     preset = PRESETS.get(preset_name or "", {})
     prefixes = preset.get("no_temperature") or ()
+    return any(str(model).startswith(p) for p in prefixes)
+
+
+def completion_tokens(preset_name, model):
+    """True when the preset's quirk table says this model rejects
+    `max_tokens` and the token cap must be sent as
+    `max_completion_tokens` (OpenAI's gpt-5 / o-series lines)."""
+    preset = PRESETS.get(preset_name or "", {})
+    prefixes = preset.get("completion_tokens") or ()
     return any(str(model).startswith(p) for p in prefixes)
 
 
