@@ -121,13 +121,31 @@ def _neutralise(text):
     construct forms, and raw HTML is escaped. Applied at the
     rendering boundary to untrusted text only — the comment's
     own structural markdown is built separately and never
-    passes through here."""
+    passes through here.
+
+    P5-04b: the inline forms above were not the whole link
+    surface. A bare URL autolinks, `#123` and `owner/repo#9`
+    become issue/PR cross-references, and a reference-style
+    link (`[click][r]` plus a `[r]: https://…` definition
+    line) renders as a link — all live in gate_reasons text,
+    which can carry repo-policy-derived (untrusted) content.
+    So: a zero-width space in `://` breaks autolinks, `][`
+    is split so no reference link forms, a line-start
+    `[label]:` definition is defused the same way, and a
+    zero-width space after `#` before a digit breaks
+    cross-references."""
     out = str(text or "")
     out = out.replace("&", "&amp;").replace("<", "&lt;") \
              .replace(">", "&gt;")
     out = out.replace("@", "@\u200b")
     out = out.replace("![", "!\u200b[")
     out = out.replace("](", "]\u200b(")
+    out = out.replace("][", "]\u200b[")
+    out = out.replace("://", ":\u200b//")
+    out = re.sub(r"#(?=\d)", "#\u200b", out)
+    out = re.sub(r"(?m)^(\s*)\[([^\]]+)\](?=:)",
+                 lambda m: f"{m.group(1)}[\u200b{m.group(2)}]",
+                 out)
     return out
 
 
