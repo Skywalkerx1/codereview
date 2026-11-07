@@ -44,12 +44,22 @@ class TestP501Sarif(unittest.TestCase):
 
     def test_uri_never_absolute_or_escaping(self):
         for hostile in ("C:/work/x.py", "C:\\work\\x.py",
-                        "/etc/passwd", "../outside.py",
-                        "a/../../b.py", "//server/share.py"):
+                        "/etc/passwd", "//server/share.py"):
             uri = self.loc(file=hostile)["artifactLocation"]["uri"]
             self.assertFalse(uri.startswith("/"), uri)
             self.assertNotIn("..", uri.split("/"), uri)
             self.assertNotRegex(uri, r"^[A-Za-z][A-Za-z0-9+.-]*:")
+        # P5-01b supersedes the drop-the-segments behaviour this
+        # pin originally encoded for escaping paths: `..` now
+        # RESOLVES, and a path that still escapes the root gets
+        # NO location at all rather than a pointer at a
+        # different file (`a/../../b.py` used to become
+        # `a/b.py`). The pin's intent — never absolute, never
+        # escaping — holds more strongly: there is no uri.
+        for escaping in ("../outside.py", "a/../../b.py",
+                         "../../etc/passwd"):
+            result = _sarif_result(dict(self.BASE, file=escaping))
+            self.assertNotIn("locations", result, escaping)
 
     def test_uri_normal_paths_unchanged(self):
         self.assertEqual(
@@ -368,7 +378,58 @@ class TestP507OutCheckedUpFront(unittest.TestCase):
         self.assertIn("not a directory",
                       _cli._out_dir_problem(f))
 
+    def test_problem_detection_simulated_unwritable(self):
+        # P5-07b (3): the unwritable case is SIMULATED, not read
+        # off /proc semantics — os.access says yes and directory
+        # creation fails, which is exactly the root-in-CI shape
+        # the original check missed. Identical for every user.
+        tmp = tempfile.mkdtemp()
+        target = os.path.join(tmp, "new", "nested")
+        with mock.patch("os.access", return_value=True), \
+                mock.patch("os.makedirs",
+                           side_effect=PermissionError(
+                               13, "Permission denied")):
+            self.assertIsNotNone(_cli._out_dir_problem(target))
+
     def test_main_unwritable_out_exits_2_zero_provider_calls(self):
+        calls = []
+
+        def counting(prompt):
+            calls.append(1)
+            return _ok_reviewer(prompt)
+
+        tmp = tempfile.mkdtemp()
+        patch = os.path.join(tmp, "p.diff")
+        with open(patch, "w") as fh:
+            fh.write(DIFF)
+        out = os.path.join(tmp, "nope")
+        real_makedirs = os.makedirs
+
+        def makedirs_spy(path, *a, **kw):
+            if os.path.abspath(str(path)) == out:
+                raise PermissionError(13, "Permission denied")
+            return real_makedirs(path, *a, **kw)
+
+        # P5-07b (3): was driven by `--out /proc/nope`, whose
+        # refusal depended on /proc semantics that differ for
+        # root (the rerun's two failing tests). The failure is
+        # now simulated at os.makedirs — the probe's create —
+        # so the pin holds identically for root and non-root.
+        err = io.StringIO()
+        with mock.patch("os.makedirs", side_effect=makedirs_spy), \
+                mock.patch("sys.stderr", err):
+            rc = _cli.main(["--patch", patch, "--out", out],
+                           providers_override={"fake": counting})
+        self.assertEqual(rc, 2)
+        self.assertEqual(calls, [])  # zero provider calls
+        self.assertNotIn("Traceback", err.getvalue())
+        self.assertIn("--out", err.getvalue())
+
+    def test_main_unwritable_out_proc_exits_2_zero_calls(self):
+        # The rerun's original repro, kept as a pin: with the
+        # real probe (P5-07b (1)) the refusal no longer depends
+        # on what os.access claims — creating /proc/nope fails
+        # for root exactly as for anyone else.
         calls = []
 
         def counting(prompt):
@@ -384,8 +445,7 @@ class TestP507OutCheckedUpFront(unittest.TestCase):
             rc = _cli.main(["--patch", patch, "--out", "/proc/nope"],
                            providers_override={"fake": counting})
         self.assertEqual(rc, 2)
-        self.assertEqual(calls, [])  # zero provider calls
-        self.assertNotIn("Traceback", err.getvalue())
+        self.assertEqual(calls, [])
         self.assertIn("--out", err.getvalue())
 
 
