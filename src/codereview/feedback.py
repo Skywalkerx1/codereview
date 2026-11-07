@@ -21,9 +21,10 @@ Rules that protect the gate (pinned by tests):
   * HTTPS only, certificate verification on, no redirects; the one
     exception is plain http to a loopback host, which exists so the
     client can be tested against a local server;
-  * no endpoint is baked in: until the owner sets ENDPOINT (or the
-    user sets CODEREVIEW_FEEDBACK_URL) nothing can be sent, and the
-    report command says so and shows the manual route;
+  * the endpoint is the owner's, set in ENDPOINT at release; the
+    user can override it with CODEREVIEW_FEEDBACK_URL. While no
+    endpoint is configured nothing can be sent, and the report
+    command says so and shows the manual route;
   * hooks, probes, evidence commands and agent seats run with a
     scrubbed environment and a relocated HOME, so they find no
     telemetry state and cannot send.
@@ -46,7 +47,7 @@ from . import providers as _providers
 from .core import VERSION
 
 PING_SCHEMA = "codereview.crash-ping/1"
-ENDPOINT = ""            # set by the owner before launch
+ENDPOINT = "https://phpatch.com/codereview/report"  # owner, at release
 ISSUES_URL = "https://gitlab.com/superstartelecom/codereview/-/issues"
 TIMEOUT_S = 3.0
 DAILY_CAP = 5
