@@ -51,6 +51,7 @@ The writer is stdlib-only, like the rest of the package.
 
 from __future__ import annotations
 
+import posixpath
 import re
 from urllib.parse import quote
 
@@ -194,15 +195,25 @@ def _clean_message(text):
 def _artifact_uri(path):
     """Normalise a record file path to a SARIF artifactLocation
     uri (P5-01): a percent-encoded RELATIVE URI reference. Drive
-    letters, leading slashes and `.`/`..` segments are dropped
-    rather than resolved — the uri names a repo-relative
-    artefact, and a hostile path must not escape the repo or be
-    mistaken for a URI scheme. Returns "" when nothing safe
-    remains (the caller then emits no location)."""
+    letters and leading slashes are stripped — the uri names a
+    repo-relative artefact, and a hostile path must not be
+    mistaken for a URI scheme.
+
+    `..` segments are RESOLVED with posixpath.normpath, not
+    dropped (P5-01b): dropping them silently repointed the
+    finding (`a/../../b.py` became `a/b.py`, a different file).
+    A path that still escapes the root after normalisation
+    (a leading `../`) returns "" — the caller then emits no
+    location rather than a pointer at the wrong file."""
     p = str(path or "").replace("\\", "/").strip()
     p = re.sub(r"^[A-Za-z]:", "", p)  # Windows drive letter
-    segments = [s for s in p.split("/") if s not in ("", ".", "..")]
-    return "/".join(quote(s, safe="") for s in segments)
+    p = p.lstrip("/")
+    if not p:
+        return ""
+    p = posixpath.normpath(p)
+    if p in (".", "..") or p.startswith("../"):
+        return ""
+    return "/".join(quote(s, safe="") for s in p.split("/"))
 
 
 def _result(finding, state):
