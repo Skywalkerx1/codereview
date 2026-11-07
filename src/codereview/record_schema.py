@@ -102,7 +102,13 @@ Semantics locked by this schema (the GTM engineering contract):
   line, pre-stamp `created_at`) no longer read as legacy;
   that window's artefacts are dev records, not registered
   evidence — the B2-era records predate the 0.13.0 version
-  line entirely and keep the exemption.
+  line entirely and keep the exemption. Records with no
+  trace of the v1 machinery at all (no `schema_version`,
+  `provenance` or `record_identity`) predate the format
+  itself and stay not-applicable, as they have been for
+  every machinery-era check; reaching that shape from a
+  current record means deleting its entire format layer,
+  the wholesale-rewrite residual stated above.
 """
 
 import datetime
@@ -561,10 +567,25 @@ def content_hash_required(record):
       single edited field cannot outvote the others);
     - any declaration present but unparseable defeats it
       (garbled provenance is not pre-stamp provenance);
-    - no declarations at all defeats it (absent provenance
-      is not pre-stamp provenance);
+    - no usable declarations on a record of the
+      declarations era defeats it (absent provenance is
+      not pre-stamp provenance);
     - legacy requires at least one parseable pre-stamp
       declaration and no defeating one.
+
+    Scope boundary: a record carrying NO trace of the v1
+    machinery (no `schema_version`, no `provenance`, no
+    `record_identity`) predates the format the
+    declarations belong to; edit detection is not
+    applicable to it — the same machinery-era semantics
+    the coverage, tier and sidecar checks apply to their
+    pre-machinery records. Any one surviving machinery
+    section keeps a record in the scope above, so the
+    only way here is deleting the record's entire format
+    layer — the wholesale-rewrite residual the threat
+    model already states (an editor who rewrites a
+    record wholesale was never detectable by an in-record
+    hash; it is not a signature).
 
     The first P6-12 bound read missing/unparseable fields
     as pre-stamp and let any one edited declaration carry
@@ -577,6 +598,12 @@ def content_hash_required(record):
     as legacy — a closed set of dev artefacts; registered
     and B2-era records predate the 0.13.0 line entirely.
     """
+    if not any(key in record for key in
+               ("schema_version", "provenance",
+                "record_identity")):
+        # Pre-machinery record (see the scope boundary in
+        # the docstring): not applicable, never required.
+        return False
     provenance = record.get("provenance")
     generator_version = (provenance.get("generator_version")
                          if isinstance(provenance, dict)

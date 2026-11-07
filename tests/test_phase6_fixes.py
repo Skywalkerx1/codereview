@@ -454,6 +454,30 @@ class TestP603ContentIntegrity(unittest.TestCase):
         check = self._downgrade_variant(mutate)
         self.assertFalse(check["ok"], check)
 
+    def test_pre_machinery_record_is_not_applicable(self):
+        # The scope boundary, pinned deliberately: a
+        # record with NO trace of the v1 machinery (no
+        # schema_version, provenance or record_identity)
+        # predates the format the declarations belong to,
+        # and edit detection is not applicable to it — the
+        # machinery-era semantics every other check
+        # applies (the pre-schema record shape the v0.7.x–
+        # v0.9.x verify tests model). Reaching this shape
+        # from a current record requires deleting its
+        # entire format layer, the documented
+        # wholesale-rewrite residual — the hash was never
+        # a signature.
+        with tempfile.TemporaryDirectory() as tmp:
+            record = _written_record(tmp)
+        for key in ("schema_version", "provenance",
+                    "record_identity", "version",
+                    "created_at"):
+            record.pop(key, None)
+        check = _named(core.verify_record(record),
+                       "content_integrity")
+        self.assertTrue(check["ok"], check)
+        self.assertIn("legacy", check["detail"])
+
     def test_chain_mode_forged_provenance_fails(self):
         with tempfile.TemporaryDirectory() as tmp:
             r1 = _written_record(tmp)
