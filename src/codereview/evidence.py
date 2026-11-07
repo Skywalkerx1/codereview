@@ -633,7 +633,19 @@ def collect(config, source_dir, environ=None):
     the run JSON under "evidence"). Never raises for tool or
     command failures — every outcome is recorded; a failure to
     even build the sandbox is recorded as an `error` item so a
-    required-evidence gate still sees it."""
+    required-evidence gate still sees it.
+
+    Direct library use is protected the same way the CLI path
+    is (L11): the process hardening is applied HERE, at
+    collect() entry — not only at the CLI/MCP entry points —
+    so a host that calls collect() without going through them
+    still runs its evidence children with a non-dumpable
+    parent (in env-only mode a sandboxed child cannot read
+    this process's environment via /proc/<pid>/environ;
+    THREAT-MODEL residual 7 covers SIBLING processes, which no
+    call here can harden). _execute keeps its own lazy call as
+    a backstop for any future entry that bypasses collect()."""
+    hardening.make_non_dumpable()
     validate_config(config)
     config = config or {}
     default_timeout = _resolve_timeout(

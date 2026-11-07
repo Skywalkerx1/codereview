@@ -585,6 +585,25 @@ class ParentEnvironHardeningTests(unittest.TestCase):
         self.assertTrue(hardening.make_non_dumpable())
         self.assertTrue(hardening.make_non_dumpable())
 
+    def test_collect_applies_hardening_at_entry(self):
+        # L11: the hardening lives inside collect() itself,
+        # so direct library use is protected even when no
+        # item executes (the _execute backstop alone would
+        # never fire on an empty config).
+        from unittest import mock
+
+        from codereview import evidence as ev
+        from codereview import hardening
+        with mock.patch.object(
+                hardening, "make_non_dumpable",
+                wraps=hardening.make_non_dumpable) as spy:
+            with tempfile.TemporaryDirectory() as d:
+                with open(os.path.join(d, "a"), "w") as fh:
+                    fh.write("x")
+                record = ev.collect({"commands": []}, d)
+        self.assertEqual(record["items"], [])
+        self.assertGreaterEqual(spy.call_count, 1)
+
     def test_env_only_child_cannot_read_parent_environ(self):
         from unittest import mock
 
