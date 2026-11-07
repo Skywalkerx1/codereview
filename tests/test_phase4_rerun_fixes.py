@@ -33,7 +33,7 @@ PATCH = ("diff --git a/a.py b/a.py\n--- a/a.py\n+++ b/a.py\n"
 # Assembled from fragments: the repo's secret-hygiene test
 # scans test files for key-shaped literals.
 SECRET = "sk-" + "proj-" + "RERUNLEAK" + "0123456789" + "abcdefghij"
-TOKEN = "RERUNTOKEN" + "0123456789" + "abcdefghij"
+LEAKED_BEARER = "RERUNTOKEN" + "0123456789" + "abcdefghij"
 
 
 def _gen_case(i):
@@ -174,7 +174,7 @@ class RecordRedactionTests(unittest.TestCase):
     def test_secret_reaches_neither_record_nor_report(self):
         body = json.dumps({"error": {"message":
             f"Incorrect API key provided: {SECRET}. "
-            f"Header was Bearer {TOKEN}"}}).encode()
+            f"Header was Bearer {LEAKED_BEARER}"}}).encode()
         with _Stub401(body) as url:
             try:
                 providers._post_json(url, {}, {"model": "m"}, 5)
@@ -182,7 +182,7 @@ class RecordRedactionTests(unittest.TestCase):
             except providers.ProviderError as exc:
                 message = str(exc)
         self.assertNotIn(SECRET, message)
-        self.assertNotIn(TOKEN, message)
+        self.assertNotIn(LEAKED_BEARER, message)
 
         def seat(_prompt):
             raise providers.ProviderError(message)
@@ -197,7 +197,7 @@ class RecordRedactionTests(unittest.TestCase):
                 report_text = fh.read()
         for text in (record_text, report_text):
             self.assertNotIn(SECRET, text)
-            self.assertNotIn(TOKEN, text)
+            self.assertNotIn(LEAKED_BEARER, text)
         self.assertIn("401", record_text)
 
 
