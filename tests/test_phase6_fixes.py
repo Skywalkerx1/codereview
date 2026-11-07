@@ -194,5 +194,129 @@ class TestP610SortedKeys(unittest.TestCase):
         self.assertEqual(keys, sorted(keys))
 
 
+_PATCH = ("diff --git a/a.py b/a.py\n"
+          "--- a/a.py\n"
+          "+++ b/a.py\n"
+          "@@ -1 +1 @@\n"
+          "-x=1\n"
+          "+x=2\n")
+
+
+def _seat_ok(_prompt):
+    return json.dumps({"summary": "ok", "findings": []})
+
+
+def _seat_bad(_prompt):
+    return json.dumps({
+        "summary": "bad",
+        "findings": [{
+            "severity": "major", "category": "correctness",
+            "file": "a.py", "line": 1, "title": "bug",
+            "evidence": "x=2", "recommendation": "fix"}]})
+
+
+def _written_record(tmp):
+    report = core.run_review(
+        _PATCH, {"alpha": _seat_bad, "beta": _seat_ok})
+    jpath, _mpath = core.write_report(report, tmp)
+    with open(jpath, encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+def _named(result, name):
+    for check in result["checks"]:
+        if check["name"] == name:
+            return check
+    raise AssertionError(f"no check named {name}")
+
+
+class TestP603ContentIntegrity(unittest.TestCase):
+    """P6-03: record-verify accepted hand-edited records —
+    record_identity.id covers four fields and was never
+    recomputed. The writer now stamps a content hash over the
+    whole record (minus the identity envelope); verify
+    recomputes it in single and chain mode. Legacy records
+    (no hash) verify as not-applicable, never retro-failed."""
+
+    def test_written_record_carries_matching_hash(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            record = _written_record(tmp)
+        self.assertIn("content_sha256",
+                      record["record_identity"])
+        result = core.verify_record(record)
+        check = _named(result, "content_integrity")
+        self.assertTrue(check["ok"], check)
+
+    def test_finding_edit_fails_verification(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            record = _written_record(tmp)
+        record["findings"][0]["title"] = "edited by hand"
+        check = _named(core.verify_record(record),
+                       "content_integrity")
+        self.assertFalse(check["ok"], check)
+
+    def test_forged_test_results_fail_verification(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            record = _written_record(tmp)
+        record["test_results"] = [
+            {"command": "make test", "ok": True}]
+        check = _named(core.verify_record(record),
+                       "content_integrity")
+        self.assertFalse(check["ok"], check)
+
+    def test_gate_edit_fails_verification(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            record = _written_record(tmp)
+        record["gate"] = "pass"
+        record["verdict"] = "PASS"
+        check = _named(core.verify_record(record),
+                       "content_integrity")
+        self.assertFalse(check["ok"], check)
+
+    def test_legacy_record_is_not_applicable_not_failed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            record = _written_record(tmp)
+        del record["record_identity"]["content_sha256"]
+        check = _named(core.verify_record(record),
+                       "content_integrity")
+        self.assertTrue(check["ok"], check)
+        self.assertIn("legacy", check["detail"])
+
+    def test_golden_fixture_records_are_legacy(self):
+        fixtures = os.path.join(os.path.dirname(__file__),
+                                "fixtures", "record_schema")
+        with open(os.path.join(fixtures, "blocked.json"),
+                  encoding="utf-8") as fh:
+            record = json.load(fh)
+        self.assertNotIn("content_sha256",
+                         record["record_identity"])
+        check = _named(core.verify_record(record),
+                       "content_integrity")
+        self.assertTrue(check["ok"], check)
+
+    def test_chain_mode_detects_edit(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            r1 = _written_record(tmp)
+            r2 = _written_record(tmp)
+        ok = _named(core.verify_chain([r1, r2]),
+                    "content_integrity")
+        self.assertTrue(ok["ok"], ok)
+        r2["findings"][0]["title"] = "edited by hand"
+        bad = _named(core.verify_chain([r1, r2]),
+                     "content_integrity")
+        self.assertFalse(bad["ok"], bad)
+
+    def test_renamed_file_still_verifies(self):
+        # The hash excludes the identity envelope, so the
+        # recorded path (location metadata) is not content:
+        # a record travelling under a new file name verifies.
+        with tempfile.TemporaryDirectory() as tmp:
+            record = _written_record(tmp)
+        record["record_identity"]["path"] = "renamed.json"
+        check = _named(core.verify_record(record),
+                       "content_integrity")
+        self.assertTrue(check["ok"], check)
+
+
 if __name__ == "__main__":
     unittest.main()

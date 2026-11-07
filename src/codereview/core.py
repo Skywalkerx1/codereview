@@ -7037,6 +7037,31 @@ def verify_record(record, repo=None, record_dir=None,
         f"gate={record.get('gate')!r}")
     add("not_degraded", record.get("degraded") is False,
         f"degraded={record.get('degraded')!r}")
+    # Content integrity (P6-03): the writer stamps a hash
+    # over the whole record (minus the record_identity
+    # envelope); recompute it here. A record carrying no
+    # hash predates the stamp — not applicable, never a
+    # retroactive failure, the same machinery-era semantics
+    # as the coverage/tier/sidecar checks below. The hash
+    # detects edits; it is NOT a signature (an editor who
+    # recomputes it passes) — the detail says so either way.
+    _identity = record.get("record_identity") or {}
+    _want = _identity.get("content_sha256")
+    if not _want:
+        add("content_integrity", True,
+            "no content hash recorded (pre-P6-03 record); "
+            "edit detection not applicable — legacy record")
+    elif record_schema_mod.record_content_sha256(record) \
+            == _want:
+        add("content_integrity", True,
+            "record content recomputes to its recorded "
+            "content hash (edit detection only — not a "
+            "signature)")
+    else:
+        add("content_integrity", False,
+            "record content does NOT match its recorded "
+            "content hash — the record was edited or "
+            "corrupted after it was written")
     tests = record.get("test_results") or []
     add("tests_passed",
         bool(tests) and all(t.get("ok") for t in tests),
@@ -7562,6 +7587,34 @@ def verify_chain(records, repo=None, record_dirs=None,
             "; ".join(ev_problems) if ev_problems else
             f"{ev_ref_count} evidence ref(s) across the chain "
             f"recompute against their sidecars")
+    # Content integrity (P6-03), chain-wide: every record
+    # that carries a content hash must recompute to it — a
+    # hand-edited round fails the chain exactly as it fails
+    # single-record verification. Records without a hash
+    # predate the stamp and are not held to it.
+    ci_problems, ci_count = [], 0
+    for i, rec in enumerate(records):
+        want = (rec.get("record_identity") or {}).get(
+            "content_sha256")
+        if not want:
+            continue
+        ci_count += 1
+        if record_schema_mod.record_content_sha256(rec) \
+                != want:
+            ci_problems.append(
+                f"record {i + 1} content does not match its "
+                f"recorded content hash (edited or corrupted "
+                f"after writing)")
+    if not ci_count:
+        add("content_integrity", True,
+            "no content hashes recorded in the chain "
+            "(pre-P6-03 records); check not applicable")
+    else:
+        add("content_integrity", not ci_problems,
+            "; ".join(ci_problems) if ci_problems else
+            f"{ci_count} record(s) recompute to their "
+            f"recorded content hashes (edit detection only "
+            f"— not a signature)")
     last = records[-1]
     add("final_gate_pass", last.get("gate") == "pass",
         f"final gate={last.get('gate')!r}")
@@ -8809,6 +8862,13 @@ def write_report(report, out_dir, stem=None):
         # schema_version and are written exactly as before.
         identity = dict(record.get("record_identity") or {})
         identity["path"] = os.path.basename(jpath)
+        # P6-03: stamp the content hash over the exact copy
+        # being written (post-sidecars, post-path), so any
+        # later edit to the file fails record-verify. The
+        # hash excludes the record_identity envelope itself —
+        # see record_schema.record_content_sha256.
+        identity["content_sha256"] = \
+            record_schema_mod.record_content_sha256(record)
         record["record_identity"] = identity
         problems = record_schema_mod.validate_record(record)
         if problems:

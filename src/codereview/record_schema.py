@@ -64,6 +64,23 @@ Semantics locked by this schema (the GTM engineering contract):
   .path` is null; `core.write_report` stamps the file's base
   name into the written copy, and the MCP payload carries the
   full path as `record_path`, outside the record.
+- Record content integrity (P6-03): the writer also stamps
+  `record_identity.content_sha256` — a hash over the WHOLE
+  record except the `record_identity` envelope itself (the
+  id is a hash of a subset; the path is location metadata,
+  so a renamed file still verifies). record-verify
+  recomputes it in single and chain mode: ANY later edit —
+  a finding's status, the gate, forged test results — fails
+  verification. Threat model, stated plainly: this detects
+  edits and corruption by anything that does not recompute
+  the hash (hand edits, torn copies, accidental mutation).
+  It is NOT a signature: an editor who recomputes the hash
+  over their edited record passes. Records written before
+  the hash existed carry none and verify under the legacy
+  rule — the check reports not-applicable, exactly like the
+  coverage/tier/sidecar checks treat their pre-machinery
+  records — because registered and pilot records are
+  evidence and must not become unverifiable retroactively.
 """
 
 import hashlib
@@ -319,6 +336,17 @@ RECORD_SCHEMA = {
                                         "write_report stamps "
                                         "the written file's "
                                         "base name"},
+                "content_sha256": {
+                    "type": "string",
+                    "description": "P6-03: sha256 over the "
+                                   "whole record except the "
+                                   "record_identity envelope, "
+                                   "stamped by write_report; "
+                                   "record-verify recomputes "
+                                   "it. Detects edits, is not "
+                                   "a signature. Absent on "
+                                   "records written before it "
+                                   "existed (legacy)"},
             },
         },
         "verdict_semantics": {
@@ -408,6 +436,21 @@ def _panel_section(report):
         "degraded": bool(report.get("degraded")),
         "degraded_causes": list(report.get("degraded_causes") or []),
     }
+
+
+def record_content_sha256(record):
+    """The P6-03 content hash: sha256 of the record's
+    canonical JSON (sorted keys, compact separators) with the
+    `record_identity` envelope excluded. Excluding the whole
+    envelope is what lets the writer stamp the hash INTO the
+    envelope without self-reference, and keeps the hash a
+    statement about the record's content rather than its
+    file name."""
+    body = {k: v for k, v in record.items()
+            if k != "record_identity"}
+    canon = json.dumps(body, ensure_ascii=False,
+                       sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canon.encode("utf-8")).hexdigest()
 
 
 def _record_id(report):
@@ -673,6 +716,13 @@ def validate_record(record):
         if identity.get("path") is not None \
                 and not isinstance(identity.get("path"), str):
             bad("record_identity.path must be a string or null")
+        chash = identity.get("content_sha256")
+        if chash is not None and not (
+                isinstance(chash, str) and len(chash) == 64
+                and all(c in "0123456789abcdef"
+                        for c in chash)):
+            bad("record_identity.content_sha256 must be a "
+                "64-char sha256 hex string when present")
     semantics = record.get("verdict_semantics")
     if not isinstance(semantics, dict) \
             or semantics.get("pass_means") != PASS_MEANS \
