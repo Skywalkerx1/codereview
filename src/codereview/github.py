@@ -30,7 +30,7 @@ from .core import run_review, run_verification
 
 _API = "https://api.github.com"
 _PR_URL_RE = re.compile(
-    r"^https?://github\.com/([^/]+)/([^/]+)/pull/(\d+)")
+    r"^https?://github\.com/([\w.-]+)/([\w.-]+)/pull/(\d+)/?$")
 
 
 class GitHubError(Exception):
@@ -92,11 +92,29 @@ class GitHubClient:
             "GET", f"/repos/{owner}/{repo}/pulls/{number}",
             accept="application/vnd.github.diff")
 
+    @staticmethod
+    def _post_result(raw, what):
+        """A POST's 2xx body is not always JSON (a captive
+        portal or proxy can answer 200 with HTML). The post
+        itself succeeded or failed at the HTTP layer already;
+        an unparseable body must surface as GitHubError — which
+        review_pr records in the report — never as a raw
+        JSONDecodeError escaping with no record written
+        (L6 F3, the failure P5-03 set out to prevent)."""
+        if not raw.strip():
+            return {}
+        try:
+            return json.loads(raw)
+        except ValueError as e:
+            raise GitHubError(
+                f"GitHub API {what}: 2xx response was not JSON"
+            ) from e
+
     def post_review(self, owner, repo, number, body, event="COMMENT"):
         raw = self._request(
             "POST", f"/repos/{owner}/{repo}/pulls/{number}/reviews",
             payload={"body": body, "event": event})
-        return json.loads(raw) if raw.strip() else {}
+        return self._post_result(raw, "post review")
 
     def set_status(self, owner, repo, sha, state, description,
                    target_url=None):
@@ -107,7 +125,7 @@ class GitHubClient:
         raw = self._request(
             "POST", f"/repos/{owner}/{repo}/statuses/{sha}",
             payload=payload)
-        return json.loads(raw) if raw.strip() else {}
+        return self._post_result(raw, "set status")
 
 
 _GATE_STATUS = {"pass": "success", "blocked": "failure",
