@@ -247,7 +247,25 @@ class TestP603ContentIntegrity(unittest.TestCase):
     current record passed as legacy — that pin enshrined
     the defect and is replaced by the stripped-hash pins
     below; the genuine legacy cases (golden fixture,
-    pre-stamp provenance) keep their pins."""
+    pre-stamp provenance) keep their pins.
+
+    P6-12 (rerun 2): the bound still failed open — it
+    trusted any ONE declaration and read missing or
+    unparseable fields as pre-stamp, so stripping the
+    hash plus deleting or garbling two fields passed an
+    edited record as legacy (her p6_downgrade2.py, seven
+    variants). The rule now fails closed: all three
+    declarations (version, provenance.generator_version,
+    created_at) are read; a stamping-era or unparseable
+    declaration defeats the exemption, and so does having
+    no usable declarations at all. The rerun-1
+    pre-stamp pin modelled its "legacy" cases by editing
+    ONE field of a current record — the fail-open shape
+    itself — so those two sub-cases are replaced by
+    consistent-provenance cases (every declaration
+    pre-stamp) plus a pin for the documented cost: a
+    0.13.0-line record created before the stamp landed
+    (the dev-build window) no longer reads as legacy."""
 
     def test_written_record_carries_matching_hash(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -320,28 +338,131 @@ class TestP603ContentIntegrity(unittest.TestCase):
         self.assertFalse(check["ok"], check)
 
     def test_prestamp_provenance_record_is_legacy(self):
-        # The bounded exemption: a record declaring a
-        # pre-stamp generator version carries no hash and
-        # keeps the legacy reading (the golden-fixture
-        # shape), and so does a stamping-version record
-        # created before the stamp landed (the dev builds
-        # of the same morning).
+        # The bounded exemption, rerun-2 shape: legacy
+        # needs positive, CONSISTENT pre-stamp evidence —
+        # every declaration the record carries predates
+        # the stamp. Case 1 is the golden-fixture shape
+        # (0.12.1 generator, created before the stamp
+        # landed, provenance in agreement). Case 2 is the
+        # sparse historical shape (0.9.x, no provenance
+        # section at all, created 2026-11-04).
         with tempfile.TemporaryDirectory() as tmp:
             record = _written_record(tmp)
         del record["record_identity"]["content_sha256"]
         record["version"] = "0.12.1"
+        record["provenance"]["generator_version"] = "0.12.1"
+        record["created_at"] = "2026-11-06T05:00:42+00:00"
         check = _named(core.verify_record(record),
                        "content_integrity")
         self.assertTrue(check["ok"], check)
         self.assertIn("legacy", check["detail"])
         with tempfile.TemporaryDirectory() as tmp:
-            dev = _written_record(tmp)
-        del dev["record_identity"]["content_sha256"]
-        dev["created_at"] = "2026-11-05T12:00:00+00:00"
-        check = _named(core.verify_record(dev),
+            sparse = _written_record(tmp)
+        del sparse["record_identity"]["content_sha256"]
+        sparse["version"] = "0.9.6"
+        del sparse["provenance"]
+        sparse["created_at"] = "2026-11-04T23:32:59+00:00"
+        check = _named(core.verify_record(sparse),
                        "content_integrity")
         self.assertTrue(check["ok"], check)
         self.assertIn("legacy", check["detail"])
+
+    def test_dev_window_record_no_longer_reads_legacy(self):
+        # The documented rerun-2 cost, pinned deliberately:
+        # a 0.13.0-line record created BEFORE the stamp
+        # landed (the unstamped dev-build window) carries
+        # stamping-era version declarations, so a missing
+        # hash now fails closed instead of reading legacy
+        # on created_at alone.
+        with tempfile.TemporaryDirectory() as tmp:
+            record = _written_record(tmp)
+        del record["record_identity"]["content_sha256"]
+        record["created_at"] = "2026-11-06T20:00:00+00:00"
+        check = _named(core.verify_record(record),
+                       "content_integrity")
+        self.assertFalse(check["ok"], check)
+
+    def _downgrade_variant(self, mutate):
+        """A just-written record with its hash stripped,
+        a planted finding appended, and `mutate` applied
+        to its provenance — her p6_downgrade2.py shapes."""
+        with tempfile.TemporaryDirectory() as tmp:
+            record = _written_record(tmp)
+        record["record_identity"].pop("content_sha256", None)
+        record["findings"].append({
+            "severity": "blocker", "title": "hidden",
+            "file": "app.py", "line": 1})
+        mutate(record)
+        return _named(core.verify_record(record),
+                      "content_integrity")
+
+    def test_downgrade2_forged_version_fails(self):
+        check = self._downgrade_variant(
+            lambda r: r.update(version="0.12.1"))
+        self.assertFalse(check["ok"], check)
+
+    def test_downgrade2_forged_created_at_fails(self):
+        check = self._downgrade_variant(
+            lambda r: r.update(
+                created_at="2026-11-01T00:00:00+00:00"))
+        self.assertFalse(check["ok"], check)
+
+    def test_downgrade2_forged_both_fields_fails(self):
+        check = self._downgrade_variant(
+            lambda r: r.update(
+                version="0.12.1",
+                created_at="2026-10-01T00:00:00+00:00"))
+        self.assertFalse(check["ok"], check)
+
+    def test_downgrade2_deleted_provenance_fields_fail(self):
+        def mutate(r):
+            r.pop("version", None)
+            r.pop("created_at", None)
+        check = self._downgrade_variant(mutate)
+        self.assertFalse(check["ok"], check)
+
+    def test_downgrade2_garbled_version_fails(self):
+        check = self._downgrade_variant(
+            lambda r: r.update(version="garbage"))
+        self.assertFalse(check["ok"], check)
+
+    def test_downgrade2_garbled_created_at_fails(self):
+        check = self._downgrade_variant(
+            lambda r: r.update(created_at="not-a-date"))
+        self.assertFalse(check["ok"], check)
+
+    def test_downgrade2_deleted_identity_old_version_fails(
+            self):
+        def mutate(r):
+            r.pop("record_identity", None)
+            r.update(version="0.9.0")
+        with tempfile.TemporaryDirectory() as tmp:
+            record = _written_record(tmp)
+        record["findings"].append({
+            "severity": "blocker", "title": "hidden",
+            "file": "app.py", "line": 1})
+        mutate(record)
+        check = _named(core.verify_record(record),
+                       "content_integrity")
+        self.assertFalse(check["ok"], check)
+
+    def test_downgrade2_no_provenance_at_all_fails(self):
+        def mutate(r):
+            r.pop("version", None)
+            r.pop("created_at", None)
+            r.pop("provenance", None)
+        check = self._downgrade_variant(mutate)
+        self.assertFalse(check["ok"], check)
+
+    def test_chain_mode_forged_provenance_fails(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            r1 = _written_record(tmp)
+            r2 = _written_record(tmp)
+        del r2["record_identity"]["content_sha256"]
+        r2["version"] = "garbage"
+        bad = _named(core.verify_chain([r1, r2]),
+                     "content_integrity")
+        self.assertFalse(bad["ok"], bad)
 
     def test_chain_mode_stripped_hash_fails(self):
         with tempfile.TemporaryDirectory() as tmp:

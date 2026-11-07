@@ -82,16 +82,27 @@ Semantics locked by this schema (the GTM engineering contract):
   records — because registered and pilot records are
   evidence and must not become unverifiable retroactively.
   The legacy rule is bounded by provenance (P6-12): it
-  applies only when the record's own declarations predate
-  the stamp (see `content_hash_required`). A record that
-  declares a stamping-era generator version AND a
-  stamping-era creation time but carries no hash is not a
-  legacy record — its hash was removed, and verification
-  FAILS. Deleting the hash was a one-line downgrade that
-  made any edit invisible; now the cheap attack fails, and
-  what remains is the stated limit above (recompute, or
-  forge a consistent pre-stamp provenance claim — the hash
-  was never a signature).
+  applies only when the record's own declarations
+  establish that it predates the stamp (see
+  `content_hash_required`). The first bound trusted
+  whatever a single edited field declared, and read
+  missing or unparseable fields as pre-stamp — deleting
+  or garbling two fields reopened the downgrade (Phase 6
+  rerun 2). The rule now fails closed: EVERY declaration
+  (the top-level version, `provenance.generator_version`,
+  `created_at`) is read; a stamping-era or unparseable
+  declaration defeats the exemption, and no usable
+  declarations at all defeats it — legacy requires
+  positive, consistent, pre-stamp evidence. What remains
+  is the stated limit above: recompute the hash, or
+  rewrite every declaration into one consistent pre-stamp
+  claim — the hash was never a signature. One documented
+  cost: unstamped records written by 0.13.0 dev builds in
+  the hours before the stamp landed (stamping-era version
+  line, pre-stamp `created_at`) no longer read as legacy;
+  that window's artefacts are dev records, not registered
+  evidence — the B2-era records predate the 0.13.0 version
+  line entirely and keep the exemption.
 """
 
 import datetime
@@ -469,12 +480,11 @@ def record_content_sha256(record):
 # The stamping era (P6-12): the first generator line whose
 # writer stamps content_sha256 on every record it writes,
 # and the moment that stamp landed (the P6-03 commit,
-# 2026-11-07T02:07:56Z). Both bounds are needed: every
-# release before 0.13.0 predates the stamp entirely, and
-# 0.13.0 dev builds wrote unstamped records until the
-# stamp landed — a record is only REQUIRED to carry the
-# hash when both of its provenance declarations (generator
-# version, created_at) fall in the stamping era.
+# 2026-11-07T02:07:56Z). The two bounds classify each of a
+# record's provenance declarations as pre-stamp or
+# stamping-era; `content_hash_required` reads them all
+# and fails closed (see its docstring for the rule and
+# the rerun-2 history).
 CONTENT_HASH_ERA_VERSION = (0, 13, 0)
 CONTENT_HASH_ERA_FROM = datetime.datetime(
     2026, 11, 7, 2, 7, 56, tzinfo=datetime.timezone.utc)
@@ -510,20 +520,75 @@ def _created_instant(text):
     return parsed
 
 
+def _version_state(value):
+    """A version declaration classified: "absent" (None),
+    "garbled" (present but carries no numeric prefix),
+    "pre" (predates the stamping-era version line) or
+    "era" (the stamping-era line or later)."""
+    if value is None:
+        return "absent"
+    parsed = _version_tuple(value)
+    if parsed is None:
+        return "garbled"
+    return ("era" if parsed >= CONTENT_HASH_ERA_VERSION
+            else "pre")
+
+
+def _created_state(value):
+    """A created_at declaration classified like
+    `_version_state`, against the stamp instant."""
+    if value is None:
+        return "absent"
+    parsed = _created_instant(value)
+    if parsed is None:
+        return "garbled"
+    return ("era" if parsed >= CONTENT_HASH_ERA_FROM
+            else "pre")
+
+
 def content_hash_required(record):
-    """True when a record's own provenance declarations
-    place it in the stamping era, so the absence of
-    `record_identity.content_sha256` means the hash was
-    removed rather than never stamped (P6-12). Anything
-    unparseable reads as pre-stamp: the legacy exemption
-    is the conservative direction for old records."""
-    version = _version_tuple(record.get("version"))
-    if version is None or version < CONTENT_HASH_ERA_VERSION:
-        return False
-    created = _created_instant(record.get("created_at"))
-    if created is None:
-        return False
-    return created >= CONTENT_HASH_ERA_FROM
+    """True when a record carrying no
+    `record_identity.content_sha256` must NOT take the
+    legacy exemption — the hash was removed, or the claim
+    to have never been stamped does not hold up (P6-12).
+
+    The record's THREE provenance declarations are read:
+    the top-level `version`, `provenance.generator_version`
+    and `created_at`. Legacy is a positive-evidence rule
+    and fails closed:
+
+    - any declaration in the stamping era defeats it (a
+      single edited field cannot outvote the others);
+    - any declaration present but unparseable defeats it
+      (garbled provenance is not pre-stamp provenance);
+    - no declarations at all defeats it (absent provenance
+      is not pre-stamp provenance);
+    - legacy requires at least one parseable pre-stamp
+      declaration and no defeating one.
+
+    The first P6-12 bound read missing/unparseable fields
+    as pre-stamp and let any one edited declaration carry
+    the claim, so stripping the hash plus deleting or
+    garbling two fields reopened the downgrade (Phase 6
+    rerun 2, p6_downgrade2.py). Documented cost of failing
+    closed: unstamped records from 0.13.0 dev builds in
+    the hours before the stamp landed (stamping-era
+    version line, pre-stamp `created_at`) no longer read
+    as legacy — a closed set of dev artefacts; registered
+    and B2-era records predate the 0.13.0 line entirely.
+    """
+    provenance = record.get("provenance")
+    generator_version = (provenance.get("generator_version")
+                         if isinstance(provenance, dict)
+                         else None)
+    states = [
+        _version_state(record.get("version")),
+        _version_state(generator_version),
+        _created_state(record.get("created_at")),
+    ]
+    if "era" in states or "garbled" in states:
+        return True
+    return "pre" not in states
 
 
 def _record_id(report):

@@ -7083,9 +7083,11 @@ def verify_record(record, repo=None, record_dir=None,
     # hash predates the stamp — not applicable, never a
     # retroactive failure, the same machinery-era semantics
     # as the coverage/tier/sidecar checks below — UNLESS
-    # its own provenance declarations place it in the
-    # stamping era (P6-12): then the hash was removed, not
-    # never stamped, and the check fails. The hash detects
+    # its provenance declarations fail to establish a
+    # pre-stamp legacy record under the fail-closed rule
+    # (P6-12, rerun 2): then the hash was removed (or the
+    # provenance stripped/garbled), and the check fails.
+    # The hash detects
     # edits; it is NOT a signature (an editor who recomputes
     # it passes) — the detail says so either way.
     _identity = record.get("record_identity") or {}
@@ -7093,11 +7095,13 @@ def verify_record(record, repo=None, record_dir=None,
     if not _want and record_schema_mod.content_hash_required(
             record):
         add("content_integrity", False,
-            "record declares a stamping-era provenance "
-            f"(version {record.get('version')!r}, created "
-            f"{record.get('created_at')!r}) but carries no "
-            "content hash — the hash was removed, so edit "
-            "detection cannot pass (P6-12)")
+            "record carries no content hash and its "
+            "provenance does not establish a pre-stamp "
+            f"legacy record (version {record.get('version')!r}, "
+            f"created {record.get('created_at')!r}) — the "
+            "hash was removed, or the provenance was "
+            "stripped or garbled, so edit detection cannot "
+            "pass (P6-12)")
     elif not _want:
         add("content_integrity", True,
             "no content hash recorded (pre-P6-03 record); "
@@ -7643,9 +7647,11 @@ def verify_chain(records, repo=None, record_dirs=None,
     # hand-edited round fails the chain exactly as it fails
     # single-record verification. Records without a hash
     # predate the stamp and are not held to it — unless
-    # their provenance declares the stamping era, in which
-    # case the hash was removed (P6-12) and the chain fails
-    # exactly as single-record verification does.
+    # their provenance fails to establish a pre-stamp
+    # legacy record under the fail-closed rule, in which
+    # case the hash was removed (or the provenance
+    # stripped/garbled) (P6-12, rerun 2) and the chain
+    # fails exactly as single-record verification does.
     ci_problems, ci_count = [], 0
     for i, rec in enumerate(records):
         want = (rec.get("record_identity") or {}).get(
@@ -7653,9 +7659,10 @@ def verify_chain(records, repo=None, record_dirs=None,
         if not want:
             if record_schema_mod.content_hash_required(rec):
                 ci_problems.append(
-                    f"record {i + 1} declares a stamping-era "
-                    f"provenance but carries no content hash "
-                    f"(hash removed — P6-12)")
+                    f"record {i + 1} carries no content hash "
+                    f"and does not establish a pre-stamp "
+                    f"legacy record (hash removed, or "
+                    f"provenance stripped/garbled — P6-12)")
             continue
         ci_count += 1
         if record_schema_mod.record_content_sha256(rec) \
