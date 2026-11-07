@@ -8778,8 +8778,25 @@ def _atomic_write_text(path, text):
 
 def write_report(report, out_dir, stem=None):
     os.makedirs(out_dir, exist_ok=True)
-    stem = stem or ("codereview-" + datetime.datetime.now(
-        datetime.timezone.utc).strftime("%Y%m%d-%H%M%S"))
+    if stem is None:
+        # Auto stems carry one-second resolution (P6-02): two
+        # runs landing in the same second on the same --out
+        # used to share a stem, and the second silently
+        # overwrote the first run's record — record loss. An
+        # auto stem that is taken gains a counter suffix until
+        # free. An EXPLICIT stem is the caller's contract (the
+        # CLI's post-hooks rewrite must land on the very file
+        # it first wrote) and is never renamed.
+        base = ("codereview-" + datetime.datetime.now(
+            datetime.timezone.utc).strftime("%Y%m%d-%H%M%S"))
+        stem = base
+        n = 2
+        while os.path.exists(os.path.join(out_dir,
+                                          stem + ".json")) \
+                or os.path.exists(os.path.join(out_dir,
+                                               stem + ".md")):
+            stem = f"{base}-{n}"
+            n += 1
     record = _attach_evidence_sidecars(report, out_dir)
     jpath = os.path.join(out_dir, stem + ".json")
     mpath = os.path.join(out_dir, stem + ".md")

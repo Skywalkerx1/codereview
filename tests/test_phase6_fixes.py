@@ -5,11 +5,13 @@ rerun verified. The tester's scripts live outside the repo;
 these are the in-repo equivalents of her repros.
 """
 
+import datetime as _dt
 import json
 import os
 import subprocess
 import sys
 import tempfile
+import types
 import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..",
@@ -113,6 +115,63 @@ class TestP604QuotedPaths(unittest.TestCase):
             self.assertIn(UNICODE_PATH,
                           [n for n, _ in
                            core.split_patch_sections(patch)])
+
+
+class TestP602SameSecondStems(unittest.TestCase):
+    """P6-02: two runs in one second to one --out shared a
+    filename stem and the second silently overwrote the first
+    — record loss. Auto stems now gain a counter suffix when
+    taken; explicit stems (the hooks rewrite contract) are
+    never renamed."""
+
+    def setUp(self):
+        self._real_datetime = core.datetime
+
+        class FrozenDateTime:
+            @staticmethod
+            def now(tz=None):
+                return _dt.datetime(2026, 11, 6, 12, 0, 0,
+                                    tzinfo=tz)
+
+        core.datetime = types.SimpleNamespace(
+            datetime=FrozenDateTime, timezone=_dt.timezone,
+            timedelta=_dt.timedelta)
+
+    def tearDown(self):
+        core.datetime = self._real_datetime
+
+    @staticmethod
+    def _report(marker):
+        return {"gate": "blocked",
+                "gate_reasons": [marker], "findings": []}
+
+    def test_two_runs_same_second_both_survive(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            j1, _ = core.write_report(self._report("first"), tmp)
+            j2, _ = core.write_report(self._report("second"),
+                                      tmp)
+            self.assertNotEqual(j1, j2)
+            self.assertTrue(j1.endswith(
+                "codereview-20261106-120000.json"))
+            self.assertTrue(j2.endswith(
+                "codereview-20261106-120000-2.json"))
+            with open(j1, encoding="utf-8") as fh:
+                self.assertEqual(json.load(fh)["gate_reasons"],
+                                 ["first"])
+            with open(j2, encoding="utf-8") as fh:
+                self.assertEqual(json.load(fh)["gate_reasons"],
+                                 ["second"])
+
+    def test_explicit_stem_still_overwrites(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            core.write_report(self._report("first"), tmp,
+                              stem="rec")
+            jpath, _ = core.write_report(self._report("second"),
+                                         tmp, stem="rec")
+            self.assertEqual(os.path.basename(jpath), "rec.json")
+            with open(jpath, encoding="utf-8") as fh:
+                self.assertEqual(json.load(fh)["gate_reasons"],
+                                 ["second"])
 
 
 if __name__ == "__main__":
