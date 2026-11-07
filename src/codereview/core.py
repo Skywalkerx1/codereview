@@ -411,6 +411,131 @@ def build_pseudo_patch(paths, root="."):
     return "".join(chunks)
 
 
+# ------------------------------------------------------- git path parsing
+#
+# Git C-quotes a path in diff output when a byte in it cannot
+# travel bare (non-ASCII under the default core.quotepath, a
+# tab, a double quote, a backslash, control bytes): the token
+# is wrapped in double quotes and special bytes are escaped —
+# the simple escapes in _GIT_C_ESCAPES or \ooo octal for the
+# rest (git's quote.c). A parser that only knows the bare
+# ` b/<path>` shape attributes every such file to "unknown"
+# (P6-04), and everything keyed on the path — per-file
+# coverage, path rules, SARIF locations, line maps — inherits
+# the hole. The helpers below decode both forms.
+
+_GIT_C_ESCAPES = {
+    "a": 7, "b": 8, "f": 12, "n": 10, "r": 13, "t": 9,
+    "v": 11, "\\": 92, '"': 34,
+}
+
+
+def _decode_git_token(text, start=0):
+    """Decode one git path token at `start` in `text`: a
+    C-quoted token ("..." with escapes) or a bare token
+    running to the next space. Returns (path, next_index).
+    Bytes are accumulated and decoded as UTF-8 at the end —
+    git emits non-ASCII path bytes as octal escapes, so the
+    accumulated bytes ARE the path's UTF-8 encoding."""
+    if start < len(text) and text[start] == '"':
+        out = bytearray()
+        i = start + 1
+        while i < len(text):
+            ch = text[i]
+            if ch == '"':
+                return (out.decode("utf-8", "surrogateescape"),
+                        i + 1)
+            if ch == "\\" and i + 1 < len(text):
+                nxt = text[i + 1]
+                if nxt in _GIT_C_ESCAPES:
+                    out.append(_GIT_C_ESCAPES[nxt])
+                    i += 2
+                    continue
+                if nxt in "01234567":
+                    j = i + 1
+                    value = 0
+                    while j < len(text) and j < i + 4 \
+                            and text[j] in "01234567":
+                        value = value * 8 + int(text[j])
+                        j += 1
+                    out.append(value & 0xFF)
+                    i = j
+                    continue
+                out.extend(nxt.encode("utf-8"))
+                i += 2
+                continue
+            out.extend(ch.encode("utf-8"))
+            i += 1
+        return out.decode("utf-8", "surrogateescape"), i
+    end = text.find(" ", start)
+    if end < 0:
+        end = len(text)
+    return text[start:end], end
+
+
+def _decode_path_value(text):
+    """A whole-line git path value (the part after `+++ ` or
+    `rename to `): C-decoded when quoted, literal when bare."""
+    text = text.strip()
+    if text.startswith('"'):
+        value, _end = _decode_git_token(text, 0)
+        return value
+    return text
+
+
+def _strip_diff_prefix(path):
+    """'b/<path>' -> '<path>' (in the C-quoted form the prefix
+    sits INSIDE the quotes)."""
+    return path[2:] if path.startswith("b/") else path
+
+
+def _diff_b_path(header):
+    """The b-side (new) path from a `diff --git` header line,
+    or None when the header does not parse. The C-quoted form
+    is tokenised properly. The bare form first tries the
+    symmetric reading (a non-rename header is `a/P b/P` with
+    the SAME P both sides, spaces included), then the
+    long-standing ` b/(.+)$` search."""
+    line = header.strip()
+    if not line.startswith("diff --git "):
+        return None
+    rest = line[len("diff --git "):]
+    if rest.startswith('"'):
+        _a, idx = _decode_git_token(rest, 0)
+        while idx < len(rest) and rest[idx] == " ":
+            idx += 1
+        if idx < len(rest) and rest[idx] == '"':
+            b, _end = _decode_git_token(rest, idx)
+        else:
+            b = rest[idx:]
+        return _strip_diff_prefix(b) or None
+    m = re.match(r"^a/(.*) b/\1$", rest)
+    if m:
+        return m.group(1)
+    m = re.search(r" b/(.+)$", rest)
+    return m.group(1) if m else None
+
+
+def _section_file_name(header, body):
+    """The b-side path a diff section belongs to. Preference
+    order, most reliable first: the section's own `+++` line
+    (one token, quoted or bare; it precedes the first hunk),
+    its `rename to` line, then the `diff --git` header itself.
+    "unknown" when none parses — a pure deletion's +++ is
+    /dev/null and the header names the file; a mode-only
+    section has no +++ and the header carries it."""
+    for line in body.splitlines():
+        if line.startswith("@@"):
+            break
+        if line.startswith("+++ "):
+            value = _decode_path_value(line[4:])
+            if value != "/dev/null":
+                return _strip_diff_prefix(value)
+        elif line.startswith("rename to "):
+            return _decode_path_value(line[len("rename to "):])
+    return _diff_b_path(header) or "unknown"
+
+
 def split_patch_sections(patch):
     """Split a unified diff into (filename, section_text) per file."""
     parts = re.split(r"(?m)^(diff --git .*$)", patch)
@@ -419,8 +544,7 @@ def split_patch_sections(patch):
     for i in range(1, len(parts), 2):
         header = parts[i]
         body = parts[i + 1] if i + 1 < len(parts) else ""
-        m = re.search(r" b/(.+)$", header.strip())
-        sections.append(((m.group(1) if m else "unknown"),
+        sections.append((_section_file_name(header, body),
                           header + body))
     if not sections and patch.strip():
         sections = [("unknown", patch)]
@@ -433,10 +557,13 @@ def added_lines(patch):
     new_no = 0
     for raw in patch.splitlines():
         if raw.startswith("diff --git "):
-            m = re.search(r" b/(.+)$", raw)
-            file = m.group(1) if m else ""
+            file = _diff_b_path(raw) or ""
             continue
         if raw.startswith("+++"):
+            if raw.startswith("+++ "):
+                value = _decode_path_value(raw[4:])
+                if value != "/dev/null":
+                    file = _strip_diff_prefix(value)
             continue
         m = re.match(r"@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@", raw)
         if m:
@@ -847,9 +974,13 @@ def _line_maps(patch):
     file, new_no, in_hunk = "", 0, False
     for idx, raw in enumerate(patch.splitlines(), 1):
         if raw.startswith("diff --git "):
-            m = re.search(r" b/(.+)$", raw)
-            file = m.group(1) if m else ""
+            file = _diff_b_path(raw) or ""
             in_hunk = False
+            continue
+        if raw.startswith("+++ "):
+            value = _decode_path_value(raw[4:])
+            if value != "/dev/null":
+                file = _strip_diff_prefix(value)
             continue
         m = re.match(r"@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@", raw)
         if m:
@@ -7589,11 +7720,13 @@ def _patch_stats(patch):
     stats = {}
     current = None
     for line in (patch or "").splitlines():
-        if line.startswith("+++ b/"):
-            current = line[6:].strip()
-            stats.setdefault(current, [0, 0])
-        elif line.startswith("+++ "):
-            current = None
+        if line.startswith("+++ "):
+            value = _decode_path_value(line[4:])
+            if value == "/dev/null":
+                current = None
+            else:
+                current = _strip_diff_prefix(value)
+                stats.setdefault(current, [0, 0])
         elif current:
             if line.startswith("+") and not line.startswith("+++"):
                 stats[current][0] += 1
