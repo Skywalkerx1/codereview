@@ -46,3 +46,18 @@ graft bench/scripts
 graft bench/configs
 graft bench/expanded-clean
 include bench/baseline-2026-11-04-results.jsonl
+# P6-14 (external Phase 6 rerun, 2026-11-06): the claim
+# lint guards every shipped reader-facing doc, and its
+# scope test asserts the set — the bench claims sheet and
+# public benchmark, the pilot kit's four docs, and the
+# root roadmap / review notes were not in the sdist, so
+# the unpacked suite failed exactly that test and the
+# distribution's lint silently guarded a smaller set than
+# a clone's. Ship them (the D-003 principle: the sdist
+# carries everything its own suite reads). pilot/demo is
+# NOT included — it is a record tree, out of the lint's
+# scope and out of the distribution.
+include bench/CLAIMS-SHEET.md bench/PUBLIC-BENCHMARK.md
+include pilot/QUICKSTART.md pilot/SECURITY-AND-DATA.md
+include pilot/DEMO.md pilot/FEEDBACK-FORM.md
+include ROADMAP.md REVIEW-NOTES.md
