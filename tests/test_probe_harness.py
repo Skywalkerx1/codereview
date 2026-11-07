@@ -4,6 +4,7 @@ No network, no real providers."""
 
 import json
 import os
+import signal
 import sys
 import tempfile
 import time
@@ -211,6 +212,257 @@ class ProbeFnContractTests(unittest.TestCase):
         self.assertEqual(out["evidence_quote"], "ran")
         self.assertIn("sha256", out["detail"])
         self.assertFalse(out["can_support"])
+
+
+def _pid_alive(pid):
+    """True when `pid` names a live process. A zombie is
+    dead for our purposes: it runs nothing and holds no
+    resources but its exit status."""
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    try:
+        with open(f"/proc/{pid}/stat", encoding="ascii") as fh:
+            state = fh.read().rsplit(")", 1)[-1].split()[0]
+    except OSError:
+        return True  # kill() said it exists; cannot refine
+    return state != "Z"
+
+
+def _wait_until_dead(pid, budget_s=10.0):
+    deadline = time.monotonic() + budget_s
+    while time.monotonic() < deadline:
+        if not _pid_alive(pid):
+            return True
+        time.sleep(0.1)
+    return not _pid_alive(pid)
+
+
+@unittest.skipUnless(
+    os.name == "posix" and probe_mod.resource is not None,
+    "C5 sandbox discipline is POSIX-rlimit based")
+class SandboxHardeningTests(unittest.TestCase):
+    """The C5 pins: the probe runs in its own session under
+    rlimits, expiry or exit kills its whole process group,
+    and output is drained under a cap. A probe that forks,
+    spins, or allocates past its budget is terminated and
+    lands in the harness's long-standing outcome vocabulary
+    (pass/fail/timeout/error) — never a new category."""
+
+    def test_limits_applied_inside_probe(self):
+        # A compliant probe runs normally and can observe
+        # the exact limits the sandbox promised: CPU is the
+        # wall timeout plus the C5 slack, the rest are the
+        # module's named constants.
+        root = _tree({})
+        res = probe_mod.run_probe(
+            {"kind": "python",
+             "code": "import resource\n"
+                     "print('cpu', resource.getrlimit("
+                     "resource.RLIMIT_CPU)[0])\n"
+                     "print('as', resource.getrlimit("
+                     "resource.RLIMIT_AS)[0])\n"
+                     "print('fsize', resource.getrlimit("
+                     "resource.RLIMIT_FSIZE)[0])\n"
+                     "print('nofile', resource.getrlimit("
+                     "resource.RLIMIT_NOFILE)[0])\n"},
+            root, timeout=30)
+        self.assertEqual(res["outcome"], "pass")
+        self.assertIn(f"cpu {30 + probe_mod._CPU_SLACK_S}",
+                      res["output"])
+        self.assertIn(f"as {probe_mod._PROBE_MEMORY_LIMIT}",
+                      res["output"])
+        self.assertIn(
+            f"fsize {probe_mod._PROBE_FILE_SIZE_LIMIT}",
+            res["output"])
+        self.assertIn(
+            f"nofile {probe_mod._PROBE_OPEN_FILES_LIMIT}",
+            res["output"])
+
+    def test_timeout_kills_forked_child(self):
+        # The pre-C5 harness killed only the direct child on
+        # timeout: this forked sleeper would have survived
+        # it. The group kill must reap it too.
+        marker_dir = tempfile.mkdtemp(prefix="probe-marker-")
+        marker = os.path.join(marker_dir, "child.pid")
+        root = _tree({})
+        started = time.monotonic()
+        res = probe_mod.run_probe(
+            {"kind": "python",
+             "code": "import os, time\n"
+                     f"MARKER = {marker!r}\n"
+                     "pid = os.fork()\n"
+                     "if pid == 0:\n"
+                     "    with open(MARKER, 'w') as fh:\n"
+                     "        fh.write(str(os.getpid()))\n"
+                     "    time.sleep(120)\n"
+                     "    os._exit(0)\n"
+                     "time.sleep(120)\n"},
+            root, timeout=2)
+        self.assertEqual(res["outcome"], "timeout")
+        self.assertLess(time.monotonic() - started, 20)
+        with open(marker, encoding="ascii") as fh:
+            child_pid = int(fh.read().strip())
+        self.assertTrue(
+            _wait_until_dead(child_pid),
+            f"forked probe child {child_pid} survived the "
+            f"timeout kill")
+
+    def test_clean_exit_leaves_no_background_child(self):
+        # The P3-06 shape: the probe backgrounds a child
+        # with redirected stdio (so it holds no harness
+        # pipe) and exits 0 at once. The run passes — and
+        # the group kill on the normal path must still reap
+        # the child, or it would sleep on for 120 s.
+        marker_dir = tempfile.mkdtemp(prefix="probe-marker-")
+        marker = os.path.join(marker_dir, "child.pid")
+        sink = os.path.join(marker_dir, "sink.txt")
+        root = _tree({})
+        res = probe_mod.run_probe(
+            {"kind": "python",
+             "code": "import os, time\n"
+                     f"MARKER = {marker!r}\n"
+                     f"SINK = {sink!r}\n"
+                     "pid = os.fork()\n"
+                     "if pid == 0:\n"
+                     "    fd = os.open(SINK, os.O_WRONLY | "
+                     "os.O_CREAT | os.O_TRUNC)\n"
+                     "    os.dup2(fd, 1)\n"
+                     "    os.dup2(fd, 2)\n"
+                     "    with open(MARKER, 'w') as fh:\n"
+                     "        fh.write(str(os.getpid()))\n"
+                     "    time.sleep(120)\n"
+                     "    os._exit(0)\n"
+                     "print('parent-done')\n"},
+            root, timeout=30)
+        self.assertEqual(res["outcome"], "pass")
+        self.assertIn("parent-done", res["output"])
+        with open(marker, encoding="ascii") as fh:
+            child_pid = int(fh.read().strip())
+        self.assertTrue(
+            _wait_until_dead(child_pid),
+            f"backgrounded probe child {child_pid} survived "
+            f"a passed run")
+
+    def test_cpu_limit_kills_spinning_probe(self):
+        # The CPU budget is timeout + _CPU_SLACK_S (the C5
+        # convention): with the shipped slack a CPU kill can
+        # only beat the wall clock for a probe burning
+        # several cores at once, so this pin narrows the
+        # slack to bring the budget inside the run and
+        # verifies the mechanism end to end — the child is
+        # rlimited, the kernel kills it at the budget
+        # (SIGXCPU), and the harness reports the signal
+        # death as an ordinary "fail" whose exit code is
+        # the negative signal number. The shipped budget
+        # arithmetic itself is pinned unpatched by
+        # test_limits_applied_inside_probe.
+        root = _tree({})
+        real_slack = probe_mod._CPU_SLACK_S
+        probe_mod._CPU_SLACK_S = -25  # budget: 30 - 25 = 5 s
+        try:
+            started = time.monotonic()
+            res = probe_mod.run_probe(
+                {"kind": "python",
+                 "code": "while True:\n    pass\n"},
+                root, timeout=30)
+            elapsed = time.monotonic() - started
+        finally:
+            probe_mod._CPU_SLACK_S = real_slack
+        self.assertEqual(res["outcome"], "fail")
+        expected = {-int(signal.SIGKILL)}
+        if hasattr(signal, "SIGXCPU"):
+            expected.add(-int(signal.SIGXCPU))
+        self.assertIn(res["exit_code"], expected)
+        # Killed at its 5 CPU-second budget, nowhere near
+        # the 30 s wall timeout.
+        self.assertGreater(elapsed, 3)
+        self.assertLess(elapsed, 20)
+
+    def test_memory_limit_bounds_allocation(self):
+        # The probe reserves anonymous address space in
+        # 256 MiB chunks (reservation alone does not touch
+        # RSS). With no AS limit this box would let it
+        # reserve the full 10 GiB demand; the sandbox
+        # ceiling must stop it at the named limit, and the
+        # probe dies at the ceiling — an ordinary "fail".
+        root = _tree({})
+        res = probe_mod.run_probe(
+            {"kind": "python",
+             "code": "import mmap, resource\n"
+                     "limit = resource.getrlimit("
+                     "resource.RLIMIT_AS)[0]\n"
+                     "print('as-limit', limit)\n"
+                     "chunk = 256 * 1024 * 1024\n"
+                     "chunks = []\n"
+                     "try:\n"
+                     "    for _ in range(40):\n"
+                     "        chunks.append("
+                     "mmap.mmap(-1, chunk))\n"
+                     "    print('no-ceiling')\n"
+                     "    raise SystemExit(0)\n"
+                     "except (OSError, MemoryError):\n"
+                     "    print('ceiling-hit reserved', "
+                     "len(chunks) * chunk)\n"
+                     "    raise SystemExit(1)\n"},
+            root, timeout=30)
+        self.assertEqual(res["outcome"], "fail")
+        self.assertEqual(res["exit_code"], 1)
+        self.assertIn(
+            f"as-limit {probe_mod._PROBE_MEMORY_LIMIT}",
+            res["output"])
+        self.assertIn("ceiling-hit", res["output"])
+        self.assertNotIn("no-ceiling", res["output"])
+        reserved = int(res["output"].split(
+            "ceiling-hit reserved ")[1].split()[0])
+        self.assertLessEqual(reserved,
+                             probe_mod._PROBE_MEMORY_LIMIT)
+        self.assertGreater(reserved,
+                           probe_mod._PROBE_MEMORY_LIMIT
+                           * 3 // 4)
+
+    def test_file_size_limit_blocks_oversize_write(self):
+        # A write that would extend a file past
+        # RLIMIT_FSIZE fails (EFBIG) instead of landing:
+        # the probe dies on the traceback — an ordinary
+        # "fail" — and no oversize file exists.
+        root = _tree({})
+        res = probe_mod.run_probe(
+            {"kind": "python",
+             "code": "import os\n"
+                     "fd = os.open('big.bin', os.O_WRONLY | "
+                     "os.O_CREAT)\n"
+                     "os.lseek(fd, "
+                     f"{probe_mod._PROBE_FILE_SIZE_LIMIT} + "
+                     "1024 * 1024, os.SEEK_SET)\n"
+                     "os.write(fd, b'x')\n"
+                     "print('write-survived')\n"},
+            root, timeout=30)
+        self.assertEqual(res["outcome"], "fail")
+        self.assertIn("File too large", res["output"])
+        self.assertNotIn("write-survived", res["output"])
+
+    def test_spewing_probe_output_is_drained_and_capped(self):
+        # 9 MiB of stdout exceeds the per-stream capture
+        # cap: the drainer must keep pulling (the probe
+        # never blocks on a full pipe, the harness's memory
+        # never holds more than the cap), and the stored
+        # output keeps the harness's long-standing
+        # _OUTPUT_CAP truncation.
+        root = _tree({})
+        res = probe_mod.run_probe(
+            {"kind": "python",
+             "code": "import sys\n"
+                     "sys.stdout.write('x' * (9 * 1024 * 1024)"
+                     ")\n"},
+            root, timeout=30)
+        self.assertEqual(res["outcome"], "pass")
+        self.assertEqual(len(res["output"]),
+                         probe_mod._OUTPUT_CAP)
+        self.assertEqual(set(res["output"]), {"x"})
 
 
 if __name__ == "__main__":
