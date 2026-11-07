@@ -56,7 +56,7 @@ from . import notify as notify_mod
 from . import policy as policy_mod
 from . import seatstate
 
-VERSION = "0.13.0"
+VERSION = "0.13.1"
 SCHEMA = "codereview.report/1"
 
 SEVERITIES = ("blocker", "major", "minor", "nit")

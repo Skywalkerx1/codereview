@@ -17,6 +17,8 @@ graft probes
 graft bench/corpus
 graft examples
 include CHANGELOG.md precedents.json fixtures-manifest.json THREAT-MODEL.md
+# 0.13.1: the PyPI landing page (pyproject readme) ships in the sdist.
+include PYPI-README.md
 # D-003 closure (2026-11-06): the first widening still left 12
 # unpacked-suite errors, all traced to three more bench reads —
 # the generation machinery module (test_generation,

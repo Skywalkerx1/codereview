@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.13.1 — 2026-11-07
+
+- Metadata-only release: PyPI landing page; no code change.
+  The 0.13.0 upload's hand-rolled form post omitted the
+  metadata fields PyPI builds the project page from, so the
+  page showed no description. 0.13.1 switches the package
+  readme to the short `PYPI-README.md` landing page (the
+  long README stays the GitLab front page). Gate code,
+  claims text and figures are unchanged from 0.13.0.
+- README "Status" paragraph refreshed (it still described
+  the v0.4 line); no claims or figures changed.
+
 ## Unreleased — C1 claim correction + profile-attribution lint (2026-11-07)
 
 - **Corrected (defect C1, found by the external tester's

@@ -469,7 +469,7 @@ Hardcoded secrets · AWS keys · private keys · `eval`/`exec` · `DROP TABLE` �
 
 ## Status
 
-v0.4 — the core loop (review → gate → verify), the loop driver, account pools, the multi-step workflow engine, and GitHub PR integration are complete, unit-tested, and live-verified against real providers. On the roadmap: a hosted dashboard with team policies and history, notifications, reviewer calibration stats, and more provider adapters. See [ROADMAP.md](ROADMAP.md).
+v0.13.1 — CodeReview ships as a CLI and an MCP server, published on PyPI as `codereview-loop`. The core loop (review → gate → verify), the loop driver, account pools, and the multi-step workflow engine are complete and unit-tested. The default `strict` gate is deliberately unforgiving: in registered confirmation testing it caught every seeded defect (recall 1.00, 7 of 7; Wilson 95% [0.646, 1.000]) at 0.583 merged blocking precision (Wilson 95% [0.320, 0.807]) — and it blocked 94% of clean changes (32 of 34; Wilson 95% [0.809, 0.984]). That confirmation FAILED its clean-change threshold (registered confirmation record: bench/generation-v2/RESULTS-2026-11-05.md, counting attempt 1) — strict is a high-recall gate for code you can't afford to get wrong, with a documented waiver path for the blocks you choose to accept. On the roadmap: a hosted dashboard with team policies and history, notifications, reviewer calibration stats, and more provider adapters. See [ROADMAP.md](ROADMAP.md).
 
 ## Honest limits
 
