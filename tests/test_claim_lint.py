@@ -44,6 +44,16 @@ PARAGRAPH level over every shipped reader-facing doc:
 - The baseline document itself is the caveat source and a
   registered record: it is exempt from the claim-figure rule
   and held only to the naive-figure ordering rule.
+- The limit of the approach, stated plainly (P5-08d): this
+  lint is a phrase list. The pattern table enumerates the
+  claim wordings seen so far — each rerun has produced
+  evasions the previous table missed (P5-08b, P5-08c) — and
+  any genuinely new wording passes until it is added. The
+  lint is a tripwire over known phrasings, not a proof that
+  a document makes no unqualified claim; the discipline it
+  backs up (the caveat travels with the headline) remains
+  the docs authors' obligation, and no pattern table
+  discharges it.
 """
 
 import glob
