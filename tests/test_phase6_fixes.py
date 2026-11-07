@@ -394,9 +394,10 @@ class TestP606AgentFamilies(unittest.TestCase):
             ("agent:gemini:gemini -p x", "google"),
             # the command's program decides, not the seat name
             ("agent:reviewer:codex exec", "openai"),
-            # a seat NAMED for a known CLI keeps its vendor
-            # even behind a wrapper script
-            ("agent:claude:/opt/bin/wrapper.sh", "anthropic"),
+            # a seat NAMED for a known CLI but running
+            # something else is NOT that vendor (review-v11)
+            ("agent:gemini:echo hi", "agent"),
+            ("agent:claude:/opt/bin/wrapper.sh", "agent"),
             # an unknown CLI keeps the generic family
             ("agent:bot:mytool run", "agent"),
         ]

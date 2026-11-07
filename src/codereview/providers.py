@@ -1190,32 +1190,33 @@ def parse_local_spec(spec):
 def _agent_vendor_family(name, command):
     """Vendor family for an agent seat (P6-06): the CLI the
     seat RUNS decides — the command's program, matched
-    against discovery's known-CLI table by binary name,
-    then the seat name against the same table (a seat named
-    'claude' running a wrapper script is still Anthropic's
-    CLI seat). Before this, every agent seat was family
-    'agent', so a Claude+Codex panel computed as ONE family
-    and could never satisfy two-family release eligibility
-    without a hand-written --seat-meta. A CLI the table does
+    against discovery's known-CLI table by binary name.
+    Before this, every agent seat was family 'agent', so a
+    Claude+Codex panel computed as ONE family and could
+    never satisfy two-family release eligibility without a
+    hand-written --seat-meta.
+
+    The seat NAME never confers a family (review-v11,
+    pinned by test_v090_fixes): an agent seat named
+    'gemini' running `echo hi` is family 'agent', not
+    'google' — the name is operator-chosen text, the
+    command is the fact. A seat whose command is a wrapper
+    script around a known CLI therefore keeps 'agent' too,
+    unless the operator says otherwise via --seat-meta or
+    the saved setup's [seat_meta]. A CLI the table does
     not know keeps the generic 'agent' family: recorded,
     never guessed."""
-    if _discovery is not None:
-        program = ""
-        if command:
-            try:
-                tokens = shlex.split(command)
-            except ValueError:
-                tokens = command.split()
-            if tokens:
-                program = os.path.basename(
-                    tokens[0]).strip("\"'").lower()
-        if program:
+    if _discovery is not None and command:
+        try:
+            tokens = shlex.split(command)
+        except ValueError:
+            tokens = command.split()
+        if tokens:
+            program = os.path.basename(
+                tokens[0]).strip("\"'").lower()
             for entry in _discovery.KNOWN_CLIS:
                 if program in entry["binaries"]:
                     return entry["family"]
-        family = _discovery.family_for_seat_name(name)
-        if family:
-            return family
     return "agent"
 
 
