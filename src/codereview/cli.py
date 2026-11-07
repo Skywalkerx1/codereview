@@ -41,6 +41,7 @@ from . import agentsmd
 from . import bench as bench_mod
 from . import claims as claims_mod
 from . import core
+from . import crash as crash_mod
 from . import disputes as disputes_mod
 from . import hardening
 from . import herdrhost
@@ -984,9 +985,21 @@ def _pr_main(argv, providers_override=None):
             return 2
 
     test_results = _run_tests(args.test_command, ".")
+    client = GitHubClient()
+    if args.post:
+        # L17: a run that crashes after reading the PR must not
+        # leave a stale or missing verdict looking like success —
+        # mark the head commit pending (best effort, never success).
+        def _mark_crashed_pending():
+            sha = getattr(client, "head_sha", None)
+            if sha and not getattr(client, "status_set", False):
+                client.set_status(
+                    owner, repo, sha, "pending",
+                    "codereview crashed - no verdict was reached")
+        crash_mod.register_crash_hook(_mark_crashed_pending)
     try:
         report, actions = review_pr(
-            GitHubClient(), owner, repo, number, providers,
+            client, owner, repo, number, providers,
             post=args.post, request_changes=args.request_changes,
             previous=previous, builder_response=builder_response,
             test_results=test_results, strict=args.strict,
@@ -2050,6 +2063,15 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
                             solvers_override=providers_override)
     if argv and argv[0] == "mcp":
         return _mcp_main(argv[1:])
+    if argv and argv[0] == "support-bundle":
+        from . import support
+        return support.support_main(argv[1:])
+    if argv and argv[0] == "report":
+        from . import feedback
+        return feedback.report_main(argv[1:])
+    if argv and argv[0] == "telemetry":
+        from . import feedback
+        return feedback.telemetry_main(argv[1:])
     ap = argparse.ArgumentParser(
         prog="codereview",
         description="Multi-model code review loop with a "
@@ -2079,7 +2101,14 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
                "positions; "
                "acceptance — run the acceptance harness; "
                "mcp — serve the gate over the Model Context "
-               "Protocol (stdio; run_gate / get_verdict).")
+               "Protocol (stdio; run_gate / get_verdict); "
+               "support-bundle — write one redacted zip to attach "
+               "to a bug report (nothing is sent); "
+               "report — send a redacted bug report after you "
+               "confirm it; "
+               "telemetry — opt in or out of the anonymous crash "
+               "ping (off by default). If something goes wrong, "
+               "see SECURITY.md and CONTRIBUTING.md.")
     ap.add_argument("--version", action="version",
                     version=core.VERSION,
                     help="print the codereview version and exit")
@@ -2887,5 +2916,12 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
         report["gate"], 2)
 
 
+def console_main():
+    """The installed `codereview` / `reviewloop` entry point: the
+    CLI under the crash policy (crash.run_guarded). `main` itself
+    is unchanged so library callers and tests still see exceptions."""
+    return crash_mod.run_guarded(main)
+
+
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(console_main())

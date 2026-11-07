@@ -21,8 +21,13 @@ classifiers = [
 dependencies = []
 
 [project.scripts]
-codereview = "codereview.cli:main"
-reviewloop = "codereview.cli:main"
+codereview = "codereview.cli:console_main"
+reviewloop = "codereview.cli:console_main"
+
+[project.urls]
+Homepage = "https://CHANGE-ME-BEFORE-LAUNCH.invalid/codereview"
+Issues = "https://CHANGE-ME-BEFORE-LAUNCH.invalid/codereview/issues"
+Security = "https://CHANGE-ME-BEFORE-LAUNCH.invalid/codereview/security"
 
 [tool.setuptools.packages.find]
 where = ["src"]

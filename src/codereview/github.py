@@ -49,6 +49,12 @@ class GitHubClient:
         self.token = token if token is not None \
             else os.environ.get("GITHUB_TOKEN", "").strip()
         self.base = base.rstrip("/")
+        # Set by review_pr: the PR head the run reviewed, and
+        # whether a commit status has been posted for it. The
+        # crash handler uses them to mark a crashed run pending
+        # (never success) — see crash.register_crash_hook.
+        self.head_sha = None
+        self.status_set = False
         self._opener = opener or urllib.request.build_opener(
             _providers._NoRedirect())
 
@@ -225,6 +231,10 @@ def review_pr(client, owner, repo, number, reviewer_providers,
     if not diff.strip():
         raise GitHubError("the PR diff is empty")
     head_sha = ((pr.get("head") or {}).get("sha") or "")
+    try:
+        client.head_sha = head_sha or None
+    except AttributeError:  # a fake client without the slot
+        pass
     context = (f"GitHub PR {owner}/{repo}#{number}: "
                f"{pr.get('title') or ''}\n"
                f"Author: {(pr.get('user') or {}).get('login') or ''}\n"
@@ -264,6 +274,10 @@ def review_pr(client, owner, repo, number, reviewer_providers,
                     desc = ("gate inconclusive — the review did "
                             f"not reach a verdict: {desc}")
                 client.set_status(owner, repo, head_sha, state, desc)
+                try:
+                    client.status_set = True
+                except AttributeError:
+                    pass
                 actions.append(
                     f"commit status set: codereview={state}")
         except GitHubError as exc:
