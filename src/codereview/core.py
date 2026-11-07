@@ -7218,9 +7218,23 @@ def verify_record(record, repo=None, record_dir=None,
             "private run; no successful free-tier seat")
     rng, head = record.get("range"), record.get("head")
     if not rng or not head:
-        add("range_recorded", False,
-            "record predates range/head tracking (v0.7.3); its "
-            "currency cannot be proven")
+        # A record stamped by a build that HAS range/head
+        # tracking (v0.7.3+) yet carrying no range was a patch
+        # run — the range is absent by mode, not by age. Only a
+        # record whose own version predates the tracking (or
+        # declares none) is explained as pre-tracking (L6 rerun
+        # S3: the old wording called fresh patch-mode records
+        # pre-v0.7.3 relics).
+        _vt = record_schema_mod._version_tuple(
+            record.get("version"))
+        if _vt is not None and _vt >= (0, 7, 3):
+            add("range_recorded", False,
+                "no range recorded (patch mode); its currency "
+                "cannot be proven")
+        else:
+            add("range_recorded", False,
+                "record predates range/head tracking (v0.7.3); "
+                "its currency cannot be proven")
         add("patch_matches_range", False, "no range recorded")
         add("head_current", False, "no head recorded")
     elif not repo:
@@ -8959,6 +8973,16 @@ def write_report(report, out_dir, stem=None):
         # claim already exists is skipped. A crashed holder
         # leaves a stale claim behind, which only ever costs
         # that one stem. Explicit stems are never claimed.
+        #
+        # L6 F5 RERUN (2026-11-07): the claim alone did not
+        # close the race — a rival can claim, write AND release
+        # entirely inside the window between our exists-check
+        # and our claim landing, after which our claim succeeds
+        # on a stem whose record pair now exists and the write
+        # overwrites it (her f5_race: clean on her machine,
+        # 4/15 bad trials reproduced here). The pair is therefore
+        # RE-VALIDATED under the claim: if it appeared since the
+        # check, the claim is released and the next stem tried.
         base = ("codereview-" + datetime.datetime.now(
             datetime.timezone.utc).strftime("%Y%m%d-%H%M%S"))
         n = 1
@@ -8977,6 +9001,15 @@ def write_report(report, out_dir, stem=None):
             except FileExistsError:
                 continue
             os.close(fd)
+            if os.path.exists(os.path.join(out_dir,
+                                           cand + ".json")) \
+                    or os.path.exists(os.path.join(
+                            out_dir, cand + ".md")):
+                try:
+                    os.unlink(claim)
+                except OSError:
+                    pass
+                continue
             stem, claim_path = cand, claim
     try:
         return _write_report_at_stem(report, out_dir, stem)
