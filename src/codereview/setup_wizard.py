@@ -174,6 +174,12 @@ def run_wizard(input_fn=input, print_fn=print, environ=None,
     environ = os.environ if environ is None else environ
     print_fn("CodeReview setup — you choose the models; nothing "
              "is pre-picked.")
+    print_fn("CodeReview is a multi-model review gate for "
+             "AI-written code: a panel of models from different "
+             "providers reviews every change, cross-checks each "
+             "other's findings, and issues a recorded pass/block "
+             "verdict — so the model that wrote the code is never "
+             "the only one that checked it.")
     picked = _discovery_step(input_fn, print_fn, environ,
                              discover_fn)
     print_fn("Providers (preset[:model], a custom "
