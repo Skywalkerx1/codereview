@@ -329,7 +329,21 @@ def _execute_probe(argv, cwd, env, timeout):
     ]
     for reader in readers:
         reader.start()
-    started = time.monotonic()
+    return _supervise_probe_execution(
+        proc, readers, out_sink, err_sink, timeout,
+        time.monotonic())
+
+
+def _supervise_probe_execution(proc, readers, out_sink,
+                               err_sink, timeout, started):
+    """The probe's supervised wait — the pairing the
+    subprocess-timeout guard accepts by name, as it does
+    the evidence sandbox's: every wait here is
+    deadline-bounded (wait(timeout=...), bounded joins)
+    and expiry kills the whole process group. It is a
+    stronger bound than communicate(timeout=...), not a
+    weaker one: communicate buffers the child's output
+    without bound, this wait drains it under the C5 cap."""
     try:
         timed_out = False
         try:

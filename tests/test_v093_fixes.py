@@ -344,7 +344,12 @@ _SUPERVISED_WAITS = ("_run_seat_process",
                      # P3-07: the discovery probe's supervised
                      # wait — same contract (deadline-bounded
                      # waits, kill on expiry, capped drain).
-                     "_supervise_probe_run")
+                     "_supervise_probe_run",
+                     # B3/C5: the probe harness's supervised
+                     # wait — same contract again (deadline-
+                     # bounded waits, process-group kill on
+                     # expiry, capped drained output).
+                     "_supervise_probe_execution")
 
 
 class SubprocessTimeoutGuardTests(unittest.TestCase):
@@ -365,7 +370,14 @@ class SubprocessTimeoutGuardTests(unittest.TestCase):
     and kills the process group on expiry — again a stronger
     bound than communicate's, since communicate buffers the
     child's output without bound (the C5 output-cap gap) and
-    the supervised wait drains it under a per-stream cap."""
+    the supervised wait drains it under a per-stream cap.
+    The B3 C5 hardening of the probe harness adds the fourth
+    accepted pairing by the same rule: probe's
+    _supervise_probe_execution, which the harness's Popen
+    hands the child to — deadline-bounded waits and bounded
+    drainer joins, the whole process group killed on expiry
+    (and on normal exit, so no backgrounded child survives),
+    output drained under the same per-stream cap."""
 
     def _files(self):
         for fname in sorted(os.listdir(SRC)):
