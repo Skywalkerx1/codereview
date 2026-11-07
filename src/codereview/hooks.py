@@ -62,6 +62,7 @@ import hashlib
 import shlex
 
 from . import evidence as _evidence
+from .core import redact_secrets
 
 SCHEMA = "codereview.hooks/1"
 
@@ -152,10 +153,17 @@ def fire_hook(command, event, source_dir, record_path=None,
     "exit_code", "duration_s", "output_sha256", "output_tail",
     "network_mode", "detail"} — status/exit/duration/output
     are the evidence item's own fields, so a hook's outcome is
-    recorded with the same fidelity as required evidence."""
+    recorded with the same fidelity as required evidence.
+
+    The stored "command" is redacted (P6-13): a hook command
+    is operator text that can embed a credential (a curl
+    header, a token argument), and the record is a durable
+    artefact that travels. The EXECUTED command is the raw
+    string, unchanged — only the ledger copy passes through
+    the same redact_secrets the evidence tails get."""
     if timeout is None:
         timeout = DEFAULT_TIMEOUT
-    entry = {"event": event, "command": command,
+    entry = {"event": event, "command": redact_secrets(command),
              "record_path": record_path}
     config = {
         "commands": [{
@@ -241,9 +249,12 @@ class HookRunner:
             return None
         return {
             "schema": SCHEMA,
+            # The configured commands are recorded redacted
+            # (P6-13, same rule as the results entries): the
+            # config itself keeps the raw text for execution.
             "events": [{"event": event,
-                        "command": self.config[
-                            _EVENT_KEYS[event]]}
+                        "command": redact_secrets(
+                            self.config[_EVENT_KEYS[event]])}
                        for event in self.configured_events()],
             "blocked_trigger": self.blocked_trigger,
             "results": list(self.results),

@@ -438,5 +438,45 @@ class CliLifecycleTests(unittest.TestCase):
         self.assertEqual(pre["exit_code"], 127)
 
 
+class HookCommandRedactionTests(unittest.TestCase):
+    """P6-13 (external Phase 6 rerun): the hook command text
+    was stored verbatim in the record — hooks.events[].command
+    and hooks.results[].command — so a credential embedded in
+    an operator's hook command landed in a durable artefact.
+    The captured output tail was already redacted; the stored
+    command now passes through redact_secrets too. Execution
+    still runs the raw command, unchanged."""
+
+    # Assembled from fragments (fixture secret hygiene).
+    AWS_SHAPE = "AK" + "IA" + "IOSFODNN7EXAMPLE"
+    GHP_SHAPE = "gh" + "p_" + "Ab3" * 12
+
+    def _secret_command(self):
+        return (f"echo {self.AWS_SHAPE}; "
+                f"echo {self.GHP_SHAPE}; echo hook-ran")
+
+    def test_results_entry_command_is_redacted(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            entry = hooks.fire_hook(self._secret_command(),
+                                    "pre-run", tmp)
+        # The hook really ran (the raw command executed; the
+        # status is its own) — only the stored copy is clean.
+        self.assertEqual(entry["status"], "passed")
+        self.assertNotIn(self.AWS_SHAPE, entry["command"])
+        self.assertNotIn(self.GHP_SHAPE, entry["command"])
+        self.assertIn("[REDACTED", entry["command"])
+
+    def test_section_events_command_is_redacted(self):
+        runner = hooks.HookRunner(
+            {"pre_run": self._secret_command()}, ".")
+        stored = runner.section()["events"][0]["command"]
+        self.assertNotIn(self.AWS_SHAPE, stored)
+        self.assertNotIn(self.GHP_SHAPE, stored)
+        self.assertIn("[REDACTED", stored)
+        # The config itself keeps the raw text for execution.
+        self.assertEqual(runner.config["pre_run"],
+                         self._secret_command())
+
+
 if __name__ == "__main__":
     unittest.main()
