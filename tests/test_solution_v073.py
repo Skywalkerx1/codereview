@@ -227,6 +227,11 @@ class _RepoFixture(unittest.TestCase):
         self.range = f"{self.c1}..{self.c2}"
         patch = core.collect_git_patch(self.td, range_spec=self.range)
         self.record = {
+            # The pre-stamp declarations every real record
+            # of the era carried (P6-12b: a hash-less record
+            # with NO declarations no longer reads legacy).
+            "version": "0.7.3",
+            "created_at": "2026-10-28T00:00:00+00:00",
             "gate": "pass", "degraded": False,
             "test_results": [{"command": "t", "ok": True}],
             "reviewer_reports": [

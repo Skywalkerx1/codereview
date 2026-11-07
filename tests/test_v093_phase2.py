@@ -404,6 +404,11 @@ class PrecedentVerifyTests(_GitRepo):
                                           "file": "d.md",
                                           "summary": "s"}}}]
         self.record = {
+            # The pre-stamp declarations every real record
+            # of the era carried (P6-12b: a hash-less record
+            # with NO declarations no longer reads legacy).
+            "version": "0.9.3",
+            "created_at": "2026-11-04T00:00:00+00:00",
             "gate": "pass", "degraded": False,
             "test_results": [{"command": "t", "ok": True}],
             "reviewer_reports": [
@@ -456,7 +461,13 @@ class ChainTests(_GitRepo):
              "status": "ok", "family": "google", "tier": "free"},
             {"provider": "n", "lens": "operations",
              "status": "ok", "family": "nvidia", "tier": "paid"}]
+        # Both rounds carry the pre-stamp declarations
+        # every real record of the era carried (P6-12b: a
+        # hash-less record with NO declarations no longer
+        # reads legacy).
         self.round1 = {
+            "version": "0.9.3",
+            "created_at": "2026-11-04T00:00:00+00:00",
             "mode": "review", "gate": "blocked", "degraded": False,
             "test_results": [{"command": "t", "ok": True}],
             "reviewer_reports": reports,
@@ -467,6 +478,8 @@ class ChainTests(_GitRepo):
             "patch_sha256": self.patch_hash(
                 f"{self.c1}..{self.c2}")}
         self.verify = {
+            "version": "0.9.3",
+            "created_at": "2026-11-04T01:00:00+00:00",
             "mode": "verify", "gate": "pass", "degraded": False,
             "test_results": [{"command": "t", "ok": True}],
             "reviewer_reports": [
@@ -525,6 +538,10 @@ class ChainTests(_GitRepo):
         for head in commits:
             rng = f"{prev}..{head}"
             rounds.append({
+                # Pre-stamp declarations, as on the rounds
+                # above (P6-12b).
+                "version": "0.9.3",
+                "created_at": "2026-11-04T02:00:00+00:00",
                 "mode": "verify", "gate": "pass",
                 "degraded": False,
                 "test_results": [{"command": "t", "ok": True}],

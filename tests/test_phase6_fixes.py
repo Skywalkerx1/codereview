@@ -265,7 +265,29 @@ class TestP603ContentIntegrity(unittest.TestCase):
     consistent-provenance cases (every declaration
     pre-stamp) plus a pin for the documented cost: a
     0.13.0-line record created before the stamp landed
-    (the dev-build window) no longer reads as legacy."""
+    (the dev-build window) no longer reads as legacy.
+
+    P6-12b (rerun 3): the pre-machinery scope boundary
+    was categorical — deleting the three machinery
+    sections (`schema_version`, `provenance`,
+    `record_identity`) skipped the declarations rule
+    entirely, so a current record stripped of them read
+    legacy even while still declaring
+    `version: 0.13.0.dev0` (her p6_downgrade3.py G6),
+    and deleting all five declarations read legacy on
+    no evidence at all (her G1). The rule now applies
+    inside the pre-machinery shape: the surviving
+    declarations are read by the same fail-closed rule.
+    The rerun-2 boundary pin asserted the all-five-
+    deleted shape read legacy — that shape IS G1, so
+    the pin enshrined the defect and is replaced below
+    by the G1/G6 failure pins plus a pin for the genuine
+    pre-schema shape (no machinery sections, but a
+    pre-stamp `version` and `created_at` — what every
+    writer of that era actually stamped), which stays
+    legacy. Her G2/G3/G4 (forge every declaration
+    consistently pre-stamp) stay rc 0: the documented
+    not-a-signature limit, unchanged."""
 
     def test_written_record_carries_matching_hash(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -454,25 +476,60 @@ class TestP603ContentIntegrity(unittest.TestCase):
         check = self._downgrade_variant(mutate)
         self.assertFalse(check["ok"], check)
 
-    def test_pre_machinery_record_is_not_applicable(self):
-        # The scope boundary, pinned deliberately: a
-        # record with NO trace of the v1 machinery (no
-        # schema_version, provenance or record_identity)
-        # predates the format the declarations belong to,
-        # and edit detection is not applicable to it — the
-        # machinery-era semantics every other check
-        # applies (the pre-schema record shape the v0.7.x–
-        # v0.9.x verify tests model). Reaching this shape
-        # from a current record requires deleting its
-        # entire format layer, the documented
-        # wholesale-rewrite residual — the hash was never
-        # a signature.
+    def test_pre_machinery_current_version_fails(self):
+        # P6-12b, her G6: delete the three machinery
+        # sections from a current record but KEEP
+        # `version: 0.13.0.dev0`. A record that declares
+        # the current version cannot be a pre-machinery
+        # record — the surviving declaration is read and
+        # defeats the exemption.
+        with tempfile.TemporaryDirectory() as tmp:
+            record = _written_record(tmp)
+        for key in ("schema_version", "provenance",
+                    "record_identity"):
+            record.pop(key, None)
+        record["findings"].append({
+            "severity": "blocker", "title": "hidden",
+            "file": "app.py", "line": 1})
+        check = _named(core.verify_record(record),
+                       "content_integrity")
+        self.assertFalse(check["ok"], check)
+
+    def test_pre_machinery_no_declarations_fails(self):
+        # P6-12b, her G1: delete the machinery sections
+        # AND both remaining declarations. The record
+        # declares nothing, so nothing establishes a
+        # pre-stamp legacy record — absent provenance is
+        # not pre-stamp provenance. (This replaces the
+        # rerun-2 boundary pin, which asserted this exact
+        # shape read legacy; see the class docstring.)
         with tempfile.TemporaryDirectory() as tmp:
             record = _written_record(tmp)
         for key in ("schema_version", "provenance",
                     "record_identity", "version",
                     "created_at"):
             record.pop(key, None)
+        record["findings"].append({
+            "severity": "blocker", "title": "hidden",
+            "file": "app.py", "line": 1})
+        check = _named(core.verify_record(record),
+                       "content_integrity")
+        self.assertFalse(check["ok"], check)
+
+    def test_pre_machinery_genuine_record_is_legacy(self):
+        # The surviving boundary: a record with NO
+        # machinery sections but the declarations every
+        # writer of the pre-schema era actually stamped
+        # (pre-stamp `version` + `created_at` — the
+        # 0.9.4 / 0.9.6 historical shape) still reads
+        # legacy on that positive evidence.
+        with tempfile.TemporaryDirectory() as tmp:
+            record = _written_record(tmp)
+        for key in ("schema_version", "provenance",
+                    "record_identity"):
+            record.pop(key, None)
+        record["version"] = "0.9.6"
+        record["created_at"] = "2026-11-04T23:32:59+00:00"
         check = _named(core.verify_record(record),
                        "content_integrity")
         self.assertTrue(check["ok"], check)
