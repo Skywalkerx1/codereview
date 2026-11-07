@@ -38,6 +38,34 @@ is a regression from 0.12.1.
   chosen auto stem is now claimed with an `O_EXCL` claim
   file for the duration of the write; explicit stems (the
   caller's contract) are never claimed or renamed.
+- **L6 F5 rerun (S2, re-rated by the tester) — the claim
+  protocol still had a window.** Her rerun reproduced the
+  RC losing records (15/15 trials) and the claim build clean
+  on her machine (0/15) — but the race is timing-dependent,
+  and here the claim build lost records too (up to 4/15 bad
+  trials): a rival can claim, write AND release entirely
+  inside the window between our exists-check and our claim
+  landing, after which our claim succeeds on a stem whose
+  record pair now exists and the write overwrites it. The
+  pair is now re-validated under the claim; a stem whose
+  pair appeared since the check is yielded, never
+  overwritten. Pinned by a deterministic interleaving test
+  plus her `f5_race.py` (90/90 trials clean after the fix).
+- **L6 rerun S3 — `verify_record` mis-described fresh
+  patch-mode records.** A record with no range/head was
+  always explained as "predates range/head tracking
+  (v0.7.3)"; a record stamped by a build that has the
+  tracking (v0.7.3+) but carrying no range is a patch-mode
+  run, and now says "no range recorded (patch mode)". Only
+  genuinely pre-tracking (or unversioned) records keep the
+  age explanation.
+- **Tests/tooling from the same rerun:** a
+  mutation-gap pin set for `_apply_gate_profile` /
+  `_evidence_class` (her partial mutation pass: 14 of the
+  first 30 mutants survived, concentrated in those two
+  functions), and `bench/scripts/check_archive_suite.py`,
+  which runs the suite from the built delivery archive so a
+  count is always measured on the artefact that ships.
 
 ## 0.13.0 — 2026-11-07
 
