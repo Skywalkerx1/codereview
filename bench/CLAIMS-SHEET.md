@@ -5,10 +5,12 @@ This sheet governs what may be said externally, today, from the
 benchmark record. Every "may say" claim carries its mandatory
 caveats with it — a claim quoted without its caveats is not the
 claim as cleared here. Governing rule (CodeReview Playbook v2,
-Amendment 2): no headline marketing claim ships before the B2
-confirmation lands, and until it lands external material may
-quote only numbers from completed live / registered runs, stated
-with their sets and caveats.
+Amendment 2): no headline marketing claim ships on B2's basis —
+the B2 confirmation has now run (2026-11-06) and FAILED its
+primary threshold, so that gate is not met. External material
+may quote only numbers from completed live / registered runs,
+stated with their sets and caveats, and a failed run's FAIL
+travels with its figures wherever they are quoted.
 
 ## May say today
 
@@ -63,6 +65,22 @@ with their sets and caveats.
   p95 57.9 s.
   Source: `bench/generation-v2/RESULTS-2026-11-05.md`.
 
+- **B2 registered confirmation, as a failed registered run:**
+  "The registered confirmation of the `corroborated` profile
+  (policy B2) ran on 2026-11-06 on fresh sealed sets (88
+  cases) and FAILED its primary threshold: blocking-tier
+  recall 0.292 (7/24) against ≥ 0.60 — while clean-BLOCKED
+  0.094 (6/64) met its ≤ 0.20 bound (Wilson 95% upper 0.190),
+  any-severity recall held at 1.000 (24/24), and merged
+  blocking precision was 0.778." Mandatory attachments: the
+  FAIL is part of the claim, never separable from the
+  figures; the pre-committed consequence was "don't switch",
+  and the default gate profile remains `strict`; the dev
+  pilot's 0.706 blocking-tier prediction is superseded by
+  this measurement and may not be quoted as an expectation
+  of B2's performance.
+  Source: `bench/confirmation-b2/RESULTS-2026-11-06.md`.
+
 - **A1 adjudication finding:** "Blind adjudication of the 33
   blocking findings attempt 1 raised on 'clean' cases found
   18 REAL_DEFECT (54.5%), 6 hardening-only, 7 false positives
@@ -102,27 +120,37 @@ with their sets and caveats.
   [0.022, 0.25]; any-severity recall 1.000; blocking-tier recall
   0.706; merged precision 1.000; J 0.875; 14/62 degraded, all
   reviewer failure; paired-replay agreement 62/62) and with the
-  statement that the registered confirmation has not run
-  (registration drafted, unsigned). This is a reference in
-  technical material only — see the may-NOT entry below for the
-  product-claim prohibition.
+  statement that the registered confirmation has since run and
+  FAILED its primary threshold (2026-11-06 — see the may-say
+  entry for the B2 confirmation below). The pilot's blocking-
+  tier figure is superseded as an expectation by that
+  measurement. This is a reference in technical material only
+  — see the may-NOT entry below for the product-claim
+  prohibition.
   Source: `bench/pilot-b2-2026-11-05/PILOT.md`.
 
 ## May NOT say
 
-- **The superseded naive precision 0.209 — never.** Superseded by the
-  2026-11-04 adjudicated recount (0.870 / 0.756). It may appear
-  only inside a clearly-marked superseded-figures note saying
-  do-not-quote, as in `bench/PUBLIC-BENCHMARK.md` §5.
+- **The superseded naive precision figure — never quote it, in
+  any context.** Superseded by the 2026-11-04 adjudicated
+  recount (0.870 / 0.756). The prohibition covers every
+  context, including do-not-quote notes: shipped docs refer
+  to it only by description and point to the corrected
+  figures (as in `bench/PUBLIC-BENCHMARK.md` §5); the value
+  itself survives only in the registered baseline record,
+  as history.
 - **Any B2 performance figure as a product claim.** Per Playbook
   Amendment 2, pilot-only figures may not be presented as product
   claims. No claim of the form "B2 achieves / delivers /
-  reduces …" until the registered B2 confirmation lands. The
-  pilot is referenceable only as a clearly-labelled dev pilot in
-  technical material (see above).
-- **Any headline marketing claim before the B2 confirmation
-  lands** (Playbook Amendment 2). The confirmation's
-  registration is drafted and unsigned; no run has started.
+  reduces …" — the registered B2 confirmation has landed and
+  FAILED its primary threshold (2026-11-06), so no B2 figure
+  becomes a product claim unless a future registered
+  confirmation passes. The pilot is referenceable only as a
+  clearly-labelled dev pilot in technical material (see above).
+- **Any headline marketing claim resting on B2 or B3**
+  (Playbook Amendment 2). The B2 confirmation ran and failed;
+  B3 (`reproduced`) is design-only and unconfirmed. Neither
+  can carry a headline claim.
 - **"PASS proves correctness" — never.** A PASS means no
   actionable issue was found under the checks that ran. It is
   not a correctness guarantee, and no benchmark figure in this

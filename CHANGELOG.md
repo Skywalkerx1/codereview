@@ -1783,9 +1783,13 @@ rounds; record-verify --chain 12/12, exit 0). Suite 691.
   freshness check in record-verify --chain.
 - Epic A benchmark + first quotable baseline: recall 24/24 on the
   public split (Wilson 95% lower bound 0.86), escaped-defect rate
-  0.000; deterministic layer alone recall 0.458. Precision 0.209
-  naive (blocking-tier 0.267; merged-finding 0.727 with 82 duplicate
-  matches removed); clean-case BLOCKED rate 0.40 (2/5) and
+  0.000; deterministic layer alone recall 0.458. Precision: the
+  naive one-to-one figure as first published (superseded the
+  same day by the adjudicated recount — never quoted; the
+  corrected figures are in the measurement-repair addendum,
+  bench/BASELINE-2026-11-04.md §6; the naive count's other
+  rows: blocking-tier 0.267, merged-finding 0.727 with 82
+  duplicate matches removed); clean-case BLOCKED rate 0.40 (2/5) and
   clean-case any-finding rate 0.60 (3/5) are the stated caveats —
   corrected figures in the measurement-repair addendum,
   bench/BASELINE-2026-11-04.md §6 (adopted solution §2.2).

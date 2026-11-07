@@ -324,13 +324,22 @@ Trivial baselines on the same combined sets: always-pass
 J 0.000; always-block J 0.000; deterministic-only clean-BLOCKED
 0.025 / recall 0.265 / J 0.240 (§2.5).
 
-Registered prediction recorded for the future confirmation:
+Registered prediction recorded for the confirmation:
 clean-BLOCKED 0.080, 95% interval [0.022, 0.25]; any-severity
 recall 1.000 [0.898, 1.0]; blocking-tier recall 0.706
-[0.538, 0.832]; merged precision 1.000. **The confirmation itself
-has not run** — its registration is drafted and unsigned. Nothing
-in this section is a confirmed result, and pilot figures are not
-product claims (see `bench/CLAIMS-SHEET.md`).
+[0.538, 0.832]; merged precision 1.000. **The confirmation has
+since run (2026-11-06, fresh sealed sets, 88 cases) and FAILED
+its primary threshold:** blocking-tier recall measured 0.292
+(7/24) against the ≥ 0.60 threshold — below the prediction
+interval's lower bound — while clean-BLOCKED passed (6/64 =
+0.094, Wilson 95% upper 0.190), any-severity recall held at
+1.000 (24/24), and merged blocking precision was 0.778. The
+pilot's blocking-tier prediction did not survive contact with
+the sealed sets, and the pre-committed consequence stands:
+the default profile remains `strict`. Nothing in this section
+is a confirmed result, and pilot figures are not product
+claims (see `bench/CLAIMS-SHEET.md`).
+Source: `bench/confirmation-b2/RESULTS-2026-11-06.md`.
 
 *Provenance: `bench/pilot-b2-2026-11-05/PILOT.md` — header
 (provenance, degraded warning), results table, trivial baselines,
@@ -394,19 +403,20 @@ Machinery notes); `bench/analysis-2026-11-05/SUMMARY.md` §A1
 ## 5. Superseded figures — do not quote
 
 > **Superseded — do not quote:** the naive one-to-one precision
-> **0.209** (24 matched / 115) from the baseline as first
-> published. The scorer's one-to-one assignment credited exactly
-> one finding per defect and counted every duplicate restatement
-> as a false positive. It was superseded on 2026-11-04 by the
-> adjudicated semantic recount in §3.1 (0.870 finding-level /
-> 0.756 merged). The figure is recorded here only so that a reader
-> who meets it in the wild can place it; it appears in no results
-> table in this document as a current figure, and it must not be
-> quoted as one.
+> figure from the baseline as first published. The scorer's
+> one-to-one assignment credited exactly one finding per defect
+> and counted every duplicate restatement as a false positive.
+> It was superseded on 2026-11-04 by the adjudicated semantic
+> recount in §3.1 (0.870 finding-level / 0.756 merged). The
+> figure itself is deliberately not reprinted here: the
+> standing rule is that it is never quoted, in any context —
+> it survives only in the registered baseline record, where
+> it stands as history. A reader who meets it in the wild
+> should treat any use of it as a current figure as a
+> misstatement.
 
 *Provenance: `bench/BASELINE-2026-11-04.md` frontmatter
-`required_caveat` and §6.3; adjudication summary cited in §3.1
-("The 0.209 headline was mostly a counting artifact").*
+`required_caveat` and §6.3; adjudication summary cited in §3.1.*
 
 ## 6. Reproduction pointers
 
@@ -439,6 +449,9 @@ All paths are relative to the repository root unless absolute.
 - B2 dev pilot (2026-11-05): `bench/pilot-b2-2026-11-05/PILOT.md`;
   records `bench/pilot-b2-2026-11-05/pilot-records.jsonl` and
   `bench/pilot-b2-2026-11-05/pilot-results.json` in the same folder.
+- B2 registered confirmation (2026-11-06, FAILED):
+  `bench/confirmation-b2/RESULTS-2026-11-06.md`; records and
+  run logs beside it.
 - Metric definitions and corpus description: `bench/README.md`.
 - Claims discipline for anything quoted from this document:
   `bench/CLAIMS-SHEET.md`.

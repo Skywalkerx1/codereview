@@ -206,9 +206,18 @@ or a container.
     operator `PATH` is the operator's configuration — the
     same trust as the commands themselves.
 12. **Redaction is pattern-based.** `redact_secrets` covers
-    the known key/token shapes; a novel secret format could
-    evade a pattern. Exposure is bounded by design: only a
-    4 000-char tail is ever stored.
+    the known key/token shapes, including a bare PEM body
+    line that carries a key's DER/OpenSSH start (the L8
+    shape: a hunk that starts mid-key has no header line).
+    The encoded-form boundary, stated plainly: a key
+    transformed — base64, hex, URL-encoded, line-wrapped,
+    case-transformed — is not detected, and neither are the
+    later body lines of a headerless fragment (only the
+    line carrying the key's start is a shape; generic
+    base64 on its own line is deliberately not redacted).
+    A novel secret format could likewise evade a pattern.
+    Exposure is bounded by design: only a 4 000-char tail
+    is ever stored.
 13. **The record content hash is edit detection, not a
     signature.** `record-verify`'s `content_integrity` check
     recomputes a record's `content_sha256`: the content hash

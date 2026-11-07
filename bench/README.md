@@ -144,7 +144,9 @@ NVIDIA (nemotron-3.5-lightning, operations) + DeepSeek
 llm_chain via `bench/scripts/run_panel_baseline.py`. All 27 public
 cases ran, **zero degraded, 81/81 seat jobs ok**: **recall 24/24
 on the public split, escaped-defect rate 0.000** — against the
-since-superseded naive precision 0.209, a
+since-superseded naive precision figure (superseded
+2026-11-04 — never quoted; the corrected counting is in
+`bench/BASELINE-2026-11-04.md` §6), a
 clean-case BLOCKED rate of 0.40 (2 of 5 clean
 controls gate-blocked on false positives) and a clean-case
 any-finding rate of 0.60 (3 of 5). Full numbers, per-family
