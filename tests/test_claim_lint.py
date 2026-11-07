@@ -27,9 +27,11 @@ PARAGRAPH level over every shipped reader-facing doc:
   The root review-* files and directories and gate-attempts.md
   are likewise historical adjudication records.
 - A claim is a paragraph (blank-line-delimited block, matched
-  whitespace-normalised) that states a headline figure: the
-  baseline's corrected decimals, a perfect N/N fraction, or a
-  recall-perfection phrasing (decimal, percentage or words).
+  whitespace-normalised and NFKC-normalised, so full-width
+  digits and letters cannot disguise a figure) that states a
+  headline figure: the baseline's corrected decimals, a
+  perfect N/N or N-of-N fraction, or a recall-perfection
+  phrasing (decimal, percentage or words).
 - A claim paragraph is qualified only by material IN THE SAME
   paragraph: a reference to the baseline document that carries
   the required caveat, the caveat itself, or an explicit
@@ -60,6 +62,7 @@ import glob
 import os
 import re
 import sys
+import unicodedata
 import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
@@ -151,6 +154,15 @@ CLAIM_PATTERNS = (
     r"(?:defects|bugs|cases|findings)\b",
     r"\bno misses\b",
     r"\bnever misses\b",
+    # P5-08c: the second rerun's families — the count-free
+    # all-of-set ("found all seeded defects"), the spelled-
+    # out percent, and the remaining perfection phrasings.
+    r"\ball\s+(?:the\s+)?(?:seeded|planted)\s+"
+    r"(?:defects|bugs|cases|findings)\b",
+    r"[Rr]ecall[^0-9]{0,30}?\b100\s+percent\b",
+    r"\b100\s+percent\s+[Rr]ecall\b",
+    r"[Ff]alse[ -]positive[ -]free\b",
+    r"\b[Zz]ero misses\b",
 )
 
 # A perfect N/N fraction is a claim only in a LOCAL metric
@@ -161,6 +173,12 @@ FRACTION_PATTERN = r"\b(\d{1,2})/\1\b"
 FRACTION_CONTEXT = (r"recall|precision|defect|clean[- ]case|"
                     r"benchmark|corpus|split|stratum|baseline")
 FRACTION_WINDOW = 80
+
+# The same perfect fraction spelled with "of" ("caught 34
+# of 34 seeded defects", P5-08c) is a claim under exactly
+# the fraction rule's discipline: same local metric context,
+# same window, same case-sized counts.
+OF_PATTERN = r"\b(\d{1,2})\s+of\s+\1\b"
 
 # "100% of …" is an all-of-set perfection claim only in a
 # LOCAL metric context, under the same window discipline as
@@ -211,7 +229,12 @@ def _paragraphs(text):
 
 
 def _normalised(paragraph):
-    return " ".join(paragraph.split())
+    # NFKC first (P5-08c): full-width digits and letters
+    # (１.０ for 1.0) fold to their ASCII forms, so a
+    # disguised figure meets the same patterns as a plain
+    # one. Whitespace is collapsed as before.
+    return " ".join(
+        unicodedata.normalize("NFKC", paragraph).split())
 
 
 def _qualified(paragraph, caveat):
@@ -243,6 +266,13 @@ def claim_violations(texts):
                 if re.search(FRACTION_CONTEXT, window,
                              re.IGNORECASE):
                     hits.append(FRACTION_PATTERN)
+                    break
+            for m in re.finditer(OF_PATTERN, norm):
+                window = norm[max(0, m.start() - FRACTION_WINDOW):
+                              m.end() + FRACTION_WINDOW]
+                if re.search(FRACTION_CONTEXT, window,
+                             re.IGNORECASE):
+                    hits.append(OF_PATTERN)
                     break
             for m in re.finditer(ALL_OF_PATTERN, norm):
                 window = norm[max(0, m.start() - FRACTION_WINDOW):
@@ -380,6 +410,36 @@ class ClaimLintTests(unittest.TestCase):
             self.assertTrue(
                 any("README.md" in v for v in violations),
                 f"rerun mutation not caught: {variant!r}")
+
+    def test_every_phase5_rerun2_variant_fails(self):
+        # The second rerun's evasion set (P5-08c, her
+        # p5_lint3.py): each phrasing, appended to the README,
+        # must fail the lint. Four were already caught before
+        # this batch (the recall-1.0, never-misses, recall-is-1
+        # and HTML-comment forms — pinned here so they stay
+        # caught); six are new: the count-free all-of-set, the
+        # "N of N" fraction, the spelled-out percent, the
+        # full-width digits, false-positive free and zero
+        # misses.
+        variants = (
+            "Our reviewers reach recall 1.0 on the corpus.",
+            "The panel found all seeded defects.",
+            "It caught 34 of 34 seeded defects.",
+            "The gate never misses a defect.",
+            "Measured recall is 1 on the public split.",
+            "We reach 100 percent recall.",
+            "Recall １.０ on the corpus.",
+            "<!-- baseline -->Recall 1.0 on the corpus.",
+            "The gate is false-positive free.",
+            "Zero misses on the benchmark.",
+        )
+        for variant in variants:
+            texts = load_texts()
+            texts["README.md"] += "\n\n" + variant + "\n"
+            violations = claim_violations(texts)
+            self.assertTrue(
+                any("README.md" in v for v in violations),
+                f"rerun-2 mutation not caught: {variant!r}")
 
     def test_guarded_docs_pass_the_lint(self):
         self.assertEqual(claim_violations(load_texts()), [])
