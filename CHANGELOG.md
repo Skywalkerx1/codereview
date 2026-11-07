@@ -106,6 +106,32 @@ here before any change):
   system temp dir and could fail on another process's
   sandbox; they now run against a private temp dir.
 
+Rerun-2 addendum (the tester's second rerun confirmed
+P6-13, P6-14 and P6-15 fixed, and showed P6-12 only
+partly closed):
+
+- **The legacy exemption now fails closed (P6-12,
+  rerun 2).** The provenance bound trusted any one
+  declaration and read missing or unparseable fields as
+  pre-stamp, so stripping the hash plus deleting or
+  garbling two fields passed an edited record as legacy
+  (seven variants). All three declarations (version,
+  `provenance.generator_version`, `created_at`) are now
+  read and classified; legacy requires positive,
+  consistent pre-stamp evidence, and a stamping-era,
+  garbled or absent provenance fails verification in
+  single and chain mode. Honest pre-stamp records keep
+  the exemption. One documented cost: unstamped records
+  from 0.13.0 dev builds in the hours before the stamp
+  landed no longer read as legacy. The standing limit is
+  unchanged: the hash detects edits, it is not a
+  signature.
+- **Invalid escape fixed (rerun-2 nit).** The redaction
+  stop-char literal spelled a backslash as an invalid
+  escape sequence (a SyntaxWarning on Python 3.12+, an
+  error under `-W error`); the set is unchanged, the
+  spelling is now correct, and a compile pin holds it.
+
 ## Unreleased — 0.13.0.dev0 (external Phase 5 second-rerun fixes)
 
 Fixes from the external tester's Phase 5 second rerun on
