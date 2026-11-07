@@ -59,6 +59,34 @@ Vocabulary notes:
     and verdict or diff text quoting the words is content
     under review. An unanchored substring match killed a
     healthy seat on exactly that warning.
+  * JSON error envelopes (Phase 4 rerun, P4-06b): a line that
+    is a JSON object reporting a failure — {"is_error": true,
+    ...} (Claude Code's result envelope) or {"error": ...}
+    with no verdict fields — is scanned by its decoded string
+    VALUES, so the CLI's own message is not rejected merely
+    for sitting inside JSON quotes. Keys are never scanned,
+    values still face the lead-in test, and a verdict object
+    is never value-scanned: its free text quotes the diff.
+  * Quotation contexts (P4-06c): a line whose first non-space
+    character is '+', '>' or '|' is diff or markdown content,
+    and a lead-in containing a code call (print(...)) is
+    echoed source — neither is the CLI speaking. '-' is NOT
+    disqualified: it is also an ordinary vendor bullet.
+  * ACCEPTED RESIDUAL (P4-06c, adopted with the tester's
+    rerun solution): the bare, UNQUOTED third-party state
+    report — "MCP server docs not logged in; continuing" —
+    still matches. No lead-in rule separates it from a
+    genuine CLI message, because prose lead-ins are
+    load-bearing for verified vendor captures (codex's
+    "unexpected status 401 Unauthorized: ..." carries one),
+    so the anchor cannot demand clause-initial position. The
+    one discriminator that would catch this exact string — a
+    negative lookahead for "; continuing" — encodes a single
+    vendor's phrasing rather than a property of failure text,
+    and was considered and rejected on that basis. The quoted
+    form ('docs') is rejected by the anchor above; only the
+    unquoted form remains, and only while the seat then stays
+    silent for the full block grace does it cost the seat.
 """
 
 from __future__ import annotations
@@ -176,17 +204,31 @@ def cli_key_for_argv(argv):
 
 _QUOTE_CHARS = ('"', "“", "”", "`")
 
+# A function-call opening: an identifier (dotted paths
+# included) followed by '('. Vendor lead-ins are labels,
+# timestamps and logger paths — none contains one.
+_CALL_LEAD_IN_RX = re.compile(r"[A-Za-z_][\w.]*\s*\(")
+
 
 def _unquoted_lead_in(prefix):
     """True when `prefix` (the line text before a match) states
     no quoted matter: no quote characters, and every apostrophe
     word-internal (You've — the vendor's own voice), never a
     quote opening or closing a span ('docs', "…")."""
-    # Diff / markdown quoting (P4-06c): a line that begins with a
-    # unified-diff '+' marker or a '>' quote marker is content
-    # under review, not the CLI speaking. ('-' is left alone: it
-    # is also an ordinary bullet in vendor output.)
-    if prefix[:1] in ("+", ">"):
+    # Diff / markdown quoting (P4-06c): when the line's first
+    # non-space character is a unified-diff '+' marker, a '>'
+    # quote marker or a '|' table/quote marker, the text is
+    # content under review, not the CLI speaking. (The prefix
+    # starts at the line's start, so its own first non-space
+    # character is the line's.) '-' is left alone: it is also
+    # an ordinary bullet in vendor output.
+    if prefix.lstrip()[:1] in ("+", ">", "|"):
+        return False
+    # Code-call lead-ins (P4-06c): a line like
+    # print(Not logged in) echoes source, it does not state a
+    # failure — a call's opening before the match disqualifies
+    # the lead-in.
+    if _CALL_LEAD_IN_RX.search(prefix):
         return False
     for i, ch in enumerate(prefix):
         if ch in _QUOTE_CHARS:
