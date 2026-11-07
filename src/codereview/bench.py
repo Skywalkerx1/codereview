@@ -61,6 +61,7 @@ import re
 import time
 
 from . import core
+from . import probe as probe_mod
 from . import providers as providers_mod
 
 CASE_SCHEMA = "codereview.benchcase/1"
@@ -355,6 +356,10 @@ def load_config(path):
         "seat_meta": cfg.get("seat_meta") or {},
         "allow_major": bool(cfg.get("allow_major", False)),
         "strict": bool(cfg.get("strict", False)),
+        # B3 pilot scaffolding: a config may opt into the probe
+        # channel ("probes": true). Default False — an absent key
+        # is exactly the historical behaviour.
+        "probes": bool(cfg.get("probes", False)),
         "cost_per_call_usd": cfg.get("cost_per_call_usd") or 0,
         "seat_lenses": seat_lenses,
         "seat_lenses_source": seat_lenses_source,
@@ -394,6 +399,11 @@ def _config_sha(cfg):
     # orphan its stored records, so it stays out.
     if cfg.get("seat_lenses_source") == "explicit":
         identity["seat_lenses"] = cfg.get("seat_lenses")
+    # Same rule for the probe opt-in: only an ENABLED probe
+    # channel changes the config's identity, so every pre-B3
+    # config keeps its historical hash and stored records.
+    if cfg.get("probes"):
+        identity["probes"] = True
     return hashlib.sha256(json.dumps(
         identity, sort_keys=True).encode("utf-8")).hexdigest()
 
@@ -490,14 +500,55 @@ def _read_results(path):
     return records
 
 
+def _probe_outcomes(report):
+    """Probe outcomes a run produced, extracted from its findings.
+
+    Probes exist only inside adjudication (core's Tech Lead loop,
+    bounded by core.MAX_PROBE_ROUNDS): when the Tech Lead sends a
+    disputed finding back for a builder-probe round, the outcome
+    lands on the finding's adjudication entry. This is a pure
+    read of the finished report — collecting outcomes can never
+    feed back into the verdict they rode along with."""
+    out = []
+    for f in report.get("findings") or []:
+        probe_rec = (f.get("adjudication") or {}).get("probe")
+        if not isinstance(probe_rec, dict):
+            probe_rec = f.get("probe")
+        if isinstance(probe_rec, dict):
+            out.append({
+                "finding_id": f.get("id"),
+                "outcome": str(probe_rec.get("outcome")
+                               or "inconclusive"),
+                "evidence_quote": str(
+                    probe_rec.get("evidence_quote") or ""),
+                "detail": str(probe_rec.get("detail") or ""),
+            })
+    return out
+
+
 def run_bench(corpus_dir, config_specs, out_dir, split="all",
-              force=False, providers_by_config=None):
+              force=False, providers_by_config=None,
+              probes=False, probe_tree_dir=None):
     """Run each config over the corpus; append per-case records to
     <out_dir>/<config>.jsonl. Returns {config name: [records]} with
     ALL records on disk (including ones from earlier runs), so a
     resumed run reports the full picture. `providers_by_config`
     lets an embedding runner (e.g. the internal swarm runner) inject
-    prebuilt provider callables per config name."""
+    prebuilt provider callables per config name.
+
+    `probes` (B3 pilot scaffolding) wires the existing probe
+    harness into the run: when enabled — here, or by the config's
+    own "probes": true — each case's review gets a probe_fn built
+    by probe.make_probe_fn over `probe_tree_dir` (default: the
+    case's own directory; bench cases are diff-only, so a probe
+    executes against a temp copy of that directory, never the
+    corpus itself). The channel is the adjudication one
+    run_review already consumes: it can only rebut, it is bounded
+    by core.MAX_PROBE_ROUNDS, and wiring it changes NO verdict —
+    the outcomes are collected onto the record ("probes_enabled"
+    + "probe_outcomes") as data for the B3 pilot's calibration.
+    Default OFF: run_review is called with exactly the historical
+    arguments and records carry no probe fields."""
     if split not in ("all",) + SPLITS:
         raise ValueError(f"split must be all, public, or holdout")
     all_cases = load_corpus(corpus_dir)
@@ -582,12 +633,18 @@ def run_bench(corpus_dir, config_specs, out_dir, split="all",
                            f"{case['title']}\n{case['context']}"
                            ).strip()
                 started = time.monotonic()
+                review_kwargs = {}
+                if probes or cfg["probes"]:
+                    review_kwargs["probe_fn"] = \
+                        probe_mod.make_probe_fn(
+                            probe_tree_dir or case["dir"])
                 report = core.run_review(
                     case["diff"], seats, context=context,
                     allow_major=cfg["allow_major"],
                     strict=cfg["strict"],
                     seat_meta=cfg["seat_meta"] or None,
-                    seat_lenses=seat_lenses)
+                    seat_lenses=seat_lenses,
+                    **review_kwargs)
                 duration_ms = int((time.monotonic() - started) * 1000)
                 calls = 0
                 cost = 0.0
@@ -623,6 +680,13 @@ def run_bench(corpus_dir, config_specs, out_dir, split="all",
                         core.reviewer_report_entry(r)
                         for r in report["reviewer_reports"]],
                 }
+                if review_kwargs:
+                    # Probe-channel records exist only on runs
+                    # that wired the channel, so a default run's
+                    # record shape is byte-identical to before.
+                    record["probes_enabled"] = True
+                    record["probe_outcomes"] = \
+                        _probe_outcomes(report)
                 fh.write(json.dumps(record) + "\n")
                 fh.flush()
                 records.append(record)
