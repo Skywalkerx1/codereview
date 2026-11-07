@@ -12,7 +12,7 @@ own models and keys.
 
 ## 1. Install (from source — the one-line install is coming)
 
-The PyPI package (`pip install codereview-ai`) is **not published
+The PyPI package (`pip install codereview-loop`) is **not published
 yet**. For the pilot, install from the public mirror:
 
 ```bash

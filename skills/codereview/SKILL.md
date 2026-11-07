@@ -1,6 +1,6 @@
 ---
 name: codereview
-description: "Run the CodeReview multi-model review gate on a workspace and report its verdict honestly. Use when the user asks for a CodeReview run, a review gate, or whether a change passes review before shipping. Requires the `codereview` CLI (pip package `codereview-ai`) with a saved provider setup."
+description: "Run the CodeReview multi-model review gate on a workspace and report its verdict honestly. Use when the user asks for a CodeReview run, a review gate, or whether a change passes review before shipping. Requires the `codereview` CLI (pip package `codereview-loop`) with a saved provider setup."
 ---
 
 # CodeReview
@@ -21,7 +21,7 @@ command -v codereview
 ```
 
 If it is missing, stop and tell the user to install it
-(`pip install codereview-ai`) and run `codereview setup` once
+(`pip install codereview-loop`) and run `codereview setup` once
 to choose their reviewer panel. Never invent a review, a
 verdict, or findings when the gate did not run.
 

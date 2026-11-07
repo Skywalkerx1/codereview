@@ -8,7 +8,7 @@ the contract, not an engine:
   asks (one workspace action, one overlay pane, ids inside
   herdr's charset rules, the 0.9.0 version floor K3a set);
 - the launcher's missing-`codereview` path prints the
-  `pip install codereview-ai` hint, exits non-zero, and has
+  `pip install codereview-loop` hint, exits non-zero, and has
   NO side effects;
 - with a stub `codereview` on PATH (a script honouring the
   real CLI's printed contract: gate line, findings line,
@@ -254,7 +254,7 @@ class MissingCodereviewTest(_LauncherCase):
             PATH=self.empty_bin,
             HERDR_PLUGIN_CONTEXT_JSON=self.context()))
         self.assertNotEqual(proc.returncode, 0)
-        self.assertIn("pip install codereview-ai",
+        self.assertIn("pip install codereview-loop",
                       proc.stdout + proc.stderr)
         # No gate run happened and nothing was written
         # anywhere: the failure is pure.
@@ -474,7 +474,7 @@ class SkillContractTest(unittest.TestCase):
         self.assertIn("never soften", body)
         self.assertIn("source of truth", body)
         self.assertIn("record", body)
-        self.assertIn("pip install codereview-ai", body)
+        self.assertIn("pip install codereview-loop", body)
         self.assertIn("codereview-out", body)
 
 

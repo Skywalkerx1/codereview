@@ -2,7 +2,7 @@
 """CodeReview herdr plugin launcher.
 
 Thin by design: the review engine lives in the installed
-`codereview` CLI (pip package `codereview-ai`). This script only
+`codereview` CLI (pip package `codereview-loop`). This script only
 
   1. locates `codereview` on PATH — if it is absent, prints the
      install hint and exits non-zero *before doing anything
@@ -33,7 +33,7 @@ import tomllib
 INSTALL_HINT = (
     "codereview: the `codereview` CLI is not installed.\n"
     "Install it with:\n"
-    "    pip install codereview-ai\n"
+    "    pip install codereview-loop\n"
     "then run `codereview setup` once to choose your review "
     "panel, and try again."
 )

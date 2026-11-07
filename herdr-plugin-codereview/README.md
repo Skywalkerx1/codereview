@@ -21,7 +21,7 @@ exactly as a hand-run `codereview` would.)
 - CodeReview installed:
 
   ```bash
-  pip install codereview-ai
+  pip install codereview-loop
   codereview setup   # once: choose your reviewer panel
   ```
 

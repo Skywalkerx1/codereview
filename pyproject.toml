@@ -3,7 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "codereview-ai"
+name = "codereview-loop"
 version = "0.13.0"
 description = "Multi-model code review loop: one agent builds, independent models review, a deterministic gate decides."
 readme = "README.md"
