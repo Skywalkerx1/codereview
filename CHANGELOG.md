@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.13.2 — security patch line (pending tester verification)
+
+Fixes from an independent audit of the MCP server surface
+(the CSA MCP Security project's mcpserver-audit outputs,
+triaged 2026-11-07):
+
+- Full-file context and builder-supplied `context` are now
+  redacted with the same secret redaction as the diff before
+  they reach reviewer prompts or the run record. Previously
+  only the diff was redacted, so a secret on an unchanged
+  line of a touched file, or one pasted into the change
+  description, was sent to providers in clear text.
+- The MCP `run_gate` tool's `context` argument is literal
+  text: a leading `@` is no longer read as a local file
+  path on the MCP path. The CLI's own `--context @file`
+  behaviour is unchanged.
+- `codereview report` and `support-bundle` under
+  `--no-records` now leave crash notes out as well, as
+  PRIVACY.md already stated.
+- Authenticated custom providers now require an https://
+  base URL; http:// remains allowed for loopback hosts.
+  Keyless local providers are unchanged.
+- Record writes use an unpredictably named temp file
+  (mkstemp) instead of a pid-derived name, so a pre-planted
+  symlink at the temp path is never followed.
+- The MCP `get_verdict` output labels its summary
+  `unverified`: it reads a stored record back without
+  re-verifying it.
+
 ## 0.13.1 — 2026-11-07
 
 - Metadata-only release: PyPI landing page; no code change.
