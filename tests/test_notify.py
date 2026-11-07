@@ -208,8 +208,12 @@ class RealRunnerTests(unittest.TestCase):
 
     def _grandchild_stub(self, tmp, hang):
         """A notifier stub that spawns a grandchild (which
-        records its pid, then sleeps) and either hangs itself
-        or exits at once."""
+        records its pid, then sleeps), WAITS until the pid
+        is recorded — so the grandchild is provably started
+        before the runner acts; without the wait the group
+        sweep can legitimately beat the grandchild's first
+        line, and the test would race its own fixture — and
+        then either hangs itself or exits."""
         pidfile = os.path.join(tmp, "grandchild.pid")
         child = (
             "import os, time\n"
@@ -219,15 +223,28 @@ class RealRunnerTests(unittest.TestCase):
         child_path = os.path.join(tmp, "grandchild.py")
         with open(child_path, "w", encoding="utf-8") as fh:
             fh.write(child)
-        body = ("import subprocess, sys, time\n"
-                f"subprocess.Popen([sys.executable, {child_path!r}])\n")
+        body = ("import os, subprocess, sys, time\n"
+                f"subprocess.Popen([sys.executable, {child_path!r}])\n"
+                "for _ in range(100):\n"
+                f"    if os.path.exists({pidfile!r}):\n"
+                "        break\n"
+                "    time.sleep(0.05)\n")
         if hang:
             body += "time.sleep(60)\n"
         return self._write_stub(tmp, body), pidfile
 
     def _assert_dead(self, pidfile):
-        with open(pidfile, encoding="utf-8") as fh:
-            pid = int(fh.read().strip())
+        pid = None
+        for _ in range(50):
+            try:
+                with open(pidfile, encoding="utf-8") as fh:
+                    pid = int(fh.read().strip())
+                break
+            except (FileNotFoundError, ValueError):
+                time.sleep(0.1)
+        self.assertIsNotNone(
+            pid, "grandchild never recorded its pid — the "
+                 "fixture did not start, so nothing was proven")
         for _ in range(50):
             try:
                 os.kill(pid, 0)
