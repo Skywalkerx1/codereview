@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased — L19 collector endpoint live (2026-11-07)
+
+- The feedback collector endpoint is set (`feedback.ENDPOINT`
+  → `https://phpatch.com/codereview/report`). The receiving
+  service is a small standalone collector on the project host:
+  POST-only, the client's own size caps enforced server-side,
+  payloads stored under server-generated names and purged
+  automatically after 90 days per PRIVACY.md. `report` and the
+  opt-in crash ping are live channels now; the manual
+  support-bundle route remains available.
+- PRIVACY.md retention wording aligned to the live service
+  (90 days, maintainers-only access, automatic purge, deletion
+  on request via support@phpatch.com).
+- `CODEREVIEW_RELEASE_CHECK=1` is green with this build.
+
 ## Unreleased — final build candidate: positioning copy + launch placeholders (2026-11-07)
 
 - Positioning copy (owner-approved exact text) is the README
