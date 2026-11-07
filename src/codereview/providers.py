@@ -553,6 +553,22 @@ def _run_seat_process(proc, pgid, prompt, timeout, out_path,
         time.sleep(0.05)
 
 
+def _redact_tail(text):
+    """Redact secret-shaped values from a seat's stderr tail
+    before the tail is quoted into a ProviderError (P4-01b,
+    audit extension): the error message is persisted into the
+    record verbatim, and a seat's stderr can echo a key just
+    as a provider's error body can — a CLI explaining an auth
+    failure is exactly where that happens. On any redaction
+    failure the tail is dropped rather than quoted raw:
+    diagnostics are expendable, secrets are not."""
+    try:
+        from . import core as _core
+        return _core.redact_secrets(text)
+    except Exception:  # noqa: BLE001 — never quote it raw
+        return ""
+
+
 def _hosted_outcome_error(outcome, timeout, block_grace):
     """The ProviderError a hosted seat's non-exit outcome maps
     to — the headless messages, verbatim, plus seat_facts, so a
@@ -906,7 +922,8 @@ def _call_hosted(host, argv, prompt, timeout, private_home,
                 cli_key, returncode,
                 _read_tail(out_path, 8192),
                 _read_tail(err_path, 8192))
-            tail = _read_tail(err_path, 4096).strip()[-300:]
+            tail = _redact_tail(
+                _read_tail(err_path, 4096).strip())[-300:]
             err = ProviderError(
                 f"agent command exited {returncode}"
                 + (f": {tail}" if tail else ""), retryable=False)
@@ -1093,7 +1110,8 @@ def command_agent(command, timeout=AGENT_TIMEOUT, private_home=False,
                     cli_key, proc.returncode,
                     _read_tail(out_path, 8192),
                     _read_tail(err_path, 8192))
-                tail = _read_tail(err_path, 4096).strip()[-300:]
+                tail = _redact_tail(
+                    _read_tail(err_path, 4096).strip())[-300:]
                 err = ProviderError(
                     f"agent command exited {proc.returncode}"
                     + (f": {tail}" if tail else ""), retryable=False)
