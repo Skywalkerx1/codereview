@@ -6,11 +6,11 @@ CodeReview is a multi-model review gate for AI-written code. A panel of models f
 
 You bring your own API keys and choose the models for each role. Your code goes only to the providers you choose.
 
-> **Status: alpha (0.13.0 line).** Read "Read this first" below before you rely on the default profile.
+> **Status: alpha (0.13 line).** Read "Read this first" below before you rely on the default profile.
 
 ## Read this first
 
-The default `strict` gate is deliberately unforgiving. In registered confirmation testing it caught every seeded defect (recall 1.00, 7 of 7; Wilson 95% interval [0.646, 1.000]) at 0.583 merged blocking precision (95% interval [0.320, 0.807]; a derived paired-row figure), **and it blocked 94% of clean changes (32 of 34; 95% interval [0.809, 0.984])**. The registered confirmation **failed** its clean-change threshold.
+The default `strict` gate is deliberately unforgiving. In registered confirmation testing it caught every seeded defect (recall 1.00, 7 of 7; Wilson 95% interval [0.646, 1.000]) at 0.583 merged blocking precision (95% interval [0.320, 0.807]; a derived paired-row figure), **and it blocked 94% of clean changes (32 of 34; 95% interval [0.809, 0.984])**. The registered confirmation **failed** its clean-change threshold. (Registered confirmation record: bench/generation-v2/RESULTS-2026-11-05.md.)
 
 That is the trade: `strict` is a high-recall gate for code you cannot afford to get wrong, with a documented waiver path for blocks you choose to accept. Expect to review and waive blocks on clean changes.
 
