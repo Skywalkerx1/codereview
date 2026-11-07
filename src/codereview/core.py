@@ -7082,12 +7082,23 @@ def verify_record(record, repo=None, record_dir=None,
     # envelope); recompute it here. A record carrying no
     # hash predates the stamp — not applicable, never a
     # retroactive failure, the same machinery-era semantics
-    # as the coverage/tier/sidecar checks below. The hash
-    # detects edits; it is NOT a signature (an editor who
-    # recomputes it passes) — the detail says so either way.
+    # as the coverage/tier/sidecar checks below — UNLESS
+    # its own provenance declarations place it in the
+    # stamping era (P6-12): then the hash was removed, not
+    # never stamped, and the check fails. The hash detects
+    # edits; it is NOT a signature (an editor who recomputes
+    # it passes) — the detail says so either way.
     _identity = record.get("record_identity") or {}
     _want = _identity.get("content_sha256")
-    if not _want:
+    if not _want and record_schema_mod.content_hash_required(
+            record):
+        add("content_integrity", False,
+            "record declares a stamping-era provenance "
+            f"(version {record.get('version')!r}, created "
+            f"{record.get('created_at')!r}) but carries no "
+            "content hash — the hash was removed, so edit "
+            "detection cannot pass (P6-12)")
+    elif not _want:
         add("content_integrity", True,
             "no content hash recorded (pre-P6-03 record); "
             "edit detection not applicable — legacy record")
@@ -7631,12 +7642,20 @@ def verify_chain(records, repo=None, record_dirs=None,
     # that carries a content hash must recompute to it — a
     # hand-edited round fails the chain exactly as it fails
     # single-record verification. Records without a hash
-    # predate the stamp and are not held to it.
+    # predate the stamp and are not held to it — unless
+    # their provenance declares the stamping era, in which
+    # case the hash was removed (P6-12) and the chain fails
+    # exactly as single-record verification does.
     ci_problems, ci_count = [], 0
     for i, rec in enumerate(records):
         want = (rec.get("record_identity") or {}).get(
             "content_sha256")
         if not want:
+            if record_schema_mod.content_hash_required(rec):
+                ci_problems.append(
+                    f"record {i + 1} declares a stamping-era "
+                    f"provenance but carries no content hash "
+                    f"(hash removed — P6-12)")
             continue
         ci_count += 1
         if record_schema_mod.record_content_sha256(rec) \
@@ -7645,13 +7664,15 @@ def verify_chain(records, repo=None, record_dirs=None,
                 f"record {i + 1} content does not match its "
                 f"recorded content hash (edited or corrupted "
                 f"after writing)")
-    if not ci_count:
+    if ci_problems:
+        add("content_integrity", False,
+            "; ".join(ci_problems))
+    elif not ci_count:
         add("content_integrity", True,
             "no content hashes recorded in the chain "
             "(pre-P6-03 records); check not applicable")
     else:
-        add("content_integrity", not ci_problems,
-            "; ".join(ci_problems) if ci_problems else
+        add("content_integrity", True,
             f"{ci_count} record(s) recompute to their "
             f"recorded content hashes (edit detection only "
             f"— not a signature)")

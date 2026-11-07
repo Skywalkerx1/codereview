@@ -81,10 +81,23 @@ Semantics locked by this schema (the GTM engineering contract):
   coverage/tier/sidecar checks treat their pre-machinery
   records — because registered and pilot records are
   evidence and must not become unverifiable retroactively.
+  The legacy rule is bounded by provenance (P6-12): it
+  applies only when the record's own declarations predate
+  the stamp (see `content_hash_required`). A record that
+  declares a stamping-era generator version AND a
+  stamping-era creation time but carries no hash is not a
+  legacy record — its hash was removed, and verification
+  FAILS. Deleting the hash was a one-line downgrade that
+  made any edit invisible; now the cheap attack fails, and
+  what remains is the stated limit above (recompute, or
+  forge a consistent pre-stamp provenance claim — the hash
+  was never a signature).
 """
 
+import datetime
 import hashlib
 import json
+import re
 
 SCHEMA_VERSION = "1.0.0"
 SCHEMA_ID = "codereview.report/1"
@@ -451,6 +464,66 @@ def record_content_sha256(record):
     canon = json.dumps(body, ensure_ascii=False,
                        sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(canon.encode("utf-8")).hexdigest()
+
+
+# The stamping era (P6-12): the first generator line whose
+# writer stamps content_sha256 on every record it writes,
+# and the moment that stamp landed (the P6-03 commit,
+# 2026-11-07T02:07:56Z). Both bounds are needed: every
+# release before 0.13.0 predates the stamp entirely, and
+# 0.13.0 dev builds wrote unstamped records until the
+# stamp landed — a record is only REQUIRED to carry the
+# hash when both of its provenance declarations (generator
+# version, created_at) fall in the stamping era.
+CONTENT_HASH_ERA_VERSION = (0, 13, 0)
+CONTENT_HASH_ERA_FROM = datetime.datetime(
+    2026, 11, 7, 2, 7, 56, tzinfo=datetime.timezone.utc)
+
+_VERSION_PREFIX_RE = re.compile(r"^(\d+(?:\.\d+)*)")
+
+
+def _version_tuple(text):
+    """The leading numeric dotted prefix of a version
+    string as a tuple ("0.13.0.dev0" → (0, 13, 0)), or
+    None when the string carries no numeric prefix."""
+    if not isinstance(text, str):
+        return None
+    match = _VERSION_PREFIX_RE.match(text)
+    if not match:
+        return None
+    return tuple(int(p) for p in match.group(1).split("."))
+
+
+def _created_instant(text):
+    """A record's created_at as an aware datetime, or None
+    when it does not parse (a naive value is read as UTC —
+    that is the only form the writer emits)."""
+    if not isinstance(text, str) or not text:
+        return None
+    try:
+        parsed = datetime.datetime.fromisoformat(
+            text.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=datetime.timezone.utc)
+    return parsed
+
+
+def content_hash_required(record):
+    """True when a record's own provenance declarations
+    place it in the stamping era, so the absence of
+    `record_identity.content_sha256` means the hash was
+    removed rather than never stamped (P6-12). Anything
+    unparseable reads as pre-stamp: the legacy exemption
+    is the conservative direction for old records."""
+    version = _version_tuple(record.get("version"))
+    if version is None or version < CONTENT_HASH_ERA_VERSION:
+        return False
+    created = _created_instant(record.get("created_at"))
+    if created is None:
+        return False
+    return created >= CONTENT_HASH_ERA_FROM
 
 
 def _record_id(report):

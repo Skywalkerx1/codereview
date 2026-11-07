@@ -236,7 +236,18 @@ class TestP603ContentIntegrity(unittest.TestCase):
     recomputed. The writer now stamps a content hash over the
     whole record (minus the identity envelope); verify
     recomputes it in single and chain mode. Legacy records
-    (no hash) verify as not-applicable, never retro-failed."""
+    (no hash) verify as not-applicable, never retro-failed.
+
+    P6-12 (rerun): the legacy reading was unbounded — deleting
+    the hash from a CURRENT record made any edit invisible.
+    The exemption now applies only when the record's own
+    provenance declarations (generator version, created_at)
+    predate the stamp; a stamping-era record without its
+    hash fails. The pre-P6-12 pin asserted the stripped
+    current record passed as legacy — that pin enshrined
+    the defect and is replaced by the stripped-hash pins
+    below; the genuine legacy cases (golden fixture,
+    pre-stamp provenance) keep their pins."""
 
     def test_written_record_carries_matching_hash(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -273,14 +284,73 @@ class TestP603ContentIntegrity(unittest.TestCase):
                        "content_integrity")
         self.assertFalse(check["ok"], check)
 
-    def test_legacy_record_is_not_applicable_not_failed(self):
+    def test_stripped_hash_on_current_record_fails(self):
+        # P6-12, her p6_downgrade case (1): delete the hash
+        # from a record the current writer just stamped.
         with tempfile.TemporaryDirectory() as tmp:
             record = _written_record(tmp)
         del record["record_identity"]["content_sha256"]
         check = _named(core.verify_record(record),
                        "content_integrity")
+        self.assertFalse(check["ok"], check)
+        self.assertIn("removed", check["detail"])
+
+    def test_stripped_hash_with_edit_fails(self):
+        # P6-12, her case (2): delete the hash AND edit —
+        # the downgrade that made tampering invisible.
+        with tempfile.TemporaryDirectory() as tmp:
+            record = _written_record(tmp)
+        del record["record_identity"]["content_sha256"]
+        record["reviewer_reports"][0]["family"] = "anthropic"
+        record["findings"].append({
+            "severity": "nit", "title": "planted",
+            "file": "a.py", "line": 1})
+        check = _named(core.verify_record(record),
+                       "content_integrity")
+        self.assertFalse(check["ok"], check)
+
+    def test_stripped_whole_identity_on_current_record_fails(
+            self):
+        # P6-12, her case (3): delete the whole envelope.
+        with tempfile.TemporaryDirectory() as tmp:
+            record = _written_record(tmp)
+        del record["record_identity"]
+        check = _named(core.verify_record(record),
+                       "content_integrity")
+        self.assertFalse(check["ok"], check)
+
+    def test_prestamp_provenance_record_is_legacy(self):
+        # The bounded exemption: a record declaring a
+        # pre-stamp generator version carries no hash and
+        # keeps the legacy reading (the golden-fixture
+        # shape), and so does a stamping-version record
+        # created before the stamp landed (the dev builds
+        # of the same morning).
+        with tempfile.TemporaryDirectory() as tmp:
+            record = _written_record(tmp)
+        del record["record_identity"]["content_sha256"]
+        record["version"] = "0.12.1"
+        check = _named(core.verify_record(record),
+                       "content_integrity")
         self.assertTrue(check["ok"], check)
         self.assertIn("legacy", check["detail"])
+        with tempfile.TemporaryDirectory() as tmp:
+            dev = _written_record(tmp)
+        del dev["record_identity"]["content_sha256"]
+        dev["created_at"] = "2026-11-05T12:00:00+00:00"
+        check = _named(core.verify_record(dev),
+                       "content_integrity")
+        self.assertTrue(check["ok"], check)
+        self.assertIn("legacy", check["detail"])
+
+    def test_chain_mode_stripped_hash_fails(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            r1 = _written_record(tmp)
+            r2 = _written_record(tmp)
+        del r2["record_identity"]["content_sha256"]
+        bad = _named(core.verify_chain([r1, r2]),
+                     "content_integrity")
+        self.assertFalse(bad["ok"], bad)
 
     def test_golden_fixture_records_are_legacy(self):
         fixtures = os.path.join(os.path.dirname(__file__),
