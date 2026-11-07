@@ -46,6 +46,24 @@ PARAGRAPH level over every shipped reader-facing doc:
 - The baseline document itself is the caveat source and a
   registered record: it is exempt from the claim-figure rule
   and held only to the naive-figure ordering rule.
+- Profile attribution (W0, added after defect C1): the
+  qualification rule above checks that SOME registered record
+  is cited in the paragraph; it cannot check that a figure is
+  attributed to the profile that actually produced it. C1
+  was exactly that failure — the README's lead paragraph
+  cited a record while giving the default `strict` gate the
+  `balanced` profile's attempt-1 figures (precision 0.875,
+  clean-BLOCKED 22/34 = 0.647), and `strict`'s own paired row
+  (clean-BLOCKED 32/34) sat in the records unquoted. The lint
+  now also carries a table of the registered runs' headline
+  figures keyed to the profile of record: a paragraph that
+  states one profile's figure while naming a DIFFERENT
+  profile — and never the profile of record — fails. A
+  paragraph naming both profiles (a comparison, a correction
+  notice) is the legitimate form and passes. The table is
+  enumerated, like the phrase list: a figure not in the table
+  is not attribution-checked, and each new registered run's
+  figures must be added to it by hand, with their source.
 - The limit of the approach, stated plainly (P5-08d): this
   lint is a phrase list. The pattern table enumerates the
   claim wordings seen so far — each rerun has produced
@@ -190,6 +208,104 @@ ALL_OF_PATTERN = r"\b100\s*%\s+of\b"
 ALL_OF_CONTEXT = (r"defect|bug|finding|seeded|planted|"
                   r"recall|case|vulnerab|flaw")
 
+# Profile attribution (W0 / C1). PROFILE_TOKENS maps each
+# gate profile to the tokens that name it in the shipped
+# docs: the profile name itself, its policy alias (B1 / B2),
+# and — for the two profiles the offline rule sweep scored —
+# the sweep rule that reproduces it (R0 = strict, R1 = B1,
+# glossed exactly that way wherever the sweep is reported).
+# Word tokens match case-insensitively (sentence-initial
+# "Strict"); the alias tokens (B1, B2, R0, R1) are
+# case-sensitive — they are codes, not words.
+PROFILE_TOKENS = {
+    "strict": ((r"\bstrict\b", False), (r"\bR0\b", True)),
+    "balanced": ((r"\bbalanced\b", False), (r"\bB1\b", True),
+                 (r"\bR1\b", True)),
+    "corroborated": ((r"\bcorroborated\b", False),
+                     (r"\bB2\b", True)),
+}
+
+# The registered runs' headline figures, keyed to the
+# profile of record. Sources: attempt 1 —
+# bench/generation-v2/RESULTS-2026-11-05.md (scored rows +
+# item 7.1's paired row) and the CLAIMS-SHEET paired-strict
+# entry (precision 0.583, derived there); B2 confirmation —
+# bench/confirmation-b2/RESULTS-2026-11-06.md via the
+# CLAIMS-SHEET B2 entry. Recall in attempt 1 is deliberately
+# absent: it is identical under `strict` and `balanced`
+# (7 of 7 under both), so either profile may state it.
+# Precision figures are matched only ADJACENT to the word
+# "precision": the bare decimal 0.875 also appears as an
+# unrelated J statistic in the B2 pilot row, and a bare
+# decimal match would false-fire on it.
+def _precision_adjacent(decimal):
+    return (r"[Pp]recision[^0-9]{0,20}" + decimal
+            + r"|" + decimal + r"[^0-9]{0,20}[Pp]recision")
+
+
+PROFILE_FIGURES = (
+    ("balanced", (
+        r"0\.647", r"0\.657",
+        r"22/34", r"22 of 34", r"23/35", r"23 of 35",
+        r"65\s*%\s+of\s+clean",
+        _precision_adjacent(r"0\.875"),
+    )),
+    ("strict", (
+        r"0\.941",
+        r"32/34", r"32 of 34",
+        r"94\s*%\s+of\s+clean",
+        r"0\.583",
+    )),
+    ("corroborated", (
+        r"0\.292", r"0\.094", r"0\.778",
+        r"7/24", r"7 of 24", r"6/64", r"6 of 64",
+    )),
+)
+
+
+def _named_profiles(paragraph):
+    named = set()
+    for profile, tokens in PROFILE_TOKENS.items():
+        for token, case_sensitive in tokens:
+            flags = 0 if case_sensitive else re.IGNORECASE
+            if re.search(token, paragraph, flags):
+                named.add(profile)
+                break
+    return named
+
+
+def attribution_violations(rel, paragraph, context=frozenset()):
+    """C1's failure mode: a paragraph states one profile's
+    recorded figure while naming a different profile and
+    never the profile of record. Naming both (a comparison
+    or a correction) is the legitimate form and passes.
+    `context` is the set of profiles named by the enclosing
+    section headings: a results section headed for one
+    profile attributes its own figures even when a closing
+    paragraph's only profile token is the stock consequence
+    ("the default profile remains `strict`") — that is
+    section attribution, not misattribution, and the shipped
+    benchmark document relies on it."""
+    named = _named_profiles(paragraph) | set(context)
+    if len(named) != 1:
+        return []
+    (named_profile,) = named
+    out = []
+    for owner, patterns in PROFILE_FIGURES:
+        if owner == named_profile:
+            continue
+        for pattern in patterns:
+            if re.search(pattern, paragraph):
+                out.append(
+                    f"{rel}: profile attribution — figure "
+                    f"(pattern {pattern!r}) is recorded under "
+                    f"`{owner}` but the paragraph and its "
+                    f"section name only `{named_profile}`: "
+                    f"{paragraph[:110]}...")
+                break
+    return out
+
+
 # In-paragraph qualification, in the docs' own established
 # vocabulary: a reference to a baseline document that carries
 # the caveat, the caveat's own name, an in-place caveat
@@ -200,6 +316,11 @@ ALL_OF_CONTEXT = (r"defect|bug|finding|seeded|planted|"
 QUALIFIER_PATTERNS = (
     r"BASELINE-2026-11-04",
     r"BASELINE-V2-2026-11-05",
+    # The registered attempt-1 results record carries its
+    # own caveats in-line (the FAIL verdict is stated with
+    # the figures), so citing it qualifies attempt-1 figures
+    # the way citing the baseline qualifies baseline figures.
+    r"RESULTS-2026-11-05",
     r"required[ _]caveat",
     r"(see|in|the)\s+(the\s+)?[\w ]{0,30}caveat|caveat\s+in",
     r"superseded",
@@ -257,7 +378,18 @@ def claim_violations(texts):
         if rel == BASELINE_REL:
             continue
         text = texts[rel]
+        heading_stack = []
         for paragraph in _paragraphs(text):
+            stripped = paragraph.lstrip()
+            if stripped.startswith("#"):
+                level = len(stripped) - len(stripped.lstrip("#"))
+                heading_stack = [
+                    h for h in heading_stack if h[0] < level]
+                heading_stack.append(
+                    (level, _named_profiles(paragraph)))
+            context = set()
+            for _, names in heading_stack:
+                context |= names
             norm = _normalised(paragraph)
             hits = [p for p in CLAIM_PATTERNS
                     if re.search(p, norm)]
@@ -287,6 +419,8 @@ def claim_violations(texts):
                     f"{rel}: unqualified claim "
                     f"(pattern {hits[0]!r}) in paragraph: "
                     f"{norm[:110]}...")
+            violations.extend(
+                attribution_violations(rel, norm, context))
         # The naive figure: file-order rule (must be marked
         # superseded earlier in the file) plus the paragraph
         # currency rule.
@@ -461,6 +595,83 @@ class ClaimLintTests(unittest.TestCase):
             "\n\nRecall 1.0 on the corpus.\n")
         violations = claim_violations(texts)
         self.assertTrue(any("README.md" in v for v in violations))
+
+    def test_c1_original_sentence_fails_attribution(self):
+        # Defect C1, verbatim: the sentence the README carried
+        # until the 2026-11-07 fix. It IS qualified for the
+        # claim rule (it cites a record) — the attribution
+        # check is what must catch it: every figure in it is
+        # `balanced`'s, the only profile it names is `strict`.
+        texts = load_texts()
+        texts["README.md"] += (
+            "\n\nThe default `strict` gate is deliberately "
+            "unforgiving. In registered confirmation testing "
+            "it caught every seeded defect (recall 1.00) at "
+            "0.87 precision — and it blocked 65% of clean "
+            "changes. (Registered confirmation record: "
+            "bench/BASELINE-V2-2026-11-05.md.)\n")
+        violations = claim_violations(texts)
+        self.assertTrue(
+            any("profile attribution" in v
+                and "README.md" in v for v in violations),
+            f"C1 sentence not caught: {violations!r}")
+
+    def test_profile_attribution_mutations_fail(self):
+        # Each variant states one profile's recorded figure
+        # while naming only a different profile — C1's shape,
+        # in both directions and across all three profiles.
+        variants = (
+            "The default `strict` gate blocked 65% of clean "
+            "changes in confirmation testing.",
+            "Under `strict`, clean-BLOCKED was 22/34 on the "
+            "expanded stratum.",
+            "The `strict` gate's merged precision was 0.875 "
+            "in the registered run.",
+            "The `balanced` profile blocked 32 of 34 clean "
+            "cases (0.941).",
+            "`corroborated` scored clean-BLOCKED 0.647 in "
+            "attempt 1.",
+            "Under `balanced`, blocking-tier recall was "
+            "7/24 = 0.292.",
+        )
+        for variant in variants:
+            texts = load_texts()
+            texts["README.md"] += "\n\n" + variant + "\n"
+            violations = claim_violations(texts)
+            self.assertTrue(
+                any("profile attribution" in v
+                    and "README.md" in v for v in violations),
+                f"attribution mutation not caught: {variant!r}")
+
+    def test_profile_attribution_comparison_passes(self):
+        # The legitimate form: a comparison naming both
+        # profiles may state both profiles' figures.
+        texts = load_texts()
+        texts["README.md"] += (
+            "\n\nOn the same records, `balanced` blocked "
+            "22/34 clean cases (0.647) and `strict` blocked "
+            "32/34 (0.941); the paired row is in the "
+            "attempt-1 record, bench/generation-v2/"
+            "RESULTS-2026-11-05.md.\n")
+        violations = claim_violations(texts)
+        self.assertFalse(
+            any("README.md" in v for v in violations),
+            f"comparison paragraph flagged: {violations!r}")
+
+    def test_profile_attribution_needs_a_named_profile(self):
+        # Deliberate boundary (see the table's note): a
+        # figure stated with NO profile named is the claim
+        # rule's problem, not the attribution check's.
+        texts = load_texts()
+        texts["README.md"] += (
+            "\n\nClean-BLOCKED was 0.647 in attempt 1 "
+            "(record: bench/generation-v2/"
+            "RESULTS-2026-11-05.md).\n")
+        violations = claim_violations(texts)
+        self.assertFalse(
+            any("profile attribution" in v
+                and "README.md" in v for v in violations),
+            f"unnamed-profile figure flagged: {violations!r}")
 
     def test_same_paragraph_baseline_reference_qualifies(self):
         texts = load_texts()
