@@ -8824,8 +8824,15 @@ def write_report(report, out_dir, stem=None):
     # at the same stem once the post-record hooks have
     # fired), where a torn write would destroy the complete
     # record the hooks were handed.
+    # Keys are written sorted (P6-10): the plan expects a
+    # canonical top-level order, and sorting at serialisation
+    # gives every level a stable order — no consumer reads the
+    # raw text positionally (the markdown renders from the
+    # dict; every JSON reader parses), so the only effect is
+    # that two records with equal content are byte-equal here.
     _atomic_write_text(
-        jpath, json.dumps(record, ensure_ascii=False, indent=2)
+        jpath, json.dumps(record, ensure_ascii=False, indent=2,
+                          sort_keys=True)
         + "\n")
     _atomic_write_text(mpath, render_markdown(record))
     return jpath, mpath

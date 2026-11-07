@@ -174,5 +174,25 @@ class TestP602SameSecondStems(unittest.TestCase):
                                  ["second"])
 
 
+class TestP610SortedKeys(unittest.TestCase):
+    """P6-10: the written record's keys are sorted (the plan
+    expects sorted top-level keys; serialisation sorts every
+    level, which no consumer depends on being otherwise)."""
+
+    def test_written_record_keys_sorted(self):
+        report = {"version": "0", "gate": "pass",
+                  "gate_reasons": [], "findings": [],
+                  "mode": "review", "created_at": "2026-11-06",
+                  "aardvark": 1, "zebra": 2}
+        with tempfile.TemporaryDirectory() as tmp:
+            jpath, _ = core.write_report(report, tmp,
+                                         stem="rec")
+            with open(jpath, encoding="utf-8") as fh:
+                text = fh.read()
+        pairs = json.loads(text, object_pairs_hook=lambda p: p)
+        keys = [k for k, _v in pairs]
+        self.assertEqual(keys, sorted(keys))
+
+
 if __name__ == "__main__":
     unittest.main()
