@@ -66,6 +66,20 @@ is a regression from 0.12.1.
   functions), and `bench/scripts/check_archive_suite.py`,
   which runs the suite from the built delivery archive so a
   count is always measured on the artefact that ships.
+- **Rerun-2 mutation pins (tests only, no behaviour
+  change):** her completed mutation pass over `22055d1`
+  left 13 of 106 mutants standing. The ones she marked
+  worth pinning are now pinned in
+  `tests/test_profile_mutation_gaps.py` and verified
+  killed under her own harness: `_reviewer_tasks`
+  lens-seat pins (mutants 32–35), the `assess_panel`
+  detail family list (56, 57) and the
+  `escalation_triggers` failed-reviewer naming (93).
+  Mutant 54 (`min_families > 0` → `>= 0`) is equivalent —
+  the second conjunct is false at 0 — and the `risk.py`
+  boundary mutants (68, 81, 84, 86) and the `_gate`
+  `allow_major` default (19) remain open as low-value /
+  equivalent, as she read them.
 
 ## 0.13.0 — 2026-11-07
 

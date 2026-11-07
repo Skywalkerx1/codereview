@@ -11,6 +11,18 @@ docstrings), so the branches her survivors exercised have a
 test whose assertions a mutation of the branch condition or
 its outcome would break. Behaviour is pinned as documented —
 nothing here changes what the profiles do.
+
+Rerun-2 extension (2026-11-07): the tester's completed
+mutation pass over `22055d1` left 13 of 106 mutants standing;
+the ones she marked worth pinning were in
+core._reviewer_tasks (lens-to-seat assignment),
+diversity.assess_panel (the detail text's family list) and
+tiering.escalation_triggers (the failed-reviewer naming).
+The classes at the bottom pin those behaviours as documented
+in the functions' own docstrings. (The risk.py boundary
+mutants and the _gate allow_major default were left: the
+former pin undocumented thresholds, the latter is equivalent
+— callers always pass allow_major.)
 """
 
 import os
@@ -20,6 +32,8 @@ import unittest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from codereview import core  # noqa: E402
+from codereview import diversity  # noqa: E402
+from codereview import tiering  # noqa: E402
 
 CONCRETE = ("calling sub() with a negative input value "
             "retries forever")
@@ -307,6 +321,116 @@ class CorroboratedProfilePins(unittest.TestCase):
         self.assertEqual(f["severity"], "minor")
         self.assertNotIn("profile_demotion", f)
         self.assertEqual(demotions, [])
+
+
+class ReviewerTasksPins(unittest.TestCase):
+    """core._reviewer_tasks lens_seats pins (mutants 32–35):
+    a pinned seat serves exactly its lens, pins naming a lens
+    or seat that does not exist are ignored, and every lens is
+    always tasked (the function's documented contract)."""
+
+    PROVIDERS = [("seat-a", "fn-a"), ("seat-b", "fn-b"),
+                 ("seat-c", "fn-c")]
+
+    def tasks(self, **kw):
+        return core._reviewer_tasks(list(self.PROVIDERS), **kw)
+
+    @staticmethod
+    def by_seat(tasks):
+        out = {}
+        for name, _fn, lens in tasks:
+            out.setdefault(name, set()).add(lens)
+        return out
+
+    def test_valid_pin_is_honoured_exactly(self):
+        tasks = self.tasks(lens_seats={"correctness": "seat-b"})
+        by_seat = self.by_seat(tasks)
+        self.assertEqual(by_seat.get("seat-b"), {"correctness"})
+        self.assertEqual(by_seat.get("seat-a"), {"operations"})
+        self.assertEqual(sorted(l for _, _, l in tasks),
+                         ["correctness", "operations"])
+
+    def test_pin_to_missing_seat_is_ignored(self):
+        tasks = self.tasks(lens_seats={"correctness": "seat-ghost"})
+        self.assertEqual(sorted(l for _, _, l in tasks),
+                         ["correctness", "operations"])
+        self.assertTrue(all(
+            n in {"seat-a", "seat-b", "seat-c"}
+            for n, _f, _l in tasks))
+
+    def test_pin_for_unknown_lens_is_ignored(self):
+        tasks = self.tasks(lens_seats={"nonsense": "seat-a"})
+        self.assertEqual(sorted(l for _, _, l in tasks),
+                         ["correctness", "operations"])
+
+
+class AssessPanelDetailPins(unittest.TestCase):
+    """diversity.assess_panel detail pins (mutants 56, 57):
+    the detail names the panel's families, or says 'none'
+    when there are no known families — in both the violation
+    and the minimum-met branches."""
+
+    def test_violation_detail_names_the_families_present(self):
+        a = diversity.assess_panel({"s1": "fam-a"}, min_families=2)
+        self.assertTrue(a["violation"])
+        self.assertIn("(fam-a)", a["detail"])
+        self.assertNotIn("(none)", a["detail"])
+
+    def test_violation_detail_says_none_without_known_families(self):
+        a = diversity.assess_panel({"s1": "unknown"}, min_families=1)
+        self.assertTrue(a["violation"])
+        self.assertIn("(none)", a["detail"])
+
+    def test_met_detail_names_the_families_present(self):
+        a = diversity.assess_panel({"s1": "fam-a", "s2": "fam-b"},
+                                   min_families=2)
+        self.assertFalse(a["violation"])
+        self.assertIn("(fam-a, fam-b)", a["detail"])
+        self.assertNotIn("(none)", a["detail"])
+
+    def test_zero_minimum_is_no_violation(self):
+        a = diversity.assess_panel({"s1": "unknown"}, min_families=0)
+        self.assertFalse(a["violation"])
+        self.assertIn("no minimum configured", a["detail"])
+
+
+class EscalationTriggerDetailPins(unittest.TestCase):
+    """tiering.escalation_triggers pins (mutant 93): the
+    reviewer-failure trigger names the failed reviewers by
+    provider, with '?' for a report that carries none."""
+
+    @staticmethod
+    def triggers(reports):
+        tasks = [("seat-a", "fn-a", "correctness")]
+        return tiering.escalation_triggers(
+            reports, tasks, ("blocker", "major"))
+
+    def failures(self, reports):
+        return [t for t in self.triggers(reports)
+                if t["kind"] == tiering.TRIGGER_REVIEWER_FAILURE]
+
+    def test_failed_reviewer_is_named_in_the_detail(self):
+        reports = [
+            {"status": "ok", "provider": "prov-ok",
+             "lens": "correctness", "findings": []},
+            {"status": "error", "provider": "prov-x",
+             "lens": "operations", "findings": []},
+        ]
+        fails = self.failures(reports)
+        self.assertEqual(len(fails), 1)
+        self.assertIn("prov-x", fails[0]["detail"])
+        self.assertNotIn("(?)", fails[0]["detail"])
+
+    def test_failed_reviewer_without_provider_shows_question_mark(self):
+        reports = [
+            {"status": "ok", "provider": "prov-ok",
+             "lens": "correctness", "findings": []},
+            {"status": "error", "provider": None,
+             "lens": "operations", "findings": []},
+        ]
+        fails = self.failures(reports)
+        self.assertEqual(len(fails), 1)
+        self.assertIn("?", fails[0]["detail"])
 
 
 if __name__ == "__main__":
