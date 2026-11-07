@@ -1,0 +1,77 @@
+{
+ "case_id": "drop-table-migration",
+ "seat": "openai",
+ "sample": 1,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "c179cef63eefa24956594f595721a2404e57db807a9f82f3cfd1b92b35f32f97",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "gpt-5.4",
+ "events": [
+  {
+   "seat": "openai",
+   "prompt_hash": "c179cef63eefa24956594f595721a2404e57db807a9f82f3cfd1b92b35f32f97",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 819,
+   "tokens_out": 330,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:35:15+00:00",
+   "finished_at": "2026-11-07T13:35:20+00:00",
+   "duration_ms": 5946,
+   "prompt_chars": 3480
+  }
+ ],
+ "shadow_cost_usd": 0.004324,
+ "duration_ms": 5947,
+ "findings": [
+  {
+   "id": "79ab413c7475",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "db/migrations/0042_cleanup.py",
+   "line": 4,
+   "title": "Migration can fail on rerun or drifted databases because DROP INDEX is unconditional",
+   "evidence": "The upgrade path executes an unconditional index drop before any guards, so a database missing that index will error and abort the migration sequence.",
+   "evidence_quote": "    conn.execute('DROP INDEX idx_legacy_email')",
+   "trigger": "",
+   "recommendation": "Use an idempotent form such as 'DROP INDEX IF EXISTS ...' if supported by the target DB, or query schema metadata before dropping so the migration succeeds on databases that have drifted or were partially migrated.",
+   "confidence": 0.95,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "255f3f998e02",
+   "rule": "",
+   "severity": "major",
+   "category": "data-loss",
+   "file": "db/migrations/0042_cleanup.py",
+   "line": 5,
+   "title": "Destructive table drop has no visible safeguard that data was migrated first",
+   "evidence": "This change permanently removes the legacy table during upgrade, but the diff shows no precondition check, backup, or copy of remaining rows before deletion.",
+   "evidence_quote": "    conn.execute('DROP TABLE legacy_users')",
+   "trigger": "",
+   "recommendation": "Add an explicit verification step that the table is empty or that required rows have been migrated before dropping it, or split this into a separate migration after a proven data-copy step and tests.",
+   "confidence": 0.88,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

@@ -1,0 +1,123 @@
+{
+ "case_id": "xc-bigdecimal-invoice",
+ "seat": "deepseek",
+ "sample": 2,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "d4bc0a8ecd4c8853c69a6dd9d43fa007642ab17eae01d468c076023667c0cb7b",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "d4bc0a8ecd4c8853c69a6dd9d43fa007642ab17eae01d468c076023667c0cb7b",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1181,
+   "tokens_out": 2697,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:37:49+00:00",
+   "finished_at": "2026-11-07T13:38:05+00:00",
+   "duration_ms": 16181,
+   "prompt_chars": 4893
+  }
+ ],
+ "shadow_cost_usd": 0.003286,
+ "duration_ms": 16181,
+ "findings": [
+  {
+   "id": "e66d2614e58b",
+   "rule": "",
+   "severity": "major",
+   "category": "testing",
+   "file": "src/main/java/com/example/billing/InvoiceCalculator.java",
+   "line": 10,
+   "title": "Rounding-sensitive invoice math added with zero tests",
+   "evidence": "The whole class hard-codes a single money policy (scale 2, HALF_UP) and per-line rounding that determines the invoice total, but the diff adds no test class at all; no test commands were run, so the line-rounding and tax-rounding behaviour is entirely unverified.",
+   "evidence_quote": "    private static final RoundingMode ROUNDING = RoundingMode.HALF_UP;",
+   "trigger": "",
+   "recommendation": "Add tests covering: a line price with 3+ decimals that forces HALF_UP (for example x.xx5), a quantity > 1 line, an empty item list (expects 0.00 with scale 2), subtotal + tax rounding at the half-cent boundary, and comparison against a sum-then-round reference to pin down the intended policy.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "749ed9291010",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "src/main/java/com/example/billing/InvoiceCalculator.java",
+   "line": 42,
+   "title": "totalWithTax validates nothing: null taxRate throws raw NPE, negative taxRate silently lowers the total",
+   "evidence": "LineItem's constructor rejects a null unitPrice with IllegalArgumentException, but totalWithTax accepts any taxRate: a null argument fails here with an unhelpful NullPointerException from BigDecimal.multiply, and a negative rate (say -0.1) is accepted and quietly reduces the invoice total.",
+   "evidence_quote": "        BigDecimal tax = cents(subtotal.multiply(taxRate));",
+   "trigger": "",
+   "recommendation": "Validate at the top of totalWithTax: require taxRate != null and taxRate.signum() >= 0 (or document refund/credit use and name the method accordingly), throwing IllegalArgumentException consistently with LineItem.",
+   "confidence": 0.75,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "3cc7d9ad4ac1",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "src/main/java/com/example/billing/InvoiceCalculator.java",
+   "line": 30,
+   "title": "Null list or null element yields an unhelpful NPE inside the loop",
+   "evidence": "The loop dereferences items and each element without a guard, so subtotal(null) and a list containing a null entry both throw a bare NullPointerException at iteration instead of a clear argument error, unlike LineItem which fails fast with IllegalArgumentException.",
+   "evidence_quote": "        for (LineItem item : items) {",
+   "trigger": "",
+   "recommendation": "Add an up-front guard such as Objects.requireNonNull(items, \"items required\") (or throw IllegalArgumentException) and reject null elements in the loop before calling item.unitPrice().",
+   "confidence": 0.7,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "86823c5ca015",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "src/main/java/com/example/billing/InvoiceCalculator.java",
+   "line": 18,
+   "title": "Quantity is constrained to > 0 but unitPrice may be arbitrarily negative",
+   "evidence": "The record enforces quantity > 0 but never checks the sign of unitPrice, so a negative price produces a negative line amount that flows into subtotal and totalWithTax, letting a bad caller produce a negative invoice total with a negative tax amount and no error.",
+   "evidence_quote": "            if (quantity <= 0) {",
+   "trigger": "",
+   "recommendation": "Either reject unitPrice.signum() < 0 in the compact constructor (consistent with the quantity check), or explicitly document that negative prices model credits/discounts and add a test pinning that behaviour.",
+   "confidence": 0.55,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

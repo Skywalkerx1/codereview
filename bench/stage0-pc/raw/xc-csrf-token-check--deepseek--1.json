@@ -1,0 +1,146 @@
+{
+ "case_id": "xc-csrf-token-check",
+ "seat": "deepseek",
+ "sample": 1,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "48874f52ed5a83e32329656a30ed916da08889ea80a88e3667d80897677374c6",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "48874f52ed5a83e32329656a30ed916da08889ea80a88e3667d80897677374c6",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1110,
+   "tokens_out": 5291,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:40:51+00:00",
+   "finished_at": "2026-11-07T13:41:24+00:00",
+   "duration_ms": 32985,
+   "prompt_chars": 4277
+  }
+ ],
+ "shadow_cost_usd": 0.00612,
+ "duration_ms": 32986,
+ "findings": [
+  {
+   "id": "53df232b13ea",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "src/app.js",
+   "line": 30,
+   "title": "csrfProtection mounted before any session middleware, so req.session is always undefined and all POSTs 403",
+   "evidence": "app.use(csrfProtection); is registered immediately after app.use(express.json()) in the same file, and no session middleware is registered anywhere above it. Express runs middleware in registration order; a session middleware added in server.js after 'import { app } from ./app.js' would be registered after this line and therefore run too late. The comment at line 18 states the assumption but the diff never satisfies it, so 'req.session?.csrfToken' evaluates to undefined and tokensMatch always returns false for non-safe methods.",
+   "evidence_quote": "app.use(csrfProtection);",
+   "trigger": "",
+   "recommendation": "Mount the session middleware on this same app instance before csrfProtection (e.g. app.use(session(...)) directly above line 30, or export a factory that receives the app after sessions are installed), and add a smoke test asserting a POST with a valid session token reaches the handler instead of returning 403.",
+   "confidence": 0.72,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "7c1777078f9d",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "src/app.js",
+   "line": 18,
+   "title": "No token issuance or bootstrap exemption, so a client can never obtain a first valid token",
+   "evidence": "The only documented contract is the comment 'Assumes session middleware runs earlier and sets req.session.'; nothing in the diff ever writes req.session.csrfToken, and the globally mounted check has no opt-out for routes that must be reachable before a session/token exists (login page or login POST). Without an issuance path the reject branch at line 24 is the only reachable outcome for any mutating route, including the request that would establish the session.",
+   "evidence_quote": "// Assumes session middleware runs earlier and sets req.session.",
+   "trigger": "",
+   "recommendation": "Ensure a token is generated and stored in the session (and exposed to the client for headers, e.g. via a GET bootstrap endpoint or a template/meta element), and provide an explicit, narrowly scoped exemption mechanism for the pre-session bootstrap route rather than relying on an implicit session assumption.",
+   "confidence": 0.5,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "0a58ba5ed4ee",
+   "rule": "",
+   "severity": "minor",
+   "category": "security",
+   "file": "src/app.js",
+   "line": 15,
+   "title": "Early length comparison short-circuits and leaks the expected token length",
+   "evidence": "'return a.length === b.length && timingSafeEqual(a, b);' compares lengths in the normal (non-constant-time) way before the constant-time compare, so the number of matching characters is not leaked but the expected token length is. Impact is small when tokens are fixed-length, but it defeats part of the point of using timingSafeEqual.",
+   "evidence_quote": "  return a.length === b.length && timingSafeEqual(a, b);",
+   "trigger": "",
+   "recommendation": "Compare fixed-length digests instead: hash both values (e.g. SHA-256) and run timingSafeEqual over the equal-length digests, so no length information is exposed and no branch depends on the secret.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "1e92c63421c4",
+   "rule": "",
+   "severity": "minor",
+   "category": "testing",
+   "file": "src/app.js",
+   "line": 20,
+   "title": "Security control added with no tests for the bypass/reject paths",
+   "evidence": "The middleware is the only thing gating all mutating routes but no test run was reported. There is no coverage of: safe-method passthrough, missing header, null req.session, non-string header values, equal-length-but-wrong token (constant-time path), or correct token acceptance. A regression here silently either blocks all writes or opens the app.",
+   "evidence_quote": "  if (SAFE_METHODS.has(req.method)) {",
+   "trigger": "",
+   "recommendation": "Add unit/integration tests covering: GET/HEAD/OPTIONS pass without token, POST with no session returns 403, POST with wrong token returns 403, POST with duplicate x-csrf-token headers returns 403, POST with the matching session token reaches the handler.",
+   "confidence": 0.7,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "253cda089e6c",
+   "rule": "",
+   "severity": "nit",
+   "category": "performance",
+   "file": "src/app.js",
+   "line": 29,
+   "title": "Body is parsed before the CSRF check, so rejected requests still allocate/parse JSON",
+   "evidence": "app.use(express.json()); runs before the token check, so an unauthenticated or token-less mutating request is fully deserialised before being rejected at line 24; malformed JSON also yields a 400 from the parser rather than the 403 CSRF error, mixing error contracts.",
+   "evidence_quote": "app.use(express.json());",
+   "trigger": "",
+   "recommendation": "Register csrfProtection before express.json() (it only reads a header, so it does not need the body) so unvalidated payloads are rejected before parsing and the CSRF error is consistently returned.",
+   "confidence": 0.5,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

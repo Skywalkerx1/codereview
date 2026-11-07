@@ -1,0 +1,123 @@
+{
+ "case_id": "xc-tz-aware-scheduling",
+ "seat": "deepseek",
+ "sample": 3,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "292c40c203c3a0326735ddb071a7efcae9d999743aa00ca06d93ecfb0981f52d",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "292c40c203c3a0326735ddb071a7efcae9d999743aa00ca06d93ecfb0981f52d",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1053,
+   "tokens_out": 4657,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:55:37+00:00",
+   "finished_at": "2026-11-07T13:56:05+00:00",
+   "duration_ms": 27435,
+   "prompt_chars": 4052
+  }
+ ],
+ "shadow_cost_usd": 0.005407,
+ "duration_ms": 27435,
+ "findings": [
+  {
+   "id": "2069a04c510d",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "app/scheduling.py",
+   "line": 13,
+   "title": "Fall-back DST: still-future local run is skipped because ordering uses UTC instants, not wall time",
+   "evidence": "candidate is built with the pre-transition offset (fold=0) and compared to local by UTC instant, before the +timedelta(days=1) recombine.",
+   "evidence_quote": "    if candidate <= local:",
+   "trigger": "",
+   "recommendation": "Decide the day by wall clock, not by UTC instant: compare 'local.replace(tzinfo=None) < wall' (or resolve both folds with candidate.replace(fold=1) and pick the earliest instant strictly greater than after). Concretely, with America/New_York, after=2024-11-03T06:10Z which is local 01:10 EST, run_at=01:55 returns tomorrow instead of 2024-11-03T06:55Z, skipping the run. Add a regression test for the repeated hour.",
+   "confidence": 0.65,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "0e115c77e4d5",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/scheduling.py",
+   "line": 12,
+   "title": "Spring-forward gap wall time is silently shifted instead of rejected or shifted forward",
+   "evidence": "datetime.combine with tzinfo=tz accepts a nonexistent local time and resolves it with fold=0 semantics, giving an instant one hour later than the requested wall time.",
+   "evidence_quote": "    candidate = datetime.combine(local.date(), wall, tzinfo=tz)",
+   "trigger": "",
+   "recommendation": "Detect nonexistent local times (for example compare 'candidate.astimezone(tz).replace(tzinfo=None) != wall' for fold in (0, 1)) and skip to the next day or document and test the chosen forward-shift behaviour.",
+   "confidence": 0.55,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "9fe70e14ccf0",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/scheduling.py",
+   "line": 10,
+   "title": "Aware run_at is silently stripped instead of rejected",
+   "evidence": "run_at's tzinfo is dropped with replace(tzinfo=None) rather than validated, so an aware UTC time passed by mistake is reinterpreted as wall time in tz_name instead of being converted.",
+   "evidence_quote": "    wall = run_at.replace(tzinfo=None)  # run_at is a wall time in tz",
+   "trigger": "",
+   "recommendation": "Raise ValueError when run_at.tzinfo is not None (mirroring the check on after), or convert it with astimezone(tz) when it is aware; also reject run_at values carrying fold information that is not explicitly honoured.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "e2052c29e8f3",
+   "rule": "",
+   "severity": "minor",
+   "category": "testing",
+   "file": "app/scheduling.py",
+   "line": 5,
+   "title": "No tests for the DST and boundary behaviour this function depends on",
+   "evidence": "The new module has no accompanying tests despite depending on tzdata and on transition edge cases.",
+   "evidence_quote": "def next_daily_run(after: datetime, run_at: time, tz_name: str) -> datetime:",
+   "trigger": "",
+   "recommendation": "Add unit tests covering: after exactly equal to the candidate, spring-forward gap wall time, both occurrences of the repeated hour on fall-back day, a half-hour-offset zone (e.g. Australia/Lord_Howe), an invalid tz_name, and a naive after.",
+   "confidence": 0.7,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

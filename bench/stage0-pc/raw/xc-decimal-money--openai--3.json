@@ -1,0 +1,77 @@
+{
+ "case_id": "xc-decimal-money",
+ "seat": "openai",
+ "sample": 3,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "eec5c23c07fa130474abc1b35d4cd6bca761aba75ff8763eddbfc9e033ef6e19",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "gpt-5.4",
+ "events": [
+  {
+   "seat": "openai",
+   "prompt_hash": "eec5c23c07fa130474abc1b35d4cd6bca761aba75ff8763eddbfc9e033ef6e19",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 959,
+   "tokens_out": 391,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:41:39+00:00",
+   "finished_at": "2026-11-07T13:41:46+00:00",
+   "duration_ms": 6786,
+   "prompt_chars": 4019
+  }
+ ],
+ "shadow_cost_usd": 0.005109,
+ "duration_ms": 6787,
+ "findings": [
+  {
+   "id": "b782a75ef6b1",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "app/money.py",
+   "line": 12,
+   "title": "line_total can raise TypeError when quantity is a Decimal",
+   "evidence": "The function multiplies a Decimal money amount by quantity without normalizing quantity first, so a supported caller passing Decimal('2') reaches Decimal * Decimal? no issue, but Decimal('2.5') also passes and any non-numeric comparable type can slip past the '< 0' check until multiplication. More importantly, if quantity is a string like '2', the comparison itself raises before validation, making the helper brittle for common parsed inputs.",
+   "evidence_quote": "    return (parse_money(unit_price) * quantity).quantize(CENT, rounding=ROUND_HALF_UP)",
+   "trigger": "",
+   "recommendation": "Validate and normalize quantity explicitly before arithmetic, e.g. require an int or convert accepted numeric types to Decimal/int with a clear error path, and reject unsupported types before the comparison and multiplication.",
+   "confidence": 0.81,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "799fb52c52bf",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/money.py",
+   "line": 10,
+   "title": "line_total accepts fractional quantities without any guard",
+   "evidence": "The only validation is a non-negative check, so values like 1.5 or Decimal('0.333') are accepted and rounded after multiplication, which can silently change business semantics if quantity is meant to be a count of items.",
+   "evidence_quote": "    if quantity < 0:",
+   "trigger": "",
+   "recommendation": "If quantity is intended to be an item count, enforce integer quantities explicitly and raise on fractional values; otherwise document that fractional quantities are supported and add tests for the rounding behavior.",
+   "confidence": 0.9,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

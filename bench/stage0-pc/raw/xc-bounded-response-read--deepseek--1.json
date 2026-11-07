@@ -1,0 +1,116 @@
+{
+ "case_id": "xc-bounded-response-read",
+ "seat": "deepseek",
+ "sample": 1,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "38bc6ae17e6af4be06e4a233a4cc5f251035514fa3ec80da6ec8181deda323ba",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "38bc6ae17e6af4be06e4a233a4cc5f251035514fa3ec80da6ec8181deda323ba",
+   "outcome": "content_invalid",
+   "error_class": "empty",
+   "attempts": 1,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:38:12+00:00",
+   "finished_at": "2026-11-07T13:39:01+00:00",
+   "detail": "deepseek empty: empty content",
+   "duration_ms": 48447,
+   "prompt_chars": 4816
+  },
+  {
+   "seat": "deepseek",
+   "prompt_hash": "0e93e7f3fbe48ab928e4893f2ba12733a17b68a2ff46db8880f14c60d64f3dde",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1261,
+   "tokens_out": 4055,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:39:01+00:00",
+   "finished_at": "2026-11-07T13:39:26+00:00",
+   "duration_ms": 24769,
+   "prompt_chars": 5095
+  }
+ ],
+ "shadow_cost_usd": 0.004801,
+ "duration_ms": 73218,
+ "findings": [
+  {
+   "id": "dfb03a7ff77c",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/fetch_body.py",
+   "line": 42,
+   "title": "Hard-coded utf-8 decode raises UnicodeDecodeError and ignores declared charset",
+   "evidence": "Body is joined then decoded with a fixed utf-8 codec, ignoring response.encoding/charset and any BOM, and decode errors are not suppressed or wrapped, so a caller that only guards ResponseTooLarge/ValueError gets an unhandled UnicodeDecodeError on any non-UTF-8 body (e.g. text/html in ISO-8859-1).",
+   "evidence_quote": "return b\"\".join(chunks).decode(\"utf-8\")",
+   "trigger": "",
+   "recommendation": "Decode using the response charset (response.encoding or a charset sniff) with an explicit errors policy, and either document or wrap UnicodeDecodeError so the function only raises its documented exceptions.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "7aa10a6311d4",
+   "rule": "",
+   "severity": "minor",
+   "category": "testing",
+   "file": "app/fetch_body.py",
+   "line": 20,
+   "title": "Size-cap logic is untested, including the header-vs-stream paths",
+   "evidence": "The module ships with no tests for the declared-length rejection, the chunked streaming rejection, the unparsable-header fallthrough, or the exact-boundary (total == max_bytes) case; the behaviour that matters here (a server lying about or omitting Content-Length) is exactly what a regression test would pin down.",
+   "evidence_quote": "with requests.get(url, timeout=timeout, stream=True) as response:",
+   "trigger": "",
+   "recommendation": "Add tests using a stubbed/mocked Response covering: declared length over cap, declared length absent with a body over cap, body exactly at cap, non-numeric Content-Length, and a non-UTF-8 body.",
+   "confidence": 0.55,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "9cdb96d123b1",
+   "rule": "",
+   "severity": "nit",
+   "category": "quality",
+   "file": "app/fetch_body.py",
+   "line": 29,
+   "title": "Raising ResponseTooLarge inside a try that catches ValueError is fragile",
+   "evidence": "The header check raises ResponseTooLarge from inside the same try block whose except clause swallows ValueError; it only survives because ResponseTooLarge currently subclasses Exception, so any future change making it a ValueError subclass (or catching broader exceptions) would silently disable the declared-length guard.",
+   "evidence_quote": "except ValueError:",
+   "trigger": "",
+   "recommendation": "Parse the header in the try block and raise ResponseTooLarge after the except, e.g. parse to an int sentinel then compare outside the try, so the guard cannot be swallowed.",
+   "confidence": 0.4,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

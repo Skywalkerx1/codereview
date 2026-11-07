@@ -1,0 +1,116 @@
+{
+ "case_id": "xc-circuit-breaker",
+ "seat": "deepseek",
+ "sample": 2,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "4745ad93069043ae3ff6d01c5509ad2d66c76ce2cf3010f13abe1be281fc31bd",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "4745ad93069043ae3ff6d01c5509ad2d66c76ce2cf3010f13abe1be281fc31bd",
+   "outcome": "content_invalid",
+   "error_class": "empty",
+   "attempts": 1,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:38:54+00:00",
+   "finished_at": "2026-11-07T13:39:37+00:00",
+   "detail": "deepseek empty: empty content",
+   "duration_ms": 42758,
+   "prompt_chars": 6167
+  },
+  {
+   "seat": "deepseek",
+   "prompt_hash": "aaa1df0688a7396d888d5668ece259db221ae35a1bed042616d65a284ae4d1e5",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1623,
+   "tokens_out": 8017,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:39:37+00:00",
+   "finished_at": "2026-11-07T13:40:22+00:00",
+   "duration_ms": 45175,
+   "prompt_chars": 6446
+  }
+ ],
+ "shadow_cost_usd": 0.009257,
+ "duration_ms": 87934,
+ "findings": [
+  {
+   "id": "1fdb3d825544",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "app/circuit_breaker.py",
+   "line": 72,
+   "title": "Success path unconditionally forces CLOSED, discarding concurrent opens",
+   "evidence": "After the try block the success path runs 'with self._lock:' and then resets state/failures/opened_at/probe_in_flight to the closed defaults even though 'probing' was captured at admission time.",
+   "evidence_quote": "            self._state = self.CLOSED",
+   "trigger": "",
+   "recommendation": "Record the state (or a generation counter) at admission and only clear failures / close the circuit if the breaker is still in that same generation; if the state changed to OPEN while the call was in flight, leave the breaker OPEN (and do not touch _opened_at). Same guard applies to the CLOSED-failure branch, which currently bumps _opened_at and extends the cooldown for calls admitted before the open.",
+   "confidence": 0.5,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "224d652e39eb",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "app/circuit_breaker.py",
+   "line": 51,
+   "title": "A hung half-open probe wedges the breaker open forever",
+   "evidence": "Once a probe is admitted with 'self._probe_in_flight = True', only the probe returning (success, Exception, or BaseException) clears the flag; there is no timeout and any later caller gets CircuitOpenError('half-open probe in flight') indefinitely.",
+   "evidence_quote": "                self._probe_in_flight = True",
+   "trigger": "",
+   "recommendation": "Stamp the probe admission time and let _refresh_locked re-admit (or re-open) when the probe exceeds a configurable probe timeout, or document that callers must supply their own timeout.",
+   "confidence": 0.55,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "cfbf8d9c4548",
+   "rule": "",
+   "severity": "minor",
+   "category": "testing",
+   "file": "app/circuit_breaker.py",
+   "line": 42,
+   "title": "No tests added for the state machine or its concurrency guarantees",
+   "evidence": "The change adds only the breaker module; the diff contains no tests for open/half-open transitions, the single-probe rejection path, or concurrent call/failure interleavings, and no test commands were run.",
+   "evidence_quote": "    def call(self, func, *args, **kwargs):",
+   "trigger": "",
+   "recommendation": "Add tests using an injected fake clock for CLOSED->OPEN, OPEN->HALF_OPEN after reset_timeout, probe success/failure, rejection while a probe is in flight, and at least one multi-threaded interleaving covering a slow success racing concurrent failures.",
+   "confidence": 0.45,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

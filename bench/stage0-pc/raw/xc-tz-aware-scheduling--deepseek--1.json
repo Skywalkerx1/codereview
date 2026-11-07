@@ -1,0 +1,116 @@
+{
+ "case_id": "xc-tz-aware-scheduling",
+ "seat": "deepseek",
+ "sample": 1,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "292c40c203c3a0326735ddb071a7efcae9d999743aa00ca06d93ecfb0981f52d",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "292c40c203c3a0326735ddb071a7efcae9d999743aa00ca06d93ecfb0981f52d",
+   "outcome": "content_invalid",
+   "error_class": "empty",
+   "attempts": 1,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:55:10+00:00",
+   "finished_at": "2026-11-07T13:56:00+00:00",
+   "detail": "deepseek empty: empty content",
+   "duration_ms": 50087,
+   "prompt_chars": 4052
+  },
+  {
+   "seat": "deepseek",
+   "prompt_hash": "a3d4c262cace7b9eae2460fb7560b409addf36ad67f1ba5e70cb8504e20c3dfd",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1109,
+   "tokens_out": 5965,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:56:00+00:00",
+   "finished_at": "2026-11-07T13:56:36+00:00",
+   "duration_ms": 35773,
+   "prompt_chars": 4331
+  }
+ ],
+ "shadow_cost_usd": 0.006861,
+ "duration_ms": 85861,
+ "findings": [
+  {
+   "id": "567340702de8",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "app/scheduling.py",
+   "line": 12,
+   "title": "DST gap/ambiguous wall times are resolved implicitly, so the run can fire at a different local time than run_at",
+   "evidence": "candidate = datetime.combine(local.date(), wall, tzinfo=tz)",
+   "evidence_quote": "    candidate = datetime.combine(local.date(), wall, tzinfo=tz)",
+   "trigger": "",
+   "recommendation": "Detect nonexistent and ambiguous wall times explicitly: build the candidate with fold=0 and fold=1, compare their utcoffset(); if they differ the time is ambiguous (pick a documented policy, e.g. first occurrence), if the combined result does not round-trip back to the same wall time it is nonexistent (document whether to skip the day or shift forward). Example reachable path: tz_name='America/New_York', run_at=time(2, 30), after=2024-03-10T06:00Z -> combine yields 02:30 with the pre-transition ",
+   "confidence": 0.65,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "04c1ec31b99c",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/scheduling.py",
+   "line": 10,
+   "title": "Timezone-aware run_at is silently stripped instead of rejected",
+   "evidence": "wall = run_at.replace(tzinfo=None)  # run_at is a wall time in tz",
+   "evidence_quote": "    wall = run_at.replace(tzinfo=None)  # run_at is a wall time in tz",
+   "trigger": "",
+   "recommendation": "Validate the input: if run_at.tzinfo is not None and run_at.utcoffset() is not None, either convert it into tz_name or raise ValueError, rather than dropping the offset. Otherwise a caller passing time(9, 0, tzinfo=ZoneInfo('Asia/Tokyo')) with tz_name='UTC' silently gets a 09:00 UTC run instead of 00:00 UTC - a wrong schedule with no error.",
+   "confidence": 0.7,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "940d71b25788",
+   "rule": "",
+   "severity": "minor",
+   "category": "testing",
+   "file": "app/scheduling.py",
+   "line": 5,
+   "title": "New scheduling module has no tests, especially for DST boundaries",
+   "evidence": "def next_daily_run(after: datetime, run_at: time, tz_name: str) -> datetime:",
+   "evidence_quote": "def next_daily_run(after: datetime, run_at: time, tz_name: str) -> datetime:",
+   "trigger": "",
+   "recommendation": "Add unit tests covering: exact-equality boundary (candidate == local rolls to next day), naive after raising ValueError, run_at earlier/later than the local time of day, spring-forward gap day, fall-back ambiguous day, and a zone whose offset differs from the input zone (verifying the returned tzinfo is UTC).",
+   "confidence": 0.75,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

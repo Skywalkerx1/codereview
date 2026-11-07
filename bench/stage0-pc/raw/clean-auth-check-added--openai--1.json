@@ -1,0 +1,30 @@
+{
+ "case_id": "clean-auth-check-added",
+ "seat": "openai",
+ "sample": 1,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "a5251e4fb37f53cefd9f079b97e6540b1df4df1496c46fbda0c033f932ff0fec",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "gpt-5.4",
+ "events": [
+  {
+   "seat": "openai",
+   "prompt_hash": "a5251e4fb37f53cefd9f079b97e6540b1df4df1496c46fbda0c033f932ff0fec",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 814,
+   "tokens_out": 43,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:34:45+00:00",
+   "finished_at": "2026-11-07T13:34:47+00:00",
+   "duration_ms": 2180,
+   "prompt_chars": 3502
+  }
+ ],
+ "shadow_cost_usd": 0.001448,
+ "duration_ms": 2180,
+ "findings": []
+}

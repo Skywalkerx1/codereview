@@ -1,0 +1,54 @@
+{
+ "case_id": "auth-admin-or-true",
+ "seat": "openai",
+ "sample": 2,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "c7c3630668f19ccbaa977ba03f52e3135d4afece0e658e520ea86b71202e4101",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "gpt-5.4",
+ "events": [
+  {
+   "seat": "openai",
+   "prompt_hash": "c7c3630668f19ccbaa977ba03f52e3135d4afece0e658e520ea86b71202e4101",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 805,
+   "tokens_out": 195,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:34:40+00:00",
+   "finished_at": "2026-11-07T13:34:45+00:00",
+   "duration_ms": 4606,
+   "prompt_chars": 3432
+  }
+ ],
+ "shadow_cost_usd": 0.002956,
+ "duration_ms": 4607,
+ "findings": [
+  {
+   "id": "3f04250f0d07",
+   "rule": "",
+   "severity": "blocker",
+   "category": "security",
+   "file": "app/admin.py",
+   "line": 10,
+   "title": "Admin permission check is bypassed for all requests",
+   "evidence": "The new condition uses a constant-true disjunction, so 'not (request.user.is_staff or True)' is always false and 'PermissionDenied' is never raised, allowing non-staff users to reach 'render_admin()'.",
+   "evidence_quote": "    if not (request.user.is_staff or True):",
+   "trigger": "",
+   "recommendation": "Restore the original staff check, e.g. 'if not request.user.is_staff: raise PermissionDenied', and add a test that a non-staff authenticated user is denied access to the admin panel.",
+   "confidence": 0.99,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

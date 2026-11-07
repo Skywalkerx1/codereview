@@ -1,0 +1,171 @@
+{
+ "case_id": "xc-decimal-money",
+ "seat": "deepseek",
+ "sample": 1,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "eec5c23c07fa130474abc1b35d4cd6bca761aba75ff8763eddbfc9e033ef6e19",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "eec5c23c07fa130474abc1b35d4cd6bca761aba75ff8763eddbfc9e033ef6e19",
+   "outcome": "content_invalid",
+   "error_class": "empty",
+   "attempts": 1,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:41:46+00:00",
+   "finished_at": "2026-11-07T13:42:34+00:00",
+   "detail": "deepseek empty: empty content",
+   "duration_ms": 48088,
+   "prompt_chars": 4019
+  },
+  {
+   "seat": "deepseek",
+   "prompt_hash": "e18955978e42d554be6b7bec9dc6b8af5b20e65beaacc151cb244cf69ac6687b",
+   "outcome": "content_invalid",
+   "error_class": "empty",
+   "attempts": 1,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:42:34+00:00",
+   "finished_at": "2026-11-07T13:43:24+00:00",
+   "detail": "deepseek empty: empty content",
+   "duration_ms": 50024,
+   "prompt_chars": 4298
+  },
+  {
+   "seat": "deepseek",
+   "prompt_hash": "eec5c23c07fa130474abc1b35d4cd6bca761aba75ff8763eddbfc9e033ef6e19",
+   "outcome": "content_invalid",
+   "error_class": "empty",
+   "attempts": 1,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:43:24+00:00",
+   "finished_at": "2026-11-07T13:44:14+00:00",
+   "detail": "deepseek empty: empty content",
+   "duration_ms": 49395,
+   "prompt_chars": 4019
+  },
+  {
+   "seat": "deepseek",
+   "prompt_hash": "eec5c23c07fa130474abc1b35d4cd6bca761aba75ff8763eddbfc9e033ef6e19",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1041,
+   "tokens_out": 5170,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:44:14+00:00",
+   "finished_at": "2026-11-07T13:44:42+00:00",
+   "duration_ms": 28573,
+   "prompt_chars": 4019
+  }
+ ],
+ "shadow_cost_usd": 0.005968,
+ "duration_ms": 176083,
+ "findings": [
+  {
+   "id": "ceadb16243a2",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/money.py",
+   "line": 9,
+   "title": "quantize leaks decimal.InvalidOperation instead of a domain error for unrepresentable input",
+   "evidence": "parse_money accepts any non-float value via 'Decimal(str(value))', so strings such as 'NaN', 'Infinity', or a value larger than the 28-digit context precision reach 'return amount.quantize(CENT, rounding=ROUND_HALF_UP)'; quantize raises decimal.InvalidOperation (an ArithmeticError, not TypeError/ValueError) for NaN/Inf and whenever the quantized result exceeds context digits.",
+   "evidence_quote": "    return amount.quantize(CENT, rounding=ROUND_HALF_UP)",
+   "trigger": "",
+   "recommendation": "Validate with amount.is_finite() and catch decimal.InvalidOperation around quantize, re-raising ValueError with a clear message (e.g. unsupported/out-of-range money value) so callers get a documented exception type.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "54c286f92276",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/money.py",
+   "line": 12,
+   "title": "Quantity is never type-validated; the guard only does a comparison",
+   "evidence": "'if quantity < 0:' assumes a number: a str quantity raises TypeError from the comparison, a bool quantity (True) silently passes as 1, and a float quantity passes the check and only fails later at 'parse_money(unit_price) * quantity' with a TypeError. Three different failure modes for one invalid-argument case.",
+   "evidence_quote": "    if quantity < 0:",
+   "trigger": "",
+   "recommendation": "Explicitly reject float/bool/str quantity (e.g. require isinstance(quantity, (int, Decimal)) and not isinstance(quantity, bool)) and raise TypeError with the same strictness parse_money applies to money.",
+   "confidence": 0.65,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "f1ffa6be4b7e",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/money.py",
+   "line": 18,
+   "title": "Float tax_rate is accepted while float money is rejected, letting binary noise in",
+   "evidence": "parse_money deliberately refuses floats, but 'Decimal(str(tax_rate))' silently round-trips a float rate, so a computed rate such as 0.1 + 0.05 becomes 0.15000000000000002 and feeds the rounded tax; the module's stated float policy is therefore inconsistent between money and rates.",
+   "evidence_quote": "    tax = (subtotal * Decimal(str(tax_rate))).quantize(CENT, rounding=ROUND_HALF_UP)",
+   "trigger": "",
+   "recommendation": "Apply the same float rejection to tax_rate (reuse parse_money-style validation or a shared validator) and document that rates must be str/int/Decimal.",
+   "confidence": 0.55,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "bf9d584093c1",
+   "rule": "",
+   "severity": "minor",
+   "category": "testing",
+   "file": "app/money.py",
+   "line": 14,
+   "title": "No tests shipped for the rounding boundaries this module exists to guarantee",
+   "evidence": "The change adds only the module; nothing exercises 'return (parse_money(unit_price) * quantity).quantize(CENT, rounding=ROUND_HALF_UP)' at the 0.005 boundary, on negative amounts (ROUND_HALF_UP rounds away from zero, so -0.005 becomes -0.01), or with multi-cent unit prices times fractional quantities.",
+   "evidence_quote": "    return (parse_money(unit_price) * quantity).quantize(CENT, rounding=ROUND_HALF_UP)",
+   "trigger": "",
+   "recommendation": "Add tests covering half-cent boundaries for positive and negative values, float rejection in parse_money, and line_total/total_with_tax composition (including a float tax_rate case).",
+   "confidence": 0.7,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

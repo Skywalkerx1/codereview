@@ -1,0 +1,77 @@
+{
+ "case_id": "xc-ssrf-allowlist-fetch",
+ "seat": "openai",
+ "sample": 1,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "f1807f4d6363c038fb5d86b72fc7f4ac533b727d6afbad02f4082076c8b8424a",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "gpt-5.4",
+ "events": [
+  {
+   "seat": "openai",
+   "prompt_hash": "f1807f4d6363c038fb5d86b72fc7f4ac533b727d6afbad02f4082076c8b8424a",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1412,
+   "tokens_out": 379,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:48:43+00:00",
+   "finished_at": "2026-11-07T13:48:49+00:00",
+   "duration_ms": 5997,
+   "prompt_chars": 5857
+  }
+ ],
+ "shadow_cost_usd": 0.005555,
+ "duration_ms": 5997,
+ "findings": [
+  {
+   "id": "d4c349fafdc2",
+   "rule": "",
+   "severity": "major",
+   "category": "security",
+   "file": "app/safe_fetch.py",
+   "line": 52,
+   "title": "DNS rebinding remains possible because validation and the actual connection use separate resolutions",
+   "evidence": "The code validates the hostname with a standalone DNS lookup, then performs 'requests.get(current, ...)' using the hostname again, which lets a rebinding hostname resolve to an allowed public IP during validation and a different IP when the HTTP client connects.",
+   "evidence_quote": "        response = requests.get(",
+   "trigger": "",
+   "recommendation": "Bind the connection to the validated address set instead of re-resolving the hostname during the request. For example, resolve once, reject non-public addresses, then connect directly to a chosen validated IP while preserving TLS SNI/Host verification for the original hostname, or use a transport/adapter that pins DNS results across validation and connect time.",
+   "confidence": 0.95,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "fbb50edeb7ad",
+   "rule": "",
+   "severity": "minor",
+   "category": "testing",
+   "file": "app/safe_fetch.py",
+   "line": 1,
+   "title": "No tests accompany a security-sensitive fetch path with custom redirect handling",
+   "evidence": "This new module adds bespoke URL validation, DNS checks, and redirect processing, but the change includes only implementation code and no tests to lock down expected behavior for redirects, allowlist enforcement, and non-public address rejection.",
+   "evidence_quote": "import ipaddress",
+   "trigger": "",
+   "recommendation": "Add tests covering allowed fetches, blocked schemes/ports/credentials, redirects to disallowed hosts, redirects without Location, redirect loops/limits, and DNS results containing non-public addresses.",
+   "confidence": 0.78,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

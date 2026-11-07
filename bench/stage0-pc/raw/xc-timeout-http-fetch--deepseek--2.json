@@ -1,0 +1,255 @@
+{
+ "case_id": "xc-timeout-http-fetch",
+ "seat": "deepseek",
+ "sample": 2,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "6cccfe37c162912945abc8ad3a2c24e426d7a60645b0cc221cb7d8d7e138a131",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "6cccfe37c162912945abc8ad3a2c24e426d7a60645b0cc221cb7d8d7e138a131",
+   "outcome": "content_invalid",
+   "error_class": "empty",
+   "attempts": 1,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:51:56+00:00",
+   "finished_at": "2026-11-07T13:52:44+00:00",
+   "detail": "deepseek empty: empty content",
+   "duration_ms": 47800,
+   "prompt_chars": 4393
+  },
+  {
+   "seat": "deepseek",
+   "prompt_hash": "62cabb59b035f21cab367dd27e8bb8cd742d55fd38ed2908f889a926dd18f26e",
+   "outcome": "content_invalid",
+   "error_class": "content",
+   "attempts": 1,
+   "tokens_in": 1245,
+   "tokens_out": 8192,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:52:44+00:00",
+   "finished_at": "2026-11-07T13:53:30+00:00",
+   "duration_ms": 46246,
+   "prompt_chars": 4672
+  },
+  {
+   "seat": "deepseek",
+   "prompt_hash": "6cccfe37c162912945abc8ad3a2c24e426d7a60645b0cc221cb7d8d7e138a131",
+   "outcome": "content_invalid",
+   "error_class": "empty",
+   "attempts": 1,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:53:30+00:00",
+   "finished_at": "2026-11-07T13:54:14+00:00",
+   "detail": "deepseek empty: empty content",
+   "duration_ms": 43977,
+   "prompt_chars": 4393
+  },
+  {
+   "seat": "deepseek",
+   "prompt_hash": "6cccfe37c162912945abc8ad3a2c24e426d7a60645b0cc221cb7d8d7e138a131",
+   "outcome": "content_invalid",
+   "error_class": "empty",
+   "attempts": 1,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:54:14+00:00",
+   "finished_at": "2026-11-07T13:55:01+00:00",
+   "detail": "deepseek empty: empty content",
+   "duration_ms": 47016,
+   "prompt_chars": 4393
+  },
+  {
+   "seat": "deepseek",
+   "prompt_hash": "62cabb59b035f21cab367dd27e8bb8cd742d55fd38ed2908f889a926dd18f26e",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1245,
+   "tokens_out": 6524,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:55:01+00:00",
+   "finished_at": "2026-11-07T13:55:40+00:00",
+   "duration_ms": 38644,
+   "prompt_chars": 4672
+  }
+ ],
+ "shadow_cost_usd": 0.01686,
+ "duration_ms": 223687,
+ "findings": [
+  {
+   "id": "0e98ad4fdb25",
+   "rule": "",
+   "severity": "major",
+   "category": "reliability",
+   "file": "lib/http_fetch.rb",
+   "line": 26,
+   "title": "read_timeout is per-read; no overall deadline bounds the request",
+   "evidence": "read_timeout is passed to Net::HTTP.start, which applies it per socket read, not to the whole response; a server that sends one byte just under every 5s keeps the call (and the calling thread) alive indefinitely, and retries multiply that.",
+   "evidence_quote": "        read_timeout: READ_TIMEOUT",
+   "trigger": "",
+   "recommendation": "Wrap the request in a hard deadline (e.g. Timeout.timeout with a total budget covering open + read + retries, or use Net::HTTP's read loop with a deadline check) and document the total worst-case duration.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "33c35b55a440",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "lib/http_fetch.rb",
+   "line": 21,
+   "title": "Net::HTTP internal max_retries doubles the intended attempt count",
+   "evidence": "Net::HTTP.start defaults to max_retries = 1 and silently retries idempotent requests on connection resets, so MAX_ATTEMPTS = 3 can become up to 6 transport attempts and roughly double the worst-case wall time/backoff.",
+   "evidence_quote": "      Net::HTTP.start(",
+   "trigger": "",
+   "recommendation": "Pass max_retries: 0 in the Net::HTTP.start keyword arguments so the only retry policy is the explicit one in this method.",
+   "confidence": 0.75,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "44370ceabd71",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "lib/http_fetch.rb",
+   "line": 6,
+   "title": "Common transient transport errors are not retried",
+   "evidence": "The retryable list covers only open/read timeouts and ECONNRESET, so Errno::ETIMEDOUT, Errno::EHOSTUNREACH, EOFError, SocketError and OpenSSL::SSL::SSLError abort the fetch immediately despite the documented transient-error retry.",
+   "evidence_quote": "    Net::OpenTimeout, Net::ReadTimeout, Errno::ECONNRESET",
+   "trigger": "",
+   "recommendation": "Add the other transient classes (Errno::ETIMEDOUT, Errno::EHOSTUNREACH, EOFError, SocketError, OpenSSL::SSL::SSLError, IOError) to RETRYABLE_ERRORS, and consider retrying 429/5xx responses with backoff.",
+   "confidence": 0.7,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "f41f36282d43",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "lib/http_fetch.rb",
+   "line": 29,
+   "title": "Response body is read fully with no size cap",
+   "evidence": "response.body buffers the entire response in memory and no Content-Length/max-size check exists, so an unexpectedly large body can exhaust process memory.",
+   "evidence_quote": "        return response.body",
+   "trigger": "",
+   "recommendation": "Enforce a maximum body size (check Content-Length before reading and/or stream with read_body, aborting past a configured cap) and raise a distinct error when exceeded.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "c61145811c17",
+   "rule": "",
+   "severity": "minor",
+   "category": "quality",
+   "file": "lib/http_fetch.rb",
+   "line": 28,
+   "title": "Non-success status raises a bare RuntimeError with the status discarded",
+   "evidence": "The non-success branch raises an untyped RuntimeError built from a string, so callers cannot rescue a specific error class or inspect code/headers, and diagnostics (status code, body) are lost.",
+   "evidence_quote": "        unless response.is_a?(Net::HTTPSuccess)",
+   "trigger": "",
+   "recommendation": "Define a dedicated error class (e.g. HttpFetch::Error / HTTPStatusError) that carries response.code and body, and raise that instead of a string exception.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "65e6eb83d44f",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "lib/http_fetch.rb",
+   "line": 14,
+   "title": "Host is never validated after the scheme check",
+   "evidence": "Only the URI class is checked; a value such as the string 'https:foo' parses as URI::HTTPS with a nil host, producing a confusing downstream failure from Net::HTTP.start rather than a clear ArgumentError.",
+   "evidence_quote": "    unless uri.is_a?(URI::HTTPS)",
+   "trigger": "",
+   "recommendation": "Also reject when uri.host is nil/empty (and optionally reject userinfo) with a clear ArgumentError before starting the request.",
+   "confidence": 0.65,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "2623d107b598",
+   "rule": "",
+   "severity": "minor",
+   "category": "testing",
+   "file": "lib/http_fetch.rb",
+   "line": 33,
+   "title": "Retry/timeout behaviour has no tests",
+   "evidence": "No test commands were run and no test files are in the diff, so the retry bound, backoff and https-only guard are unverified; a broken counter or a non-retried transient error would go unnoticed.",
+   "evidence_quote": "      raise if attempt >= MAX_ATTEMPTS",
+   "trigger": "",
+   "recommendation": "Add unit tests stubbing Net::HTTP.start to assert: non-https raises ArgumentError, success returns the body, a retryable error retries exactly MAX_ATTEMPTS times then re-raises, and a non-retryable error propagates immediately.",
+   "confidence": 0.7,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

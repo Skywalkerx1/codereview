@@ -1,0 +1,77 @@
+{
+ "case_id": "xc-strict-json-body",
+ "seat": "openai",
+ "sample": 3,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "a76bfbe62cac0b94eebea46f8545408bae508902af7880d56775f6a3b099fe9a",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "gpt-5.4",
+ "events": [
+  {
+   "seat": "openai",
+   "prompt_hash": "a76bfbe62cac0b94eebea46f8545408bae508902af7880d56775f6a3b099fe9a",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1114,
+   "tokens_out": 368,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:50:42+00:00",
+   "finished_at": "2026-11-07T13:50:48+00:00",
+   "duration_ms": 5965,
+   "prompt_chars": 4456
+  }
+ ],
+ "shadow_cost_usd": 0.005072,
+ "duration_ms": 5965,
+ "findings": [
+  {
+   "id": "77858012fcce",
+   "rule": "",
+   "severity": "major",
+   "category": "reliability",
+   "file": "src/jsonBody.js",
+   "line": 16,
+   "title": "Oversized request path destroys the socket without handling the resulting aborted/error event",
+   "evidence": "When the body exceeds the cap, the middleware sends a 413 and immediately calls req.destroy(), but it only listens for req.on('error') and never handles the aborted/close path that destroy commonly triggers on IncomingMessage. In Node this can surface as an unhandled stream error or leave the request lifecycle in an undefined state after a response has already been written.",
+   "evidence_quote": "      req.destroy();",
+   "trigger": "",
+   "recommendation": "Do not destroy the request without also handling the resulting termination events safely. Prefer stopping further processing by removing listeners and draining/ignoring the rest of the body, or add explicit handling for aborted/close and ensure no unhandled error is emitted after sending the 413.",
+   "confidence": 0.89,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "208c8a9ad9ce",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "src/jsonBody.js",
+   "line": 5,
+   "title": "Content-Type check accepts non-JSON types that merely share the prefix",
+   "evidence": "The gate uses a simple prefix test, so values like application/jsonp or application/json-seq will pass even though they are not standard JSON request bodies for JSON.parse.",
+   "evidence_quote": "  if (!contentType.toLowerCase().startsWith(\"application/json\")) {",
+   "trigger": "",
+   "recommendation": "Parse the media type token and require an exact match for application/json, optionally also allowing structured syntax suffixes such as application/*+json if intended.",
+   "confidence": 0.95,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

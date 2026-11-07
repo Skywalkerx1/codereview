@@ -1,0 +1,123 @@
+{
+ "case_id": "xc-fetch-timeout-abort",
+ "seat": "deepseek",
+ "sample": 3,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "a732b18057c81219b26fa93a5905268813fe876738e82ff316f07e74ab2b190f",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "a732b18057c81219b26fa93a5905268813fe876738e82ff316f07e74ab2b190f",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1003,
+   "tokens_out": 3481,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:43:11+00:00",
+   "finished_at": "2026-11-07T13:43:32+00:00",
+   "duration_ms": 21460,
+   "prompt_chars": 3965
+  }
+ ],
+ "shadow_cost_usd": 0.0041,
+ "duration_ms": 21460,
+ "findings": [
+  {
+   "id": "350c023a1ce4",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "src/fetchJson.js",
+   "line": 5,
+   "title": "Caller-supplied options.signal is silently discarded (regression in cancellation contract)",
+   "evidence": "Spread of options followed by an unconditional signal override: 'const response = await fetch(url, { ...options, signal: controller.signal });'. Previously options were forwarded untouched, so 'fetchJson(url, { signal })' allowed the caller to cancel; now the internal controller's signal replaces the caller's, and nothing ever calls abort on it on the caller's behalf. Reachable path: any call site doing 'fetchJson(url, { signal: myAbortController.signal })' then 'myAbortController.abort()' will no longer cancel the request, and the caller has no way to stop a request early (only the fixed timeout ends it).",
+   "evidence_quote": "    const response = await fetch(url, { ...options, signal: controller.signal });",
+   "trigger": "",
+   "recommendation": "Compose signals instead of overwriting: accept the caller signal, keep it, and either forward it via 'AbortSignal.any([controller.signal, options.signal])' (Node 20+/modern browsers) or attach a listener that calls controller.abort(reason) when the caller signal aborts; document the behaviour and add a test covering caller-initiated abort.",
+   "confidence": 0.62,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "accc5d8c7c4f",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "src/fetchJson.js",
+   "line": 3,
+   "title": "timeoutMs is unvalidated; 0/null/NaN abort immediately and Infinity has no safe meaning",
+   "evidence": "'const timer = setTimeout(() => controller.abort(), timeoutMs);' is called with whatever the caller passes. 'timeoutMs: null' or NaN are coerced to a 0ms delay so every request aborts immediately, and there is no supported way to opt out of the timeout: passing Infinity hits Node's TimeoutOverflowWarning path (delay clamped to ~1ms), i.e. the opposite of 'no timeout'. Reachable: 'fetchJson(url, { timeoutMs: null })' from config/env parsing.",
+   "evidence_quote": "  const timer = setTimeout(() => controller.abort(), timeoutMs);",
+   "trigger": "",
+   "recommendation": "Validate/normalise timeoutMs (reject or clamp non-finite/negative/non-number values, or treat 0/Infinity explicitly as no timeout) and add a guard so a misconfigured value cannot turn every request into an instant abort.",
+   "confidence": 0.5,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "09315fb638da",
+   "rule": "",
+   "severity": "minor",
+   "category": "testing",
+   "file": "src/fetchJson.js",
+   "line": 2,
+   "title": "No test asserts the timeout actually aborts, or that the timer is cleared",
+   "evidence": "'const controller = new AbortController();' plus the finally block are the whole abort mechanism, and no test command was run for this change; the two risky behaviours (abort fires after timeoutMs with a non-2xx-free rejection, and clearTimeout prevents a dangling timer after success/failure) are both unverified.",
+   "evidence_quote": "  const controller = new AbortController();",
+   "trigger": "",
+   "recommendation": "Add tests: (a) a request slower than timeoutMs rejects with the abort error and not a generic failure, (b) a fast successful request clears the timer (e.g. assert process/timer handles are clean or spy on clearTimeout), (c) a non-2xx fast response still throws the request-failed error.",
+   "confidence": 0.55,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "1b182c649571",
+   "rule": "",
+   "severity": "nit",
+   "category": "quality",
+   "file": "src/fetchJson.js",
+   "line": 1,
+   "title": "Passing null as the second argument now throws instead of being forwarded",
+   "evidence": "The parameter is destructured with a default: 'export async function fetchJson(url, { timeoutMs = 8000, ...options } = {}) {' \u2014 a default only applies to undefined, so 'fetchJson(url, null)' now throws a TypeError where the previous signature forwarded null to fetch (which treats it as no init). Low impact unless a call site passes null; also the abort rejection is an unlabelled AbortError, so callers cannot tell a timeout from any other abort.",
+   "evidence_quote": "export async function fetchJson(url, { timeoutMs = 8000, ...options } = {}) {",
+   "trigger": "",
+   "recommendation": "Normalise the argument ('options ?? {}') if null forwarding matters, and wrap the abort rejection in an Error that states the URL and timeoutMs so timeout failures are distinguishable from other fetch errors.",
+   "confidence": 0.4,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

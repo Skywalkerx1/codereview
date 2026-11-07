@@ -1,0 +1,235 @@
+{
+ "case_id": "xc-ssrf-allowlist-fetch",
+ "seat": "deepseek",
+ "sample": 2,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "f1807f4d6363c038fb5d86b72fc7f4ac533b727d6afbad02f4082076c8b8424a",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "f1807f4d6363c038fb5d86b72fc7f4ac533b727d6afbad02f4082076c8b8424a",
+   "outcome": "content_invalid",
+   "error_class": "empty",
+   "attempts": 1,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:49:02+00:00",
+   "finished_at": "2026-11-07T13:49:48+00:00",
+   "detail": "deepseek empty: empty content",
+   "duration_ms": 46541,
+   "prompt_chars": 5857
+  },
+  {
+   "seat": "deepseek",
+   "prompt_hash": "e465b286416642791f4b874b9578a0734c9411063364a9f99c29e4b02a0f21d1",
+   "outcome": "content_invalid",
+   "error_class": "empty",
+   "attempts": 1,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:49:48+00:00",
+   "finished_at": "2026-11-07T13:50:35+00:00",
+   "detail": "deepseek empty: empty content",
+   "duration_ms": 46917,
+   "prompt_chars": 6136
+  },
+  {
+   "seat": "deepseek",
+   "prompt_hash": "f1807f4d6363c038fb5d86b72fc7f4ac533b727d6afbad02f4082076c8b8424a",
+   "outcome": "content_invalid",
+   "error_class": "empty",
+   "attempts": 1,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:50:35+00:00",
+   "finished_at": "2026-11-07T13:51:23+00:00",
+   "detail": "deepseek empty: empty content",
+   "duration_ms": 47903,
+   "prompt_chars": 5857
+  },
+  {
+   "seat": "deepseek",
+   "prompt_hash": "f1807f4d6363c038fb5d86b72fc7f4ac533b727d6afbad02f4082076c8b8424a",
+   "outcome": "content_invalid",
+   "error_class": "empty",
+   "attempts": 1,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:51:23+00:00",
+   "finished_at": "2026-11-07T13:52:11+00:00",
+   "detail": "deepseek empty: empty content",
+   "duration_ms": 47828,
+   "prompt_chars": 5857
+  },
+  {
+   "seat": "deepseek",
+   "prompt_hash": "e465b286416642791f4b874b9578a0734c9411063364a9f99c29e4b02a0f21d1",
+   "outcome": "content_invalid",
+   "error_class": "empty",
+   "attempts": 1,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:52:11+00:00",
+   "finished_at": "2026-11-07T13:52:54+00:00",
+   "detail": "deepseek empty: empty content",
+   "duration_ms": 42810,
+   "prompt_chars": 6136
+  },
+  {
+   "seat": "deepseek",
+   "prompt_hash": "f1807f4d6363c038fb5d86b72fc7f4ac533b727d6afbad02f4082076c8b8424a",
+   "outcome": "content_invalid",
+   "error_class": "empty",
+   "attempts": 1,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:52:54+00:00",
+   "finished_at": "2026-11-07T13:53:43+00:00",
+   "detail": "deepseek empty: empty content",
+   "duration_ms": 49491,
+   "prompt_chars": 5857
+  },
+  {
+   "seat": "deepseek",
+   "prompt_hash": "f1807f4d6363c038fb5d86b72fc7f4ac533b727d6afbad02f4082076c8b8424a",
+   "outcome": "content_invalid",
+   "error_class": "empty",
+   "attempts": 1,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:53:43+00:00",
+   "finished_at": "2026-11-07T13:54:30+00:00",
+   "detail": "deepseek empty: empty content",
+   "duration_ms": 47276,
+   "prompt_chars": 5857
+  },
+  {
+   "seat": "deepseek",
+   "prompt_hash": "e465b286416642791f4b874b9578a0734c9411063364a9f99c29e4b02a0f21d1",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1573,
+   "tokens_out": 7131,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:54:30+00:00",
+   "finished_at": "2026-11-07T13:55:13+00:00",
+   "duration_ms": 42207,
+   "prompt_chars": 6136
+  }
+ ],
+ "shadow_cost_usd": 0.008269,
+ "duration_ms": 370978,
+ "findings": [
+  {
+   "id": "0e62f036aab5",
+   "rule": "",
+   "severity": "major",
+   "category": "security",
+   "file": "app/safe_fetch.py",
+   "line": 57,
+   "title": "Validated IP is never pinned: DNS re-resolves at connect time (rebinding TOCTOU)",
+   "evidence": "_validate_url calls socket.getaddrinfo and rejects non-global addresses, then hands the raw URL string to requests, which resolves the name a second time; the address that was checked is not the address that is connected to.",
+   "evidence_quote": "        response = requests.get(",
+   "trigger": "",
+   "recommendation": "Resolve once and connect to the vetted IP: use a custom HTTPAdapter/connection pool that passes the checked addresses to the socket layer (or replace the host with the pinned IP and send an explicit Host header / SNI name), so no second resolution can occur between check and connect.",
+   "confidence": 0.65,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "ddb7c0c8bc67",
+   "rule": "",
+   "severity": "minor",
+   "category": "security",
+   "file": "app/safe_fetch.py",
+   "line": 58,
+   "title": "Proxy env vars let the proxy resolve the host, bypassing the local IP check",
+   "evidence": "requests.get is called with default trust_env, so with HTTPS_PROXY set the request goes to the proxy which performs its own DNS resolution; the local is_global check then proves nothing about the connection target.",
+   "evidence_quote": "            current, timeout=TIMEOUT_SECONDS, allow_redirects=False",
+   "trigger": "",
+   "recommendation": "Build the request through a requests.Session with trust_env = False (or an explicit proxies={} on the call) so no environment-supplied proxy can reinterpret the target.",
+   "confidence": 0.5,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "c1663b14b93b",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "app/safe_fetch.py",
+   "line": 62,
+   "title": "Unbounded response body is read fully into memory before returning",
+   "evidence": "requests.get without stream=True buffers the entire body before safe_fetch returns it, and there is no Content-Length or byte cap, so an oversized or hostile response from an allowlisted (or compromised) host exhausts memory.",
+   "evidence_quote": "            return response",
+   "trigger": "",
+   "recommendation": "Use stream=True and enforce a maximum byte count while iterating the body, closing the response and raising once the limit is exceeded.",
+   "confidence": 0.55,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "16fa8869d70a",
+   "rule": "",
+   "severity": "minor",
+   "category": "testing",
+   "file": "app/safe_fetch.py",
+   "line": 46,
+   "title": "Security-critical fetch path has no tests",
+   "evidence": "The diff adds the whole module with no accompanying test file, so the allowlist rejection, credential/port rejection, redirect-to-internal denial and MAX_REDIRECTS limit are all unverified.",
+   "evidence_quote": "def safe_fetch(url):",
+   "trigger": "",
+   "recommendation": "Add tests with mocked getaddrinfo/requests covering: non-allowlisted host, userinfo in URL, non-443 port, non-https Location, redirect chain exceeding MAX_REDIRECTS, and redirect to a host resolving to a private address.",
+   "confidence": 0.7,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

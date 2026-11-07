@@ -1,0 +1,123 @@
+{
+ "case_id": "xc-context-http-timeout",
+ "seat": "deepseek",
+ "sample": 3,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "14bf6db8f869e83ba8a7605ea3da55d14a7ac91f852a283309602fa09f1e91d2",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "14bf6db8f869e83ba8a7605ea3da55d14a7ac91f852a283309602fa09f1e91d2",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1166,
+   "tokens_out": 2313,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:40:22+00:00",
+   "finished_at": "2026-11-07T13:40:35+00:00",
+   "duration_ms": 12864,
+   "prompt_chars": 4317
+  }
+ ],
+ "shadow_cost_usd": 0.002859,
+ "duration_ms": 12865,
+ "findings": [
+  {
+   "id": "146c1548293c",
+   "rule": "",
+   "severity": "major",
+   "category": "data-loss",
+   "file": "internal/fetch/fetch.go",
+   "line": 37,
+   "title": "Silent truncation: bodies larger than maxBody are returned as success",
+   "evidence": "body, err := io.ReadAll(io.LimitReader(resp.Body, maxBody)) then return body, nil",
+   "evidence_quote": "\tbody, err := io.ReadAll(io.LimitReader(resp.Body, maxBody))",
+   "trigger": "",
+   "recommendation": "Read one byte past the cap and fail explicitly when exceeded, e.g. io.ReadAll(io.LimitReader(resp.Body, maxBody+1)) and return an error such as 'body exceeds %d bytes' when len(body) > maxBody; or document the truncation in the Get doc comment and return a truncation flag. Never return partial bytes with a nil error.",
+   "confidence": 0.8,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "69f21d46de66",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "internal/fetch/fetch.go",
+   "line": 28,
+   "title": "nil *http.Client panics instead of returning an error",
+   "evidence": "resp, err := client.Do(req)",
+   "evidence_quote": "\tresp, err := client.Do(req)",
+   "trigger": "",
+   "recommendation": "Guard at entry: if client == nil { client = http.DefaultClient } (or return a wrapped error), since Get is an exported API taking a pointer the caller controls.",
+   "confidence": 0.55,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "2139c59b3abd",
+   "rule": "",
+   "severity": "minor",
+   "category": "performance",
+   "file": "internal/fetch/fetch.go",
+   "line": 32,
+   "title": "Body closed without being drained, so the connection is not reused",
+   "evidence": "defer resp.Body.Close() with no io.Copy(io.Discard, ...) drain on error paths",
+   "evidence_quote": "\tdefer resp.Body.Close()",
+   "trigger": "",
+   "recommendation": "On the non-200 path (and after a limited read) drain a bounded amount into io.Discard before Close so the underlying keep-alive connection can be returned to the pool.",
+   "confidence": 0.5,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "39feedd8701d",
+   "rule": "",
+   "severity": "minor",
+   "category": "testing",
+   "file": "internal/fetch/fetch.go",
+   "line": 18,
+   "title": "New exported API ships with no tests, especially no oversize-body or timeout test",
+   "evidence": "func Get(ctx context.Context, client *http.Client, url string) ([]byte, error) {",
+   "evidence_quote": "func Get(ctx context.Context, client *http.Client, url string) ([]byte, error) {",
+   "trigger": "",
+   "recommendation": "Add table-driven tests using httptest.Server: 200 with normal body, body just over maxBody (assert an error, not silent truncation), non-200 status, and a handler that blocks past the timeout (assert context.DeadlineExceeded wraps through).",
+   "confidence": 0.7,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

@@ -1,0 +1,184 @@
+{
+ "case_id": "xc-graceful-shutdown",
+ "seat": "deepseek",
+ "sample": 2,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "fdea71c8afcf6ca9744205e70730c339cba071cef88cec57ecd9d5169bf3bda1",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "fdea71c8afcf6ca9744205e70730c339cba071cef88cec57ecd9d5169bf3bda1",
+   "outcome": "content_invalid",
+   "error_class": "content",
+   "attempts": 1,
+   "tokens_in": 1361,
+   "tokens_out": 8192,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:44:42+00:00",
+   "finished_at": "2026-11-07T13:45:31+00:00",
+   "duration_ms": 48359,
+   "prompt_chars": 5426
+  },
+  {
+   "seat": "deepseek",
+   "prompt_hash": "d62cf9452e63be0ae39f761c955252fb08cb15d0a8920ef0b1328b20bc98b1e6",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1417,
+   "tokens_out": 6124,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:45:31+00:00",
+   "finished_at": "2026-11-07T13:46:06+00:00",
+   "duration_ms": 35669,
+   "prompt_chars": 5705
+  }
+ ],
+ "shadow_cost_usd": 0.016498,
+ "duration_ms": 84029,
+ "findings": [
+  {
+   "id": "e7a1f3c404a0",
+   "rule": "",
+   "severity": "major",
+   "category": "reliability",
+   "file": "app/worker.py",
+   "line": 35,
+   "title": "SIGINT/SIGTERM handlers swallow repeated interrupts; unbounded drain cannot be aborted",
+   "evidence": "request_stop replaces both SIGINT and SIGTERM with a handler that only does 'self._stop.set()', while line 48-50 enters the executor context which waits for every in-flight job with no timeout. Reachable path: a handler blocks on I/O forever -> operator sends SIGTERM, then Ctrl-C repeatedly -> each signal is consumed by 'signal.signal(signal.SIGINT, self.request_stop)' setting an already-set Event; ThreadPoolExecutor.__exit__ waits forever and the only exit left is SIGKILL, so the graceful path degrades into an unkillable process.",
+   "evidence_quote": "signal.signal(signal.SIGINT, self.request_stop)",
+   "trigger": "",
+   "recommendation": "Count interrupts in request_stop and, on the second signal (or after a configurable drain deadline), restore SIG_DFL and re-raise/exit; alternatively pass a drain timeout to pool.shutdown(wait=True) and log plus exit non-zero when it expires. At minimum document that SIGKILL is required for a hung job.",
+   "confidence": 0.8,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "ce1054759ebd",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/worker.py",
+   "line": 56,
+   "title": "Job pulled in flight is submitted after stop, contradicting the stated shutdown contract",
+   "evidence": "The loop only checks the event before blocking in 'self._source.get(timeout=POLL_SECONDS)'. If stop is set while that get is blocked and a job arrives within POLL_SECONDS, control falls through to 'pool.submit(self._run_job, job)' with no re-check, so a job enqueued after the signal is accepted and must be drained, which can extend shutdown arbitrarily. This violates the docstring claim that once stop is requested no new jobs are pulled.",
+   "evidence_quote": "pool.submit(self._run_job, job)",
+   "trigger": "",
+   "recommendation": "Re-check 'self._stop.is_set()' after get returns and before submit (and either put the job back or skip it), or drop the claim that no job is ever pulled after stop.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "ab3a063f1c43",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/worker.py",
+   "line": 53,
+   "title": "Undeclared source contract: get() must accept timeout and raise queue.Empty",
+   "evidence": "The class accepts an arbitrary 'source' in __init__ but hard-codes blocking semantics: 'job = self._source.get(timeout=POLL_SECONDS)' with only 'except queue.Empty' handled. Any source whose get() does not accept a timeout kwarg raises TypeError out of the while loop, and any other source error propagates out of run() before the draining/shutdown log lines, so the caller sees an exception instead of the promised clean return.",
+   "evidence_quote": "job = self._source.get(timeout=POLL_SECONDS)",
+   "trigger": "",
+   "recommendation": "Document the required source protocol in the class docstring (get(timeout=...) -> job, raises queue.Empty) and/or wrap the get call so unexpected exceptions are logged and treated as stop, keeping the drain path intact.",
+   "confidence": 0.55,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "baa04ffc8e4b",
+   "rule": "",
+   "severity": "minor",
+   "category": "quality",
+   "file": "app/worker.py",
+   "line": 47,
+   "title": "Process-wide signal handlers installed but never restored",
+   "evidence": "run() calls 'self.install_signal_handlers()' and never saves/restores the previous handlers on exit. Reachable path: a caller that invokes run() and then continues doing other work (worker embedded in a larger main) loses Ctrl-C behaviour for the rest of the process, because SIGINT now only sets an already-set Event instead of raising KeyboardInterrupt.",
+   "evidence_quote": "self.install_signal_handlers()",
+   "trigger": "",
+   "recommendation": "Save the values returned by signal.signal and restore them in a finally block around the run() body (or move handler installation to the caller).",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "1b9fa1507a18",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "app/worker.py",
+   "line": 41,
+   "title": "BaseException from a handler is swallowed silently in a discarded Future",
+   "evidence": "'except Exception:' leaves BaseException subclasses (SystemExit, KeyboardInterrupt, asyncio-style CancelledError on some paths) uncaught in the worker thread; the executor stores them in a Future that is never retained, so nothing is logged despite the docstring promise that job failures are logged. A handler that raises SystemExit therefore disappears with no trace at shutdown.",
+   "evidence_quote": "except Exception:",
+   "trigger": "",
+   "recommendation": "Catch BaseException, log it with logger.exception, and re-raise only for genuine control-flow exceptions if that is desired; or keep a reference to each Future and log future.exception() results.",
+   "confidence": 0.5,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "7e4f3bbfcf1a",
+   "rule": "",
+   "severity": "nit",
+   "category": "correctness",
+   "file": "app/worker.py",
+   "line": 60,
+   "title": "run() always returns success even when jobs failed",
+   "evidence": "The return value is hard-coded: 'return 0'. Every job error is swallowed in _run_job, so a supervisor calling run() cannot distinguish a clean drain from one where all jobs failed, and the process exits 0.",
+   "evidence_quote": "return 0",
+   "trigger": "",
+   "recommendation": "Track a failure count (or worst exception) in _run_job and return a non-zero status when any job failed.",
+   "confidence": 0.5,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

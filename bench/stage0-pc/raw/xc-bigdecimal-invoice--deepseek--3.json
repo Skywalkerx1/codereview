@@ -1,0 +1,169 @@
+{
+ "case_id": "xc-bigdecimal-invoice",
+ "seat": "deepseek",
+ "sample": 3,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "d4bc0a8ecd4c8853c69a6dd9d43fa007642ab17eae01d468c076023667c0cb7b",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "d4bc0a8ecd4c8853c69a6dd9d43fa007642ab17eae01d468c076023667c0cb7b",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1181,
+   "tokens_out": 3248,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:37:49+00:00",
+   "finished_at": "2026-11-07T13:38:07+00:00",
+   "duration_ms": 18629,
+   "prompt_chars": 4893
+  }
+ ],
+ "shadow_cost_usd": 0.003892,
+ "duration_ms": 18629,
+ "findings": [
+  {
+   "id": "46a98de08fdc",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "src/main/java/com/example/billing/InvoiceCalculator.java",
+   "line": 30,
+   "title": "subtotal NPEs on null list or null element instead of failing fast",
+   "evidence": "the loop iterates `items` and dereferences `item.unitPrice()` with no null checks, while the record constructor sets an IllegalArgumentException precedent for bad input",
+   "evidence_quote": "        for (LineItem item : items) {",
+   "trigger": "",
+   "recommendation": "Add an explicit guard at method entry: Objects.requireNonNull(items, \"items required\") and skip/reject null elements with IllegalArgumentException so callers get a consistent contract instead of a NullPointerException mid-loop.",
+   "confidence": 0.7,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "ef1076810043",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "src/main/java/com/example/billing/InvoiceCalculator.java",
+   "line": 42,
+   "title": "taxRate is unvalidated: null NPE, negative or percent-scale values accepted",
+   "evidence": "`BigDecimal tax = cents(subtotal.multiply(taxRate));` uses taxRate directly with no null check, no non-negative check, and no documented unit (fraction vs. percent) \u2014 a caller passing 8.25 instead of 0.0825 silently produces a 100x tax figure",
+   "evidence_quote": "        BigDecimal tax = cents(subtotal.multiply(taxRate));",
+   "trigger": "",
+   "recommendation": "Require non-null, non-negative taxRate (e.g. requireNonNull plus compareTo(BigDecimal.ZERO) >= 0) and document the expected unit in the method signature or javadoc, or accept a percentage type with a dedicated conversion.",
+   "confidence": 0.75,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "237ada2b15c4",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "src/main/java/com/example/billing/InvoiceCalculator.java",
+   "line": 31,
+   "title": "Per-line rounding means subtotal can differ from rounding the exact sum",
+   "evidence": "each line is rounded to SCALE via `cents(...)` before being added, e.g. two items of unitPrice 0.005 quantity 1 yield 0.02 instead of 0.01; the rounding policy is undocumented so the divergence is invisible to callers",
+   "evidence_quote": "            BigDecimal line = cents(",
+   "trigger": "",
+   "recommendation": "State the rounding policy explicitly (per-line rounding is a common invoice convention) in javadoc, or accumulate exact products and round once at the end if the exact-sum policy is intended; add a test pinning the chosen behaviour.",
+   "confidence": 0.55,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "d0f96b8df8e7",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "src/main/java/com/example/billing/InvoiceCalculator.java",
+   "line": 15,
+   "title": "unitPrice only null-checked: negative and over-scale prices pass silently",
+   "evidence": "the compact constructor rejects null unitPrice but never checks sign or scale, so negative prices (credits) and values with more than two decimals are rounded away without warning",
+   "evidence_quote": "            if (unitPrice == null) {",
+   "trigger": "",
+   "recommendation": "Add a sign/scale check (e.g. unitPrice.compareTo(BigDecimal.ZERO) >= 0, and optionally unitPrice.scale() <= SCALE) or document that discounts and sub-cent prices are intentional, so HALF_UP rounding of negatives is a deliberate, tested decision.",
+   "confidence": 0.5,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "8033e4348615",
+   "rule": "",
+   "severity": "minor",
+   "category": "testing",
+   "file": "src/main/java/com/example/billing/InvoiceCalculator.java",
+   "line": 25,
+   "title": "No tests pin the money rounding behaviour",
+   "evidence": "no test commands were run and the diff adds no tests for `value.setScale(SCALE, ROUNDING)`, leaving the half-cent edge case and the per-line vs. total rounding policy unverified",
+   "evidence_quote": "        return value.setScale(SCALE, ROUNDING);",
+   "trigger": "",
+   "recommendation": "Add unit tests covering: half-cent line values, empty list, quantity 1 with sub-cent unit price, multi-line accumulation, and tax rounding such as subtotal 0.05 with taxRate 0.1.",
+   "confidence": 0.8,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "5090a9c7a669",
+   "rule": "",
+   "severity": "nit",
+   "category": "quality",
+   "file": "src/main/java/com/example/billing/InvoiceCalculator.java",
+   "line": 41,
+   "title": "Local variable shadows the subtotal method name",
+   "evidence": "`BigDecimal subtotal = subtotal(items);` reuses the method name for a local, making the following line read ambiguously between the field and the method",
+   "evidence_quote": "        BigDecimal subtotal = subtotal(items);",
+   "trigger": "",
+   "recommendation": "Rename the local to e.g. netTotal or subTotalAmount to avoid shadowing the public method name.",
+   "confidence": 0.9,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

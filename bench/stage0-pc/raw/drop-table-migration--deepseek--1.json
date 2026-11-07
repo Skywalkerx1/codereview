@@ -1,0 +1,100 @@
+{
+ "case_id": "drop-table-migration",
+ "seat": "deepseek",
+ "sample": 1,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "c179cef63eefa24956594f595721a2404e57db807a9f82f3cfd1b92b35f32f97",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "c179cef63eefa24956594f595721a2404e57db807a9f82f3cfd1b92b35f32f97",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 890,
+   "tokens_out": 1940,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:35:22+00:00",
+   "finished_at": "2026-11-07T13:35:35+00:00",
+   "duration_ms": 12854,
+   "prompt_chars": 3480
+  }
+ ],
+ "shadow_cost_usd": 0.002374,
+ "duration_ms": 12855,
+ "findings": [
+  {
+   "id": "8b77913dd1e0",
+   "rule": "",
+   "severity": "blocker",
+   "category": "data-loss",
+   "file": "db/migrations/0042_cleanup.py",
+   "line": 5,
+   "title": "Irreversible DROP TABLE of legacy_users with no backup or archival step",
+   "evidence": "The new upgrade() step executes 'conn.execute(\"DROP TABLE legacy_users\")' immediately after dropping the index and before VACUUM; any rows in legacy_users are destroyed permanently by simply running the migration (upgrade(conn) -> DROP TABLE).",
+   "evidence_quote": "    conn.execute(\"DROP TABLE legacy_users\")",
+   "trigger": "",
+   "recommendation": "Before dropping, either (a) archive the data (e.g. CREATE TABLE legacy_users_archive AS SELECT * FROM legacy_users, or a dump/export written outside the transaction), or (b) remove the DROP from this migration entirely and stage it in a later migration gated on explicit operator confirmation. At minimum document the recoverability story (restore-from-backup) and confirm no downstream consumer still reads the table.",
+   "confidence": 0.8,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "46fc62e38e76",
+   "rule": "",
+   "severity": "major",
+   "category": "reliability",
+   "file": "db/migrations/0042_cleanup.py",
+   "line": 5,
+   "title": "DROP TABLE without IF EXISTS aborts the migration chain when the table is absent",
+   "evidence": "Unlike the neighbouring index drop being a legacy statement, the new 'conn.execute(\"DROP TABLE legacy_users\")' has no existence guard; on a database provisioned from a squashed/current schema (where legacy_users was never created) or after a partially-applied run that already dropped the table, upgrade() raises an error and the migration chain stops at 0042.",
+   "evidence_quote": "    conn.execute(\"DROP TABLE legacy_users\")",
+   "trigger": "",
+   "recommendation": "Use 'DROP TABLE IF EXISTS legacy_users' (or a schema introspection check such as querying sqlite_master/pg_catalog for the table first) so upgrade() is idempotent, and add a test that runs the full migration chain against a freshly-created database and against a re-run of 0042.",
+   "confidence": 0.55,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "d2f579bbcfe1",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "db/migrations/0042_cleanup.py",
+   "line": 5,
+   "title": "DROP INDEX idx_legacy_email is now redundant and can fail before the table drop",
+   "evidence": "With the table being removed on the next line ('conn.execute(\"DROP TABLE legacy_users\")'), dropping an index on that table is unnecessary; worse, if legacy_users is already gone but idx_legacy_email is not (or the index name is spelled differently on some installs) the unguarded index drop fails first and the table drop never runs.",
+   "evidence_quote": "    conn.execute(\"DROP TABLE legacy_users\")",
+   "trigger": "",
+   "recommendation": "Drop the separate index statement (the table drop removes its indexes) or make it 'DROP INDEX IF EXISTS idx_legacy_email'; keep one canonical, idempotent set of cleanup statements.",
+   "confidence": 0.45,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

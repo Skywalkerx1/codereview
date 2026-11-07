@@ -1,0 +1,185 @@
+{
+ "case_id": "xc-timeout-http-fetch",
+ "seat": "deepseek",
+ "sample": 3,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "6cccfe37c162912945abc8ad3a2c24e426d7a60645b0cc221cb7d8d7e138a131",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "6cccfe37c162912945abc8ad3a2c24e426d7a60645b0cc221cb7d8d7e138a131",
+   "outcome": "content_invalid",
+   "error_class": "empty",
+   "attempts": 1,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:54:20+00:00",
+   "finished_at": "2026-11-07T13:55:06+00:00",
+   "detail": "deepseek empty: empty content",
+   "duration_ms": 46360,
+   "prompt_chars": 4393
+  },
+  {
+   "seat": "deepseek",
+   "prompt_hash": "62cabb59b035f21cab367dd27e8bb8cd742d55fd38ed2908f889a926dd18f26e",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1245,
+   "tokens_out": 7362,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:55:06+00:00",
+   "finished_at": "2026-11-07T13:55:48+00:00",
+   "duration_ms": 42168,
+   "prompt_chars": 4672
+  }
+ ],
+ "shadow_cost_usd": 0.008434,
+ "duration_ms": 88530,
+ "findings": [
+  {
+   "id": "97af7b1252e3",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "lib/http_fetch.rb",
+   "line": 27,
+   "title": "read_timeout is per-read; no overall deadline, so a slow-drip peer holds the call open",
+   "evidence": "read_timeout is set only via the Net::HTTP option, and the method has no wall-clock budget for the whole call.",
+   "evidence_quote": "        read_timeout: READ_TIMEOUT",
+   "trigger": "",
+   "recommendation": "Wrap each attempt in Timeout.timeout(OPEN_TIMEOUT + READ_TIMEOUT * some_factor) or track a deadline across the attempt loop so a server sending one byte per interval cannot keep the request alive indefinitely (currently worse because the retry loop multiplies it by MAX_ATTEMPTS).",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "aef181c7729a",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "lib/http_fetch.rb",
+   "line": 6,
+   "title": "Retryable set omits common transient transport errors",
+   "evidence": "Only Net::OpenTimeout, Net::ReadTimeout, Errno::ECONNRESET are retried; DNS/connect churn raises SocketError, Errno::ETIMEDOUT, Errno::EHOSTUNREACH, EOFError, Net::HTTPBadResponse, which escape the rescue on attempt 1.",
+   "evidence_quote": "    Net::OpenTimeout, Net::ReadTimeout, Errno::ECONNRESET",
+   "trigger": "",
+   "recommendation": "Extend RETRYABLE_ERRORS with SocketError, EOFError, Net::HTTPBadResponse, Errno::ETIMEDOUT, Errno::EHOSTUNREACH, Errno::EPIPE (or descendant narrowing) so the documented bounded retry of transient transport failures actually covers transient transport failures; document any deliberate exclusions.",
+   "confidence": 0.65,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "56da900f8428",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "lib/http_fetch.rb",
+   "line": 30,
+   "title": "Non-success raise discards status/response and never retries 5xx or 429",
+   "evidence": "Any non-2xx (including transient 502/503/504 and 429) is turned into a plain RuntimeError built from a string, so callers cannot branch on the status code and the retry policy does not apply to server-side transient failures.",
+   "evidence_quote": "        unless response.is_a?(Net::HTTPSuccess)",
+   "trigger": "",
+   "recommendation": "Define a dedicated HttpFetch::HttpError (or reuse Net::HTTPResponse) carrying response.code and body, and retry 429/500/502/503/504 with the same backoff; keep the raise outside the retryable rescue set as a distinct class so it is not swallowed.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "7bdc62bea8d1",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "lib/http_fetch.rb",
+   "line": 24,
+   "title": "No host check: nil/empty host passes the https guard and fails deep inside Net::HTTP",
+   "evidence": "The guard only checks uri.is_a?(URI::HTTPS); a URI like https:// with no host still satisfies it, so uri.host is nil and the failure surfaces as a TypeError from the socket layer rather than ArgumentError.",
+   "evidence_quote": "        uri.host, uri.port,",
+   "trigger": "",
+   "recommendation": "After the scheme check, validate uri.host is a non-empty String (and reject userinfo if it should not be silently ignored) so malformed input fails fast with ArgumentError before any network call or retry/latency cost.",
+   "confidence": 0.55,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "e292f2797561",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "lib/http_fetch.rb",
+   "line": 33,
+   "title": "Successful 204/205 responses return nil instead of a String body",
+   "evidence": "Net::HTTPSuccess includes HTTPNoContent and HTTPResetContent, for which Net::HTTPResponse#body is nil, so the method returns nil while returning a String for 200 with Content-Length 0.",
+   "evidence_quote": "        return response.body",
+   "trigger": "",
+   "recommendation": "Return response.body.to_s (or document a nil return) so callers doing string operations on the result do not hit NoMethodError on empty-body 2xx responses; add a test for 204.",
+   "confidence": 0.55,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "2caa82fc5a64",
+   "rule": "",
+   "severity": "minor",
+   "category": "testing",
+   "file": "lib/http_fetch.rb",
+   "line": 38,
+   "title": "Retry bound, backoff, and https-only guard are untested",
+   "evidence": "The retry loop, exponential backoff, and MAX_ATTEMPTS cutoff have no accompanying test file, and no test commands were run for this change.",
+   "evidence_quote": "      sleep(0.5 * (2**(attempt - 1)))",
+   "trigger": "",
+   "recommendation": "Add tests with an injected sleeper/stubbed Net::HTTP.start: exactly MAX_ATTEMPTS attempts then re-raise of the original error, no retry on the HTTP-status error, and ArgumentError for http:// and for a host-less https URI.",
+   "confidence": 0.7,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

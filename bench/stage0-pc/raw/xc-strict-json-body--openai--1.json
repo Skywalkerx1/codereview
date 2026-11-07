@@ -1,0 +1,77 @@
+{
+ "case_id": "xc-strict-json-body",
+ "seat": "openai",
+ "sample": 1,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "a76bfbe62cac0b94eebea46f8545408bae508902af7880d56775f6a3b099fe9a",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "gpt-5.4",
+ "events": [
+  {
+   "seat": "openai",
+   "prompt_hash": "a76bfbe62cac0b94eebea46f8545408bae508902af7880d56775f6a3b099fe9a",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1114,
+   "tokens_out": 315,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:50:37+00:00",
+   "finished_at": "2026-11-07T13:50:42+00:00",
+   "duration_ms": 4709,
+   "prompt_chars": 4456
+  }
+ ],
+ "shadow_cost_usd": 0.004542,
+ "duration_ms": 4709,
+ "findings": [
+  {
+   "id": "0e25faa27e39",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "src/jsonBody.js",
+   "line": 24,
+   "title": "Invalid UTF-8 in the request body can crash the middleware outside the JSON parse guard",
+   "evidence": "The body is decoded with Buffer.toString before entering the try/catch, so malformed byte sequences can throw and bypass the intended 400 response path.",
+   "evidence_quote": "    const text = Buffer.concat(chunks).toString(\"utf8\");",
+   "trigger": "",
+   "recommendation": "Wrap the decode step in the same try/catch as JSON.parse, or use a decoder strategy that converts malformed input into a controlled 400 response instead of throwing from the event handler.",
+   "confidence": 0.88,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "907480e86554",
+   "rule": "",
+   "severity": "minor",
+   "category": "security",
+   "file": "src/jsonBody.js",
+   "line": 5,
+   "title": "Prefix match accepts non-JSON media types such as application/jsonp",
+   "evidence": "The content-type gate only checks whether the header starts with application/json, which also matches other media types sharing that prefix.",
+   "evidence_quote": "  if (!contentType.toLowerCase().startsWith(\"application/json\")) {",
+   "trigger": "",
+   "recommendation": "Parse the media type and require an exact match for application/json, or explicitly allow only application/json plus valid parameters such as ; charset=utf-8.",
+   "confidence": 0.96,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

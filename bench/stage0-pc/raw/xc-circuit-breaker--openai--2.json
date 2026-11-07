@@ -1,0 +1,54 @@
+{
+ "case_id": "xc-circuit-breaker",
+ "seat": "openai",
+ "sample": 2,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "4745ad93069043ae3ff6d01c5509ad2d66c76ce2cf3010f13abe1be281fc31bd",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "gpt-5.4",
+ "events": [
+  {
+   "seat": "openai",
+   "prompt_hash": "4745ad93069043ae3ff6d01c5509ad2d66c76ce2cf3010f13abe1be281fc31bd",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1460,
+   "tokens_out": 322,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:38:39+00:00",
+   "finished_at": "2026-11-07T13:38:45+00:00",
+   "duration_ms": 5487,
+   "prompt_chars": 6167
+  }
+ ],
+ "shadow_cost_usd": 0.005045,
+ "duration_ms": 5488,
+ "findings": [
+  {
+   "id": "fc6161692fae",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "app/circuit_breaker.py",
+   "line": 45,
+   "title": "Rejected concurrent calls during half-open can leave the breaker stuck open forever after probe success",
+   "evidence": "In HALF_OPEN, one caller sets '_probe_in_flight = True' and any concurrent caller immediately gets 'raise CircuitOpenError('half-open probe in flight')'. If that rejected caller enters the generic 'except Exception' path, the code treats it as a probe failure and reopens the circuit, even though the real probe may later succeed and close it. Because the success path unconditionally clears '_opened_at', the breaker can end up in OPEN with '_opened_at = None', and '_refresh_locked' will never transition it back to HALF_OPEN.",
+   "evidence_quote": "                    raise CircuitOpenError(\"half-open probe in flight\")",
+   "trigger": "",
+   "recommendation": "Do not route internally rejected half-open calls through the same failure accounting as the protected function. A concrete fix is to raise before setting 'probing', or add a separate flag so the 'except Exception' block only reopens on an actual probe execution failure. Also ensure OPEN state always has a non-None '_opened_at' so recovery cannot be disabled.",
+   "confidence": 0.97,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

@@ -1,0 +1,54 @@
+{
+ "case_id": "payment-refund-partial",
+ "seat": "openai",
+ "sample": 3,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "185fca10845c12a824f8d1b440d72febb4640487dd8d2c512e57ae17d7560b1b",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "gpt-5.4",
+ "events": [
+  {
+   "seat": "openai",
+   "prompt_hash": "185fca10845c12a824f8d1b440d72febb4640487dd8d2c512e57ae17d7560b1b",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 828,
+   "tokens_out": 204,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:35:33+00:00",
+   "finished_at": "2026-11-07T13:35:36+00:00",
+   "duration_ms": 3771,
+   "prompt_chars": 3518
+  }
+ ],
+ "shadow_cost_usd": 0.003075,
+ "duration_ms": 3772,
+ "findings": [
+  {
+   "id": "19d006f1a947",
+   "rule": "",
+   "severity": "blocker",
+   "category": "data-loss",
+   "file": "billing/refunds.py",
+   "line": 11,
+   "title": "Partial refund amount is ignored and full order total is always refunded",
+   "evidence": "The function takes a caller-approved partial refund amount, but the new gateway call replaces that input with the full order total, so any partial refund path will issue a full refund instead.",
+   "evidence_quote": "    return gateway.refund(order.txn_id, order.total_cents)",
+   "trigger": "",
+   "recommendation": "Pass the approved refund amount through to the gateway call, i.e. use amount_cents rather than order.total_cents, and add a test covering a partial refund to prevent regression.",
+   "confidence": 0.99,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

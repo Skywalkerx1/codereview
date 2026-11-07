@@ -1,0 +1,77 @@
+{
+ "case_id": "xc-deadletter-worker",
+ "seat": "openai",
+ "sample": 1,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "7fa229e350a4a667413e65c4a2832b081436218e44ea67c1023a9bdbc330291f",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "gpt-5.4",
+ "events": [
+  {
+   "seat": "openai",
+   "prompt_hash": "7fa229e350a4a667413e65c4a2832b081436218e44ea67c1023a9bdbc330291f",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1223,
+   "tokens_out": 407,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:41:18+00:00",
+   "finished_at": "2026-11-07T13:41:25+00:00",
+   "duration_ms": 6875,
+   "prompt_chars": 5271
+  }
+ ],
+ "shadow_cost_usd": 0.005599,
+ "duration_ms": 6875,
+ "findings": [
+  {
+   "id": "b2b8abe9e00b",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "app/dlq_worker.py",
+   "line": 40,
+   "title": "DLQ path crashes for messages whose attributes are None or missing mapping semantics",
+   "evidence": "The retry-count helper tolerates bad attributes by returning 0, but the dead-letter send path later unconditionally expands message.attributes into a dict. If a supported queue implementation provides attributes as None, the first terminal failure reaches this line and raises before the message is acked or dead-lettered, causing an endless redelivery loop instead of dead-lettering.",
+   "evidence_quote": "                        **message.attributes,",
+   "trigger": "",
+   "recommendation": "Normalize attributes once before use, for example with 'attrs = dict(message.attributes or {})', and use that both in _delivery_attempts and in the dlq.send attributes payload.",
+   "confidence": 0.95,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "ead263af77bd",
+   "rule": "",
+   "severity": "major",
+   "category": "reliability",
+   "file": "app/dlq_worker.py",
+   "line": 54,
+   "title": "Successful handler execution is retried if ack fails, duplicating non-idempotent side effects",
+   "evidence": "After 'handler(message.body)' returns successfully, the code immediately calls ack without any error handling. On a reachable broker/network failure during ack, process_messages raises and exits after the handler has already performed its side effects, leaving the message unacked so it will be redelivered and processed again.",
+   "evidence_quote": "            queue.ack(message)",
+   "trigger": "",
+   "recommendation": "Handle ack failures explicitly after successful processing, e.g. catch exceptions around ack, log them, and decide on a strategy that avoids blind re-execution of non-idempotent handlers, such as requiring idempotency keys or persisting completion before ack.",
+   "confidence": 0.89,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

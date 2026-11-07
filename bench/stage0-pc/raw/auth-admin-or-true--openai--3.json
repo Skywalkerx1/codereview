@@ -1,0 +1,54 @@
+{
+ "case_id": "auth-admin-or-true",
+ "seat": "openai",
+ "sample": 3,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "c7c3630668f19ccbaa977ba03f52e3135d4afece0e658e520ea86b71202e4101",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "gpt-5.4",
+ "events": [
+  {
+   "seat": "openai",
+   "prompt_hash": "c7c3630668f19ccbaa977ba03f52e3135d4afece0e658e520ea86b71202e4101",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 805,
+   "tokens_out": 184,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:34:40+00:00",
+   "finished_at": "2026-11-07T13:34:45+00:00",
+   "duration_ms": 5117,
+   "prompt_chars": 3432
+  }
+ ],
+ "shadow_cost_usd": 0.002846,
+ "duration_ms": 5117,
+ "findings": [
+  {
+   "id": "3f04250f0d07",
+   "rule": "",
+   "severity": "blocker",
+   "category": "security",
+   "file": "app/admin.py",
+   "line": 10,
+   "title": "Admin permission check is bypassed for all requests",
+   "evidence": "The new condition uses a constant true disjunct, so 'request.user.is_staff or True' always evaluates truthy and the PermissionDenied branch is never taken, allowing non-staff users to reach the admin panel.",
+   "evidence_quote": "    if not (request.user.is_staff or True):",
+   "trigger": "",
+   "recommendation": "Restore the original staff check, e.g. 'if not request.user.is_staff:' or an equivalent authorization guard that does not include a constant truthy branch.",
+   "confidence": 0.99,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

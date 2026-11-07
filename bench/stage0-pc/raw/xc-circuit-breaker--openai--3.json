@@ -1,0 +1,54 @@
+{
+ "case_id": "xc-circuit-breaker",
+ "seat": "openai",
+ "sample": 3,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "4745ad93069043ae3ff6d01c5509ad2d66c76ce2cf3010f13abe1be281fc31bd",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "gpt-5.4",
+ "events": [
+  {
+   "seat": "openai",
+   "prompt_hash": "4745ad93069043ae3ff6d01c5509ad2d66c76ce2cf3010f13abe1be281fc31bd",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1460,
+   "tokens_out": 246,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:38:45+00:00",
+   "finished_at": "2026-11-07T13:38:50+00:00",
+   "duration_ms": 4959,
+   "prompt_chars": 6167
+  }
+ ],
+ "shadow_cost_usd": 0.004285,
+ "duration_ms": 4960,
+ "findings": [
+  {
+   "id": "f5ea67c89816",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "app/circuit_breaker.py",
+   "line": 65,
+   "title": "Successful in-flight call can overwrite a concurrently opened circuit back to closed",
+   "evidence": "After running the protected function outside the lock, the success path unconditionally resets the breaker to closed. If another thread fails and opens the circuit while this call is still executing, this thread will later acquire the lock and clear that open state, losing the failure signal and allowing traffic through prematurely.",
+   "evidence_quote": "            self._state = self.CLOSED",
+   "trigger": "",
+   "recommendation": "Track the state observed before invoking the function and only apply the success reset if the breaker is still in the expected state for this call. For example, on success from a normal closed-state call, avoid forcing CLOSED if another thread has since transitioned the breaker to OPEN; on half-open success, close only if this call still owns the probe.",
+   "confidence": 0.97,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

@@ -1,0 +1,54 @@
+{
+ "case_id": "xss-innerhtml",
+ "seat": "deepseek",
+ "sample": 2,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "f63cb55fb7a41e512d445aa6ec9d1e0bec7462016bb85ba30fc4f749ba1819ab",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "f63cb55fb7a41e512d445aa6ec9d1e0bec7462016bb85ba30fc4f749ba1819ab",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 863,
+   "tokens_out": 878,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:55:51+00:00",
+   "finished_at": "2026-11-07T13:55:57+00:00",
+   "duration_ms": 6208,
+   "prompt_chars": 3438
+  }
+ ],
+ "shadow_cost_usd": 0.001199,
+ "duration_ms": 6209,
+ "findings": [
+  {
+   "id": "cd9a8e664f16",
+   "rule": "",
+   "severity": "blocker",
+   "category": "security",
+   "file": "web/comments.js",
+   "line": 14,
+   "title": "Stored/DOM XSS: comment body assigned to innerHTML without sanitization",
+   "evidence": "The render function now does 'el.innerHTML = comment.body;' where it previously used textContent, so any HTML in a comment (e.g. an img tag with an onerror handler) is parsed and its script executes in the page origin when the comment is rendered.",
+   "evidence_quote": "  el.innerHTML = comment.body;",
+   "trigger": "",
+   "recommendation": "Revert to 'el.textContent = comment.body;' for plain-text comments. If limited markup is actually required, sanitize server-side and client-side with a maintained allow-list sanitizer (e.g. DOMPurify with an explicit tag/attribute allow-list, no on* attributes, no javascript: URLs) before assignment, and add a regression test that renders a comment containing a script tag and an event-handler attribute and asserts no executable node is created.",
+   "confidence": 0.98,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

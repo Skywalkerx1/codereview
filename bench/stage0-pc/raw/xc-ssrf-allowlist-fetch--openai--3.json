@@ -1,0 +1,77 @@
+{
+ "case_id": "xc-ssrf-allowlist-fetch",
+ "seat": "openai",
+ "sample": 3,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "f1807f4d6363c038fb5d86b72fc7f4ac533b727d6afbad02f4082076c8b8424a",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "gpt-5.4",
+ "events": [
+  {
+   "seat": "openai",
+   "prompt_hash": "f1807f4d6363c038fb5d86b72fc7f4ac533b727d6afbad02f4082076c8b8424a",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1412,
+   "tokens_out": 381,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:48:55+00:00",
+   "finished_at": "2026-11-07T13:49:02+00:00",
+   "duration_ms": 6440,
+   "prompt_chars": 5857
+  }
+ ],
+ "shadow_cost_usd": 0.005575,
+ "duration_ms": 6440,
+ "findings": [
+  {
+   "id": "55539901efa4",
+   "rule": "",
+   "severity": "major",
+   "category": "security",
+   "file": "app/safe_fetch.py",
+   "line": 52,
+   "title": "Validation can be bypassed via DNS rebinding between resolution and the actual request",
+   "evidence": "The code validates the hostname with a separate DNS lookup, then performs a fresh requests.get by hostname, so the connection can be made to a different IP than the one that was checked if DNS changes between those two steps.",
+   "evidence_quote": "        response = requests.get(",
+   "trigger": "",
+   "recommendation": "Bind the outbound connection to the validated address set instead of re-resolving in requests, or use a transport/adapter that resolves once, verifies the chosen IP is allowed, and connects to that exact IP while preserving TLS hostname verification.",
+   "confidence": 0.95,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "a192d37b6763",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "app/safe_fetch.py",
+   "line": 20,
+   "title": "Address-family assumptions make allowlisted hosts fail when getaddrinfo returns non-IP entries",
+   "evidence": "The loop unconditionally passes the first sockaddr element to ip_address, but getaddrinfo can return entries for unsupported families where info[4][0] is not a plain IPv4 or IPv6 literal, causing a ValueError and aborting fetches for otherwise valid hosts.",
+   "evidence_quote": "        address = ipaddress.ip_address(info[4][0])",
+   "trigger": "",
+   "recommendation": "Filter getaddrinfo results to AF_INET and AF_INET6 before calling ip_address, or catch ValueError per entry and ignore unsupported address families while still requiring at least one valid public IP result.",
+   "confidence": 0.84,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

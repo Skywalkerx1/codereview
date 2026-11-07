@@ -1,0 +1,217 @@
+{
+ "case_id": "xc-timeout-http-fetch",
+ "seat": "deepseek",
+ "sample": 1,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "6cccfe37c162912945abc8ad3a2c24e426d7a60645b0cc221cb7d8d7e138a131",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "6cccfe37c162912945abc8ad3a2c24e426d7a60645b0cc221cb7d8d7e138a131",
+   "outcome": "content_invalid",
+   "error_class": "empty",
+   "attempts": 1,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:51:43+00:00",
+   "finished_at": "2026-11-07T13:52:30+00:00",
+   "detail": "deepseek empty: empty content",
+   "duration_ms": 47340,
+   "prompt_chars": 4393
+  },
+  {
+   "seat": "deepseek",
+   "prompt_hash": "62cabb59b035f21cab367dd27e8bb8cd742d55fd38ed2908f889a926dd18f26e",
+   "outcome": "content_invalid",
+   "error_class": "empty",
+   "attempts": 1,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:52:30+00:00",
+   "finished_at": "2026-11-07T13:53:17+00:00",
+   "detail": "deepseek empty: empty content",
+   "duration_ms": 46679,
+   "prompt_chars": 4672
+  },
+  {
+   "seat": "deepseek",
+   "prompt_hash": "6cccfe37c162912945abc8ad3a2c24e426d7a60645b0cc221cb7d8d7e138a131",
+   "outcome": "content_invalid",
+   "error_class": "empty",
+   "attempts": 1,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:53:17+00:00",
+   "finished_at": "2026-11-07T13:54:06+00:00",
+   "detail": "deepseek empty: empty content",
+   "duration_ms": 48686,
+   "prompt_chars": 4393
+  },
+  {
+   "seat": "deepseek",
+   "prompt_hash": "6cccfe37c162912945abc8ad3a2c24e426d7a60645b0cc221cb7d8d7e138a131",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1189,
+   "tokens_out": 8170,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:54:06+00:00",
+   "finished_at": "2026-11-07T13:54:53+00:00",
+   "duration_ms": 47496,
+   "prompt_chars": 4393
+  }
+ ],
+ "shadow_cost_usd": 0.009308,
+ "duration_ms": 190204,
+ "findings": [
+  {
+   "id": "4ffbde944922",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "lib/http_fetch.rb",
+   "line": 24,
+   "title": "Bracketed IPv6 host from uri.host is not a connectable address",
+   "evidence": "Net::HTTP.start is called with 'uri.host, uri.port' (8-space arg line). For a URL like https://[::1]:8443/x, URI.parse keeps the brackets, so uri.host is '[::1]' and TCPSocket/getaddrinfo fails with SocketError, which is not in RETRYABLE_ERRORS, so the call dies instead of fetching.",
+   "evidence_quote": "        uri.host, uri.port,",
+   "trigger": "",
+   "recommendation": "Use uri.hostname (bracket-stripped) for Net::HTTP.start, or reject bracketed hosts explicitly with a clear ArgumentError; add a test with an IPv6 literal URL.",
+   "confidence": 0.72,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "df54fb5cfa2e",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "lib/http_fetch.rb",
+   "line": 15,
+   "title": "URI.parse errors and nil-host HTTPS URIs escape as the wrong exception type",
+   "evidence": "Only URI.parse is called with no rescue; a malformed URL raises URI::InvalidURIError rather than the ArgumentError the method advertises, and 'https:///path' parses as URI::HTTPS with a nil host, so uri.host is nil and Net::HTTP.start(nil, ...) fails with TypeError/SocketError after the https check has already passed.",
+   "evidence_quote": "    uri = URI.parse(url)",
+   "trigger": "",
+   "recommendation": "Wrap URI.parse in a rescue converting URI::InvalidURIError to ArgumentError, and add an explicit nil/empty host check (raise ArgumentError unless uri.hostname && !uri.hostname.empty?) before building the request.",
+   "confidence": 0.8,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "f49ddda02240",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "lib/http_fetch.rb",
+   "line": 30,
+   "title": "Non-2xx (including redirects) raised as bare RuntimeError with host only",
+   "evidence": "The code branches on 'unless response.is_a?(Net::HTTPSuccess)' and then raises a plain RuntimeError string containing only the status code and uri.host; callers cannot rescue a specific class, the path/query is dropped from the message, and ordinary 301/302/307 responses to a fetch helper become hard errors with no way to inspect Location.",
+   "evidence_quote": "        unless response.is_a?(Net::HTTPSuccess)",
+   "trigger": "",
+   "recommendation": "Raise a dedicated error class (e.g. HttpFetch::HTTPError) carrying status, code and the full uri, and either follow a bounded number of redirects or document that 3xx is an error with a test pinning the behaviour.",
+   "confidence": 0.65,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "64d4dad68f14",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "lib/http_fetch.rb",
+   "line": 6,
+   "title": "Retryable set omits common transient transport failures",
+   "evidence": "RETRYABLE_ERRORS lists only Net::OpenTimeout, Net::ReadTimeout and Errno::ECONNRESET; a truncated response (EOFError end of file reached), Errno::ECONNREFUSED/EHOSTUNREACH during a rolling restart, Errno::EPIPE, or OpenSSL::SSL::SSLError handshake failure are equally transient for an idempotent GET yet abort on the first attempt, so the bounded retry rarely helps in practice.",
+   "evidence_quote": "    Net::OpenTimeout, Net::ReadTimeout, Errno::ECONNRESET",
+   "trigger": "",
+   "recommendation": "Extend the list with EOFError, Errno::ECONNREFUSED, Errno::EPIPE and OpenSSL::SSL::SSLError (require openssl), or accept a configurable retryable set; cover it with a test that stubs each class once and then succeeds.",
+   "confidence": 0.5,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "0d1c55ec4d39",
+   "rule": "",
+   "severity": "minor",
+   "category": "testing",
+   "file": "lib/http_fetch.rb",
+   "line": 36,
+   "title": "No tests for retry bound, non-retryable status, or scheme rejection",
+   "evidence": "The bound is 'raise if attempt >= MAX_ATTEMPTS'; the retry loop, the ArgumentError for non-https URLs, and the fact that an HTTP-status RuntimeError is not retried are all unverified, and the change ships no test file.",
+   "evidence_quote": "      raise if attempt >= MAX_ATTEMPTS",
+   "trigger": "",
+   "recommendation": "Add tests that (a) stub three Net::ReadTimeout raises and assert exactly 3 attempts and one re-raise, (b) assert a 500/301 is raised once with no sleep/retry, and (c) assert http:// and malformed URLs raise ArgumentError before any socket is opened.",
+   "confidence": 0.7,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "24b29571f4b6",
+   "rule": "",
+   "severity": "minor",
+   "category": "security",
+   "file": "lib/http_fetch.rb",
+   "line": 16,
+   "title": "Only scheme is gated; internal HTTPS hosts reachable if callers pass untrusted URLs",
+   "evidence": "The guard checks only 'unless uri.is_a?(URI::HTTPS)'; there is no host/IP allowlist or loopback/link-local block, so if any caller forwards user-controlled URLs this helper is an SSRF primitive against internal HTTPS endpoints (https-only does not prevent that). Dependency: only exploitable if operator/caller-supplied URLs can be attacker-influenced.",
+   "evidence_quote": "    unless uri.is_a?(URI::HTTPS)",
+   "trigger": "",
+   "recommendation": "Either document that HttpFetch.get must only be given trusted URLs, or add an optional allowed-hosts/private-address rejection step before connecting, and note the trust assumption in the module comment.",
+   "confidence": 0.4,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

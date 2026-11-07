@@ -1,0 +1,54 @@
+{
+ "case_id": "sql-injection-concat",
+ "seat": "openai",
+ "sample": 2,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "1f4d48b7786a5375f88fa61a7bbb47685849e0dbaac1509071065a7d9db00bef",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "gpt-5.4",
+ "events": [
+  {
+   "seat": "openai",
+   "prompt_hash": "1f4d48b7786a5375f88fa61a7bbb47685849e0dbaac1509071065a7d9db00bef",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 827,
+   "tokens_out": 195,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:36:17+00:00",
+   "finished_at": "2026-11-07T13:36:21+00:00",
+   "duration_ms": 3404,
+   "prompt_chars": 3478
+  }
+ ],
+ "shadow_cost_usd": 0.002984,
+ "duration_ms": 3404,
+ "findings": [
+  {
+   "id": "2938c8f22f7a",
+   "rule": "",
+   "severity": "blocker",
+   "category": "security",
+   "file": "app/search.py",
+   "line": 8,
+   "title": "Untrusted search term is concatenated into SQL, enabling injection",
+   "evidence": "The query now embeds the caller-provided term directly into the SQL text and executes it without parameters, so a term containing a quote can break out of the LIKE pattern and alter the statement.",
+   "evidence_quote": "    q = \"SELECT * FROM docs WHERE title LIKE '%\" + term + \"%'\"",
+   "trigger": "",
+   "recommendation": "Restore parameterized execution, e.g. keep the SQL as 'SELECT * FROM docs WHERE title LIKE ?' and pass the pattern as a bound parameter such as '(f'%{term}%',)'.",
+   "confidence": 0.99,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

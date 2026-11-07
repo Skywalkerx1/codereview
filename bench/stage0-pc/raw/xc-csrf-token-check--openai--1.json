@@ -1,0 +1,77 @@
+{
+ "case_id": "xc-csrf-token-check",
+ "seat": "openai",
+ "sample": 1,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "48874f52ed5a83e32329656a30ed916da08889ea80a88e3667d80897677374c6",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "gpt-5.4",
+ "events": [
+  {
+   "seat": "openai",
+   "prompt_hash": "48874f52ed5a83e32329656a30ed916da08889ea80a88e3667d80897677374c6",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1036,
+   "tokens_out": 410,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:40:35+00:00",
+   "finished_at": "2026-11-07T13:40:42+00:00",
+   "duration_ms": 7088,
+   "prompt_chars": 4277
+  }
+ ],
+ "shadow_cost_usd": 0.005395,
+ "duration_ms": 7088,
+ "findings": [
+  {
+   "id": "fd6e3bc37b80",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "src/app.js",
+   "line": 27,
+   "title": "Global CSRF check blocks all mutating requests before any session middleware is shown to run",
+   "evidence": "The middleware is installed application-wide, but the only stated prerequisite is a comment. In this file there is no earlier session setup, so any POST to the existing routes reaches the check with an undefined expected token and is rejected.",
+   "evidence_quote": "app.use(csrfProtection);",
+   "trigger": "",
+   "recommendation": "Register the CSRF middleware only after the session middleware in this module, or guard startup so the app cannot run without session support being mounted first. Add an integration test proving POST /profile and POST /transfer succeed when a valid session token is present.",
+   "confidence": 0.95,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "a27c73077b2f",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "src/app.js",
+   "line": 20,
+   "title": "Mutating requests from standard HTML forms are now rejected because only a custom header is accepted",
+   "evidence": "For every non-safe method, the middleware validates only the x-csrf-token header. Browser form posts cannot set custom headers, so existing form-based POST/PUT/DELETE flows will now always fail with 403 even if they include a CSRF token in the body or query.",
+   "evidence_quote": "  if (!tokensMatch(req.get(\"x-csrf-token\"), req.session?.csrfToken)) {",
+   "trigger": "",
+   "recommendation": "Support the token transport used by the app's mutating endpoints, such as a hidden form field in req.body in addition to the header, or scope this middleware to API routes that are known to send the header. Add tests covering form-encoded/browser form submissions.",
+   "confidence": 0.91,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

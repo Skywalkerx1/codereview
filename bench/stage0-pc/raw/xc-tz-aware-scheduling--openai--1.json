@@ -1,0 +1,54 @@
+{
+ "case_id": "xc-tz-aware-scheduling",
+ "seat": "openai",
+ "sample": 1,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "292c40c203c3a0326735ddb071a7efcae9d999743aa00ca06d93ecfb0981f52d",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "gpt-5.4",
+ "events": [
+  {
+   "seat": "openai",
+   "prompt_hash": "292c40c203c3a0326735ddb071a7efcae9d999743aa00ca06d93ecfb0981f52d",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 973,
+   "tokens_out": 277,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:54:53+00:00",
+   "finished_at": "2026-11-07T13:54:58+00:00",
+   "duration_ms": 5388,
+   "prompt_chars": 4052
+  }
+ ],
+ "shadow_cost_usd": 0.003986,
+ "duration_ms": 5388,
+ "findings": [
+  {
+   "id": "eaae33df2ada",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "app/scheduling.py",
+   "line": 11,
+   "title": "Nonexistent local times during DST spring-forward are scheduled as if they existed",
+   "evidence": "The function constructs the target directly from the local date and wall time using the zone, without validating that the wall time actually exists on that date. On DST spring-forward days, some local times are skipped; this code will still build and return a UTC instant for that skipped wall time, so the job will not run at the requested daily wall time in the target zone.",
+   "evidence_quote": "    candidate = datetime.combine(local.date(), wall, tzinfo=tz)",
+   "trigger": "",
+   "recommendation": "After constructing the local candidate, validate that it round-trips through UTC back to the same local wall time and date in the target zone. If the wall time is nonexistent, choose and document a policy such as scheduling at the next valid local time or skipping to the following day, and add tests covering DST gap dates.",
+   "confidence": 0.95,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

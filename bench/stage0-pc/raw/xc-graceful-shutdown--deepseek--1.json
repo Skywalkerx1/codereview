@@ -1,0 +1,146 @@
+{
+ "case_id": "xc-graceful-shutdown",
+ "seat": "deepseek",
+ "sample": 1,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "fdea71c8afcf6ca9744205e70730c339cba071cef88cec57ecd9d5169bf3bda1",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "fdea71c8afcf6ca9744205e70730c339cba071cef88cec57ecd9d5169bf3bda1",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1361,
+   "tokens_out": 6110,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:44:10+00:00",
+   "finished_at": "2026-11-07T13:44:44+00:00",
+   "duration_ms": 33770,
+   "prompt_chars": 5426
+  }
+ ],
+ "shadow_cost_usd": 0.007088,
+ "duration_ms": 33771,
+ "findings": [
+  {
+   "id": "9690869e2648",
+   "rule": "",
+   "severity": "major",
+   "category": "reliability",
+   "file": "app/worker.py",
+   "line": 35,
+   "title": "Second SIGINT/SIGTERM is ignored, so a hung drain cannot be interrupted",
+   "evidence": "request_stop only sets the event; the default KeyboardInterrupt/terminate behaviour is replaced permanently. Reachable path: a handler blocks during drain (e.g. a slow DB write in self._handler), operator sends SIGINT a second time expecting to force-quit; request_stop is called again, sets an already-set Event, and nothing exits. The supervisor must fall back to SIGKILL, which is exactly the half-written-work scenario the docstring promises to avoid.",
+   "evidence_quote": "        signal.signal(signal.SIGINT, self.request_stop)",
+   "trigger": "",
+   "recommendation": "Track whether stop was already requested; on the second signal restore the default disposition (signal.signal(signum, signal.SIG_DFL)) and re-raise/exit so the operator can force shutdown. Keep the first signal's handler minimal as it is now.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "2e79ff0114a2",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/worker.py",
+   "line": 47,
+   "title": "Process-wide signal handlers are clobbered and never restored",
+   "evidence": "run() unconditionally calls self.install_signal_handlers(), which overwrites any pre-existing SIGINT/SIGTERM handlers and never saves/restores them. If run() is embedded in a larger process or invoked twice, the original handlers (e.g. an app-level SIGTERM cleanup) are silently lost, and after run() returns SIGINT no longer raises KeyboardInterrupt in the main thread. Reachable on POSIX main-thread usage per the supported configuration.",
+   "evidence_quote": "        self.install_signal_handlers()",
+   "trigger": "",
+   "recommendation": "Capture the previous handlers with signal.getsignal before installing and restore them in a finally block around the body of run(); also restore them in tests to avoid cross-test pollution.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "f4042eeb58ec",
+   "rule": "",
+   "severity": "minor",
+   "category": "performance",
+   "file": "app/worker.py",
+   "line": 56,
+   "title": "Unbounded submission gives no backpressure and unbounded drain time",
+   "evidence": "The loop submits every dequeued job immediately with no cap on outstanding futures, so when the source outpaces the pool the executor's internal queue grows without limit (memory growth) and every queued job must run before run() can return, making shutdown latency proportional to an unbounded backlog. This weakens the drain guarantee the class advertises.",
+   "evidence_quote": "                pool.submit(self._run_job, job)",
+   "trigger": "",
+   "recommendation": "Bound the number of in-flight futures (e.g. keep a set of futures and only pull from the source when len(inflight) < max_workers * factor), discarding completed futures as they finish; this caps both memory and drain time.",
+   "confidence": 0.55,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "824af3beaafa",
+   "rule": "",
+   "severity": "minor",
+   "category": "testing",
+   "file": "app/worker.py",
+   "line": 51,
+   "title": "No tests for the graceful-shutdown contract",
+   "evidence": "The diff adds only app/worker.py with no test module and no tests were run. The central claims - no pull after stop, all submitted jobs complete, handler exceptions do not kill the pool, timeout polling exits promptly - are untested and easy to regress.",
+   "evidence_quote": "            while not self._stop.is_set():",
+   "trigger": "",
+   "recommendation": "Add tests: set stop while the source is empty and assert run() returns within a few poll intervals; submit N jobs then signal stop and assert every handler ran exactly once; assert a raising handler does not abort remaining jobs.",
+   "confidence": 0.5,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "fae9dbc4d009",
+   "rule": "",
+   "severity": "nit",
+   "category": "quality",
+   "file": "app/worker.py",
+   "line": 53,
+   "title": "Stop flag is not rechecked after get(), so one post-stop job still runs",
+   "evidence": "The while condition is checked before the blocking get; a job returned concurrently with the stop request is still submitted and executed, which contradicts the docstring sentence 'once stop is requested no new jobs are pulled'. The behaviour is arguably safer than dropping the already-dequeued job, but the contract text overstates it.",
+   "evidence_quote": "                    job = self._source.get(timeout=POLL_SECONDS)",
+   "trigger": "",
+   "recommendation": "Either re-check self._stop after get() and log/discard the extra job explicitly, or reword the docstring to say that at most one job dequeued concurrently with the stop may still be submitted.",
+   "confidence": 0.4,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

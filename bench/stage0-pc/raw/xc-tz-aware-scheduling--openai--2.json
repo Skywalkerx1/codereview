@@ -1,0 +1,77 @@
+{
+ "case_id": "xc-tz-aware-scheduling",
+ "seat": "openai",
+ "sample": 2,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "292c40c203c3a0326735ddb071a7efcae9d999743aa00ca06d93ecfb0981f52d",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "gpt-5.4",
+ "events": [
+  {
+   "seat": "openai",
+   "prompt_hash": "292c40c203c3a0326735ddb071a7efcae9d999743aa00ca06d93ecfb0981f52d",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 973,
+   "tokens_out": 470,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:54:58+00:00",
+   "finished_at": "2026-11-07T13:55:06+00:00",
+   "duration_ms": 7221,
+   "prompt_chars": 4052
+  }
+ ],
+ "shadow_cost_usd": 0.005916,
+ "duration_ms": 7221,
+ "findings": [
+  {
+   "id": "04bbf89fc2bc",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "app/scheduling.py",
+   "line": 11,
+   "title": "Ambiguous fall-back times always resolve to the first occurrence, which can skip the intended later run",
+   "evidence": "On DST fall-back days, constructing the candidate with a bare zone-aware combine does not preserve or choose the correct fold for ambiguous local times. For a reachable path such as after being later in the repeated hour and run_at matching that repeated wall time, 'datetime.combine(local.date(), wall, tzinfo=tz)' creates the first occurrence by default, making 'candidate <= local' true and pushing the schedule to the next day instead of the second occurrence on the same day.",
+   "evidence_quote": "    candidate = datetime.combine(local.date(), wall, tzinfo=tz)",
+   "trigger": "",
+   "recommendation": "Handle ambiguous local times explicitly using PEP 495 fold semantics. Build the local candidate in the target zone, detect ambiguity, and choose the first or second occurrence based on whether that wall time has already passed relative to 'local' before deciding to advance to the next day.",
+   "confidence": 0.95,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "f11b750530f8",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "app/scheduling.py",
+   "line": 11,
+   "title": "Nonexistent spring-forward wall times are accepted and converted to a different instant",
+   "evidence": "For DST spring-forward transitions, some local wall times do not exist. The code still constructs them directly with 'datetime.combine(local.date(), wall, tzinfo=tz)' and then returns 'candidate.astimezone(timezone.utc)', which silently maps the nonexistent local time to some UTC instant rather than rejecting or adjusting according to a defined policy.",
+   "evidence_quote": "    candidate = datetime.combine(local.date(), wall, tzinfo=tz)",
+   "trigger": "",
+   "recommendation": "Validate that the requested wall time exists in the target zone on the chosen date before converting to UTC. If it is nonexistent, either raise a clear error or implement an explicit policy such as scheduling at the next valid local time.",
+   "confidence": 0.92,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

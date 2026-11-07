@@ -1,0 +1,123 @@
+{
+ "case_id": "xc-idempotency-keys",
+ "seat": "deepseek",
+ "sample": 3,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "ed59ce6320b6b2f0283dfe23019fe7506b7d5e2745b1cd4d10cd6c62aa22fcbd",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "ed59ce6320b6b2f0283dfe23019fe7506b7d5e2745b1cd4d10cd6c62aa22fcbd",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1365,
+   "tokens_out": 5061,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:47:08+00:00",
+   "finished_at": "2026-11-07T13:47:38+00:00",
+   "duration_ms": 29622,
+   "prompt_chars": 5393
+  }
+ ],
+ "shadow_cost_usd": 0.005936,
+ "duration_ms": 29622,
+ "findings": [
+  {
+   "id": "12e011877b0b",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "app/payments.py",
+   "line": 20,
+   "title": "Reused key with different amount/currency returns the stale receipt instead of a conflict",
+   "evidence": "begin() short-circuits on key membership only and returns the stored receipt: 'return self._completed[key]'; charge_once then returns it at line 52 without comparing amount_cents/currency to the stored request.",
+   "evidence_quote": "            return self._completed[key]",
+   "trigger": "",
+   "recommendation": "Store the original request parameters alongside the receipt (e.g. _completed[key] = (amount_cents, currency, receipt)) and raise a conflict error (HTTP 409/422 style) when a repeat call presents the same key with different amount_cents or currency, instead of returning the prior receipt silently.",
+   "confidence": 0.75,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "ba6aa4089444",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/payments.py",
+   "line": 51,
+   "title": "None is used as the not-completed sentinel, so a None receipt re-charges",
+   "evidence": "begin() returns the stored value for a completed key, but charge_once treats None as unclaimed: 'if prior is not None:'. If gateway.charge ever returns None (or a None-like receipt), the key stays in _completed with value None and every subsequent call falls through to gateway.charge again, i.e. a double charge of the same key.",
+   "evidence_quote": "    if prior is not None:",
+   "trigger": "",
+   "recommendation": "Use an explicit sentinel (e.g. return a (found, receipt) tuple or a module-level _MISSING object from begin) so that a falsy/None receipt is still recognised as completed.",
+   "confidence": 0.55,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "f35e43c13caa",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "app/payments.py",
+   "line": 13,
+   "title": "Completed-key map grows without bound and is per-process only",
+   "evidence": "Keys are only ever inserted into '_completed' (line 28) and never evicted or expired, so a long-running process leaks memory one entry per distinct key; the store is also process-local, so multi-worker deployments get no cross-process dedup.",
+   "evidence_quote": "        self._completed = {}",
+   "trigger": "",
+   "recommendation": "Bound the structure: add TTL/expiry or an LRU cap on completed keys, and document (or replace with a shared/persistent store) the fact that dedup does not hold across processes.",
+   "confidence": 0.7,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "d131149f924b",
+   "rule": "",
+   "severity": "minor",
+   "category": "testing",
+   "file": "app/payments.py",
+   "line": 36,
+   "title": "New money-handling entry point shipped with no tests executed",
+   "evidence": "charge_once is the new public entry point and the change context reports no test commands were run; the concurrency paths (begin in-flight raise, abandon-then-retry, completed-key replay) are untested.",
+   "evidence_quote": "def charge_once(store, gateway, amount_cents, currency, idempotency_key):",
+   "trigger": "",
+   "recommendation": "Add tests with a fake gateway covering: replay returns the identical receipt without a second gateway call, concurrent duplicate raises DuplicateRequestInFlight, gateway exception abandons the key so a retry re-charges, and rejects bool/non-positive amounts.",
+   "confidence": 0.8,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

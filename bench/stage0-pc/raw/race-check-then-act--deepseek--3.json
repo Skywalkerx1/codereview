@@ -1,0 +1,77 @@
+{
+ "case_id": "race-check-then-act",
+ "seat": "deepseek",
+ "sample": 3,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "1fb99fba2a12c6355694855475c53f35cafb6e7747760440b2fea08ef05c76fb",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "1fb99fba2a12c6355694855475c53f35cafb6e7747760440b2fea08ef05c76fb",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 874,
+   "tokens_out": 5375,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:35:48+00:00",
+   "finished_at": "2026-11-07T13:36:20+00:00",
+   "duration_ms": 31675,
+   "prompt_chars": 3466
+  }
+ ],
+ "shadow_cost_usd": 0.006148,
+ "duration_ms": 31676,
+ "findings": [
+  {
+   "id": "e5c9c4542c5c",
+   "rule": "",
+   "severity": "blocker",
+   "category": "data-loss",
+   "file": "app/files.py",
+   "line": 11,
+   "title": "TOCTOU exists-then-open can overwrite an existing file",
+   "evidence": "After 'if not os.path.exists(path):' the code calls 'open(path, 'w')'; another process can create the path between the check and the open, so the open truncates it instead of failing as 'open(path, 'x')' did. On POSIX a dangling symlink also makes 'os.path.exists' false and the subsequent open follows it.",
+   "evidence_quote": "    if not os.path.exists(path):",
+   "trigger": "",
+   "recommendation": "Use atomic exclusive creation again: 'open(path, 'x')'. Do not check existence first. If a custom error is needed, catch the FileExistsError from 'open'.",
+   "confidence": 0.99,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "228119fd087d",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/files.py",
+   "line": 13,
+   "title": "Manual FileExistsError lacks errno and filename attributes",
+   "evidence": "The old 'open(path, 'x')' raised FileExistsError with errno, strerror, and filename populated. The new 'raise FileExistsError(path)' constructs it with only the path argument, so callers inspecting e.errno or e.filename see different values.",
+   "evidence_quote": "    raise FileExistsError(path)",
+   "trigger": "",
+   "recommendation": "Preserve the original exception by relying on 'open(path, 'x')', or construct FileExistsError with errno.EEXIST, os.strerror(errno.EEXIST), and path.",
+   "confidence": 0.85,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

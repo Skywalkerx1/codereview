@@ -1,0 +1,77 @@
+{
+ "case_id": "xc-context-http-timeout",
+ "seat": "openai",
+ "sample": 3,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "14bf6db8f869e83ba8a7605ea3da55d14a7ac91f852a283309602fa09f1e91d2",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "gpt-5.4",
+ "events": [
+  {
+   "seat": "openai",
+   "prompt_hash": "14bf6db8f869e83ba8a7605ea3da55d14a7ac91f852a283309602fa09f1e91d2",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1088,
+   "tokens_out": 319,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:39:38+00:00",
+   "finished_at": "2026-11-07T13:39:42+00:00",
+   "duration_ms": 4352,
+   "prompt_chars": 4317
+  }
+ ],
+ "shadow_cost_usd": 0.00455,
+ "duration_ms": 4353,
+ "findings": [
+  {
+   "id": "0410a1acd17b",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "internal/fetch/fetch.go",
+   "line": 26,
+   "title": "Nil http.Client causes a panic on every call",
+   "evidence": "The function accepts a client pointer and immediately dereferences it via client.Do(req) without any nil guard, so a caller passing nil reaches a runtime panic instead of a returned error.",
+   "evidence_quote": "\tresp, err := client.Do(req)",
+   "trigger": "",
+   "recommendation": "Either reject nil explicitly with a returned error before use, or default to http.DefaultClient when client is nil.",
+   "confidence": 0.98,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "ed80471a5853",
+   "rule": "",
+   "severity": "major",
+   "category": "data-loss",
+   "file": "internal/fetch/fetch.go",
+   "line": 34,
+   "title": "Responses larger than 1 MiB are silently truncated and reported as success",
+   "evidence": "The body is read through io.LimitReader(resp.Body, maxBody) and then returned directly, so any 200 OK response exceeding maxBody is cut off at 1 MiB with no error to the caller.",
+   "evidence_quote": "\tbody, err := io.ReadAll(io.LimitReader(resp.Body, maxBody))",
+   "trigger": "",
+   "recommendation": "Use http.MaxBytesReader-style enforcement or read maxBody+1 bytes and return an explicit error when the response exceeds the limit, so callers never treat truncated content as complete.",
+   "confidence": 0.95,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

@@ -1,0 +1,77 @@
+{
+ "case_id": "xc-graceful-shutdown",
+ "seat": "openai",
+ "sample": 1,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "fdea71c8afcf6ca9744205e70730c339cba071cef88cec57ecd9d5169bf3bda1",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "gpt-5.4",
+ "events": [
+  {
+   "seat": "openai",
+   "prompt_hash": "fdea71c8afcf6ca9744205e70730c339cba071cef88cec57ecd9d5169bf3bda1",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1266,
+   "tokens_out": 374,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:43:52+00:00",
+   "finished_at": "2026-11-07T13:43:58+00:00",
+   "duration_ms": 6132,
+   "prompt_chars": 5426
+  }
+ ],
+ "shadow_cost_usd": 0.005322,
+ "duration_ms": 6132,
+ "findings": [
+  {
+   "id": "e98f45c3b244",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "app/worker.py",
+   "line": 49,
+   "title": "Shutdown contract is violated because a queued job can still be pulled after stop is requested",
+   "evidence": "The loop checks the stop flag before blocking on get(), but after a signal arrives during that blocking call it still submits the returned job unconditionally, despite the docstring promising no new jobs are pulled once stop is requested.",
+   "evidence_quote": "                    job = self._source.get(timeout=POLL_SECONDS)",
+   "trigger": "",
+   "recommendation": "After get() returns, check the stop event again before submitting. If stop was requested while blocked in get(), do not submit that job; either leave it in the source via a non-destructive poll API or requeue it explicitly if the source supports put().",
+   "confidence": 0.97,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "e51ee0c646ef",
+   "rule": "",
+   "severity": "major",
+   "category": "reliability",
+   "file": "app/worker.py",
+   "line": 50,
+   "title": "Worker crashes on timeout for standard queue-like sources that raise a different Empty exception",
+   "evidence": "The code calls a generic source object's get() but only catches queue.Empty, so sources such as multiprocessing.Queue that raise their own Empty class will propagate the timeout exception and terminate the worker loop.",
+   "evidence_quote": "                except queue.Empty:",
+   "trigger": "",
+   "recommendation": "Either constrain and validate source to queue.Queue-compatible objects, or catch the source's actual timeout exception type. A common fix is to import and catch both queue.Empty and multiprocessing.queues.Empty, or to wrap source access behind an adapter with a stable exception contract.",
+   "confidence": 0.92,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

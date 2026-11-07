@@ -1,0 +1,139 @@
+{
+ "case_id": "xc-circuit-breaker",
+ "seat": "deepseek",
+ "sample": 3,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "4745ad93069043ae3ff6d01c5509ad2d66c76ce2cf3010f13abe1be281fc31bd",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "4745ad93069043ae3ff6d01c5509ad2d66c76ce2cf3010f13abe1be281fc31bd",
+   "outcome": "content_invalid",
+   "error_class": "empty",
+   "attempts": 1,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:39:26+00:00",
+   "finished_at": "2026-11-07T13:40:14+00:00",
+   "detail": "deepseek empty: empty content",
+   "duration_ms": 48659,
+   "prompt_chars": 6167
+  },
+  {
+   "seat": "deepseek",
+   "prompt_hash": "aaa1df0688a7396d888d5668ece259db221ae35a1bed042616d65a284ae4d1e5",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1623,
+   "tokens_out": 6597,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:40:14+00:00",
+   "finished_at": "2026-11-07T13:40:54+00:00",
+   "duration_ms": 39273,
+   "prompt_chars": 6446
+  }
+ ],
+ "shadow_cost_usd": 0.007695,
+ "duration_ms": 87934,
+ "findings": [
+  {
+   "id": "0c0bc06c07f2",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "app/circuit_breaker.py",
+   "line": 72,
+   "title": "Any concurrent success force-closes the breaker and zeroes the failure count, undoing an OPEN set by another thread",
+   "evidence": "after the guarded state check at lines 43-51 the lock is released and func runs; the completion block at 71-75 always writes CLOSED/failures=0/opened_at=None/probe_in_flight=False regardless of what state the breaker is in when the call returns, e.g. 'self._state = self.CLOSED'",
+   "evidence_quote": "self._state = self.CLOSED",
+   "trigger": "",
+   "recommendation": "Re-check under the lock before committing the success: only clear state/failures if the breaker is still in the state this call observed (e.g. record the generation/state at admission and only close if not superseded, and never overwrite OPEN or clear another thread's _probe_in_flight). Typical fix: on success, if probing, close only when self._state == HALF_OPEN and this call owns the probe; if not probing, reset _failures only when self._state == CLOSED.",
+   "confidence": 0.62,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "1a120a5cfdb9",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/circuit_breaker.py",
+   "line": 57,
+   "title": "Probe outcome (success or failure) overwrites an operator reset() performed while the probe was in flight",
+   "evidence": "reset() clears _probe_in_flight at line 83 so a probe started before reset is no longer tracked, yet on failure the probe still executes 'self._state = self.OPEN' and re-opens the manually reset breaker; symmetrically a stale probe success clears the flag set by a newer probe",
+   "evidence_quote": "self._state = self.OPEN",
+   "trigger": "",
+   "recommendation": "Track a monotonically increasing generation/epoch incremented by reset(), capture it at admission, and discard the probe result if the epoch changed before the completion block runs.",
+   "confidence": 0.55,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "3de7ecfe4795",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/circuit_breaker.py",
+   "line": 66,
+   "title": "BaseException during a half-open probe leaves the breaker stuck in HALF_OPEN so it can never trip to OPEN on repeated interruptions",
+   "evidence": "the handler entered via 'except BaseException:' only clears _probe_in_flight and leaves _state as HALF_OPEN, so a callable that repeatedly raises BaseException (e.g. cancellation, SystemExit) keeps the breaker in probe mode instead of returning to OPEN",
+   "evidence_quote": "except BaseException:",
+   "trigger": "",
+   "recommendation": "On BaseException while probing, either restore OPEN (with a refreshed _opened_at) or document explicitly that cancellation must not count as a probe result; as written the state is left neither OPEN nor CLOSED with no path back to OPEN except a real Exception.",
+   "confidence": 0.45,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "8946078a328d",
+   "rule": "",
+   "severity": "minor",
+   "category": "testing",
+   "file": "app/circuit_breaker.py",
+   "line": 42,
+   "title": "New breaker state machine ships without tests for threshold, cooldown, single-probe and concurrency behaviour",
+   "evidence": "the module adds the full admission path 'def call(self, func, *args, **kwargs):' plus _refresh_locked/reset, and the change contains no test file and no test run",
+   "evidence_quote": "def call(self, func, *args, **kwargs):",
+   "trigger": "",
+   "recommendation": "Add tests using an injected fake clock: open after N failures, reject while OPEN, OPEN->HALF_OPEN after reset_timeout, single probe (second caller rejected), probe failure re-opens with fresh opened_at, probe success closes, and a threaded test where a slow success overlaps a failure that opens the breaker.",
+   "confidence": 0.8,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

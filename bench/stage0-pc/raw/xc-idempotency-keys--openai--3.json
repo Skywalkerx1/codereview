@@ -1,0 +1,77 @@
+{
+ "case_id": "xc-idempotency-keys",
+ "seat": "openai",
+ "sample": 3,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "ed59ce6320b6b2f0283dfe23019fe7506b7d5e2745b1cd4d10cd6c62aa22fcbd",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "gpt-5.4",
+ "events": [
+  {
+   "seat": "openai",
+   "prompt_hash": "ed59ce6320b6b2f0283dfe23019fe7506b7d5e2745b1cd4d10cd6c62aa22fcbd",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1286,
+   "tokens_out": 398,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:46:58+00:00",
+   "finished_at": "2026-11-07T13:47:04+00:00",
+   "duration_ms": 6230,
+   "prompt_chars": 5393
+  }
+ ],
+ "shadow_cost_usd": 0.005587,
+ "duration_ms": 6230,
+ "findings": [
+  {
+   "id": "0378855d88ef",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "app/payments.py",
+   "line": 58,
+   "title": "Successful charge can leave key permanently stuck in completed state if receipt storage fails",
+   "evidence": "After the gateway returns, the code writes the receipt to the store without any cleanup path if that write raises, so the key remains in '_in_flight' forever and all retries raise DuplicateRequestInFlight instead of returning the original receipt.",
+   "evidence_quote": "    store.complete(idempotency_key, receipt)",
+   "trigger": "",
+   "recommendation": "Wrap the completion step so failures do not leave the key poisoned. For example, ensure the in-flight marker is cleared on any exception from completion, or make completion atomic and non-throwing for the supported store implementation. Add a test where store.complete raises after a successful gateway charge and verify a retry can proceed or recover deterministically.",
+   "confidence": 0.95,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "c8f1a76fec60",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "app/payments.py",
+   "line": 56,
+   "title": "Catching BaseException abandons the key on KeyboardInterrupt/SystemExit, undermining the documented crash-retry behavior",
+   "evidence": "The exception handler clears the in-flight key for every BaseException, including process-termination exceptions, even though the docstring says retries after a crash should rely on the provider-side idempotency key.",
+   "evidence_quote": "    except BaseException:",
+   "trigger": "",
+   "recommendation": "Catch Exception instead of BaseException so termination signals are not treated like ordinary request failures. If you need special handling for cancellation, handle those cases explicitly and document the semantics.",
+   "confidence": 0.82,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

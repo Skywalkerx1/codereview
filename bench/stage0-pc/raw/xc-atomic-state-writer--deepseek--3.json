@@ -1,0 +1,146 @@
+{
+ "case_id": "xc-atomic-state-writer",
+ "seat": "deepseek",
+ "sample": 3,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "d7394253aa0c0e3c0110c901ff2b04701406e0529ec5fd431a4d3de4a434377f",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "d7394253aa0c0e3c0110c901ff2b04701406e0529ec5fd431a4d3de4a434377f",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1349,
+   "tokens_out": 6046,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:36:31+00:00",
+   "finished_at": "2026-11-07T13:37:06+00:00",
+   "duration_ms": 34623,
+   "prompt_chars": 5237
+  }
+ ],
+ "shadow_cost_usd": 0.007015,
+ "duration_ms": 34623,
+ "findings": [
+  {
+   "id": "c3cca91053dd",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "app/state_store.py",
+   "line": 19,
+   "title": "Atomic replace via mkstemp resets destination permissions to 0600 (and ownership to the writer uid)",
+   "evidence": "fd, tmp_path = tempfile.mkstemp(",
+   "evidence_quote": "    fd, tmp_path = tempfile.mkstemp(",
+   "trigger": "",
+   "recommendation": "mkstemp always creates mode 0600 (umask is not applied). After the rename the state file therefore loses any prior mode such as 0644, and its owner becomes the saving process. Reachable path: an existing state.json with 0644 written by one uid, save_state called by the service (or root) -> subsequent readers running under another uid/gid get PermissionError. Capture the destination's existing st_mode/os.stat before creating the temp file and os.chmod(tmp_path, mode) before os.replace (skip when ",
+   "confidence": 0.65,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "a3bb79173381",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "app/state_store.py",
+   "line": 36,
+   "title": "Directory fsync runs after a successful commit but reports failure to the caller",
+   "evidence": "_fsync_directory(directory)",
+   "evidence_quote": "    _fsync_directory(directory)",
+   "trigger": "",
+   "recommendation": "Once os.replace has returned, the new state is committed; if _fsync_directory then raises (e.g. EINVAL/EPERM on filesystems that do not support directory fsync, or EBADF on an odd fd), save_state raises and the caller will believe the save failed and may retry or abort even though the data is already in place. Decide and document the contract: either swallow/log errors from the directory fsync (durability is best-effort, the write itself succeeded) or return a status, rather than surfacing a pos",
+   "confidence": 0.55,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "efd9da39b384",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/state_store.py",
+   "line": 55,
+   "title": "save_state accepts any JSON value but load_state rejects non-dict roots",
+   "evidence": "if not isinstance(data, dict):",
+   "evidence_quote": "    if not isinstance(data, dict):",
+   "trigger": "",
+   "recommendation": "The two halves of the API disagree: save_state(path, [1, 2]) or save_state(path, None) succeeds and produces a valid JSON file, but the next load_state on that file raises ValueError instead of returning data. Reachable as a round-trip break the moment any caller passes a non-dict. Either validate in save_state (raise TypeError before touching the filesystem) or accept any JSON root in load_state and document which one is the contract.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "9387cc3ea46a",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/state_store.py",
+   "line": 27,
+   "title": "os.replace replaces a symlinked destination rather than the file it points to",
+   "evidence": "os.replace(tmp_path, path)",
+   "evidence_quote": "        os.replace(tmp_path, path)",
+   "trigger": "",
+   "recommendation": "If path is a symlink (a common deployment for state dirs, e.g. state.json -> /var/lib/app/state.json), os.replace swaps the link itself for a regular file, so the real data file stops being updated and the link is silently destroyed. If symlinked destinations are supported, resolve with os.path.realpath(path) before computing the directory and the rename target; if not, detect os.path.islink(path) and fail loudly instead of silently breaking the link.",
+   "confidence": 0.5,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "54b30536532c",
+   "rule": "",
+   "severity": "minor",
+   "category": "testing",
+   "file": "app/state_store.py",
+   "line": 6,
+   "title": "No tests for the atomic-write failure paths",
+   "evidence": "def save_state(path, state):",
+   "evidence_quote": "def save_state(path, state):",
+   "trigger": "",
+   "recommendation": "Add tests covering: (a) a non-serialisable state leaves no .state-*.tmp file behind and leaves the previous state intact and loadable; (b) a reader opening the file concurrently always sees either the old or the new complete document; (c) the destination mode is preserved across a save (guards the finding above); (d) missing file -> {} and non-dict root -> ValueError. None of these paths is currently exercised.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

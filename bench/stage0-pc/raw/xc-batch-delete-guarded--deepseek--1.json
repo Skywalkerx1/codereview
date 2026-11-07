@@ -1,0 +1,123 @@
+{
+ "case_id": "xc-batch-delete-guarded",
+ "seat": "deepseek",
+ "sample": 1,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "9cfbf1fbfd0cc977f247e84288240441df3a6a0273f04bf47a0c224bc680e791",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "9cfbf1fbfd0cc977f247e84288240441df3a6a0273f04bf47a0c224bc680e791",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1317,
+   "tokens_out": 6494,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:36:55+00:00",
+   "finished_at": "2026-11-07T13:37:35+00:00",
+   "duration_ms": 39900,
+   "prompt_chars": 5099
+  }
+ ],
+ "shadow_cost_usd": 0.007499,
+ "duration_ms": 39901,
+ "findings": [
+  {
+   "id": "5145ac6f80db",
+   "rule": "",
+   "severity": "major",
+   "category": "data-loss",
+   "file": "app/cleanup.py",
+   "line": 41,
+   "title": "Else-clause raises after batches are already committed, and misfires when cleanup finished exactly at the cap",
+   "evidence": "Loop body commits each batch (`db.commit()`), breaks only when `cursor.rowcount < batch_size`, then the for-else block does:\n        raise RuntimeError(\nTwo problems: (1) reaching the cap means up to MAX_BATCHES * batch_size rows are already deleted and committed, yet the caller gets an exception with no deleted count and no rollback, so a caller cannot distinguish partial success from total failure; (2) if the table holds exactly MAX_BATCHES * batch_size matching rows and that count is an exact multiple of batch_size, the last full batch is committed, the loop exhausts without ever breaking, and a completed, correct cleanup is reported as a failure.",
+   "evidence_quote": "        raise RuntimeError(",
+   "trigger": "",
+   "recommendation": "Only raise when there is evidence of remaining work: after the loop, run a cheap existence probe (e.g. SELECT 1 ... WHERE where_sql LIMIT 1) or treat a final rowcount == batch_size as an extra iteration check rather than an error. On the cap path, include the number of rows already deleted in the exception (or return a truncated-result dict) and document that committed batches are not rolled back.",
+   "confidence": 0.65,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "4ef2530d35e5",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/cleanup.py",
+   "line": 34,
+   "title": "qmark LIMIT placeholder does not match the stated MySQL dialect",
+   "evidence": "The module comment claims `MySQL dialect` and the statement appends the limit as a bound positional parameter,\n            tuple(params) + (batch_size,),\nwhile the SQL uses the qmark `?` style. MySQL drivers (mysqlclient/PyMySQL) use the format paramstyle and will not bind `?` in a DELETE ... LIMIT clause; conversely SQLite only accepts DELETE ... LIMIT when compiled with SQLITE_ENABLE_UPDATE_DELETE_LIMIT, and this is exactly the driver whose paramstyle is qmark. So on either backend a plausible driver/statement pairing breaks at runtime rather than at call time.",
+   "evidence_quote": "            tuple(params) + (batch_size,),",
+   "trigger": "",
+   "recommendation": "Pick one dialect and make it explicit: either use the driver's paramstyle consistently (e.g. format style for MySQL) and raise on unsupported drivers, or assert the DELETE...LIMIT support at startup. Add a test that executes the batched delete against the real target driver.",
+   "confidence": 0.5,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "4d8c82820689",
+   "rule": "",
+   "severity": "minor",
+   "category": "security",
+   "file": "app/cleanup.py",
+   "line": 18,
+   "title": "Mandatory-filter guard only checks for a non-empty string, so a tautology bypasses it",
+   "evidence": "    if not where_sql or not where_sql.strip():\nThe stated guarantee is a mandatory filter, but any non-blank fragment passes, including `1=1` (whole-table wipe) or stacked statements such as `1=1; DELETE FROM sessions`. Table names are allow-listed, but the predicate itself gets no structural validation, so the guard protects against forgetting the argument, not against a wrong one.",
+   "evidence_quote": "    if not where_sql or not where_sql.strip():",
+   "trigger": "",
+   "recommendation": "Require callers to pass a structured predicate (column, operator, value) or have them supply a fixed SQL template from an allow-listed set; at minimum reject fragments containing `;`, comments, or a bare constant and require the dry-run path to be exercised before any live run.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "0af6e5050790",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "app/cleanup.py",
+   "line": 36,
+   "title": "Per-batch commit also commits unrelated caller work and leaves the in-flight batch unrolled-back on error",
+   "evidence": "        db.commit()\nThe function commits the connection it was handed after every batch. If the caller passed a shared connection with other pending changes, those are silently committed as a side effect of cleanup (API contract surprise); and if `db.execute` raises mid-loop, the previously committed batches stay applied while the failing batch is left to the caller's connection state, with no explicit rollback.",
+   "evidence_quote": "        db.commit()",
+   "trigger": "",
+   "recommendation": "Require a dedicated connection/transaction for cleanup (or take a commit callback), and wrap each batch in an explicit try/except that rolls back the failing batch before re-raising with the accumulated deleted count.",
+   "confidence": 0.5,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

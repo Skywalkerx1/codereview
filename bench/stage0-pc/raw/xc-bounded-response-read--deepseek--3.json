@@ -1,0 +1,193 @@
+{
+ "case_id": "xc-bounded-response-read",
+ "seat": "deepseek",
+ "sample": 3,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "38bc6ae17e6af4be06e4a233a4cc5f251035514fa3ec80da6ec8181deda323ba",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "38bc6ae17e6af4be06e4a233a4cc5f251035514fa3ec80da6ec8181deda323ba",
+   "outcome": "content_invalid",
+   "error_class": "empty",
+   "attempts": 1,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:38:14+00:00",
+   "finished_at": "2026-11-07T13:39:02+00:00",
+   "detail": "deepseek empty: empty content",
+   "duration_ms": 48050,
+   "prompt_chars": 4816
+  },
+  {
+   "seat": "deepseek",
+   "prompt_hash": "0e93e7f3fbe48ab928e4893f2ba12733a17b68a2ff46db8880f14c60d64f3dde",
+   "outcome": "content_invalid",
+   "error_class": "content",
+   "attempts": 1,
+   "tokens_in": 1261,
+   "tokens_out": 8192,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:39:02+00:00",
+   "finished_at": "2026-11-07T13:39:54+00:00",
+   "duration_ms": 51338,
+   "prompt_chars": 5095
+  },
+  {
+   "seat": "deepseek",
+   "prompt_hash": "38bc6ae17e6af4be06e4a233a4cc5f251035514fa3ec80da6ec8181deda323ba",
+   "outcome": "content_invalid",
+   "error_class": "empty",
+   "attempts": 1,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:39:54+00:00",
+   "finished_at": "2026-11-07T13:40:42+00:00",
+   "detail": "deepseek empty: empty content",
+   "duration_ms": 48898,
+   "prompt_chars": 4816
+  },
+  {
+   "seat": "deepseek",
+   "prompt_hash": "38bc6ae17e6af4be06e4a233a4cc5f251035514fa3ec80da6ec8181deda323ba",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1204,
+   "tokens_out": 7775,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:40:42+00:00",
+   "finished_at": "2026-11-07T13:41:28+00:00",
+   "duration_ms": 45966,
+   "prompt_chars": 4816
+  }
+ ],
+ "shadow_cost_usd": 0.018229,
+ "duration_ms": 194261,
+ "findings": [
+  {
+   "id": "37889c38fa5e",
+   "rule": "",
+   "severity": "minor",
+   "category": "testing",
+   "file": "app/fetch_body.py",
+   "line": 37,
+   "title": "No tests exercise any of the cap-enforcement paths",
+   "evidence": "The only size enforcement in the loop is 'if total > max_bytes:' followed by the raise, and no test file accompanies this new module (no test commands were run).",
+   "evidence_quote": "            if total > max_bytes:",
+   "trigger": "",
+   "recommendation": "Add tests covering: declared length above cap, streamed body above cap (server omitting/understating Content-Length), unparsable Content-Length falling through to the streaming check, body exactly equal to max_bytes (must succeed), empty body, and max_bytes < 1 raising ValueError. A fake response object or a local http.server endpoint is sufficient.",
+   "confidence": 0.8,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "1a956d1acba1",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/fetch_body.py",
+   "line": 42,
+   "title": "Hardcoded UTF-8 decode rejects non-UTF-8 or truncated bodies with UnicodeDecodeError",
+   "evidence": "The return statement joins the raw bytes and decodes as UTF-8 unconditionally: 'return b\"\".join(chunks).decode(\"utf-8\")' \u2014 the Content-Type charset (and requests' response.encoding) is ignored, and a body whose final bytes are cut mid-character raises UnicodeDecodeError instead of returning text or a clear domain error.",
+   "evidence_quote": "    return b\"\".join(chunks).decode(\"utf-8\")",
+   "trigger": "",
+   "recommendation": "Derive the encoding from response.encoding/notes, or accept an encoding parameter defaulting to UTF-8, and document/handle decode failure (e.g. wrap UnicodeDecodeError in a dedicated exception) so callers are not surprised by a raw UnicodeDecodeError.",
+   "confidence": 0.65,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "6797406e487c",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/fetch_body.py",
+   "line": 25,
+   "title": "Server-controlled Content-Length can spuriously reject a body that would fit",
+   "evidence": "The up-front check trusts the header absolutely: 'if int(declared) > max_bytes:' raises ResponseTooLarge before any bytes are read, so a misconfigured proxy or hostile server that overstates Content-Length makes fetch_text fail even when the actual payload is far below the cap \u2014 exactly the lie the streaming check already handles correctly.",
+   "evidence_quote": "                if int(declared) > max_bytes:",
+   "trigger": "",
+   "recommendation": "Since the streamed total is authoritative, either drop the hard failure on the declared header (use it only as an early-abort heuristic when it is safe) or document explicitly that an overstated Content-Length causes rejection; at minimum cover this case in tests so the behaviour is intentional.",
+   "confidence": 0.5,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "f1f366e39fff",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "app/fetch_body.py",
+   "line": 20,
+   "title": "timeout is per-read, not a total deadline, so a slow trickle holds the call",
+   "evidence": "'with requests.get(url, timeout=timeout, stream=True) as response:' passes a single scalar timeout, which requests applies per connect/read interval; a server sending a few bytes every timeout-1 seconds keeps the loop alive for roughly max_bytes * timeout (about 115 days at default 1 MB / 10 s) without ever exceeding the size cap.",
+   "evidence_quote": "    with requests.get(url, timeout=timeout, stream=True) as response:",
+   "trigger": "",
+   "recommendation": "Bound total wall-clock time: record a start time and abort the read loop when elapsed exceeds a deadline, or expose a separate total_timeout parameter and check it each iteration.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "270a34244dfa",
+   "rule": "",
+   "severity": "nit",
+   "category": "security",
+   "file": "app/fetch_body.py",
+   "line": 20,
+   "title": "No scheme/redirect restriction or redirect cap (SSRF surface if url is caller-supplied)",
+   "evidence": "requests.get with default settings follows up to 30 redirects: 'with requests.get(url, timeout=timeout, stream=True) as response:' \u2014 no allow_redirects control or allowlist is applied. This is only a concern when the URL comes from untrusted input, which the diff does not establish.",
+   "evidence_quote": "    with requests.get(url, timeout=timeout, stream=True) as response:",
+   "trigger": "",
+   "recommendation": "Add a max_redirects/allow_redirects parameter (or document that callers must validate URLs) if this helper will be fed user- or tenant-supplied URLs.",
+   "confidence": 0.35,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

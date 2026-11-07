@@ -1,0 +1,77 @@
+{
+ "case_id": "xc-jdbc-prepared",
+ "seat": "deepseek",
+ "sample": 1,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "4db578486e9cc2699555ce69a17ace0cb8ba59e30543ef834692572808383ba9",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "4db578486e9cc2699555ce69a17ace0cb8ba59e30543ef834692572808383ba9",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1039,
+   "tokens_out": 2297,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:47:52+00:00",
+   "finished_at": "2026-11-07T13:48:06+00:00",
+   "duration_ms": 14080,
+   "prompt_chars": 4195
+  }
+ ],
+ "shadow_cost_usd": 0.002807,
+ "duration_ms": 14080,
+ "findings": [
+  {
+   "id": "d9fb5d12e42d",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "src/main/java/com/example/db/UserRepository.java",
+   "line": 16,
+   "title": "Optional.of on a nullable email column throws NPE for rows with NULL email",
+   "evidence": "Inside the ResultSet try-with-resources, the single added return statement (line 17) maps the row with 'return rs.next() ? Optional.of(rs.getString(\"email\")) : Optional.empty();'. When a user row exists but the email column is NULL, getString returns null and Optional.of(null) throws NullPointerException; the caller gets an uncaught NPE (not even SQLException) instead of the documented empty result. Reachable path: any existing id whose email column has no value.",
+   "evidence_quote": "            try (ResultSet rs = ps.executeQuery()) {",
+   "trigger": "",
+   "recommendation": "Use Optional.ofNullable(rs.getString(\"email\")) so a NULL email yields Optional.empty(); alternatively document and enforce a NOT NULL email constraint, but the code must not assume nullability of a column it does not control.",
+   "confidence": 0.65,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "f394b7ee63e0",
+   "rule": "",
+   "severity": "minor",
+   "category": "testing",
+   "file": "src/main/java/com/example/db/UserRepository.java",
+   "line": 12,
+   "title": "No test covers the three key branches (found / not found / NULL email)",
+   "evidence": "The only public entry point is declared as 'public Optional<String> findEmail(long id) throws SQLException {' and no test file is added in this change, so neither the empty-result branch nor the NULL-email branch (see the NPE finding) is exercised; the change also leaves the caller-facing statement/resultset closing behaviour unverified.",
+   "evidence_quote": "    public Optional<String> findEmail(long id) throws SQLException {",
+   "trigger": "",
+   "recommendation": "Add a unit test using a real or mocked Connection/PreparedStatement that asserts Optional.empty() for a missing id and for a row with a NULL email, and that setLong(1, id) receives the correct parameter.",
+   "confidence": 0.7,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

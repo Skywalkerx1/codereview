@@ -1,0 +1,100 @@
+{
+ "case_id": "xc-bigdecimal-invoice",
+ "seat": "openai",
+ "sample": 1,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "d4bc0a8ecd4c8853c69a6dd9d43fa007642ab17eae01d468c076023667c0cb7b",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "gpt-5.4",
+ "events": [
+  {
+   "seat": "openai",
+   "prompt_hash": "d4bc0a8ecd4c8853c69a6dd9d43fa007642ab17eae01d468c076023667c0cb7b",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1118,
+   "tokens_out": 446,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:37:35+00:00",
+   "finished_at": "2026-11-07T13:37:42+00:00",
+   "duration_ms": 7205,
+   "prompt_chars": 4893
+  }
+ ],
+ "shadow_cost_usd": 0.005857,
+ "duration_ms": 7205,
+ "findings": [
+  {
+   "id": "93cdfe5c63b7",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "src/main/java/com/example/billing/InvoiceCalculator.java",
+   "line": 38,
+   "title": "Null taxRate now causes an unhandled NullPointerException",
+   "evidence": "The method multiplies the subtotal by taxRate without validating it, so a null caller input will fail at runtime instead of being rejected consistently.",
+   "evidence_quote": "        BigDecimal tax = cents(subtotal.multiply(taxRate));",
+   "trigger": "",
+   "recommendation": "Validate taxRate at method entry and throw a clear IllegalArgumentException when it is null, or define and document a default such as BigDecimal.ZERO.",
+   "confidence": 0.97,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "ce65aa07891b",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "src/main/java/com/example/billing/InvoiceCalculator.java",
+   "line": 27,
+   "title": "Null items list or null elements will crash subtotal/totalWithTax",
+   "evidence": "The code iterates directly over items and dereferences each item without any null checks, so passing a null list or a list containing null will throw NullPointerException in supported Java runtimes.",
+   "evidence_quote": "        for (LineItem item : items) {",
+   "trigger": "",
+   "recommendation": "Reject null items lists and null elements explicitly at the start of subtotal, and consider reusing the same validation from totalWithTax before calling subtotal.",
+   "confidence": 0.98,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "7ec42b0965c9",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "src/main/java/com/example/billing/InvoiceCalculator.java",
+   "line": 38,
+   "title": "Negative tax rates are accepted and can reduce totals below subtotal",
+   "evidence": "There is no guard on taxRate before computing tax, so callers can pass a negative rate and generate a discount-like negative tax even though the API is named totalWithTax.",
+   "evidence_quote": "        BigDecimal tax = cents(subtotal.multiply(taxRate));",
+   "trigger": "",
+   "recommendation": "Validate that taxRate is non-negative, and if rates are expected as percentages also enforce an upper bound or document the accepted range clearly.",
+   "confidence": 0.83,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

@@ -1,0 +1,100 @@
+{
+ "case_id": "race-check-then-act",
+ "seat": "deepseek",
+ "sample": 2,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "1fb99fba2a12c6355694855475c53f35cafb6e7747760440b2fea08ef05c76fb",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "1fb99fba2a12c6355694855475c53f35cafb6e7747760440b2fea08ef05c76fb",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 874,
+   "tokens_out": 5185,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:35:48+00:00",
+   "finished_at": "2026-11-07T13:36:19+00:00",
+   "duration_ms": 31408,
+   "prompt_chars": 3466
+  }
+ ],
+ "shadow_cost_usd": 0.005939,
+ "duration_ms": 31409,
+ "findings": [
+  {
+   "id": "9b431ebbc285",
+   "rule": "",
+   "severity": "blocker",
+   "category": "data-loss",
+   "file": "app/files.py",
+   "line": 11,
+   "title": "TOCTOU race can truncate a concurrently created file",
+   "evidence": "The new existence check is followed by an open in write mode, so two concurrent claim_path calls for the same path can both see it missing and the later open truncates the file created by the first caller; the prior open with exclusive-create was atomic.",
+   "evidence_quote": "    if not os.path.exists(path):",
+   "trigger": "",
+   "recommendation": "Restore an atomic exclusive create, e.g. open(path, 'x') or os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY), and translate the resulting FileExistsError if needed.",
+   "confidence": 0.95,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "2ba24af69756",
+   "rule": "",
+   "severity": "major",
+   "category": "security",
+   "file": "app/files.py",
+   "line": 11,
+   "title": "Dangling symlink bypass when base is writable by another user",
+   "evidence": "os.path.exists follows symlinks and returns False for a dangling symlink; the subsequent write-mode open then follows that link and creates or truncates its target. This is reachable when another user can place a symlink under base, and the old exclusive-create open rejected symlinks.",
+   "evidence_quote": "    if not os.path.exists(path):",
+   "trigger": "",
+   "recommendation": "Use O_CREAT|O_EXCL (or open(path, 'x')) so existing symlinks are rejected, or open with O_NOFOLLOW where appropriate.",
+   "confidence": 0.82,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "eb9682bf2b2d",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/files.py",
+   "line": 13,
+   "title": "Manual FileExistsError loses errno and filename contract",
+   "evidence": "The previous open raised FileExistsError with errno EEXIST and filename populated; the new manual raise only sets args, so callers inspecting errno or filename break.",
+   "evidence_quote": "    raise FileExistsError(path)",
+   "trigger": "",
+   "recommendation": "Let the atomic open raise the error, or raise FileExistsError(errno.EEXIST, os.strerror(errno.EEXIST), path).",
+   "confidence": 0.85,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

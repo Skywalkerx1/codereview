@@ -1,0 +1,132 @@
+{
+ "case_id": "xc-graceful-http-shutdown",
+ "seat": "deepseek",
+ "sample": 3,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "495e060fb9ffdf494f00177f5f08783b6998c781bdb1ebaf333e56c47b205a03",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "495e060fb9ffdf494f00177f5f08783b6998c781bdb1ebaf333e56c47b205a03",
+   "outcome": "content_invalid",
+   "error_class": "empty",
+   "attempts": 1,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:43:32+00:00",
+   "finished_at": "2026-11-07T13:44:22+00:00",
+   "detail": "deepseek empty: empty content",
+   "duration_ms": 49740,
+   "prompt_chars": 4839
+  },
+  {
+   "seat": "deepseek",
+   "prompt_hash": "75fc353577fcc26cd68e4f49a53e842831c52c73a354284d7413826dd9c6adc7",
+   "outcome": "content_invalid",
+   "error_class": "empty",
+   "attempts": 1,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:44:22+00:00",
+   "finished_at": "2026-11-07T13:45:11+00:00",
+   "detail": "deepseek empty: empty content",
+   "duration_ms": 48585,
+   "prompt_chars": 5118
+  },
+  {
+   "seat": "deepseek",
+   "prompt_hash": "495e060fb9ffdf494f00177f5f08783b6998c781bdb1ebaf333e56c47b205a03",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1361,
+   "tokens_out": 5799,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:45:11+00:00",
+   "finished_at": "2026-11-07T13:45:47+00:00",
+   "duration_ms": 35868,
+   "prompt_chars": 4839
+  }
+ ],
+ "shadow_cost_usd": 0.006746,
+ "duration_ms": 134195,
+ "findings": [
+  {
+   "id": "c9d930e39873",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "cmd/server/main.go",
+   "line": 55,
+   "title": "Draining flag gives no drain window - listener closes microseconds later",
+   "evidence": "The comment says balancers should stop sending new traffic, but 'draining.Store(true)' is immediately followed by context.WithTimeout + srv.Shutdown(shutdownCtx), and Shutdown closes the listeners at once. Any LB still routing (health-check interval not yet elapsed) hits a closed listener and gets connection refused/502.",
+   "evidence_quote": "\t\tdraining.Store(true)",
+   "trigger": "",
+   "recommendation": "Insert a bounded drain delay between the flag flip and Shutdown (e.g. time.Sleep or a timer of the LB health-check period, ~2x poll interval), sized so drain delay + in-flight deadline still fits inside the orchestrator termination grace period, and count the delay inside the same overall deadline.",
+   "confidence": 0.7,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "624a67e75684",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "cmd/server/main.go",
+   "line": 40,
+   "title": "Second signal cannot force early exit",
+   "evidence": "'defer stop()' keeps the signal handler registered for the whole process lifetime; once ctx.Done fires, a subsequent SIGTERM/SIGINT is swallowed by NotifyContext and has no effect, so an operator cannot abort the up-to-15s drain.",
+   "evidence_quote": "\tdefer stop()",
+   "trigger": "",
+   "recommendation": "Call stop() immediately after <-ctx.Done() returns (before Shutdown) so a second signal gets default behaviour (process kill), or install a second-signal handler that calls srv.Close() and exits non-zero.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "55bc0fdd9bdf",
+   "rule": "",
+   "severity": "minor",
+   "category": "testing",
+   "file": "cmd/server/main.go",
+   "line": 15,
+   "title": "No test covers drain state or shutdown deadline",
+   "evidence": "The new file adds behavior -- 'var draining atomic.Bool' plus the 15s Shutdown/Close fallback -- with no test exercising the 503 health response after the flag flips or the deadline-expiry path.",
+   "evidence_quote": "var draining atomic.Bool",
+   "trigger": "",
+   "recommendation": "Add a test that serves on an ephemeral listener, sends SIGTERM (or triggers the ctx.Done branch), asserts /healthz returns 503 while draining, asserts in-flight requests complete, and asserts the forced Close path fires when a handler exceeds the deadline.",
+   "confidence": 0.55,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

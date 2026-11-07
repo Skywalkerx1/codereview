@@ -1,0 +1,54 @@
+{
+ "case_id": "auth-admin-or-true",
+ "seat": "deepseek",
+ "sample": 3,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "c7c3630668f19ccbaa977ba03f52e3135d4afece0e658e520ea86b71202e4101",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "c7c3630668f19ccbaa977ba03f52e3135d4afece0e658e520ea86b71202e4101",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 864,
+   "tokens_out": 1127,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:34:45+00:00",
+   "finished_at": "2026-11-07T13:34:52+00:00",
+   "duration_ms": 7732,
+   "prompt_chars": 3432
+  }
+ ],
+ "shadow_cost_usd": 0.001473,
+ "duration_ms": 7733,
+ "findings": [
+  {
+   "id": "2003dc718beb",
+   "rule": "",
+   "severity": "blocker",
+   "category": "security",
+   "file": "app/admin.py",
+   "line": 7,
+   "title": "Admin authorization check is permanently short-circuited by or True",
+   "evidence": "The guard is now 'if not (request.user.is_staff or True):'; because 'request.user.is_staff or True' always evaluates true, the negation is always false and the raise is unreachable. A non-staff authenticated user calling admin_panel proceeds to render_admin(), bypassing the intended staff-only authorization.",
+   "evidence_quote": "    if not (request.user.is_staff or True):",
+   "trigger": "",
+   "recommendation": "Restore the original staff check to 'if not request.user.is_staff:' and add a regression test asserting that a non-staff user receives PermissionDenied from admin_panel.",
+   "confidence": 1.0,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

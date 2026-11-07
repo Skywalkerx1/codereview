@@ -1,0 +1,162 @@
+{
+ "case_id": "xc-guarded-migration",
+ "seat": "deepseek",
+ "sample": 3,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "0d8090e326c0eec1f7f6a98d61b1e614bab64bb0b8ec29fed188723bd9c5cc5c",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "0d8090e326c0eec1f7f6a98d61b1e614bab64bb0b8ec29fed188723bd9c5cc5c",
+   "outcome": "content_invalid",
+   "error_class": "empty",
+   "attempts": 1,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:45:49+00:00",
+   "finished_at": "2026-11-07T13:46:40+00:00",
+   "detail": "deepseek empty: empty content",
+   "duration_ms": 51596,
+   "prompt_chars": 4656
+  },
+  {
+   "seat": "deepseek",
+   "prompt_hash": "06b1593e0ac4c3c2db564c5dacfe06f6724314a503d32cdbffad401546f78977",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1244,
+   "tokens_out": 4822,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:46:40+00:00",
+   "finished_at": "2026-11-07T13:47:08+00:00",
+   "duration_ms": 28036,
+   "prompt_chars": 4935
+  }
+ ],
+ "shadow_cost_usd": 0.00564,
+ "duration_ms": 79634,
+ "findings": [
+  {
+   "id": "a3721bdbd3c0",
+   "rule": "",
+   "severity": "major",
+   "category": "reliability",
+   "file": "migrations/004_orders_shipping_region.sql",
+   "line": 13,
+   "title": "ADD COLUMN lock is held across the entire backfill, defeating batching",
+   "evidence": "ALTER TABLE orders takes ACCESS EXCLUSIVE (PostgreSQL holds it to end of transaction, not end of statement); since BEGIN wraps the DO loop and COMMIT only happens at line 43, the table stays fully blocked for the whole migration. The comment claiming the table is never locked is wrong.",
+   "evidence_quote": "ALTER TABLE orders",
+   "trigger": "",
+   "recommendation": "Move DDL and backfill into separate transactions: run ALTER TABLE (and index creation) in their own short transaction with a lock_timeout, then run the backfill outside any transaction holding the ACCESS EXCLUSIVE lock (e.g. autocommit batches with per-batch COMMIT, or commit after each batch).",
+   "confidence": 0.82,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "6b1b63e6e518",
+   "rule": "",
+   "severity": "major",
+   "category": "reliability",
+   "file": "migrations/004_orders_shipping_region.sql",
+   "line": 39,
+   "title": "Backfill loop can run forever under concurrent inserts",
+   "evidence": "Termination relies solely on 'EXIT WHEN batch_count = 0'. Under READ COMMITTED each iteration gets a fresh snapshot, so an application inserting rows with legacy_region NOT NULL and shipping_region NULL during the loop keeps the selection non-empty and the transaction open, holding locks indefinitely.",
+   "evidence_quote": "        EXIT WHEN batch_count = 0;",
+   "trigger": "",
+   "recommendation": "Bound the loop with a max-iteration counter and/or a target row count captured once before the loop (e.g. SELECT count(*) up front and stop after that many rows), or run the backfill outside the migration transaction so a stuck loop cannot wedge the migration.",
+   "confidence": 0.55,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "a12bd66ffcb5",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "migrations/004_orders_shipping_region.sql",
+   "line": 14,
+   "title": "Partial backfill commits silently with no completeness check",
+   "evidence": "The column is added as plain 'TEXT' with no NOT NULL, and rows whose legacy_region is NULL are neither filled nor reported. The migration commits successfully even if a large share of orders still has shipping_region NULL, and nothing signals the gap to operators.",
+   "evidence_quote": "    ADD COLUMN IF NOT EXISTS shipping_region TEXT;",
+   "trigger": "",
+   "recommendation": "Add an explicit post-backfill check (RAISE EXCEPTION if unfilled rows remain beyond an allowed count, or log the count) and document why the column cannot be NOT NULL yet; add a follow-up migration to add NOT NULL once the legacy source is retired.",
+   "confidence": 0.7,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "d6742d6dbaf9",
+   "rule": "",
+   "severity": "minor",
+   "category": "performance",
+   "file": "migrations/004_orders_shipping_region.sql",
+   "line": 16,
+   "title": "Non-concurrent CREATE INDEX on orders blocks writes",
+   "evidence": "'CREATE INDEX IF NOT EXISTS' inside the transaction takes a SHARE lock on orders for the full index build; on a large orders table this stalls all INSERT/UPDATE/DELETE until COMMIT. CREATE INDEX CONCURRENTLY is impossible inside BEGIN, so this cannot be batched away.",
+   "evidence_quote": "CREATE INDEX IF NOT EXISTS idx_orders_shipping_region",
+   "trigger": "",
+   "recommendation": "Create the index in a separate migration/transaction using CREATE INDEX CONCURRENTLY IF NOT EXISTS (run outside an explicit transaction block) and remove it from this file.",
+   "confidence": 0.75,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "a5a714899839",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "migrations/004_orders_shipping_region.sql",
+   "line": 17,
+   "title": "Backfilled region codes are never validated against shipping_regions",
+   "evidence": "shipping_region is a bare TEXT column: no foreign key to shipping_regions(code) is declared and shipping_regions is never populated in this migration, so any legacy_region value that is not a real region code is copied in permanently, making the new reference table decorative.",
+   "evidence_quote": "    ON orders (shipping_region);",
+   "trigger": "",
+   "recommendation": "Seed shipping_regions with the known codes and add a foreign key (NOT VALID if existing rows may violate it, then VALIDATE CONSTRAINT after cleaning), or document explicitly why the region values are free text.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

@@ -1,0 +1,77 @@
+{
+ "case_id": "xc-graceful-shutdown",
+ "seat": "openai",
+ "sample": 2,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "fdea71c8afcf6ca9744205e70730c339cba071cef88cec57ecd9d5169bf3bda1",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "gpt-5.4",
+ "events": [
+  {
+   "seat": "openai",
+   "prompt_hash": "fdea71c8afcf6ca9744205e70730c339cba071cef88cec57ecd9d5169bf3bda1",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1266,
+   "tokens_out": 377,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:43:58+00:00",
+   "finished_at": "2026-11-07T13:44:05+00:00",
+   "duration_ms": 6525,
+   "prompt_chars": 5426
+  }
+ ],
+ "shadow_cost_usd": 0.005352,
+ "duration_ms": 6526,
+ "findings": [
+  {
+   "id": "e8738e5f422a",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "app/worker.py",
+   "line": 47,
+   "title": "Stop signal does not prevent one more job from being accepted and executed",
+   "evidence": "The loop checks the stop flag before blocking on the queue, but after a signal arrives during that blocking get, the returned job is still submitted to the pool even though the documented contract says no new jobs are pulled after stop is requested.",
+   "evidence_quote": "                    job = self._source.get(timeout=POLL_SECONDS)",
+   "trigger": "",
+   "recommendation": "After get returns, re-check the stop event before submitting. If stop was requested while blocked in get, either put the job back onto the source if supported or avoid fetching with a design that can be interrupted without consuming another item.",
+   "confidence": 0.97,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "8bb4cc57b54f",
+   "rule": "",
+   "severity": "major",
+   "category": "reliability",
+   "file": "app/worker.py",
+   "line": 50,
+   "title": "Consumed queue items are never acknowledged with task_done",
+   "evidence": "Jobs are read from a queue via get and submitted, but there is no matching completion acknowledgement anywhere in the worker. With a standard queue.Queue source, any caller using join will block forever because unfinished_tasks is incremented by get/put and never decremented.",
+   "evidence_quote": "                pool.submit(self._run_job, job)",
+   "trigger": "",
+   "recommendation": "If source is intended to be queue.Queue-compatible, call task_done exactly once per successful get after the job finishes, typically in a finally block inside _run_job or by wrapping the submitted callable. If task_done is not part of the contract, document and enforce a different source interface.",
+   "confidence": 0.95,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

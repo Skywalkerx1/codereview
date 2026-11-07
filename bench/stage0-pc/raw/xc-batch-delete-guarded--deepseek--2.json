@@ -1,0 +1,123 @@
+{
+ "case_id": "xc-batch-delete-guarded",
+ "seat": "deepseek",
+ "sample": 2,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "9cfbf1fbfd0cc977f247e84288240441df3a6a0273f04bf47a0c224bc680e791",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "9cfbf1fbfd0cc977f247e84288240441df3a6a0273f04bf47a0c224bc680e791",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1317,
+   "tokens_out": 7418,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:37:06+00:00",
+   "finished_at": "2026-11-07T13:37:49+00:00",
+   "duration_ms": 42835,
+   "prompt_chars": 5099
+  }
+ ],
+ "shadow_cost_usd": 0.008515,
+ "duration_ms": 42835,
+ "findings": [
+  {
+   "id": "3feedc7574b3",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "app/cleanup.py",
+   "line": 41,
+   "title": "Cap-exceeded path commits partial deletes then raises, losing the count and reporting false failure",
+   "evidence": "Each DELETE is followed by db.commit() (line 36); the for/else raises RuntimeError when the final executed batch was full. If matching rows >= MAX_BATCHES*batch_size, up to 1000*500=500,000 rows are deleted and committed, then the function raises and the 'deleted' tally is never returned to the caller, who sees a failure despite committed deletions. It also raises falsely when the table holds exactly 1000 full batches and is fully drained.",
+   "evidence_quote": "        raise RuntimeError(",
+   "trigger": "",
+   "recommendation": "Do not commit the batch that trips the cap, or include the deleted count in the exception/return a partial result. Decide 'more rows remain' before committing (e.g. stop and return when the previous batch was full and MAX_BATCHES reached), so the caller always learns how many rows were actually removed.",
+   "confidence": 0.8,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "a1f668ce3708",
+   "rule": "",
+   "severity": "minor",
+   "category": "security",
+   "file": "app/cleanup.py",
+   "line": 18,
+   "title": "WHERE guard only rejects empty/whitespace, so a constant-true or injected fragment passes",
+   "evidence": "The mandatory-filter check is just: if not where_sql or not where_sql.strip(). A caller passing where_sql='1=1' (or any request-derived fragment) passes the guard and the f-string interpolates it directly into DELETE ... WHERE {where_sql} LIMIT ?, enabling full-table batched deletion or SQL injection if the trusted-caller contract is violated anywhere.",
+   "evidence_quote": "    if not where_sql or not where_sql.strip():",
+   "trigger": "",
+   "recommendation": "Enforce the contract structurally where feasible (e.g. accept a column/operator/value spec and build the clause, or reject constant-true clauses), and add a lint/test asserting where_sql is never sourced from request input.",
+   "confidence": 0.55,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "1aab403c76ac",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "app/cleanup.py",
+   "line": 37,
+   "title": "Loop correctness depends on cursor.rowcount being the true delete count",
+   "evidence": "Control flow uses deleted += cursor.rowcount and if cursor.rowcount < batch_size: break. DB-API permits -1 when rowcount is unavailable; under such a driver the first batch would add -1, satisfy the < batch_size break immediately, and silently stop after one batch while reporting -1. This is driver-dependent and safe under sqlite3, where rowcount is accurate for DELETE.",
+   "evidence_quote": "        deleted += cursor.rowcount",
+   "trigger": "",
+   "recommendation": "Guard against a negative rowcount (e.g. treat <0 as an error rather than a break signal) or derive the affected count in a driver-independent way.",
+   "confidence": 0.4,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "a14cbb9608cb",
+   "rule": "",
+   "severity": "nit",
+   "category": "quality",
+   "file": "app/cleanup.py",
+   "line": 45,
+   "title": "matching field has different meaning in dry run versus real run",
+   "evidence": "Dry run returns matching = pre-delete SELECT COUNT(*), while the real run returns matching = deleted (the two are equal only when everything matched was actually removed). Callers comparing dry-run blast radius to the real result can be misled.",
+   "evidence_quote": "    return {\"dry_run\": False, \"matching\": deleted, \"deleted\": deleted}",
+   "trigger": "",
+   "recommendation": "Rename or split the fields so dry-run pre-count and actual deleted count are unambiguous (e.g. 'would_delete' vs 'deleted').",
+   "confidence": 0.5,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

@@ -1,0 +1,30 @@
+{
+ "case_id": "clean-auth-check-added",
+ "seat": "deepseek",
+ "sample": 3,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "a5251e4fb37f53cefd9f079b97e6540b1df4df1496c46fbda0c033f932ff0fec",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "a5251e4fb37f53cefd9f079b97e6540b1df4df1496c46fbda0c033f932ff0fec",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 877,
+   "tokens_out": 618,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:34:52+00:00",
+   "finished_at": "2026-11-07T13:34:58+00:00",
+   "duration_ms": 5494,
+   "prompt_chars": 3502
+  }
+ ],
+ "shadow_cost_usd": 0.000917,
+ "duration_ms": 5494,
+ "findings": []
+}

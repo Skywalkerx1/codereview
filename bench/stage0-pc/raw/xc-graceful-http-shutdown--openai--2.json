@@ -1,0 +1,54 @@
+{
+ "case_id": "xc-graceful-http-shutdown",
+ "seat": "openai",
+ "sample": 2,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "495e060fb9ffdf494f00177f5f08783b6998c781bdb1ebaf333e56c47b205a03",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "gpt-5.4",
+ "events": [
+  {
+   "seat": "openai",
+   "prompt_hash": "495e060fb9ffdf494f00177f5f08783b6998c781bdb1ebaf333e56c47b205a03",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1261,
+   "tokens_out": 217,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:43:19+00:00",
+   "finished_at": "2026-11-07T13:43:23+00:00",
+   "duration_ms": 3694,
+   "prompt_chars": 4839
+  }
+ ],
+ "shadow_cost_usd": 0.003746,
+ "duration_ms": 3694,
+ "findings": [
+  {
+   "id": "3677d32165f1",
+   "rule": "",
+   "severity": "major",
+   "category": "reliability",
+   "file": "cmd/server/main.go",
+   "line": 58,
+   "title": "Shutdown can block forever waiting for ListenAndServe after timeout",
+   "evidence": "After Shutdown times out, the code logs and calls Close, but then still performs a blocking receive from errCh with no timeout or fallback. If the server goroutine does not deliver promptly, the process remains stuck in shutdown despite the 15s deadline.",
+   "evidence_quote": "\t\tif err := <-errCh; err != nil &&",
+   "trigger": "",
+   "recommendation": "Do not block indefinitely on errCh after the shutdown deadline. Either return immediately after Close, or wait for errCh with a separate bounded select using the existing shutdown context or another short timeout, then exit regardless.",
+   "confidence": 0.89,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

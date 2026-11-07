@@ -1,0 +1,54 @@
+{
+ "case_id": "xc-atomic-state-writer",
+ "seat": "openai",
+ "sample": 2,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "d7394253aa0c0e3c0110c901ff2b04701406e0529ec5fd431a4d3de4a434377f",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "gpt-5.4",
+ "events": [
+  {
+   "seat": "openai",
+   "prompt_hash": "d7394253aa0c0e3c0110c901ff2b04701406e0529ec5fd431a4d3de4a434377f",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1263,
+   "tokens_out": 291,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:36:27+00:00",
+   "finished_at": "2026-11-07T13:36:33+00:00",
+   "duration_ms": 5716,
+   "prompt_chars": 5237
+  }
+ ],
+ "shadow_cost_usd": 0.004489,
+ "duration_ms": 5716,
+ "findings": [
+  {
+   "id": "5a5b66fc17c0",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "app/state_store.py",
+   "line": 34,
+   "title": "Post-rename directory fsync failure reports an error after state has already been committed",
+   "evidence": "The code performs 'os.replace(tmp_path, path)' and only afterwards calls '_fsync_directory(directory)'. If that fsync raises, the function propagates the exception even though the destination file has already been replaced, so callers that retry on failure can apply the same logical update twice or otherwise diverge from the persisted state.",
+   "evidence_quote": "    _fsync_directory(directory)",
+   "trigger": "",
+   "recommendation": "Treat the operation as committed once 'os.replace' succeeds, and handle directory fsync failures separately so callers are not told the save failed after the new state is already visible. For example, catch exceptions from '_fsync_directory' and surface them via logging/metrics or a distinct warning path, or redesign the API to make the 'committed but not fully durable' state explicit.",
+   "confidence": 0.95,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

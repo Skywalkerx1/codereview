@@ -1,0 +1,123 @@
+{
+ "case_id": "xc-guarded-migration",
+ "seat": "deepseek",
+ "sample": 2,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "0d8090e326c0eec1f7f6a98d61b1e614bab64bb0b8ec29fed188723bd9c5cc5c",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "0d8090e326c0eec1f7f6a98d61b1e614bab64bb0b8ec29fed188723bd9c5cc5c",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1188,
+   "tokens_out": 4617,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:45:47+00:00",
+   "finished_at": "2026-11-07T13:46:14+00:00",
+   "duration_ms": 27337,
+   "prompt_chars": 4656
+  }
+ ],
+ "shadow_cost_usd": 0.005399,
+ "duration_ms": 27338,
+ "findings": [
+  {
+   "id": "d9969607ea78",
+   "rule": "",
+   "severity": "major",
+   "category": "reliability",
+   "file": "migrations/004_orders_shipping_region.sql",
+   "line": 19,
+   "title": "Batched backfill runs in one transaction, so nothing is released per batch",
+   "evidence": "The header states 'Backfill in bounded batches so a large table is never locked or rewritten in a single statement', but the DO block at lines 23-41 sits between BEGIN (line 6) and COMMIT (line 43), so every UPDATE's row-level locks, the CREATE INDEX SHARE lock, and all dead tuples persist until the final COMMIT. On a large orders table this is exactly the long-lock, one-huge-transaction pattern the comment says it avoids; the 500-row LIMIT only bounds statement size, not lock duration or bloat.",
+   "evidence_quote": "-- Backfill in bounded batches so a large table is never locked or",
+   "trigger": "",
+   "recommendation": "Either (a) move the batching out of the single transaction \u2014 e.g. drive it from the client / psql with one UPDATE per transaction and a row-count loop, committing between batches \u2014 or (b) if a single transaction is intentional (atomic migration), drop the batching claim from the comment and document the lock/bloat cost. A DO block cannot COMMIT, so the current shape cannot deliver bounded commits.",
+   "confidence": 0.75,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "29a65884d621",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "migrations/004_orders_shipping_region.sql",
+   "line": 14,
+   "title": "shipping_region column has no FK to the newly created shipping_regions table",
+   "evidence": "The migration creates shipping_regions(code PK, display_name) at lines 8-11 and then adds 'ADD COLUMN IF NOT EXISTS shipping_region TEXT;' with no REFERENCES clause, and nothing in the file inserts rows into shipping_regions. The backfill copies legacy_region verbatim, so the column can hold values that do not exist in the reference table, and the reference table stays empty \u2014 any later attempt to add the FK or join to shipping_regions will fail on existing data.",
+   "evidence_quote": "    ADD COLUMN IF NOT EXISTS shipping_region TEXT;",
+   "trigger": "",
+   "recommendation": "Seed shipping_regions from the distinct legacy_region values before the backfill (insert-if-not-exists), then add the FK after the backfill (ALTER TABLE ... ADD CONSTRAINT ... REFERENCES shipping_regions(code) NOT VALID, then VALIDATE). If the table is meant for a later migration, remove it from this one instead of leaving it dead.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "6ca066fc67f9",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "migrations/004_orders_shipping_region.sql",
+   "line": 34,
+   "title": "Backfill references orders.legacy_region without an existence guard",
+   "evidence": "Every statement is guarded (CREATE TABLE/COLUMN/INDEX IF NOT EXISTS) except the loop body, which unconditionally selects '              AND legacy_region IS NOT NULL'. If this migration is re-run on an environment where a later migration already dropped legacy_region, the DO block raises undefined_column and aborts the entire migration, contradicting the 'Safe to run more than once' header. Reachability depends on a legacy_region-dropping migration existing.",
+   "evidence_quote": "              AND legacy_region IS NOT NULL",
+   "trigger": "",
+   "recommendation": "Guard the whole DO block with a check on information_schema.columns for orders.legacy_region (wrap the LOOP in IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='orders' AND column_name='legacy_region') THEN ... END IF;), so the migration is a genuine no-op once the legacy column is gone.",
+   "confidence": 0.55,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "0e4e10ed3ce1",
+   "rule": "",
+   "severity": "minor",
+   "category": "performance",
+   "file": "migrations/004_orders_shipping_region.sql",
+   "line": 17,
+   "title": "Index built before backfill and non-concurrently inside the transaction",
+   "evidence": "CREATE INDEX is issued at lines 16-17, before the backfill, so every backfilled row also pays index maintenance, and because it runs inside BEGIN/COMMIT it necessarily takes a SHARE lock that blocks writes to orders for the duration of the index build (CONCURRENTLY is not usable in this transaction anyway). Building it after the backfill costs one pass and removes the per-row index churn.",
+   "evidence_quote": "    ON orders (shipping_region);",
+   "trigger": "",
+   "recommendation": "Move the CREATE INDEX after the backfill, or drop it from the transactional migration and create it CONCURRENTLY in a separate, non-transactional step.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

@@ -1,0 +1,54 @@
+{
+ "case_id": "xc-atomic-state-writer",
+ "seat": "openai",
+ "sample": 1,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "d7394253aa0c0e3c0110c901ff2b04701406e0529ec5fd431a4d3de4a434377f",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "gpt-5.4",
+ "events": [
+  {
+   "seat": "openai",
+   "prompt_hash": "d7394253aa0c0e3c0110c901ff2b04701406e0529ec5fd431a4d3de4a434377f",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1263,
+   "tokens_out": 229,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:36:24+00:00",
+   "finished_at": "2026-11-07T13:36:29+00:00",
+   "duration_ms": 4482,
+   "prompt_chars": 5237
+  }
+ ],
+ "shadow_cost_usd": 0.003869,
+ "duration_ms": 4482,
+ "findings": [
+  {
+   "id": "ab2e3802667d",
+   "rule": "",
+   "severity": "major",
+   "category": "data-loss",
+   "file": "app/state_store.py",
+   "line": 26,
+   "title": "Successful save can delete the destination file when directory fsync fails",
+   "evidence": "The broad exception handler still unlinks tmp_path after the file has already been moved into place by os.replace, so any later exception from the post-rename directory fsync will remove the newly written state file.",
+   "evidence_quote": "    except BaseException:",
+   "trigger": "",
+   "recommendation": "Limit the cleanup handler to the pre-rename section, or track whether os.replace has already succeeded and skip os.unlink(tmp_path) once ownership has moved to the destination path. A common pattern is to wrap only temp-file creation/writing and os.replace in the try/except, then fsync the directory in a separate step that does not attempt to unlink the temp path.",
+   "confidence": 0.97,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

@@ -1,0 +1,77 @@
+{
+ "case_id": "xc-intl-currency-format",
+ "seat": "deepseek",
+ "sample": 1,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "76a8aa691e0a2e4767fcf089bdfb96a685116c4178f9e44376f9df1a8b339876",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "76a8aa691e0a2e4767fcf089bdfb96a685116c4178f9e44376f9df1a8b339876",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 959,
+   "tokens_out": 3029,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:47:35+00:00",
+   "finished_at": "2026-11-07T13:47:54+00:00",
+   "duration_ms": 19204,
+   "prompt_chars": 3726
+  }
+ ],
+ "shadow_cost_usd": 0.003591,
+ "duration_ms": 19204,
+ "findings": [
+  {
+   "id": "9a08281017fc",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "src/formatMoney.js",
+   "line": 9,
+   "title": "Unconditional /100 is wrong for currencies not using 2 minor digits",
+   "evidence": "The function accepts any `currency` but always divides by 100 before formatting; e.g. `formatMoney(1000, 'JPY')` yields 10 yen instead of 1000, and 3-minor-unit currencies (KWD/BHD) would be off by 10x.",
+   "evidence_quote": "  return formatter.format(amountCents / 100);",
+   "trigger": "",
+   "recommendation": "Derive the minor-unit divisor from the currency (e.g. via Intl.NumberFormat(...).resolvedOptions().maximumFractionDigits) or document/enforce that only 2-decimal currencies are accepted and reject others.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "9c63abff9d54",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "src/formatMoney.js",
+   "line": 9,
+   "title": "Floating-point division can misformat large cent amounts",
+   "evidence": "`amountCents / 100` is a double, and since `Number.isSafeInteger` admits values up to 2^53-1, values like 9007199254740991 / 100 cannot be represented exactly, so rounding at a .xx5 boundary can display the wrong cent.",
+   "evidence_quote": "  return formatter.format(amountCents / 100);",
+   "trigger": "",
+   "recommendation": "Format the integer part and the fractional cents separately, or cap the accepted range to an amount where the 2-decimal rounding is provably exact; add an edge-case test near the safe-integer limit.",
+   "confidence": 0.4,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

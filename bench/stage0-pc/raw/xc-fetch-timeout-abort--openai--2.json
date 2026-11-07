@@ -1,0 +1,54 @@
+{
+ "case_id": "xc-fetch-timeout-abort",
+ "seat": "openai",
+ "sample": 2,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "a732b18057c81219b26fa93a5905268813fe876738e82ff316f07e74ab2b190f",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "gpt-5.4",
+ "events": [
+  {
+   "seat": "openai",
+   "prompt_hash": "a732b18057c81219b26fa93a5905268813fe876738e82ff316f07e74ab2b190f",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 938,
+   "tokens_out": 242,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:42:50+00:00",
+   "finished_at": "2026-11-07T13:42:55+00:00",
+   "duration_ms": 4292,
+   "prompt_chars": 3965
+  }
+ ],
+ "shadow_cost_usd": 0.003593,
+ "duration_ms": 4293,
+ "findings": [
+  {
+   "id": "1e6c351f18e3",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "src/fetchJson.js",
+   "line": 5,
+   "title": "Caller-provided AbortSignal is overwritten, breaking external cancellation",
+   "evidence": "The fetch call always passes a newly created signal, replacing any signal supplied in options. Because the function signature collects all caller options into '...options' and then calls fetch with '{ ...options, signal: controller.signal }', a caller that previously relied on 'options.signal' to cancel the request can no longer do so.",
+   "evidence_quote": "    const response = await fetch(url, { ...options, signal: controller.signal });",
+   "trigger": "",
+   "recommendation": "Preserve caller cancellation by composing signals instead of overwriting them, for example by using the caller's signal when no timeout is requested, or by wiring the internal controller to abort when 'options.signal' aborts and passing a combined signal to fetch.",
+   "confidence": 0.98,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

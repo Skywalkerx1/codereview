@@ -1,0 +1,100 @@
+{
+ "case_id": "xc-tz-aware-scheduling",
+ "seat": "deepseek",
+ "sample": 2,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "292c40c203c3a0326735ddb071a7efcae9d999743aa00ca06d93ecfb0981f52d",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "292c40c203c3a0326735ddb071a7efcae9d999743aa00ca06d93ecfb0981f52d",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1053,
+   "tokens_out": 4270,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:55:13+00:00",
+   "finished_at": "2026-11-07T13:55:37+00:00",
+   "duration_ms": 24608,
+   "prompt_chars": 4052
+  }
+ ],
+ "shadow_cost_usd": 0.004981,
+ "duration_ms": 24609,
+ "findings": [
+  {
+   "id": "cf2f6351e36e",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "app/scheduling.py",
+   "line": 12,
+   "title": "DST gap/ambiguity not handled when attaching tzinfo to combined wall time",
+   "evidence": "candidate = datetime.combine(local.date(), wall, tzinfo=tz)",
+   "evidence_quote": "    candidate = datetime.combine(local.date(), wall, tzinfo=tz)",
+   "trigger": "",
+   "recommendation": "Validate the constructed datetime against the tz: detect non-existent times (skip/advance past the gap, e.g. re-check round-trip local==candidate.astimezone(tz).astimezone(tz)) and disambiguate fall-back times using fold, comparing candidate.astimezone(timezone.utc) against after before deciding to add a day. Add tests with a DST zone (e.g. America/New_York) at run_at around 02:30/01:30 on transition days.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "bc090cef4468",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/scheduling.py",
+   "line": 10,
+   "title": "Silently strips tzinfo if run_at is timezone-aware",
+   "evidence": "wall = run_at.replace(tzinfo=None)  # run_at is a wall time in tz",
+   "evidence_quote": "    wall = run_at.replace(tzinfo=None)  # run_at is a wall time in tz",
+   "trigger": "",
+   "recommendation": "Either reject a tz-aware run_at with a clear ValueError or document/assert that run_at must be a naive wall time, so an aware time passed by a caller is not silently reinterpreted in the wrong zone.",
+   "confidence": 0.55,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "6cb263429112",
+   "rule": "",
+   "severity": "minor",
+   "category": "testing",
+   "file": "app/scheduling.py",
+   "line": 5,
+   "title": "No tests for tz/DST behaviour despite tz-aware scheduling requirement",
+   "evidence": "def next_daily_run(after: datetime, run_at: time, tz_name: str) -> datetime:",
+   "evidence_quote": "def next_daily_run(after: datetime, run_at: time, tz_name: str) -> datetime:",
+   "trigger": "",
+   "recommendation": "Add tests covering: naive `after` rejection, run already passed (rolls to next day), exact-equal boundary, non-UTC zones, DST spring-forward gap and fall-back ambiguity, and that the result is always UTC.",
+   "confidence": 0.5,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

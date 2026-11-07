@@ -1,0 +1,215 @@
+{
+ "case_id": "xc-health-guard-selfcheck",
+ "seat": "deepseek",
+ "sample": 1,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "59f439becc993fac7b42a4aa09c1b72ffae4df0319a0c0af9bc2f768105170e7",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "59f439becc993fac7b42a4aa09c1b72ffae4df0319a0c0af9bc2f768105170e7",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1535,
+   "tokens_out": 7573,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:46:15+00:00",
+   "finished_at": "2026-11-07T13:46:58+00:00",
+   "duration_ms": 42943,
+   "prompt_chars": 5832
+  }
+ ],
+ "shadow_cost_usd": 0.008745,
+ "duration_ms": 42943,
+ "findings": [
+  {
+   "id": "ade13e8e67c9",
+   "rule": "",
+   "severity": "major",
+   "category": "reliability",
+   "file": "app/health.py",
+   "line": 51,
+   "title": "HTTP probe timeout is per-socket-op, not a total deadline; check can block far past timeout_seconds",
+   "evidence": "response = http_get(url, timeout=timeout) with no stream/max-redirect control; requests applies the float to each connect/read, follows up to 30 redirects by default, and reads the body fully because stream is not set.",
+   "evidence_quote": "        response = http_get(url, timeout=timeout)",
+   "trigger": "",
+   "recommendation": "Bound the whole probe: pass allow_redirects with a bounded count (or False), set stream=True and close/max-read the body, and enforce a hard wall-clock deadline via a separate connect/read tuple or an outer Future.result(timeout=...) so a redirect chain or slow-drip dependency cannot hold the /healthz handler open.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "43d7f4f2bc2d",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/health.py",
+   "line": 65,
+   "title": "Health path raises ValueError/TypeError on bad timeout instead of reporting down",
+   "evidence": "if timeout_seconds <= 0: raise ValueError(...) contradicts _run_probe's stated principle that a health check must never raise; a misconfigured env timeout of 0 or a non-numeric value turns /healthz into a 500 (TypeError on the comparison) rather than a 503/down payload.",
+   "evidence_quote": "    if timeout_seconds <= 0:",
+   "trigger": "",
+   "recommendation": "Coerce to float inside a try and treat invalid/zero timeouts as a reported failure (e.g. status down with error ConfigurationError) instead of raising out of healthcheck.",
+   "confidence": 0.65,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "c5cf74c8876d",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "app/health.py",
+   "line": 69,
+   "title": "Probes run serially with no aggregate deadline; worst case is N times the timeout",
+   "evidence": "checks are built one probe after another, each allowed the full timeout_seconds, so N registered probes can hold the endpoint for up to N*timeout_seconds (2s * N) and trip LB timeouts that then look like an outage.",
+   "evidence_quote": "        for name in sorted(probes)",
+   "trigger": "",
+   "recommendation": "Either run probes concurrently with an overall deadline (ThreadPoolExecutor + as_completed with a total budget) or document timeout_seconds as a per-probe budget and expose a separate total budget.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "35331faeeb81",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/health.py",
+   "line": 19,
+   "title": "Probes are invoked as probe(timeout=...) but that call contract is undocumented and mis-wiring is silent",
+   "evidence": "probe(timeout=timeout_seconds) requires the callback to accept a keyword named exactly timeout; a probe wired as def probe(t) raises TypeError which _run_probe converts to status down, so a wiring bug is reported as a dependency outage (and a core-named one drains the instance).",
+   "evidence_quote": "        probe(timeout=timeout_seconds)",
+   "trigger": "",
+   "recommendation": "Document the probe protocol explicitly (a Protocol/typing alias) and/or invoke positionally while validating callables at registration; consider distinguishing TypeError/AttributeError from dependency exceptions in the payload.",
+   "confidence": 0.55,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "e86ec9aeb716",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/health.py",
+   "line": 71,
+   "title": "Core status depends on hard-coded probe names with no validation that a core probe is registered",
+   "evidence": "core_down is derived solely from membership of the probe name in CORE_PROBES, so a database probe registered as db/pg/postgres, or an empty probes mapping, yields 200 ok/degraded and the instance is never drained.",
+   "evidence_quote": "    core_down = any(",
+   "trigger": "",
+   "recommendation": "Validate at startup/healthcheck that at least one core probe is present (and reject unknown/misnamed core probes), or make criticality an explicit per-probe attribute rather than a name string.",
+   "confidence": 0.55,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "62bd1f6e2dee",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "app/health.py",
+   "line": 39,
+   "title": "TCP probe timeout applies per resolved address, so total connect time can exceed the timeout",
+   "evidence": "socket.create_connection loops over getaddrinfo results applying timeout to each attempt and DNS resolution itself is unbounded, so a dual-stack host with one blackholed family can take ~2x timeout_seconds or more.",
+   "evidence_quote": "        with socket.create_connection((host, port), timeout=timeout):",
+   "trigger": "",
+   "recommendation": "Resolve once, attempt addresses under a shared deadline (or rely on an outer hard timeout per probe) and document that timeout_seconds bounds the whole probe.",
+   "confidence": 0.5,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "4023f2a10592",
+   "rule": "",
+   "severity": "nit",
+   "category": "quality",
+   "file": "app/health.py",
+   "line": 52,
+   "title": "Docstring promises 2xx but raise_for_status also accepts 3xx",
+   "evidence": "response.raise_for_status() only raises for 4xx/5xx, so a final 3xx (e.g. 304, or a redirect without Location) is reported ok despite the docstring saying success means a 2xx response.",
+   "evidence_quote": "        response.raise_for_status()",
+   "trigger": "",
+   "recommendation": "Assert response.ok and 200 <= status_code < 300 explicitly, or relax the docstring to say any non-error response.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "67500f7fc2d3",
+   "rule": "",
+   "severity": "minor",
+   "category": "testing",
+   "file": "app/health.py",
+   "line": 57,
+   "title": "No tests for the 503 vs 200 vs degraded mapping",
+   "evidence": "healthcheck is the whole decision surface of the endpoint (core_down -> 503, any_down -> degraded/200, all ok) and this change ships with no test file or test command exercised.",
+   "evidence_quote": "def healthcheck(probes, timeout_seconds=DEFAULT_TIMEOUT_SECONDS):",
+   "trigger": "",
+   "recommendation": "Add tests with injected probes covering: core probe down -> 503, non-core down -> 200 degraded, all ok -> 200, probe raising -> down with error type, timeout<=0 rejected, and empty probes mapping.",
+   "confidence": 0.7,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

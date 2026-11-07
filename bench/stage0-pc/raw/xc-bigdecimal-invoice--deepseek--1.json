@@ -1,0 +1,123 @@
+{
+ "case_id": "xc-bigdecimal-invoice",
+ "seat": "deepseek",
+ "sample": 1,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "d4bc0a8ecd4c8853c69a6dd9d43fa007642ab17eae01d468c076023667c0cb7b",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "d4bc0a8ecd4c8853c69a6dd9d43fa007642ab17eae01d468c076023667c0cb7b",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1181,
+   "tokens_out": 4517,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:37:47+00:00",
+   "finished_at": "2026-11-07T13:38:14+00:00",
+   "duration_ms": 27192,
+   "prompt_chars": 4893
+  }
+ ],
+ "shadow_cost_usd": 0.005288,
+ "duration_ms": 27192,
+ "findings": [
+  {
+   "id": "4b83fa99b588",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "src/main/java/com/example/billing/InvoiceCalculator.java",
+   "line": 30,
+   "title": "Null list / null element produces raw NPE instead of a contract error",
+   "evidence": "The loop 'for (LineItem item : items) {' dereferences the caller-supplied list and each element without any guard, while LineItem's own constructor carefully throws IllegalArgumentException for bad input \u2014 the class is inconsistent about how it reports invalid input, and 'subtotal(null)' fails with an unexplained NullPointerException.",
+   "evidence_quote": "        for (LineItem item : items) {",
+   "trigger": "",
+   "recommendation": "Validate up front: 'Objects.requireNonNull(items, \"items required\")' and reject null elements (or skip with a documented rule). If totals must be a point-in-time snapshot, copy the list before iterating so concurrent mutation cannot yield a partial subtotal.",
+   "confidence": 0.75,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "a4d5e52759f2",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "src/main/java/com/example/billing/InvoiceCalculator.java",
+   "line": 42,
+   "title": "taxRate is unvalidated: null NPE, negative or >1 rates silently produce nonsense totals",
+   "evidence": "'BigDecimal tax = cents(subtotal.multiply(taxRate));' multiplies by an unchecked rate, so null throws a bare NPE, a negative rate produces a negative tax line, and a caller passing a percentage (8.25) rather than a fraction (0.0825) yields an 825% tax with no error. The unit of taxRate is also undocumented.",
+   "evidence_quote": "        BigDecimal tax = cents(subtotal.multiply(taxRate));",
+   "trigger": "",
+   "recommendation": "Reject null via Objects.requireNonNull and reject rates outside [0, 1] with IllegalArgumentException, and document in Javadoc whether the rate is a fraction of the subtotal.",
+   "confidence": 0.7,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "f8961b3af464",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "src/main/java/com/example/billing/InvoiceCalculator.java",
+   "line": 15,
+   "title": "Negative unitPrice accepted with no guard or explicit credit semantics",
+   "evidence": "Only null 'unitPrice' and non-positive quantity are rejected; a negative price (a plausible data-entry or import error) silently reduces the invoice total, and because HALF_UP rounds ties away from zero, those credit lines round to the larger magnitude rather than toward zero.",
+   "evidence_quote": "            if (unitPrice == null) {",
+   "trigger": "",
+   "recommendation": "Either reject negative unitPrice in the compact constructor, or model credits as a separate field/kind and document the rounding behaviour for negative amounts.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "b708bf9600cd",
+   "rule": "",
+   "severity": "minor",
+   "category": "testing",
+   "file": "src/main/java/com/example/billing/InvoiceCalculator.java",
+   "line": 10,
+   "title": "No test pins the rounding mode or the round-per-line-before-summing rule",
+   "evidence": "ROUNDING is a fixed policy constant and subtotal rounds each line before summing, but the change adds no tests; a later reorder (round only the final total) would change invoice amounts for sub-cent prices with no failing test to catch it.",
+   "evidence_quote": "    private static final RoundingMode ROUNDING = RoundingMode.HALF_UP;",
+   "trigger": "",
+   "recommendation": "Add tests covering a half-cent tie (e.g. unit price 0.005, quantity 1 and 3), an empty list, many-line rounding drift versus a single final rounding, and a negative line, asserting the exact 2-decimal result and scale.",
+   "confidence": 0.8,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

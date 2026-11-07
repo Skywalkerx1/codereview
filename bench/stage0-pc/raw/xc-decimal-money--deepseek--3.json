@@ -1,0 +1,139 @@
+{
+ "case_id": "xc-decimal-money",
+ "seat": "deepseek",
+ "sample": 3,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "eec5c23c07fa130474abc1b35d4cd6bca761aba75ff8763eddbfc9e033ef6e19",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "eec5c23c07fa130474abc1b35d4cd6bca761aba75ff8763eddbfc9e033ef6e19",
+   "outcome": "content_invalid",
+   "error_class": "empty",
+   "attempts": 1,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:42:13+00:00",
+   "finished_at": "2026-11-07T13:43:01+00:00",
+   "detail": "deepseek empty: empty content",
+   "duration_ms": 48599,
+   "prompt_chars": 4019
+  },
+  {
+   "seat": "deepseek",
+   "prompt_hash": "e18955978e42d554be6b7bec9dc6b8af5b20e65beaacc151cb244cf69ac6687b",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1097,
+   "tokens_out": 2899,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:43:01+00:00",
+   "finished_at": "2026-11-07T13:43:19+00:00",
+   "duration_ms": 18080,
+   "prompt_chars": 4298
+  }
+ ],
+ "shadow_cost_usd": 0.003485,
+ "duration_ms": 66680,
+ "findings": [
+  {
+   "id": "52e3caf312d8",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "app/money.py",
+   "line": 14,
+   "title": "line_total quantizes unit price to cents before multiplying, double-rounding the total",
+   "evidence": "parse_money(unit_price) is called first, so a unit price of 0.005 becomes 0.01 before the multiply; line_total('0.005', 1000) returns 10.00 instead of 5.00.",
+   "evidence_quote": "    return (parse_money(unit_price) * quantity).quantize(CENT, rounding=ROUND_HALF_UP)",
+   "trigger": "",
+   "recommendation": "Convert unit_price without quantizing (e.g. Decimal(str(unit_price)) after the float/type guard) and apply the single ROUND_HALF_UP quantize only to the final product; if per-unit prices are contractually cent-precise, validate that explicitly and raise instead of silently rounding.",
+   "confidence": 0.65,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "f10219845d1b",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/money.py",
+   "line": 8,
+   "title": "Only float is rejected; None/bool/NaN inputs escape as decimal.InvalidOperation or NaN",
+   "evidence": "The guard rejects float only, then fallback Decimal(str(value)) raises an opaque InvalidOperation for None/True and lets Decimal('NaN') flow through, so callers cannot catch a single documented error type.",
+   "evidence_quote": "    amount = value if isinstance(value, Decimal) else Decimal(str(value))",
+   "trigger": "",
+   "recommendation": "Validate the accepted types explicitly (str/int/Decimal) and raise TypeError otherwise; also reject non-finite Decimals with amount.is_finite() before quantizing, and wrap conversion failures in a clear exception.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "0cf441b70c9b",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/money.py",
+   "line": 18,
+   "title": "tax_rate bypasses the float guard and accepts negative rates",
+   "evidence": "tax_rate is converted via Decimal(str(tax_rate)), so floats are silently accepted here even though parse_money rejects them; a negative or nonsensical rate produces a negative tax with no error.",
+   "evidence_quote": "    tax = (subtotal * Decimal(str(tax_rate))).quantize(CENT, rounding=ROUND_HALF_UP)",
+   "trigger": "",
+   "recommendation": "Route tax_rate through the same validation helper as monetary values (reject float or document float support) and range-check the rate (e.g. 0 <= rate <= 1) before computing.",
+   "confidence": 0.55,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "e437d792bfe0",
+   "rule": "",
+   "severity": "minor",
+   "category": "testing",
+   "file": "app/money.py",
+   "line": 1,
+   "title": "No tests accompany the new money helpers",
+   "evidence": "The diff adds the module only; the change context states no test commands were run, so rounding order, negative quantity, and float-rejection behaviour are unverified.",
+   "evidence_quote": "from decimal import Decimal, ROUND_HALF_UP",
+   "trigger": "",
+   "recommendation": "Add unit tests covering: sub-cent unit prices with large quantities, float input rejection, negative quantity, None/bool input, non-finite Decimals, and tax rounding at the half-cent boundary.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

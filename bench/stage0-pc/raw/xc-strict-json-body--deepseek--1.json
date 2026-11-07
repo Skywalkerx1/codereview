@@ -1,0 +1,100 @@
+{
+ "case_id": "xc-strict-json-body",
+ "seat": "deepseek",
+ "sample": 1,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "a76bfbe62cac0b94eebea46f8545408bae508902af7880d56775f6a3b099fe9a",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "a76bfbe62cac0b94eebea46f8545408bae508902af7880d56775f6a3b099fe9a",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1177,
+   "tokens_out": 4918,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:50:44+00:00",
+   "finished_at": "2026-11-07T13:51:12+00:00",
+   "duration_ms": 28468,
+   "prompt_chars": 4456
+  }
+ ],
+ "shadow_cost_usd": 0.005728,
+ "duration_ms": 28469,
+ "findings": [
+  {
+   "id": "1c4c1ae01345",
+   "rule": "",
+   "severity": "major",
+   "category": "reliability",
+   "file": "src/jsonBody.js",
+   "line": 18,
+   "title": "req.destroy() right after writing 413 can reset the socket before the response flushes",
+   "evidence": "res.status(413).json({ error: \"request body too large\" }); followed synchronously by req.destroy();",
+   "evidence_quote": "      req.destroy();",
+   "trigger": "",
+   "recommendation": "Do not call req.destroy() synchronously after writing the response. Either respond and let the connection close normally, pause/unpipe the stream and drain it, or destroy the socket only after the response finishes (e.g. inside res.on('finish')/res.end callback / req.res 'close').",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "63da01a2fb20",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "src/jsonBody.js",
+   "line": 5,
+   "title": "Content-type check is a loose prefix match, accepting non-JSON media types",
+   "evidence": "if (!contentType.toLowerCase().startsWith(\"application/json\")) accepts application/jsonp, application/json-evil, application/jsonfoo, etc.",
+   "evidence_quote": "  if (!contentType.toLowerCase().startsWith(\"application/json\")) {",
+   "trigger": "",
+   "recommendation": "Parse the media type (split on ';', trim) and compare the base type exactly to 'application/json' (optionally allow a whitelist of +json types) rather than using startsWith.",
+   "confidence": 0.75,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "e4790af0fb68",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "src/jsonBody.js",
+   "line": 40,
+   "title": "No handling for client abort before end, request may stall without next/res",
+   "evidence": "Only data/end/error listeners are registered; a client that closes mid-body emitting 'aborted'/'close' without a subsequent 'end' or 'error' leaves the middleware unsettled, so next()/res is never invoked for that request.",
+   "evidence_quote": "  req.on(\"error\", (err) => {",
+   "trigger": "",
+   "recommendation": "Add a req.on('aborted') / req.on('close') handler (or rely on req 'error' with premature-close) to settle the request and clear the settled flag once, guarding against double-invocation.",
+   "confidence": 0.4,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

@@ -1,0 +1,116 @@
+{
+ "case_id": "xc-atomic-state-writer",
+ "seat": "deepseek",
+ "sample": 1,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "d7394253aa0c0e3c0110c901ff2b04701406e0529ec5fd431a4d3de4a434377f",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "d7394253aa0c0e3c0110c901ff2b04701406e0529ec5fd431a4d3de4a434377f",
+   "outcome": "content_invalid",
+   "error_class": "empty",
+   "attempts": 1,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:36:28+00:00",
+   "finished_at": "2026-11-07T13:37:16+00:00",
+   "detail": "deepseek empty: empty content",
+   "duration_ms": 47589,
+   "prompt_chars": 5237
+  },
+  {
+   "seat": "deepseek",
+   "prompt_hash": "dc9a743ca54eca6f009e4e389983ae90bb824e962a588756ea91d9aa6d409728",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1405,
+   "tokens_out": 4444,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:37:16+00:00",
+   "finished_at": "2026-11-07T13:37:41+00:00",
+   "duration_ms": 25413,
+   "prompt_chars": 5516
+  }
+ ],
+ "shadow_cost_usd": 0.005268,
+ "duration_ms": 73004,
+ "findings": [
+  {
+   "id": "1301531e25af",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/state_store.py",
+   "line": 19,
+   "title": "os.replace makes destination inherit mkstemp's 0600 mode, discarding existing permissions",
+   "evidence": "The temp file created by 'tempfile.mkstemp(' is mode 0600 regardless of umask, and 'os.replace(tmp_path, path)' moves that inode over the destination, so after the first save the state file is always 0600 and owned by the writer - any existing 0644/0660 mode granted to a companion process or group is silently lost and that reader will start failing with PermissionError.",
+   "evidence_quote": "    fd, tmp_path = tempfile.mkstemp(",
+   "trigger": "",
+   "recommendation": "Stat the existing destination before writing and chmod/chown the temp file to match (or apply an explicit, documented mode such as 0o644) just before os.replace; document the chosen policy in the docstring.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "8f9f25161bd0",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "app/state_store.py",
+   "line": 43,
+   "title": "Unguarded directory fsync after rename raises on filesystems without dir-fsync support",
+   "evidence": "'os.fsync(dir_fd)' is called outside the try/except and after os.replace has already committed the new file, so on filesystems that reject fsync on a directory fd (EINVAL/EBADF, some network/FUSE mounts) save_state raises although the state was written - a caller that retries or reports failure now disagrees with the actual on-disk state.",
+   "evidence_quote": "        os.fsync(dir_fd)",
+   "trigger": "",
+   "recommendation": "Tolerate errno.EINVAL/EBADF/ENOTSUP from the directory fsync (log or ignore) so durability best-effort failures do not mask a completed write, and open with os.O_RDONLY | os.O_DIRECTORY to avoid fsyncing a non-directory after a concurrent replacement.",
+   "confidence": 0.55,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "c3f45690689d",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/state_store.py",
+   "line": 27,
+   "title": "Saving through a symlinked path replaces the symlink instead of its target",
+   "evidence": "'os.replace(tmp_path, path)' renames onto the path itself; if the deployment points path at a symlink (e.g. /var/lib/app/state.json -> /data/state.json), the link is replaced by a regular file and the real target is left stale, so readers of the target silently observe old state.",
+   "evidence_quote": "        os.replace(tmp_path, path)",
+   "trigger": "",
+   "recommendation": "Resolve the destination with os.path.realpath(path) before computing the directory and calling os.replace, or reject/ignore symlinked destinations explicitly and document the behaviour.",
+   "confidence": 0.5,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

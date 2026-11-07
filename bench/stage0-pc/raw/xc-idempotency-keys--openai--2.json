@@ -1,0 +1,77 @@
+{
+ "case_id": "xc-idempotency-keys",
+ "seat": "openai",
+ "sample": 2,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "ed59ce6320b6b2f0283dfe23019fe7506b7d5e2745b1cd4d10cd6c62aa22fcbd",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "gpt-5.4",
+ "events": [
+  {
+   "seat": "openai",
+   "prompt_hash": "ed59ce6320b6b2f0283dfe23019fe7506b7d5e2745b1cd4d10cd6c62aa22fcbd",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1286,
+   "tokens_out": 443,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:46:57+00:00",
+   "finished_at": "2026-11-07T13:47:05+00:00",
+   "duration_ms": 8058,
+   "prompt_chars": 5393
+  }
+ ],
+ "shadow_cost_usd": 0.006038,
+ "duration_ms": 8058,
+ "findings": [
+  {
+   "id": "94a32bfff68d",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "app/payments.py",
+   "line": 38,
+   "title": "Crash between gateway charge and local complete can double-charge after restart",
+   "evidence": "The function documents that a retry after a crash between the external charge and local completion should be deduplicated by the provider, but the implementation never persists any provider response before returning to local memory only. After a process restart, the in-memory store is empty, so a retry will call the gateway again and correctness now depends entirely on the provider honoring the same key.",
+   "evidence_quote": "    too, so a retry after a crash between charge and complete is also",
+   "trigger": "",
+   "recommendation": "Do not claim exactly-once semantics with an in-memory store. Either persist completion state durably before acknowledging success, or narrow the contract and docs to at-most-once per process lifetime / best-effort deduplication. If provider-side deduplication is required for correctness, handle and store the provider's idempotent replay response explicitly and document that dependency.",
+   "confidence": 0.91,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "a4e87963ba96",
+   "rule": "",
+   "severity": "major",
+   "category": "reliability",
+   "file": "app/payments.py",
+   "line": 57,
+   "title": "Catching BaseException swallows process-termination signals and mutates state during shutdown",
+   "evidence": "The error path catches every BaseException, which includes KeyboardInterrupt, SystemExit, and GeneratorExit. On supported POSIX/Python runtimes this is reachable during shutdown or interruption, and the handler will run 'store.abandon' before re-raising, altering idempotency state in situations that should usually terminate immediately.",
+   "evidence_quote": "    except BaseException:",
+   "trigger": "",
+   "recommendation": "Catch Exception instead of BaseException so normal application errors release the in-flight key, while process-termination exceptions are not intercepted. If you need special cleanup on cancellation, handle only the specific exception types you expect.",
+   "confidence": 0.88,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

@@ -1,0 +1,686 @@
+{
+ "results": {
+  "auth-admin-or-true": {
+   "openai": {
+    "prompts": 1,
+    "prompt_hash": "c7c3630668f19ccbaa977ba03f52e3135d4afece0e658e520ea86b71202e4101",
+    "stored_hashes": [
+     "c7c3630668f19ccbaa977ba03f52e3135d4afece0e658e520ea86b71202e4101",
+     "df69c24ed3c7887a25f132f19bffa82461e31984f0a653323e7a32134de2319a"
+    ],
+    "model": "gpt-5.4",
+    "ok": true
+   },
+   "deepseek": {
+    "prompts": 1,
+    "prompt_hash": "c7c3630668f19ccbaa977ba03f52e3135d4afece0e658e520ea86b71202e4101",
+    "stored_hashes": [
+     "c7c3630668f19ccbaa977ba03f52e3135d4afece0e658e520ea86b71202e4101"
+    ],
+    "model": "deepseek-flash",
+    "ok": true
+   }
+  },
+  "clean-auth-check-added": {
+   "openai": {
+    "prompts": 1,
+    "prompt_hash": "a5251e4fb37f53cefd9f079b97e6540b1df4df1496c46fbda0c033f932ff0fec",
+    "stored_hashes": [
+     "a5251e4fb37f53cefd9f079b97e6540b1df4df1496c46fbda0c033f932ff0fec"
+    ],
+    "model": "gpt-5.4",
+    "ok": true
+   },
+   "deepseek": {
+    "prompts": 1,
+    "prompt_hash": "a5251e4fb37f53cefd9f079b97e6540b1df4df1496c46fbda0c033f932ff0fec",
+    "stored_hashes": [
+     "a5251e4fb37f53cefd9f079b97e6540b1df4df1496c46fbda0c033f932ff0fec"
+    ],
+    "model": "deepseek-flash",
+    "ok": true
+   }
+  },
+  "clean-input-validation": {
+   "openai": {
+    "prompts": 1,
+    "prompt_hash": "977c93b0806d30b4ae3e429503ecfc4e043fad1dcb25ab0481610ef3c696d72b",
+    "stored_hashes": [
+     "1ebabf6f3cc2240f1453f7e5c0b36958dc2246228baef946b176a27dd8475706",
+     "977c93b0806d30b4ae3e429503ecfc4e043fad1dcb25ab0481610ef3c696d72b"
+    ],
+    "model": "gpt-5.4",
+    "ok": true
+   },
+   "deepseek": {
+    "prompts": 1,
+    "prompt_hash": "977c93b0806d30b4ae3e429503ecfc4e043fad1dcb25ab0481610ef3c696d72b",
+    "stored_hashes": [
+     "977c93b0806d30b4ae3e429503ecfc4e043fad1dcb25ab0481610ef3c696d72b"
+    ],
+    "model": "deepseek-flash",
+    "ok": true
+   }
+  },
+  "drop-table-migration": {
+   "openai": {
+    "prompts": 1,
+    "prompt_hash": "c179cef63eefa24956594f595721a2404e57db807a9f82f3cfd1b92b35f32f97",
+    "stored_hashes": [
+     "31834adcf4311ffc020444a282502630083844f95d30304ab517bee17c99e25f",
+     "c179cef63eefa24956594f595721a2404e57db807a9f82f3cfd1b92b35f32f97"
+    ],
+    "model": "gpt-5.4",
+    "ok": true
+   },
+   "deepseek": {
+    "prompts": 1,
+    "prompt_hash": "c179cef63eefa24956594f595721a2404e57db807a9f82f3cfd1b92b35f32f97",
+    "stored_hashes": [
+     "c179cef63eefa24956594f595721a2404e57db807a9f82f3cfd1b92b35f32f97"
+    ],
+    "model": "deepseek-flash",
+    "ok": true
+   }
+  },
+  "payment-refund-partial": {
+   "openai": {
+    "prompts": 1,
+    "prompt_hash": "185fca10845c12a824f8d1b440d72febb4640487dd8d2c512e57ae17d7560b1b",
+    "stored_hashes": [
+     "185fca10845c12a824f8d1b440d72febb4640487dd8d2c512e57ae17d7560b1b",
+     "e4616ef94f4ee60b9460cc60eb429ff16f664f60326ac83c8c1aa902fc866516"
+    ],
+    "model": "gpt-5.4",
+    "ok": true
+   },
+   "deepseek": {
+    "prompts": 1,
+    "prompt_hash": "185fca10845c12a824f8d1b440d72febb4640487dd8d2c512e57ae17d7560b1b",
+    "stored_hashes": [
+     "185fca10845c12a824f8d1b440d72febb4640487dd8d2c512e57ae17d7560b1b"
+    ],
+    "model": "deepseek-flash",
+    "ok": true
+   }
+  },
+  "race-check-then-act": {
+   "openai": {
+    "prompts": 1,
+    "prompt_hash": "1fb99fba2a12c6355694855475c53f35cafb6e7747760440b2fea08ef05c76fb",
+    "stored_hashes": [
+     "1fb99fba2a12c6355694855475c53f35cafb6e7747760440b2fea08ef05c76fb",
+     "5c7eba2d286fc1502887a1aa60b9607aabe91ef0df77927ea040ea29db2e8357",
+     "89029a7b30a26b9552a0a45d75bb127c222fbbafc264dab15c92a7cfa6b34196"
+    ],
+    "model": "gpt-5.4",
+    "ok": true
+   },
+   "deepseek": {
+    "prompts": 1,
+    "prompt_hash": "1fb99fba2a12c6355694855475c53f35cafb6e7747760440b2fea08ef05c76fb",
+    "stored_hashes": [
+     "1fb99fba2a12c6355694855475c53f35cafb6e7747760440b2fea08ef05c76fb"
+    ],
+    "model": "deepseek-flash",
+    "ok": true
+   }
+  },
+  "secret-aws-key": {
+   "openai": {
+    "prompts": 1,
+    "prompt_hash": "d47f8d68f4bdc36363d4aa506930281b38365e3cd43deab1bb94508263d818a9",
+    "stored_hashes": [
+     "172b5ffd6d2c4ce3bf5e12341459c3b5ad8e4f1eb8629381d5eabdb83a919c2f",
+     "9cd22c55a904598d4ea7a9be2d9d9759e5132c2d3d567d1b01b14e029bdb6b9e"
+    ],
+    "model": "gpt-5.4",
+    "ok": false
+   },
+   "deepseek": {
+    "prompts": 1,
+    "prompt_hash": "d47f8d68f4bdc36363d4aa506930281b38365e3cd43deab1bb94508263d818a9",
+    "stored_hashes": [
+     "172b5ffd6d2c4ce3bf5e12341459c3b5ad8e4f1eb8629381d5eabdb83a919c2f",
+     "9cd22c55a904598d4ea7a9be2d9d9759e5132c2d3d567d1b01b14e029bdb6b9e"
+    ],
+    "model": "deepseek-flash",
+    "ok": false
+   }
+  },
+  "sql-injection-concat": {
+   "openai": {
+    "prompts": 1,
+    "prompt_hash": "1f4d48b7786a5375f88fa61a7bbb47685849e0dbaac1509071065a7d9db00bef",
+    "stored_hashes": [
+     "1f4d48b7786a5375f88fa61a7bbb47685849e0dbaac1509071065a7d9db00bef",
+     "31b2610a65914d3da470ba718bf6c5bf1b89eb3e6c0891360a9972ad060d6193",
+     "82dd215a7e347a7bac5d33cc3266fe1611e4cb2b3a5936ba20ef22b2939efb5a"
+    ],
+    "model": "gpt-5.4",
+    "ok": true
+   },
+   "deepseek": {
+    "prompts": 1,
+    "prompt_hash": "1f4d48b7786a5375f88fa61a7bbb47685849e0dbaac1509071065a7d9db00bef",
+    "stored_hashes": [
+     "1f4d48b7786a5375f88fa61a7bbb47685849e0dbaac1509071065a7d9db00bef",
+     "31b2610a65914d3da470ba718bf6c5bf1b89eb3e6c0891360a9972ad060d6193"
+    ],
+    "model": "deepseek-flash",
+    "ok": true
+   }
+  },
+  "xc-atomic-state-writer": {
+   "openai": {
+    "prompts": 1,
+    "prompt_hash": "d7394253aa0c0e3c0110c901ff2b04701406e0529ec5fd431a4d3de4a434377f",
+    "stored_hashes": [
+     "d7394253aa0c0e3c0110c901ff2b04701406e0529ec5fd431a4d3de4a434377f"
+    ],
+    "model": "gpt-5.4",
+    "ok": true
+   },
+   "deepseek": {
+    "prompts": 1,
+    "prompt_hash": "d7394253aa0c0e3c0110c901ff2b04701406e0529ec5fd431a4d3de4a434377f",
+    "stored_hashes": [
+     "d7394253aa0c0e3c0110c901ff2b04701406e0529ec5fd431a4d3de4a434377f",
+     "dc9a743ca54eca6f009e4e389983ae90bb824e962a588756ea91d9aa6d409728"
+    ],
+    "model": "deepseek-flash",
+    "ok": true
+   }
+  },
+  "xc-batch-delete-guarded": {
+   "openai": {
+    "prompts": 1,
+    "prompt_hash": "9cfbf1fbfd0cc977f247e84288240441df3a6a0273f04bf47a0c224bc680e791",
+    "stored_hashes": [
+     "7987f498a72b58605686f38c3efdff53d7d4ebac31ba45cbe7e0007f3ffd52cb",
+     "9cfbf1fbfd0cc977f247e84288240441df3a6a0273f04bf47a0c224bc680e791"
+    ],
+    "model": "gpt-5.4",
+    "ok": true
+   },
+   "deepseek": {
+    "prompts": 1,
+    "prompt_hash": "9cfbf1fbfd0cc977f247e84288240441df3a6a0273f04bf47a0c224bc680e791",
+    "stored_hashes": [
+     "1d93cdf89ed454ad553238b6285a1129633defde417111a07f304c637f3a8eb2",
+     "9cfbf1fbfd0cc977f247e84288240441df3a6a0273f04bf47a0c224bc680e791"
+    ],
+    "model": "deepseek-flash",
+    "ok": true
+   }
+  },
+  "xc-bigdecimal-invoice": {
+   "openai": {
+    "prompts": 1,
+    "prompt_hash": "d4bc0a8ecd4c8853c69a6dd9d43fa007642ab17eae01d468c076023667c0cb7b",
+    "stored_hashes": [
+     "d4bc0a8ecd4c8853c69a6dd9d43fa007642ab17eae01d468c076023667c0cb7b"
+    ],
+    "model": "gpt-5.4",
+    "ok": true
+   },
+   "deepseek": {
+    "prompts": 1,
+    "prompt_hash": "d4bc0a8ecd4c8853c69a6dd9d43fa007642ab17eae01d468c076023667c0cb7b",
+    "stored_hashes": [
+     "4a40f72cf0f3da26cedd7dcb1e8c5e196b4764c0af78f33ca799aa235a5752ae",
+     "d4bc0a8ecd4c8853c69a6dd9d43fa007642ab17eae01d468c076023667c0cb7b"
+    ],
+    "model": "deepseek-flash",
+    "ok": true
+   }
+  },
+  "xc-bounded-response-read": {
+   "openai": {
+    "prompts": 1,
+    "prompt_hash": "38bc6ae17e6af4be06e4a233a4cc5f251035514fa3ec80da6ec8181deda323ba",
+    "stored_hashes": [
+     "38bc6ae17e6af4be06e4a233a4cc5f251035514fa3ec80da6ec8181deda323ba"
+    ],
+    "model": "gpt-5.4",
+    "ok": true
+   },
+   "deepseek": {
+    "prompts": 1,
+    "prompt_hash": "38bc6ae17e6af4be06e4a233a4cc5f251035514fa3ec80da6ec8181deda323ba",
+    "stored_hashes": [
+     "0e93e7f3fbe48ab928e4893f2ba12733a17b68a2ff46db8880f14c60d64f3dde",
+     "38bc6ae17e6af4be06e4a233a4cc5f251035514fa3ec80da6ec8181deda323ba"
+    ],
+    "model": "deepseek-flash",
+    "ok": true
+   }
+  },
+  "xc-circuit-breaker": {
+   "openai": {
+    "prompts": 1,
+    "prompt_hash": "4745ad93069043ae3ff6d01c5509ad2d66c76ce2cf3010f13abe1be281fc31bd",
+    "stored_hashes": [
+     "4745ad93069043ae3ff6d01c5509ad2d66c76ce2cf3010f13abe1be281fc31bd",
+     "d4f4796d66f01dbbaa99030eb64e6b547be714c564abba2ee3118582587cd107"
+    ],
+    "model": "gpt-5.4",
+    "ok": true
+   },
+   "deepseek": {
+    "prompts": 1,
+    "prompt_hash": "4745ad93069043ae3ff6d01c5509ad2d66c76ce2cf3010f13abe1be281fc31bd",
+    "stored_hashes": [
+     "4745ad93069043ae3ff6d01c5509ad2d66c76ce2cf3010f13abe1be281fc31bd",
+     "aaa1df0688a7396d888d5668ece259db221ae35a1bed042616d65a284ae4d1e5"
+    ],
+    "model": "deepseek-flash",
+    "ok": true
+   }
+  },
+  "xc-context-http-timeout": {
+   "openai": {
+    "prompts": 1,
+    "prompt_hash": "14bf6db8f869e83ba8a7605ea3da55d14a7ac91f852a283309602fa09f1e91d2",
+    "stored_hashes": [
+     "14bf6db8f869e83ba8a7605ea3da55d14a7ac91f852a283309602fa09f1e91d2",
+     "2835b387b434f011b35b6bceb68f665871ccc9b6aeb788fe4748b183691e70b0"
+    ],
+    "model": "gpt-5.4",
+    "ok": true
+   },
+   "deepseek": {
+    "prompts": 1,
+    "prompt_hash": "14bf6db8f869e83ba8a7605ea3da55d14a7ac91f852a283309602fa09f1e91d2",
+    "stored_hashes": [
+     "14bf6db8f869e83ba8a7605ea3da55d14a7ac91f852a283309602fa09f1e91d2"
+    ],
+    "model": "deepseek-flash",
+    "ok": true
+   }
+  },
+  "xc-csrf-token-check": {
+   "openai": {
+    "prompts": 1,
+    "prompt_hash": "48874f52ed5a83e32329656a30ed916da08889ea80a88e3667d80897677374c6",
+    "stored_hashes": [
+     "48874f52ed5a83e32329656a30ed916da08889ea80a88e3667d80897677374c6",
+     "bec1a99e34edf8f64e59de0d154a57513a54b0a277ea7970f4743fefe7eee09f"
+    ],
+    "model": "gpt-5.4",
+    "ok": true
+   },
+   "deepseek": {
+    "prompts": 1,
+    "prompt_hash": "48874f52ed5a83e32329656a30ed916da08889ea80a88e3667d80897677374c6",
+    "stored_hashes": [
+     "43249ebee2a4e3850355c589c00d2d5a9da868325474546034fc0f26445ba8d8",
+     "48874f52ed5a83e32329656a30ed916da08889ea80a88e3667d80897677374c6"
+    ],
+    "model": "deepseek-flash",
+    "ok": true
+   }
+  },
+  "xc-deadletter-worker": {
+   "openai": {
+    "prompts": 1,
+    "prompt_hash": "7fa229e350a4a667413e65c4a2832b081436218e44ea67c1023a9bdbc330291f",
+    "stored_hashes": [
+     "13427782df90b3b4b4958a4d86cfd64bf9a4a896cfcc96b55d8f95b0ca5ac424",
+     "2af8968f6d793e1fff3c758beb7493e581e63bb558bb7662f725c484d5af0c5b",
+     "7fa229e350a4a667413e65c4a2832b081436218e44ea67c1023a9bdbc330291f",
+     "bfa565081de91845a739412aaaac35719f8825f9f6264b47793dc995df9e5782"
+    ],
+    "model": "gpt-5.4",
+    "ok": true
+   },
+   "deepseek": {
+    "prompts": 1,
+    "prompt_hash": "7fa229e350a4a667413e65c4a2832b081436218e44ea67c1023a9bdbc330291f",
+    "stored_hashes": [
+     "13427782df90b3b4b4958a4d86cfd64bf9a4a896cfcc96b55d8f95b0ca5ac424",
+     "7fa229e350a4a667413e65c4a2832b081436218e44ea67c1023a9bdbc330291f",
+     "bfa565081de91845a739412aaaac35719f8825f9f6264b47793dc995df9e5782"
+    ],
+    "model": "deepseek-flash",
+    "ok": true
+   }
+  },
+  "xc-decimal-money": {
+   "openai": {
+    "prompts": 1,
+    "prompt_hash": "eec5c23c07fa130474abc1b35d4cd6bca761aba75ff8763eddbfc9e033ef6e19",
+    "stored_hashes": [
+     "085fa1b3fc9a18f9f1177f9c3cb879294e0eb66e62efcf0c48b1b4b955c61c68",
+     "eec5c23c07fa130474abc1b35d4cd6bca761aba75ff8763eddbfc9e033ef6e19"
+    ],
+    "model": "gpt-5.4",
+    "ok": true
+   },
+   "deepseek": {
+    "prompts": 1,
+    "prompt_hash": "eec5c23c07fa130474abc1b35d4cd6bca761aba75ff8763eddbfc9e033ef6e19",
+    "stored_hashes": [
+     "eec5c23c07fa130474abc1b35d4cd6bca761aba75ff8763eddbfc9e033ef6e19"
+    ],
+    "model": "deepseek-flash",
+    "ok": true
+   }
+  },
+  "xc-fetch-timeout-abort": {
+   "openai": {
+    "prompts": 1,
+    "prompt_hash": "a732b18057c81219b26fa93a5905268813fe876738e82ff316f07e74ab2b190f",
+    "stored_hashes": [
+     "a732b18057c81219b26fa93a5905268813fe876738e82ff316f07e74ab2b190f"
+    ],
+    "model": "gpt-5.4",
+    "ok": true
+   },
+   "deepseek": {
+    "prompts": 1,
+    "prompt_hash": "a732b18057c81219b26fa93a5905268813fe876738e82ff316f07e74ab2b190f",
+    "stored_hashes": [
+     "a732b18057c81219b26fa93a5905268813fe876738e82ff316f07e74ab2b190f"
+    ],
+    "model": "deepseek-flash",
+    "ok": true
+   }
+  },
+  "xc-graceful-http-shutdown": {
+   "openai": {
+    "prompts": 1,
+    "prompt_hash": "495e060fb9ffdf494f00177f5f08783b6998c781bdb1ebaf333e56c47b205a03",
+    "stored_hashes": [
+     "495e060fb9ffdf494f00177f5f08783b6998c781bdb1ebaf333e56c47b205a03",
+     "890971bb46b145f4f5e83d37fa9f3a051f4a6cccaa924797e79eabeb50777e8c"
+    ],
+    "model": "gpt-5.4",
+    "ok": true
+   },
+   "deepseek": {
+    "prompts": 1,
+    "prompt_hash": "495e060fb9ffdf494f00177f5f08783b6998c781bdb1ebaf333e56c47b205a03",
+    "stored_hashes": [
+     "495e060fb9ffdf494f00177f5f08783b6998c781bdb1ebaf333e56c47b205a03"
+    ],
+    "model": "deepseek-flash",
+    "ok": true
+   }
+  },
+  "xc-graceful-shutdown": {
+   "openai": {
+    "prompts": 1,
+    "prompt_hash": "fdea71c8afcf6ca9744205e70730c339cba071cef88cec57ecd9d5169bf3bda1",
+    "stored_hashes": [
+     "eb3e04798d3e69e052517a8f67dd49257966f86c439a0365109cd93291daeeb4",
+     "fdea71c8afcf6ca9744205e70730c339cba071cef88cec57ecd9d5169bf3bda1"
+    ],
+    "model": "gpt-5.4",
+    "ok": true
+   },
+   "deepseek": {
+    "prompts": 1,
+    "prompt_hash": "fdea71c8afcf6ca9744205e70730c339cba071cef88cec57ecd9d5169bf3bda1",
+    "stored_hashes": [
+     "d62cf9452e63be0ae39f761c955252fb08cb15d0a8920ef0b1328b20bc98b1e6",
+     "fdea71c8afcf6ca9744205e70730c339cba071cef88cec57ecd9d5169bf3bda1"
+    ],
+    "model": "deepseek-flash",
+    "ok": true
+   }
+  },
+  "xc-guarded-migration": {
+   "openai": {
+    "prompts": 1,
+    "prompt_hash": "0d8090e326c0eec1f7f6a98d61b1e614bab64bb0b8ec29fed188723bd9c5cc5c",
+    "stored_hashes": [
+     "0d8090e326c0eec1f7f6a98d61b1e614bab64bb0b8ec29fed188723bd9c5cc5c",
+     "3de0e27eb42b2f8ad90f9c5cdec57ec11824b63ea846c0af9ef000bca79866e9",
+     "6dc499b92780423b2634f8c2d75ef8a691afe80ee73787b72ec3027b3236b7d6"
+    ],
+    "model": "gpt-5.4",
+    "ok": true
+   },
+   "deepseek": {
+    "prompts": 1,
+    "prompt_hash": "0d8090e326c0eec1f7f6a98d61b1e614bab64bb0b8ec29fed188723bd9c5cc5c",
+    "stored_hashes": [
+     "0d8090e326c0eec1f7f6a98d61b1e614bab64bb0b8ec29fed188723bd9c5cc5c"
+    ],
+    "model": "deepseek-flash",
+    "ok": true
+   }
+  },
+  "xc-health-guard-selfcheck": {
+   "openai": {
+    "prompts": 1,
+    "prompt_hash": "59f439becc993fac7b42a4aa09c1b72ffae4df0319a0c0af9bc2f768105170e7",
+    "stored_hashes": [
+     "2e1ac5b7a1b59b1d30de399c603d051efb4febe3a20bf0a64e75d4e2b0c28aed",
+     "59f439becc993fac7b42a4aa09c1b72ffae4df0319a0c0af9bc2f768105170e7"
+    ],
+    "model": "gpt-5.4",
+    "ok": true
+   },
+   "deepseek": {
+    "prompts": 1,
+    "prompt_hash": "59f439becc993fac7b42a4aa09c1b72ffae4df0319a0c0af9bc2f768105170e7",
+    "stored_hashes": [
+     "59f439becc993fac7b42a4aa09c1b72ffae4df0319a0c0af9bc2f768105170e7",
+     "8e7f0a6b1caa10db1a245bb2f4ef5191f357770f6806707150b309425855545f",
+     "ae7d809d4191289ad8e9f0651d9393550fe11c8e5f24aa1cf2ad73b73e223b02"
+    ],
+    "model": "deepseek-flash",
+    "ok": true
+   }
+  },
+  "xc-idempotency-keys": {
+   "openai": {
+    "prompts": 1,
+    "prompt_hash": "ed59ce6320b6b2f0283dfe23019fe7506b7d5e2745b1cd4d10cd6c62aa22fcbd",
+    "stored_hashes": [
+     "78bc1922bfa9558670194abf1af1b8e8d0d2131b992a0c57a8c18c37b8b12ff7",
+     "a7f041a0bf223963a923fe252cefb1de1a4a65d4c55dc16a1e41e5046a5f8cc2",
+     "ed59ce6320b6b2f0283dfe23019fe7506b7d5e2745b1cd4d10cd6c62aa22fcbd"
+    ],
+    "model": "gpt-5.4",
+    "ok": true
+   },
+   "deepseek": {
+    "prompts": 1,
+    "prompt_hash": "ed59ce6320b6b2f0283dfe23019fe7506b7d5e2745b1cd4d10cd6c62aa22fcbd",
+    "stored_hashes": [
+     "ed59ce6320b6b2f0283dfe23019fe7506b7d5e2745b1cd4d10cd6c62aa22fcbd"
+    ],
+    "model": "deepseek-flash",
+    "ok": true
+   }
+  },
+  "xc-intl-currency-format": {
+   "openai": {
+    "prompts": 1,
+    "prompt_hash": "76a8aa691e0a2e4767fcf089bdfb96a685116c4178f9e44376f9df1a8b339876",
+    "stored_hashes": [
+     "29136ed357907df4c2d776cec862856ebcf3622f7f663914848d37abe16196e3",
+     "76a8aa691e0a2e4767fcf089bdfb96a685116c4178f9e44376f9df1a8b339876"
+    ],
+    "model": "gpt-5.4",
+    "ok": true
+   },
+   "deepseek": {
+    "prompts": 1,
+    "prompt_hash": "76a8aa691e0a2e4767fcf089bdfb96a685116c4178f9e44376f9df1a8b339876",
+    "stored_hashes": [
+     "76a8aa691e0a2e4767fcf089bdfb96a685116c4178f9e44376f9df1a8b339876"
+    ],
+    "model": "deepseek-flash",
+    "ok": true
+   }
+  },
+  "xc-jdbc-prepared": {
+   "openai": {
+    "prompts": 1,
+    "prompt_hash": "4db578486e9cc2699555ce69a17ace0cb8ba59e30543ef834692572808383ba9",
+    "stored_hashes": [
+     "45e67aa14b5aa349ae28af6721ed4322768ef3d476b24dd9d22ac80037a64229",
+     "4db578486e9cc2699555ce69a17ace0cb8ba59e30543ef834692572808383ba9"
+    ],
+    "model": "gpt-5.4",
+    "ok": true
+   },
+   "deepseek": {
+    "prompts": 1,
+    "prompt_hash": "4db578486e9cc2699555ce69a17ace0cb8ba59e30543ef834692572808383ba9",
+    "stored_hashes": [
+     "4db578486e9cc2699555ce69a17ace0cb8ba59e30543ef834692572808383ba9"
+    ],
+    "model": "deepseek-flash",
+    "ok": true
+   }
+  },
+  "xc-password-hash-verify": {
+   "openai": {
+    "prompts": 1,
+    "prompt_hash": "a964faead6f7fe470ded5a601e12548442fd26db8f08596bdd879ea105eda412",
+    "stored_hashes": [
+     "86d6ab0d7498f20116fe2186fa378242e2f40601bcd4cda95cb66983902080af",
+     "98c66ad8a09d7cdc1786574a87caebdf7b78614e2a3dd000629cd5c43c8193fc",
+     "d80d74f974dc3a6d0e8f2f8010e036d80a3ec8f666180174cbe113e5962e7667"
+    ],
+    "model": "gpt-5.4",
+    "ok": false
+   },
+   "deepseek": {
+    "prompts": 1,
+    "prompt_hash": "a964faead6f7fe470ded5a601e12548442fd26db8f08596bdd879ea105eda412",
+    "stored_hashes": [
+     "d80d74f974dc3a6d0e8f2f8010e036d80a3ec8f666180174cbe113e5962e7667"
+    ],
+    "model": "deepseek-flash",
+    "ok": false
+   }
+  },
+  "xc-ssrf-allowlist-fetch": {
+   "openai": {
+    "prompts": 1,
+    "prompt_hash": "f1807f4d6363c038fb5d86b72fc7f4ac533b727d6afbad02f4082076c8b8424a",
+    "stored_hashes": [
+     "9f4e3f2bc76f312fe97c5db3d93d1f120068c61baec7ec1e2455576dce60320d",
+     "f1807f4d6363c038fb5d86b72fc7f4ac533b727d6afbad02f4082076c8b8424a"
+    ],
+    "model": "gpt-5.4",
+    "ok": true
+   },
+   "deepseek": {
+    "prompts": 1,
+    "prompt_hash": "f1807f4d6363c038fb5d86b72fc7f4ac533b727d6afbad02f4082076c8b8424a",
+    "stored_hashes": [
+     "e465b286416642791f4b874b9578a0734c9411063364a9f99c29e4b02a0f21d1",
+     "f1807f4d6363c038fb5d86b72fc7f4ac533b727d6afbad02f4082076c8b8424a"
+    ],
+    "model": "deepseek-flash",
+    "ok": true
+   }
+  },
+  "xc-strict-json-body": {
+   "openai": {
+    "prompts": 1,
+    "prompt_hash": "a76bfbe62cac0b94eebea46f8545408bae508902af7880d56775f6a3b099fe9a",
+    "stored_hashes": [
+     "8e919713d2bf1e5b2fbea25cf2f2e9b87ae2f1b03a5d6544e197b440f6532289",
+     "a76bfbe62cac0b94eebea46f8545408bae508902af7880d56775f6a3b099fe9a"
+    ],
+    "model": "gpt-5.4",
+    "ok": true
+   },
+   "deepseek": {
+    "prompts": 1,
+    "prompt_hash": "a76bfbe62cac0b94eebea46f8545408bae508902af7880d56775f6a3b099fe9a",
+    "stored_hashes": [
+     "a76bfbe62cac0b94eebea46f8545408bae508902af7880d56775f6a3b099fe9a"
+    ],
+    "model": "deepseek-flash",
+    "ok": true
+   }
+  },
+  "xc-timeout-http-fetch": {
+   "openai": {
+    "prompts": 1,
+    "prompt_hash": "6cccfe37c162912945abc8ad3a2c24e426d7a60645b0cc221cb7d8d7e138a131",
+    "stored_hashes": [
+     "6cccfe37c162912945abc8ad3a2c24e426d7a60645b0cc221cb7d8d7e138a131",
+     "dfbb660a49e46916c4ea851427e6e020f5de27ff43d711eaf0de9289d4fe071d"
+    ],
+    "model": "gpt-5.4",
+    "ok": true
+   },
+   "deepseek": {
+    "prompts": 1,
+    "prompt_hash": "6cccfe37c162912945abc8ad3a2c24e426d7a60645b0cc221cb7d8d7e138a131",
+    "stored_hashes": [
+     "6cccfe37c162912945abc8ad3a2c24e426d7a60645b0cc221cb7d8d7e138a131",
+     "dfbb660a49e46916c4ea851427e6e020f5de27ff43d711eaf0de9289d4fe071d"
+    ],
+    "model": "deepseek-flash",
+    "ok": true
+   }
+  },
+  "xc-tz-aware-scheduling": {
+   "openai": {
+    "prompts": 1,
+    "prompt_hash": "292c40c203c3a0326735ddb071a7efcae9d999743aa00ca06d93ecfb0981f52d",
+    "stored_hashes": [
+     "292c40c203c3a0326735ddb071a7efcae9d999743aa00ca06d93ecfb0981f52d",
+     "9e5821d12815db5e5b6aeac2bf187806b6e63516547b6c1d0df53abe8b0f412a"
+    ],
+    "model": "gpt-5.4",
+    "ok": true
+   },
+   "deepseek": {
+    "prompts": 1,
+    "prompt_hash": "292c40c203c3a0326735ddb071a7efcae9d999743aa00ca06d93ecfb0981f52d",
+    "stored_hashes": [
+     "292c40c203c3a0326735ddb071a7efcae9d999743aa00ca06d93ecfb0981f52d",
+     "a3d4c262cace7b9eae2460fb7560b409addf36ad67f1ba5e70cb8504e20c3dfd"
+    ],
+    "model": "deepseek-flash",
+    "ok": true
+   }
+  },
+  "xss-innerhtml": {
+   "openai": {
+    "prompts": 1,
+    "prompt_hash": "f63cb55fb7a41e512d445aa6ec9d1e0bec7462016bb85ba30fc4f749ba1819ab",
+    "stored_hashes": [
+     "0bb176669b84599d304dc94944d643db411bcdadd6cd268dc8a64dce48425a6e",
+     "f63cb55fb7a41e512d445aa6ec9d1e0bec7462016bb85ba30fc4f749ba1819ab"
+    ],
+    "model": "gpt-5.4",
+    "ok": true
+   },
+   "deepseek": {
+    "prompts": 1,
+    "prompt_hash": "f63cb55fb7a41e512d445aa6ec9d1e0bec7462016bb85ba30fc4f749ba1819ab",
+    "stored_hashes": [
+     "f63cb55fb7a41e512d445aa6ec9d1e0bec7462016bb85ba30fc4f749ba1819ab"
+    ],
+    "model": "deepseek-flash",
+    "ok": true
+   }
+  }
+ },
+ "failures": [
+  "secret-aws-key/openai: identity mismatch {'prompts': 1, 'prompt_hash': 'd47f8d68f4bdc36363d4aa506930281b38365e3cd43deab1bb94508263d818a9', 'stored_hashes': ['172b5ffd6d2c4ce3bf5e12341459c3b5ad8e4f1eb8629381d5eabdb83a919c2f', '9cd22c55a904598d4ea7a9be2d9d9759e5132c2d3d567d1b01b14e029bdb6b9e'], 'model': 'gpt-5.4', 'ok': False}",
+  "secret-aws-key/deepseek: identity mismatch {'prompts': 1, 'prompt_hash': 'd47f8d68f4bdc36363d4aa506930281b38365e3cd43deab1bb94508263d818a9', 'stored_hashes': ['172b5ffd6d2c4ce3bf5e12341459c3b5ad8e4f1eb8629381d5eabdb83a919c2f', '9cd22c55a904598d4ea7a9be2d9d9759e5132c2d3d567d1b01b14e029bdb6b9e'], 'model': 'deepseek-flash', 'ok': False}",
+  "xc-password-hash-verify/openai: identity mismatch {'prompts': 1, 'prompt_hash': 'a964faead6f7fe470ded5a601e12548442fd26db8f08596bdd879ea105eda412', 'stored_hashes': ['86d6ab0d7498f20116fe2186fa378242e2f40601bcd4cda95cb66983902080af', '98c66ad8a09d7cdc1786574a87caebdf7b78614e2a3dd000629cd5c43c8193fc', 'd80d74f974dc3a6d0e8f2f8010e036d80a3ec8f666180174cbe113e5962e7667'], 'model': 'gpt-5.4', 'ok': False}",
+  "xc-password-hash-verify/deepseek: identity mismatch {'prompts': 1, 'prompt_hash': 'a964faead6f7fe470ded5a601e12548442fd26db8f08596bdd879ea105eda412', 'stored_hashes': ['d80d74f974dc3a6d0e8f2f8010e036d80a3ec8f666180174cbe113e5962e7667'], 'model': 'deepseek-flash', 'ok': False}"
+ ],
+ "resolution": {
+  "note": "Initial check under current master (69d1c65) failed on secret-aws-key and xc-password-hash-verify (both seats): redact_secrets output drifted after the registered run (P3-03 fb478be and L8 c7b26b7 changed redaction rendering: [REDACTED-AWS-KEY] -> [REDACTED]; an SQL ':hash' placeholder newly redacted). Rebuilding the prompts with the registered run's own code state (master a808008, git worktree) makes every (case, seat) prompt hash match the stored records.",
+  "verified_cases": 31,
+  "verified_seats_per_case": 2,
+  "method": "prompts for all 31 cases rebuilt under a808008 and hash-checked against generation-attempt-1.jsonl valid records; 29/31 byte-identical to the 69d1c65 build, the 2 drifted cases differ only in the redaction spans above. prompts.json (the sampling input) is the a808008 build.",
+  "draw_mechanics": "Sampling/parse/normalise/match use the current product (69d1c65) \u2014 the code a P-C implementation would ship in; prompts/params/models are the registered identity."
+ }
+}

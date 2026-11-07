@@ -1,0 +1,77 @@
+{
+ "case_id": "payment-refund-partial",
+ "seat": "deepseek",
+ "sample": 3,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "185fca10845c12a824f8d1b440d72febb4640487dd8d2c512e57ae17d7560b1b",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "185fca10845c12a824f8d1b440d72febb4640487dd8d2c512e57ae17d7560b1b",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 888,
+   "tokens_out": 2019,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:35:37+00:00",
+   "finished_at": "2026-11-07T13:35:49+00:00",
+   "duration_ms": 11257,
+   "prompt_chars": 3518
+  }
+ ],
+ "shadow_cost_usd": 0.002461,
+ "duration_ms": 11257,
+ "findings": [
+  {
+   "id": "b6658cd74823",
+   "rule": "",
+   "severity": "blocker",
+   "category": "data-loss",
+   "file": "billing/refunds.py",
+   "line": 9,
+   "title": "Partial refund now disburses the full order total",
+   "evidence": "The function signature accepts amount_cents and the preceding comment states it is the partial amount the support agent approved, but the call was changed to pass order.total_cents: '    return gateway.refund(order.txn_id, order.total_cents)'. Reachable path: any support agent calling refund(order, amount_cents) with amount_cents < order.total_cents now issues a gateway refund for the full total, overpaying by (total_cents - amount_cents).",
+   "evidence_quote": "    return gateway.refund(order.txn_id, order.total_cents)",
+   "trigger": "",
+   "recommendation": "Revert to passing the approved partial amount: 'return gateway.refund(order.txn_id, amount_cents)'. If the intent was a full refund path, add a separate explicit function or a validated full_refund(order) that does not silently change partial-refund semantics.",
+   "confidence": 0.97,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "635433cf803c",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "billing/refunds.py",
+   "line": 9,
+   "title": "amount_cents parameter left unused; no guard against untested refund path",
+   "evidence": "With '    return gateway.refund(order.txn_id, order.total_cents)' the amount_cents parameter is now dead, so callers keep compiling and passing an approved amount that has no effect, and no bounds/validation test covers the refund amount (no test commands were run). This masks the regression at both call sites and in review.",
+   "evidence_quote": "    return gateway.refund(order.txn_id, order.total_cents)",
+   "trigger": "",
+   "recommendation": "Restore use of amount_cents and add a unit test asserting gateway.refund is called with exactly the approved partial amount (e.g. spy on gateway.refund and assert amount_cents < order.total_cents is forwarded verbatim), plus a validation test rejecting amount_cents <= 0 or amount_cents > order.total_cents.",
+   "confidence": 0.8,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

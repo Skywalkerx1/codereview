@@ -1,0 +1,170 @@
+{
+ "case_id": "xc-intl-currency-format",
+ "seat": "deepseek",
+ "sample": 2,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "76a8aa691e0a2e4767fcf089bdfb96a685116c4178f9e44376f9df1a8b339876",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "76a8aa691e0a2e4767fcf089bdfb96a685116c4178f9e44376f9df1a8b339876",
+   "outcome": "content_invalid",
+   "error_class": "empty",
+   "attempts": 1,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:47:38+00:00",
+   "finished_at": "2026-11-07T13:48:25+00:00",
+   "detail": "deepseek empty: empty content",
+   "duration_ms": 47416,
+   "prompt_chars": 3726
+  },
+  {
+   "seat": "deepseek",
+   "prompt_hash": "08f7441bf9507d38b66fd26195c0b603aab590bfc31e529dfdecced66189e3cb",
+   "outcome": "content_invalid",
+   "error_class": "content",
+   "attempts": 1,
+   "tokens_in": 1015,
+   "tokens_out": 8192,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:48:25+00:00",
+   "finished_at": "2026-11-07T13:49:14+00:00",
+   "duration_ms": 48739,
+   "prompt_chars": 4005
+  },
+  {
+   "seat": "deepseek",
+   "prompt_hash": "76a8aa691e0a2e4767fcf089bdfb96a685116c4178f9e44376f9df1a8b339876",
+   "outcome": "content_invalid",
+   "error_class": "empty",
+   "attempts": 1,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:49:14+00:00",
+   "finished_at": "2026-11-07T13:50:04+00:00",
+   "detail": "deepseek empty: empty content",
+   "duration_ms": 49986,
+   "prompt_chars": 3726
+  },
+  {
+   "seat": "deepseek",
+   "prompt_hash": "76a8aa691e0a2e4767fcf089bdfb96a685116c4178f9e44376f9df1a8b339876",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 959,
+   "tokens_out": 5564,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:50:04+00:00",
+   "finished_at": "2026-11-07T13:50:39+00:00",
+   "duration_ms": 35203,
+   "prompt_chars": 3726
+  }
+ ],
+ "shadow_cost_usd": 0.015665,
+ "duration_ms": 181347,
+ "findings": [
+  {
+   "id": "a16dd25fe1a6",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "src/formatMoney.js",
+   "line": 9,
+   "title": "amountCents contract silently wrong for currencies whose minor unit is not 1/100 (JPY, KWD, BHD)",
+   "evidence": "The function accepts any ISO 4217 code but always divides by 100: 'return formatter.format(amountCents / 100);'. Intl.NumberFormat derives default fraction digits from the currency, so a 0-digit currency and a 3-digit currency both get a 2-decimal amount.",
+   "evidence_quote": "return formatter.format(amountCents / 100);",
+   "trigger": "",
+   "recommendation": "Either reject currencies whose resolved minor-unit count is not 2 (e.g. use Intl.NumberFormat(locale,{style:'currency',currency}).resolvedOptions().maximumFractionDigits and throw if !== 2), or scale by 10 ** digits and document that amountCents means minor units rather than always 1/100.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "92f6c1751357",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "src/formatMoney.js",
+   "line": 2,
+   "title": "Safe-integer range exceeds double cent precision, so very large amounts can display one cent off",
+   "evidence": "The guard accepts up to Number.MAX_SAFE_INTEGER: 'if (!Number.isSafeInteger(amountCents)) {', but amountCents/100 for magnitudes around 2^46 and above lands on doubles spaced ~0.015625 apart, which is coarser than 0.01, so the rounded 2-digit display can be wrong by a cent (e.g. a cents value whose true fractional part is .93 near 9e13 renders as .94).",
+   "evidence_quote": "if (!Number.isSafeInteger(amountCents)) {",
+   "trigger": "",
+   "recommendation": "Lower the accepted bound (e.g. require |amountCents| <= 2**45) or format via an integer/string split (whole = Math.trunc(amountCents/100), frac = abs(amountCents)%100) and pass an exact decimal string rather than a double.",
+   "confidence": 0.5,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "383dbd2a3548",
+   "rule": "",
+   "severity": "minor",
+   "category": "performance",
+   "file": "src/formatMoney.js",
+   "line": 5,
+   "title": "Intl.NumberFormat constructed on every call",
+   "evidence": "A new formatter is allocated per invocation: 'const formatter = new Intl.NumberFormat(locale, {' \u2014 Intl construction is expensive relative to format(), so any table/loop or render path calling formatMoney repeatedly pays that cost per row.",
+   "evidence_quote": "const formatter = new Intl.NumberFormat(locale, {",
+   "trigger": "",
+   "recommendation": "Memoize formatters in a module-level Map keyed by locale plus currency, and reuse the cached instance; keep the throw-on-invalid-currency behaviour by letting the first construction fail.",
+   "confidence": 0.7,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "360efac17740",
+   "rule": "",
+   "severity": "nit",
+   "category": "testing",
+   "file": "src/formatMoney.js",
+   "line": 12,
+   "title": "No tests accompany the new module",
+   "evidence": "The diff adds only the implementation and a convenience wrapper, 'export function formatUsd(cents) {', with no test file covering negative amounts, non-integer rejection, unsupported/invalid currency RangeError, or locale overrides.",
+   "evidence_quote": "export function formatUsd(cents) {",
+   "trigger": "",
+   "recommendation": "Add unit tests asserting the TypeError path for non-integers/NaN/Infinity, a negative amount, an explicit locale override, and at least one non-default currency.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

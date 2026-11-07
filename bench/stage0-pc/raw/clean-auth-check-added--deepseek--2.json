@@ -1,0 +1,77 @@
+{
+ "case_id": "clean-auth-check-added",
+ "seat": "deepseek",
+ "sample": 2,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "a5251e4fb37f53cefd9f079b97e6540b1df4df1496c46fbda0c033f932ff0fec",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "a5251e4fb37f53cefd9f079b97e6540b1df4df1496c46fbda0c033f932ff0fec",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 877,
+   "tokens_out": 4687,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:34:52+00:00",
+   "finished_at": "2026-11-07T13:35:22+00:00",
+   "duration_ms": 30122,
+   "prompt_chars": 3502
+  }
+ ],
+ "shadow_cost_usd": 0.005392,
+ "duration_ms": 30123,
+ "findings": [
+  {
+   "id": "4d43d299700a",
+   "rule": "",
+   "severity": "minor",
+   "category": "security",
+   "file": "app/views.py",
+   "line": 23,
+   "title": "Denied delete attempts bypass the audit trail",
+   "evidence": "The guard exits via 'raise PermissionDenied' before the following audit.log call, so only successful deletions are recorded; an unauthorized or probing caller attempting to delete arbitrary user_ids leaves no audit entry, which is exactly the signal an operator would want for a destructive endpoint.",
+   "evidence_quote": "        raise PermissionDenied",
+   "trigger": "",
+   "recommendation": "Log the denied attempt (actor, target user_id, timestamp) before raising, e.g. audit.log('user.delete.denied', user_id, actor=request.user) ahead of the raise, so authorization failures on the delete path are auditable.",
+   "confidence": 0.5,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "d42d3bcae624",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/views.py",
+   "line": 23,
+   "title": "PermissionDenied symbol and 403 mapping not verifiable from the diff",
+   "evidence": "The guard depends on 'raise PermissionDenied' resolving to the framework exception (imported in this module) and on the project's exception handling mapping it to a 403; if the import is missing the handler raises NameError (500) and if no handler exists the delete endpoint returns 500 instead of a clean denial. Neither is shown in the diff.",
+   "evidence_quote": "        raise PermissionDenied",
+   "trigger": "",
+   "recommendation": "Confirm the module imports PermissionDenied from the framework's exceptions (or add the import) and add a test asserting that a user without the delete permission receives 403/denial and that db.users.delete is not called.",
+   "confidence": 0.4,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

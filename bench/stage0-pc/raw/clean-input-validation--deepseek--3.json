@@ -1,0 +1,123 @@
+{
+ "case_id": "clean-input-validation",
+ "seat": "deepseek",
+ "sample": 3,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "977c93b0806d30b4ae3e429503ecfc4e043fad1dcb25ab0481610ef3c696d72b",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "977c93b0806d30b4ae3e429503ecfc4e043fad1dcb25ab0481610ef3c696d72b",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 897,
+   "tokens_out": 4230,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:34:58+00:00",
+   "finished_at": "2026-11-07T13:35:24+00:00",
+   "duration_ms": 25682,
+   "prompt_chars": 3525
+  }
+ ],
+ "shadow_cost_usd": 0.004895,
+ "duration_ms": 25683,
+ "findings": [
+  {
+   "id": "47a4fee454e6",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/forms.py",
+   "line": 11,
+   "title": "ValidationError used but import not shown in diff",
+   "evidence": "The new branch raises a ValidationError symbol that never appears elsewhere in the visible diff; the only guard is the module-level ALLOWED_TAGS set.",
+   "evidence_quote": "        raise ValidationError(\"unknown tag\")",
+   "trigger": "",
+   "recommendation": "Confirm app/forms.py actually imports ValidationError (e.g. 'from django.core.exceptions import ValidationError' or a project-local equivalent). If it is not imported, every rejected tag raises NameError and surfaces as a 500 instead of a validation error; add the import in this same change.",
+   "confidence": 0.45,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "2ff7a76bf2da",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "app/forms.py",
+   "line": 10,
+   "title": "clean_tag changed from normalising to rejecting; callers may not handle the new exception",
+   "evidence": "Previously clean_tag returned a normalised string for any input; it now raises for anything outside ALLOWED_TAGS, so any caller that only strips/lowercases (or reads a persisted legacy tag not in the set) will now throw instead of returning a value.",
+   "evidence_quote": "    if len(tag) > 40 or tag not in ALLOWED_TAGS:",
+   "trigger": "",
+   "recommendation": "Audit all call sites of clean_tag in this change: any path that feeds user input or stored rows must catch ValidationError and convert it into a form error, and existing rows with tags outside ALLOWED_TAGS need a migration/backfill plan before the guard goes live.",
+   "confidence": 0.5,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "c2618691bbb6",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/forms.py",
+   "line": 9,
+   "title": "Non-string input raises AttributeError instead of ValidationError",
+   "evidence": "The function calls .strip()/.lower() on raw before any type check, so a missing/None field value bypasses the intended validation path with an AttributeError rather than a clean validation failure.",
+   "evidence_quote": "    tag = raw.strip().lower()",
+   "trigger": "",
+   "recommendation": "Guard the type first, e.g. 'if not isinstance(raw, str): raise ValidationError(\"unknown tag\")' (or let the form layer coerce), so None/non-str input produces a validation error rather than a 500.",
+   "confidence": 0.4,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "f155c75f3b5d",
+   "rule": "",
+   "severity": "nit",
+   "category": "quality",
+   "file": "app/forms.py",
+   "line": 10,
+   "title": "Length guard is unreachable given the allowlist",
+   "evidence": "ALLOWED_TAGS contains only short ASCII tags, so any tag longer than 40 characters is necessarily absent from the set: the len(tag) > 40 branch can never be the deciding condition and both branches raise the identical message.",
+   "evidence_quote": "    if len(tag) > 40 or tag not in ALLOWED_TAGS:",
+   "trigger": "",
+   "recommendation": "Either drop the length check as redundant (the allowlist already bounds length) or check length first with a distinct message if the intent is to bound input size before membership testing, and add a test that exercises the rejection path.",
+   "confidence": 0.8,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

@@ -1,0 +1,54 @@
+{
+ "case_id": "xc-strict-json-body",
+ "seat": "openai",
+ "sample": 2,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "a76bfbe62cac0b94eebea46f8545408bae508902af7880d56775f6a3b099fe9a",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "gpt-5.4",
+ "events": [
+  {
+   "seat": "openai",
+   "prompt_hash": "a76bfbe62cac0b94eebea46f8545408bae508902af7880d56775f6a3b099fe9a",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1114,
+   "tokens_out": 263,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:50:39+00:00",
+   "finished_at": "2026-11-07T13:50:44+00:00",
+   "duration_ms": 4579,
+   "prompt_chars": 4456
+  }
+ ],
+ "shadow_cost_usd": 0.004023,
+ "duration_ms": 4579,
+ "findings": [
+  {
+   "id": "59698a9ea516",
+   "rule": "",
+   "severity": "major",
+   "category": "reliability",
+   "file": "src/jsonBody.js",
+   "line": 16,
+   "title": "Oversize path destroys the request after responding, which can emit an unhandled stream error",
+   "evidence": "On the oversized-body path, the middleware sends a 413 and then calls 'req.destroy()' while its 'error' handler immediately returns once 'settled' is true, so the destroy-triggered request error is not forwarded or consumed by this middleware.",
+   "evidence_quote": "      req.destroy();",
+   "trigger": "",
+   "recommendation": "Do not destroy the request this way after sending the 413, or explicitly consume/handle the resulting stream error. A safer pattern is to unpipe/stop reading and let the server close the connection cleanly, or attach an error handler that still consumes the destroy-induced error after 'settled' is set.",
+   "confidence": 0.88,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

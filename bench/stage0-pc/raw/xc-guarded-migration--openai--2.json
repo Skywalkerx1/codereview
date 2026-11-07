@@ -1,0 +1,54 @@
+{
+ "case_id": "xc-guarded-migration",
+ "seat": "openai",
+ "sample": 2,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "0d8090e326c0eec1f7f6a98d61b1e614bab64bb0b8ec29fed188723bd9c5cc5c",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "gpt-5.4",
+ "events": [
+  {
+   "seat": "openai",
+   "prompt_hash": "0d8090e326c0eec1f7f6a98d61b1e614bab64bb0b8ec29fed188723bd9c5cc5c",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1100,
+   "tokens_out": 246,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:45:02+00:00",
+   "finished_at": "2026-11-07T13:45:07+00:00",
+   "duration_ms": 4845,
+   "prompt_chars": 4656
+  }
+ ],
+ "shadow_cost_usd": 0.003835,
+ "duration_ms": 4846,
+ "findings": [
+  {
+   "id": "213b9282cc0d",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "migrations/004_orders_shipping_region.sql",
+   "line": 26,
+   "title": "Backfill loop can run forever when orders.id is not unique",
+   "evidence": "The loop updates rows by 'WHERE id IN (SELECT id FROM orders ... LIMIT 500)' and exits only when 'ROW_COUNT' becomes zero. If multiple rows share the same id and more than 500 matching rows exist for one duplicated id value, each iteration can keep selecting the same id and re-updating already-filled rows, so ROW_COUNT never reaches zero and the migration never commits.",
+   "evidence_quote": "        WHERE id IN (",
+   "trigger": "",
+   "recommendation": "Select and update a unique row identifier per batch instead of grouping by id, for example using PostgreSQL's ctid in a CTE or another guaranteed-unique key, so each iteration makes monotonic progress even if id is duplicated.",
+   "confidence": 0.88,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

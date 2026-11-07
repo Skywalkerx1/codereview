@@ -1,0 +1,123 @@
+{
+ "case_id": "xc-deadletter-worker",
+ "seat": "deepseek",
+ "sample": 2,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "7fa229e350a4a667413e65c4a2832b081436218e44ea67c1023a9bdbc330291f",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "7fa229e350a4a667413e65c4a2832b081436218e44ea67c1023a9bdbc330291f",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1304,
+   "tokens_out": 8186,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:41:26+00:00",
+   "finished_at": "2026-11-07T13:42:13+00:00",
+   "duration_ms": 46521,
+   "prompt_chars": 5271
+  }
+ ],
+ "shadow_cost_usd": 0.009357,
+ "duration_ms": 46521,
+ "findings": [
+  {
+   "id": "71a9e324098d",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "app/dlq_worker.py",
+   "line": 29,
+   "title": "Retry counter relies on a broker-incremented attribute the worker never updates",
+   "evidence": "attempts is computed as the parsed delivery_count plus one, but on the retry branch the code only calls queue.nack(message) and never rewrites delivery_count, so the next delivery is only counted if the broker happens to mutate that application-level attribute.",
+   "evidence_quote": "        attempts = _delivery_attempts(message) + 1",
+   "trigger": "",
+   "recommendation": "Do not depend on broker-side mutation of an application attribute. Either increment delivery_count yourself before nacking (e.g. re-send/nack with delivery_count=str(attempts)) or use the broker's native receive-count field. Also add a test with a queue whose nack re-queues the message unchanged to prove MAX_ATTEMPTS is actually reached and the message is dead-lettered rather than retried forever.",
+   "confidence": 0.55,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "b55d7c831d56",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "app/dlq_worker.py",
+   "line": 11,
+   "title": "Best-effort attempt reader does not tolerate None/missing attributes",
+   "evidence": "The helper only catches TypeError and ValueError; if message.attributes is None (or lacks .get) an AttributeError escapes and is not caught, since the helper is called at line 29 outside any try block, crashing process_messages for every consumer invocation. The same None attributes would also break the attribute spread in the DLQ send path.",
+   "evidence_quote": "    except (TypeError, ValueError):",
+   "trigger": "",
+   "recommendation": "Broaden the guard to except (TypeError, ValueError, AttributeError) or read attributes defensively (attrs = getattr(message, 'attributes', None) or {}), and use that same safe dict when spreading attributes into dlq.send. Depends on the queue returning None attributes, which is broker-dependent.",
+   "confidence": 0.4,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "8d76ba7e26ef",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "app/dlq_worker.py",
+   "line": 54,
+   "title": "Unguarded ack can crash the worker and duplicate DLQ entries",
+   "evidence": "After a successful dlq.send the code calls queue.ack(message) with no try/except; if the ack raises, the exception propagates out of process_messages, the counters are never returned, and the message (already in the DLQ) is un-acked in the source queue, so it will be redelivered and dead-lettered a second time. The success-path ack at line 57 has the same uncaught-exception exposure.",
+   "evidence_quote": "            queue.ack(message)",
+   "trigger": "",
+   "recommendation": "Wrap the ack calls defensively (log and continue/return rather than crash) and make the DLQ send idempotent (e.g. a message id used as dedupe key) so a post-send ack failure cannot create duplicate dead-letter entries.",
+   "confidence": 0.45,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "a94f62c8a58e",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "app/dlq_worker.py",
+   "line": 53,
+   "title": "DLQ send failure can spin or halt the consumer while leaving messages stranded",
+   "evidence": "On a persistent dlq.send failure the message is deliberately left un-acked and the loop continues; with a queue that redelivers immediately this becomes a hot retry loop against the failing DLQ, and with a queue that keeps the message in-flight the following queue.receive() can return None and break the loop, ending the worker early while the poison message is left un-acked and later messages are never processed.",
+   "evidence_quote": "                continue",
+   "trigger": "",
+   "recommendation": "On DLQ send failure, stop consuming rather than spin: break out (or apply bounded backoff with a retry cap) so the process does not busy-loop or silently terminate leaving the message un-acked, and surface the failure in the returned outcome.",
+   "confidence": 0.35,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

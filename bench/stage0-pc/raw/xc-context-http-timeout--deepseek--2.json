@@ -1,0 +1,162 @@
+{
+ "case_id": "xc-context-http-timeout",
+ "seat": "deepseek",
+ "sample": 2,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "14bf6db8f869e83ba8a7605ea3da55d14a7ac91f852a283309602fa09f1e91d2",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "14bf6db8f869e83ba8a7605ea3da55d14a7ac91f852a283309602fa09f1e91d2",
+   "outcome": "content_invalid",
+   "error_class": "empty",
+   "attempts": 1,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:39:54+00:00",
+   "finished_at": "2026-11-07T13:40:43+00:00",
+   "detail": "deepseek empty: empty content",
+   "duration_ms": 48605,
+   "prompt_chars": 4317
+  },
+  {
+   "seat": "deepseek",
+   "prompt_hash": "715be6e0e1ee579f026ba8458c4aff3d3e668aa5a3fc350c1c3f666a45c63082",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1222,
+   "tokens_out": 915,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:40:43+00:00",
+   "finished_at": "2026-11-07T13:40:49+00:00",
+   "duration_ms": 6174,
+   "prompt_chars": 4596
+  }
+ ],
+ "shadow_cost_usd": 0.001336,
+ "duration_ms": 54781,
+ "findings": [
+  {
+   "id": "fcd5a079d8d4",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "internal/fetch/fetch.go",
+   "line": 17,
+   "title": "Unconditional 5s cap overrides caller context, truncating long fetches",
+   "evidence": "ctx, cancel := context.WithTimeout(ctx, timeout)",
+   "evidence_quote": "ctx, cancel := context.WithTimeout(ctx, timeout)",
+   "trigger": "",
+   "recommendation": "Honour the caller's deadline: only add the default cap when ctx carries no deadline (if _, ok := ctx.Deadline(); !ok { ... }), or make the timeout a parameter. With the current code a caller passing a 60s deadline gets its request cancelled at 5s and receives a context deadline exceeded error for a perfectly healthy server.",
+   "confidence": 0.85,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "aeae0777928f",
+   "rule": "",
+   "severity": "major",
+   "category": "data-loss",
+   "file": "internal/fetch/fetch.go",
+   "line": 36,
+   "title": "Body silently truncated at 1 MiB with no error on oversize response",
+   "evidence": "body, err := io.ReadAll(io.LimitReader(resp.Body, maxBody))",
+   "evidence_quote": "body, err := io.ReadAll(io.LimitReader(resp.Body, maxBody))",
+   "trigger": "",
+   "recommendation": "LimitReader returns EOF at the limit, so a 5 MiB response yields 1 MiB of valid-looking bytes and a nil error; the caller cannot tell the payload was cut. Read maxBody+1 bytes and return an explicit error when len(body) > maxBody, or expose the truncation to the caller.",
+   "confidence": 0.8,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "a9682bd4946a",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "internal/fetch/fetch.go",
+   "line": 27,
+   "title": "Nil client panics instead of returning an error",
+   "evidence": "resp, err := client.Do(req)",
+   "evidence_quote": "resp, err := client.Do(req)",
+   "trigger": "",
+   "recommendation": "Guard with if client == nil { client = http.DefaultClient } (or return an error) so a nil argument produces a diagnosable failure rather than a nil-pointer panic that bypasses the returned-error contract of this function.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "0f0af2fcc83c",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "internal/fetch/fetch.go",
+   "line": 31,
+   "title": "Error status path discards body and does not drain it, preventing connection reuse",
+   "evidence": "return nil, fmt.Errorf(\"unexpected status: %s\", resp.Status)",
+   "evidence_quote": "return nil, fmt.Errorf(\"unexpected status: %s\", resp.Status)",
+   "trigger": "",
+   "recommendation": "The status text is returned without the server's diagnostic body, which makes debugging 4xx/5xx calls hard; consider returning a typed error carrying StatusCode and a bounded snippet of the body (the deferred Close does drain on some transports, but only up to a small cap, so include the snippet explicitly).",
+   "confidence": 0.4,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "3f2d7b2e27ee",
+   "rule": "",
+   "severity": "nit",
+   "category": "testing",
+   "file": "internal/fetch/fetch.go",
+   "line": 17,
+   "title": "No tests for context cancellation, timeout, or oversize body",
+   "evidence": "func Get(ctx context.Context, client *http.Client, url string) ([]byte, error) {",
+   "evidence_quote": "func Get(ctx context.Context, client *http.Client, url string) ([]byte, error) {",
+   "trigger": "",
+   "recommendation": "Add table tests using httptest: a pre-cancelled context must return a wrapped context error before dialling, a slow handler must hit the deadline, and an oversize body must exercise the limit path so the truncation behaviour is pinned down.",
+   "confidence": 0.7,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

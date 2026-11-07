@@ -1,0 +1,54 @@
+{
+ "case_id": "xc-health-guard-selfcheck",
+ "seat": "openai",
+ "sample": 1,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "59f439becc993fac7b42a4aa09c1b72ffae4df0319a0c0af9bc2f768105170e7",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "gpt-5.4",
+ "events": [
+  {
+   "seat": "openai",
+   "prompt_hash": "59f439becc993fac7b42a4aa09c1b72ffae4df0319a0c0af9bc2f768105170e7",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1439,
+   "tokens_out": 226,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:46:06+00:00",
+   "finished_at": "2026-11-07T13:46:10+00:00",
+   "duration_ms": 4130,
+   "prompt_chars": 5832
+  }
+ ],
+ "shadow_cost_usd": 0.004059,
+ "duration_ms": 4130,
+ "findings": [
+  {
+   "id": "2e9bc2a2fa4b",
+   "rule": "",
+   "severity": "major",
+   "category": "reliability",
+   "file": "app/health.py",
+   "line": 61,
+   "title": "Configured timeout is applied per probe, so /healthz can hang for N\u00d7timeout under multiple failures",
+   "evidence": "The healthcheck runs every probe sequentially and passes the full timeout to each one, so with several slow or unreachable dependencies the endpoint blocks for the sum of all probe timeouts instead of the configured limit.",
+   "evidence_quote": "        _run_probe(name, probes[name], timeout_seconds)",
+   "trigger": "",
+   "recommendation": "Enforce a total deadline for the whole healthcheck, or run probes concurrently and bound the overall request time. At minimum, document and test that timeout_seconds is per-probe rather than a total budget so callers do not assume a strict endpoint SLA.",
+   "confidence": 0.96,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

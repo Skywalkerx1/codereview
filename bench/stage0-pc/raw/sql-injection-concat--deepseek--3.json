@@ -1,0 +1,100 @@
+{
+ "case_id": "sql-injection-concat",
+ "seat": "deepseek",
+ "sample": 3,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "1f4d48b7786a5375f88fa61a7bbb47685849e0dbaac1509071065a7d9db00bef",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "1f4d48b7786a5375f88fa61a7bbb47685849e0dbaac1509071065a7d9db00bef",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 885,
+   "tokens_out": 1131,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:36:21+00:00",
+   "finished_at": "2026-11-07T13:36:28+00:00",
+   "duration_ms": 7592,
+   "prompt_chars": 3478
+  }
+ ],
+ "shadow_cost_usd": 0.001483,
+ "duration_ms": 7592,
+ "findings": [
+  {
+   "id": "06869ef487f3",
+   "rule": "",
+   "severity": "blocker",
+   "category": "security",
+   "file": "app/search.py",
+   "line": 6,
+   "title": "SQL injection via concatenated search term",
+   "evidence": "The new query is built as 'q = \"SELECT * FROM docs WHERE title LIKE '%\" + term + \"%\"'' and executed with no parameter tuple on the next line, so any quote/UNION/OR-1=1 payload in the search term (e.g. a user typing ' OR 1=1 --) becomes executable SQL.",
+   "evidence_quote": "    q = \"SELECT * FROM docs WHERE title LIKE '%\" + term + \"%'\"",
+   "trigger": "",
+   "recommendation": "Revert to parameter binding: build the SQL with placeholders and pass the pattern as a bound argument, e.g. 'q = \"SELECT * FROM docs WHERE title LIKE ?\"' then 'db.execute(q, (f\"%{term}%\",))'. Never splice caller input into SQL text; if LIKE wildcards must be escaped, escape 'term' (replace % and _ and use ESCAPE) while keeping the value bound.",
+   "confidence": 0.98,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "2c51057161a2",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/search.py",
+   "line": 6,
+   "title": "Unescaped term is also treated as LIKE wildcard pattern",
+   "evidence": "Because the term is interpolated straight into a LIKE pattern string, a term containing '%' or '_' silently changes match semantics (a bare '%' returns every row) instead of being matched literally.",
+   "evidence_quote": "    q = \"SELECT * FROM docs WHERE title LIKE '%\" + term + \"%'\"",
+   "trigger": "",
+   "recommendation": "After restoring bound parameters, escape LIKE metacharacters in the term (e.g. term.replace('\\\\', '\\\\\\\\').replace('%', '\\\\%').replace('_', '\\\\_')) and add 'ESCAPE \\\\' to the LIKE clause so user input matches literally.",
+   "confidence": 0.8,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "5ec51ce4498a",
+   "rule": "",
+   "severity": "minor",
+   "category": "testing",
+   "file": "app/search.py",
+   "line": 7,
+   "title": "No test covering injection or quoted input in search",
+   "evidence": "The search path was changed with no test run; nothing exercises a term containing a single quote or SQL fragment, so this regression could ship silently.",
+   "evidence_quote": "    return db.execute(q)",
+   "trigger": "",
+   "recommendation": "Add tests asserting that a term such as \"a' OR 1=1 --\" performs a literal (empty-result) search and raises no SQL error, and that normal terms still match, using an in-memory SQLite database.",
+   "confidence": 0.75,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

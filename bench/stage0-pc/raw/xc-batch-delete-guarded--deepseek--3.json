@@ -1,0 +1,161 @@
+{
+ "case_id": "xc-batch-delete-guarded",
+ "seat": "deepseek",
+ "sample": 3,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "9cfbf1fbfd0cc977f247e84288240441df3a6a0273f04bf47a0c224bc680e791",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "9cfbf1fbfd0cc977f247e84288240441df3a6a0273f04bf47a0c224bc680e791",
+   "outcome": "content_invalid",
+   "error_class": "content",
+   "attempts": 1,
+   "tokens_in": 1317,
+   "tokens_out": 8192,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:37:06+00:00",
+   "finished_at": "2026-11-07T13:37:54+00:00",
+   "duration_ms": 48232,
+   "prompt_chars": 5099
+  },
+  {
+   "seat": "deepseek",
+   "prompt_hash": "1d93cdf89ed454ad553238b6285a1129633defde417111a07f304c637f3a8eb2",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1373,
+   "tokens_out": 6399,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:37:54+00:00",
+   "finished_at": "2026-11-07T13:38:33+00:00",
+   "duration_ms": 38974,
+   "prompt_chars": 5378
+  }
+ ],
+ "shadow_cost_usd": 0.016776,
+ "duration_ms": 87207,
+ "findings": [
+  {
+   "id": "e3b42518c7f5",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "app/cleanup.py",
+   "line": 40,
+   "title": "for/else raises RuntimeError even when the deletion completed exactly on the batch cap",
+   "evidence": "The loop at line 31 runs range(MAX_BATCHES) and only breaks when 'if cursor.rowcount < batch_size' (line 38) is true; the else clause on line 40 fires whenever the loop body ran MAX_BATCHES times without a short batch. Reachable path: with the defaults (batch_size=500, MAX_BATCHES=1000) any cleanup whose matching row count is exactly 500000 deletes all rows in 1000 full batches, never hits the short-batch break, and then raises 'exceeded 1000 batches' after every target row is already deleted and committed at line 36. The operator sees a failure for a fully successful cleanup and cannot tell it apart from a genuine partial cleanup.",
+   "evidence_quote": "    else:",
+   "trigger": "",
+   "recommendation": "Only raise when a batch actually returned a full rowcount on the final iteration and rows still match; e.g. after the loop, do a final DELETE, and treat rowcount == batch_size on the last iteration as 'more work may remain' but return/short-circuit when a follow-up probe (or a zero-row DELETE) shows nothing left. Alternatively return a partial result with a 'truncated' flag instead of raising, and add a test for matching == MAX_BATCHES * batch_size.",
+   "confidence": 0.8,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "b04b42315e16",
+   "rule": "",
+   "severity": "minor",
+   "category": "security",
+   "file": "app/cleanup.py",
+   "line": 18,
+   "title": "Mandatory-filter check is syntactic only: a match-all fragment like 1=1 passes",
+   "evidence": "The guard only rejects empty/whitespace where_sql, so a trusted-but-wrong caller fragment such as '1=1' or 'TRUE' satisfies 'if not where_sql or not where_sql.strip()' and turns the batched delete into an unbounded full-table wipe with no dry-run confirmation required. where_sql is also interpolated raw into both the COUNT and DELETE strings (lines 26 and 33) with no structural validation.",
+   "evidence_quote": "    if not where_sql or not where_sql.strip():",
+   "trigger": "",
+   "recommendation": "Require the caller to pass the predicate as structured data (column, operator, value) or at minimum reject fragments that contain no bound parameter placeholder, and require dry_run=False plus an explicit confirmation token (e.g. expected count or table-specific token) before any commit.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "6be1c1ecb41e",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "app/cleanup.py",
+   "line": 36,
+   "title": "Per-batch commits leave partial cleanup on failure with no progress reported",
+   "evidence": "'db.commit()' runs inside the loop, so any exception from the DELETE (deadlock, lock timeout, connection drop) or the RuntimeError at line 41 surfaces after earlier batches are already durable, and the caller gets an exception with no indication of how many rows were removed. A retry is feasible but the operator cannot reconcile against the dry-run count.",
+   "evidence_quote": "        db.commit()",
+   "trigger": "",
+   "recommendation": "Wrap the loop so that on error you either roll back the current batch and return {deleted, error} or raise a chained exception that includes the accumulated deleted count; document the partial-progress semantics in the docstring.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "1665f199ffff",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/cleanup.py",
+   "line": 37,
+   "title": "result key 'matching' means deleted-count on the real run, so dry-run blast radius cannot be reconciled",
+   "evidence": "During the real run only 'deleted += cursor.rowcount' is accumulated and line 45 returns the same value under both 'matching' and 'deleted', whereas the dry run returns the pre-delete count under 'matching'. A caller comparing the two payloads sees 'matching' change meaning between modes, and cannot use it to verify that the real run removed exactly the rows the dry run predicted.",
+   "evidence_quote": "        deleted += cursor.rowcount",
+   "trigger": "",
+   "recommendation": "Rename the real-run field (e.g. only 'deleted', plus 'truncated') or return the dry-run baseline in both modes; keep 'matching' reserved for the pre-delete count.",
+   "confidence": 0.55,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "04cb62057907",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/cleanup.py",
+   "line": 1,
+   "title": "Header claims MySQL dialect but code uses '?' placeholders and a connection-level .execute",
+   "evidence": "The header asserts '# MySQL dialect: DELETE ... LIMIT is used for the batched cleanup.' while the code calls db.execute(...) on the connection and binds 'LIMIT ?'; MySQL drivers generally expose cursor().execute and use %s placeholders, so if the real backend is MySQL the LIMIT parameter (and possibly .execute) will fail at runtime, while if it is sqlite3 the dialect comment is misleading. Non-default LIMIT parameter support is also driver-specific.",
+   "evidence_quote": "# MySQL dialect: DELETE ... LIMIT is used for the batched cleanup.",
+   "trigger": "",
+   "recommendation": "State the actual driver/connection contract in the docstring and use that driver's placeholder style, or obtain a cursor explicitly; add an integration test that runs one batch against the real engine.",
+   "confidence": 0.45,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

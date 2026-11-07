@@ -1,0 +1,77 @@
+{
+ "case_id": "xc-health-guard-selfcheck",
+ "seat": "openai",
+ "sample": 3,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "59f439becc993fac7b42a4aa09c1b72ffae4df0319a0c0af9bc2f768105170e7",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "gpt-5.4",
+ "events": [
+  {
+   "seat": "openai",
+   "prompt_hash": "59f439becc993fac7b42a4aa09c1b72ffae4df0319a0c0af9bc2f768105170e7",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1439,
+   "tokens_out": 416,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:46:14+00:00",
+   "finished_at": "2026-11-07T13:46:20+00:00",
+   "duration_ms": 6453,
+   "prompt_chars": 5832
+  }
+ ],
+ "shadow_cost_usd": 0.005959,
+ "duration_ms": 6454,
+ "findings": [
+  {
+   "id": "cae757efbd74",
+   "rule": "",
+   "severity": "major",
+   "category": "reliability",
+   "file": "app/health.py",
+   "line": 45,
+   "title": "HTTP probe timeout does not bound total request time, so /healthz can block indefinitely on slow responses",
+   "evidence": "The probe passes a single timeout value to requests.get, which in requests only applies to connect/read socket operations rather than enforcing an overall deadline for the whole probe. A dependency that slowly streams bytes or repeatedly stalls can keep the health endpoint blocked well past timeout_seconds, defeating the intended self-check timeout behavior.",
+   "evidence_quote": "        response = http_get(url, timeout=timeout)",
+   "trigger": "",
+   "recommendation": "Enforce a real overall deadline for HTTP probes, for example by measuring elapsed monotonic time around the request and aborting when it exceeds timeout_seconds, or by using a client/mechanism that supports total request deadlines rather than only per-socket timeouts.",
+   "confidence": 0.95,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "cbeeb6cec74c",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "app/health.py",
+   "line": 46,
+   "title": "HTTP probe treats normal 3xx redirects as failures, which can incorrectly mark healthy dependencies down",
+   "evidence": "The probe claims to succeed on any 2xx response, but it unconditionally calls raise_for_status after the GET. In requests, redirects can be disabled by a supplied http_get implementation or can terminate in a non-2xx 3xx response, causing the health check to report down even though the service is reachable and responding normally.",
+   "evidence_quote": "        response.raise_for_status()",
+   "trigger": "",
+   "recommendation": "Define and implement the intended contract explicitly: either accept 3xx as healthy for reachability checks, or force redirect following and validate the final response code. Add tests covering redirect responses so the endpoint behavior is stable.",
+   "confidence": 0.82,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

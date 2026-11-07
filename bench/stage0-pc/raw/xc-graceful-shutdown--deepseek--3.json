@@ -1,0 +1,185 @@
+{
+ "case_id": "xc-graceful-shutdown",
+ "seat": "deepseek",
+ "sample": 3,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "fdea71c8afcf6ca9744205e70730c339cba071cef88cec57ecd9d5169bf3bda1",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "fdea71c8afcf6ca9744205e70730c339cba071cef88cec57ecd9d5169bf3bda1",
+   "outcome": "content_invalid",
+   "error_class": "empty",
+   "attempts": 1,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:44:44+00:00",
+   "finished_at": "2026-11-07T13:45:38+00:00",
+   "detail": "deepseek empty: empty content",
+   "duration_ms": 54022,
+   "prompt_chars": 5426
+  },
+  {
+   "seat": "deepseek",
+   "prompt_hash": "d62cf9452e63be0ae39f761c955252fb08cb15d0a8920ef0b1328b20bc98b1e6",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1417,
+   "tokens_out": 6532,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:45:38+00:00",
+   "finished_at": "2026-11-07T13:46:15+00:00",
+   "duration_ms": 37026,
+   "prompt_chars": 5705
+  }
+ ],
+ "shadow_cost_usd": 0.007568,
+ "duration_ms": 91049,
+ "findings": [
+  {
+   "id": "188f367f1f9e",
+   "rule": "",
+   "severity": "major",
+   "category": "testing",
+   "file": "app/worker.py",
+   "line": 46,
+   "title": "No tests for drain contract, signal handling, or handler isolation",
+   "evidence": "run() is the whole public contract (stop -> no new pulls -> in-flight jobs complete) and nothing in the diff exercises it.",
+   "evidence_quote": "    def run(self):",
+   "trigger": "",
+   "recommendation": "Add tests: (a) stop requested while jobs are in flight still runs them all before run() returns; (b) stop set before run() pulls nothing; (c) a raising handler does not kill the worker and the remaining jobs still run; (d) source raising a non-queue.Empty exception drains then propagates. Use a fake source object with a get(timeout=...) method rather than sleeping on real wall-clock time.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "55ea6299c29c",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "app/worker.py",
+   "line": 35,
+   "title": "SIGINT/SIGTERM handlers are replaced process-wide and never restored, so a hung drain is uninterruptible",
+   "evidence": "signal handlers are installed in install_signal_handlers() and never saved/restored; once installed, a second Ctrl-C or SIGTERM during the pool drain only re-sets the Event instead of interrupting.",
+   "evidence_quote": "        signal.signal(signal.SIGINT, self.request_stop)",
+   "trigger": "",
+   "recommendation": "Save the previous handlers returned by signal.signal and restore them in a try/finally around the run() body; additionally, on a second stop request (or a counter in request_stop) restore the default handler so a hung handler can be interrupted instead of requiring SIGKILL.",
+   "confidence": 0.65,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "459b27904bff",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "app/worker.py",
+   "line": 56,
+   "title": "Unbounded submit gives no backpressure; pending-future queue can grow without limit",
+   "evidence": "the loop submits any number of jobs to the executor independently of how fast handlers finish, so a fast producer with slow handlers accumulates unbounded pending futures and memory.",
+   "evidence_quote": "                pool.submit(self._run_job, job)",
+   "trigger": "",
+   "recommendation": "Bound in-flight work: keep a set of futures and stop pulling from the source while len(pending) >= max_workers * k (retiring done futures each iteration), or pull the job inside the worker threads instead of in the dispatch loop.",
+   "confidence": 0.55,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "729c70a0ce85",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "app/worker.py",
+   "line": 47,
+   "title": "run() unconditionally installs signal handlers, so it raises ValueError off the main thread and is untestable there",
+   "evidence": "signal.signal is only legal in the main thread; the docstring documents the constraint but run() has no guard, so any embedder or test invoking run() from a thread fails immediately.",
+   "evidence_quote": "        self.install_signal_handlers()",
+   "trigger": "",
+   "recommendation": "Only install handlers when threading.current_thread() is threading.main_thread() (guarded by hasattr(signal, 'SIGTERM') for portability), or split run() into a handler-installing wrapper and a run_loop() that is safe to call from any thread.",
+   "confidence": 0.7,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "10ddbb9ebfd6",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/worker.py",
+   "line": 51,
+   "title": "Stop Event is never cleared, so a reused worker's run() silently does nothing",
+   "evidence": "the loop condition short-circuits on a permanently set Event, so calling run() again on the same instance returns 0 immediately without draining any queued work.",
+   "evidence_quote": "            while not self._stop.is_set():",
+   "trigger": "",
+   "recommendation": "Clear the Event at the start of run() (or document the instance as single-use and raise if run() is entered twice) so a restart cannot be mistaken for a completed run.",
+   "confidence": 0.5,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "85b0086c27c5",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/worker.py",
+   "line": 60,
+   "title": "run() returns 0 even when jobs failed, hiding partial failure from the caller",
+   "evidence": "handler exceptions are only logged in _run_job and run() unconditionally returns 0, so a caller cannot distinguish a clean drain from one where every job raised.",
+   "evidence_quote": "        return 0",
+   "trigger": "",
+   "recommendation": "Track a failure counter (or per-job outcomes) and return a non-zero code / expose the count when any job failed, so a supervising process can alert or retry.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

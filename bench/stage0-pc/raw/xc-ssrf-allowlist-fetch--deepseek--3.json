@@ -1,0 +1,162 @@
+{
+ "case_id": "xc-ssrf-allowlist-fetch",
+ "seat": "deepseek",
+ "sample": 3,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "f1807f4d6363c038fb5d86b72fc7f4ac533b727d6afbad02f4082076c8b8424a",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "f1807f4d6363c038fb5d86b72fc7f4ac533b727d6afbad02f4082076c8b8424a",
+   "outcome": "content_invalid",
+   "error_class": "empty",
+   "attempts": 1,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:49:06+00:00",
+   "finished_at": "2026-11-07T13:49:52+00:00",
+   "detail": "deepseek empty: empty content",
+   "duration_ms": 45641,
+   "prompt_chars": 5857
+  },
+  {
+   "seat": "deepseek",
+   "prompt_hash": "e465b286416642791f4b874b9578a0734c9411063364a9f99c29e4b02a0f21d1",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1573,
+   "tokens_out": 7873,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:49:52+00:00",
+   "finished_at": "2026-11-07T13:50:37+00:00",
+   "duration_ms": 44998,
+   "prompt_chars": 6136
+  }
+ ],
+ "shadow_cost_usd": 0.009085,
+ "duration_ms": 90640,
+ "findings": [
+  {
+   "id": "88879b12b2ae",
+   "rule": "",
+   "severity": "major",
+   "category": "security",
+   "file": "app/safe_fetch.py",
+   "line": 42,
+   "title": "Private-IP check is a separate DNS lookup from the connection (rebinding / TOCTOU)",
+   "evidence": "_reject_non_public_host resolves the host with socket.getaddrinfo and rejects non-global answers, but the fetch on line 57 is a plain requests.get(current, ...) that resolves the same name again inside urllib3; the address that is validated is never the address that is connected to. Anything that changes the answer between the two lookups (attacker-influenced DNS for an allowlisted name, short-TTL round robin, split-horizon resolver) yields a connection to an address the guard never saw, which is exactly the SSRF case the module claims to stop in its docstring.",
+   "evidence_quote": "    _reject_non_public_host(host.lower())",
+   "trigger": "",
+   "recommendation": "Resolve once, validate the resulting address, and connect to that pinned address (e.g. a requests adapter or transport that accepts a pre-resolved IP and sets Host/SNI), or drop the pretence that the resolver check protects the connection and rely solely on the host allowlist plus egress policy. Also note requests honours HTTP(S)_PROXY from the environment by default, which routes the request through a third party that does its own resolution; if the DNS check is meant to matter, use an explicit",
+   "confidence": 0.62,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "9e4de53634cd",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "app/safe_fetch.py",
+   "line": 61,
+   "title": "Response is left open when raise_for_status raises, and callers are never told to close it",
+   "evidence": "On the non-redirect path the code calls response.raise_for_status() and only then returns the response; if the status is 4xx/5xx the exception propagates and the connection is never released, so repeated failed fetches leak sockets until the pool/GC catches up. The success path also hands back an open response with no close contract in the docstring.",
+   "evidence_quote": "            response.raise_for_status()",
+   "trigger": "",
+   "recommendation": "Wrap the status check in try/finally with response.close() on the error path, or document that the caller owns and must close the returned response; preferably always read/close inside safe_fetch and return status plus body.",
+   "confidence": 0.7,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "4deb8f2abdff",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "app/safe_fetch.py",
+   "line": 57,
+   "title": "No response size limit: allowlisted host can return an unbounded body into memory",
+   "evidence": "The request is issued without stream=True and without reading the body in chunks, so requests buffers the entire payload. A compromised or misbehaving allowlisted host (or a redirect chain ending at one) can exhaust memory; the 10 second timeout bounds time, not bytes.",
+   "evidence_quote": "        response = requests.get(",
+   "trigger": "",
+   "recommendation": "Use stream=True with a maximum byte count (iter_content chunks, abort past the limit), or enforce a Content-Length ceiling before reading the body.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "cdec41b1f5ed",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/safe_fetch.py",
+   "line": 60,
+   "title": "3xx statuses outside REDIRECT_STATUSES are returned as if the fetch succeeded",
+   "evidence": "The redirect set omits 300 and 304, and requests.raise_for_status() only raises for 4xx/5xx, so a 300 Multiple Choices (or a 304 from a caching intermediary) on line 60 falls into the non-redirect branch and is returned to the caller as a successful fetch with no error and no body.",
+   "evidence_quote": "        if response.status_code not in REDIRECT_STATUSES:",
+   "trigger": "",
+   "recommendation": "Treat any 3xx as either a redirect (if Location is present) or an explicit error, e.g. reject response.is_redirect or check 300 <= status < 400 explicitly before falling through to raise_for_status.",
+   "confidence": 0.65,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "9d9587eced38",
+   "rule": "",
+   "severity": "minor",
+   "category": "testing",
+   "file": "app/safe_fetch.py",
+   "line": 56,
+   "title": "No tests accompany the redirect revalidation and non-public-address rejection",
+   "evidence": "The diff adds only the module; the risky branches (per-hop revalidation on line 56, non-global resolution rejection, the MAX_REDIRECTS cutoff, and a redirect to a non-allowlisted host) have no coverage, and the change reports that no test commands were run, so regressions in the security-relevant control would go unnoticed.",
+   "evidence_quote": "        _validate_url(current)",
+   "trigger": "",
+   "recommendation": "Add tests with a stubbed resolver and a mocked transport covering: redirect to 127.0.0.1 / 169.254.169.254 / non-allowlisted host rejected, exactly MAX_REDIRECTS redirects succeeding and MAX_REDIRECTS+1 raising, redirect without Location raising, and a non-443 or credentialed URL rejected.",
+   "confidence": 0.7,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

@@ -1,0 +1,54 @@
+{
+ "case_id": "xss-innerhtml",
+ "seat": "openai",
+ "sample": 3,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "f63cb55fb7a41e512d445aa6ec9d1e0bec7462016bb85ba30fc4f749ba1819ab",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "gpt-5.4",
+ "events": [
+  {
+   "seat": "openai",
+   "prompt_hash": "f63cb55fb7a41e512d445aa6ec9d1e0bec7462016bb85ba30fc4f749ba1819ab",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 803,
+   "tokens_out": 202,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:55:47+00:00",
+   "finished_at": "2026-11-07T13:55:51+00:00",
+   "duration_ms": 3708,
+   "prompt_chars": 3438
+  }
+ ],
+ "shadow_cost_usd": 0.003024,
+ "duration_ms": 3709,
+ "findings": [
+  {
+   "id": "bdaf7da5542e",
+   "rule": "",
+   "severity": "blocker",
+   "category": "security",
+   "file": "web/comments.js",
+   "line": 15,
+   "title": "Untrusted comment body is injected into the DOM via innerHTML",
+   "evidence": "The renderer now assigns the raw comment body to innerHTML, which parses and executes attacker-supplied markup instead of displaying it as text. Any user-controlled comment containing HTML or event-handler attributes can run script in the page context when rendered.",
+   "evidence_quote": "  el.innerHTML = comment.body;",
+   "trigger": "",
+   "recommendation": "Do not use innerHTML for untrusted comment content. Restore textContent, or sanitize the HTML with a well-reviewed sanitizer before assigning to innerHTML if rich-text comments are explicitly required.",
+   "confidence": 0.99,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

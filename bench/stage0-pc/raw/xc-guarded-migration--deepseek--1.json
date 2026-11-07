@@ -1,0 +1,100 @@
+{
+ "case_id": "xc-guarded-migration",
+ "seat": "deepseek",
+ "sample": 1,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "0d8090e326c0eec1f7f6a98d61b1e614bab64bb0b8ec29fed188723bd9c5cc5c",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "0d8090e326c0eec1f7f6a98d61b1e614bab64bb0b8ec29fed188723bd9c5cc5c",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1188,
+   "tokens_out": 6424,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:45:12+00:00",
+   "finished_at": "2026-11-07T13:45:49+00:00",
+   "duration_ms": 36519,
+   "prompt_chars": 4656
+  }
+ ],
+ "shadow_cost_usd": 0.007387,
+ "duration_ms": 36520,
+ "findings": [
+  {
+   "id": "106804e31ca8",
+   "rule": "",
+   "severity": "major",
+   "category": "reliability",
+   "file": "migrations/004_orders_shipping_region.sql",
+   "line": 13,
+   "title": "Batching is defeated by ACCESS EXCLUSIVE lock held for the whole transaction",
+   "evidence": "The migration starts with BEGIN; and runs ALTER TABLE orders ... ADD COLUMN, then loops UPDATEs, then COMMIT; the added comment at line 19 claims the bounded batches mean a large table is 'never locked'. In PostgreSQL the ALTER TABLE takes an ACCESS EXCLUSIVE lock that is held until COMMIT, so every batch UPDATE also runs under that lock \u2014 concurrent readers and writers of orders are blocked for the entire backfill regardless of the 500-row LIMIT.",
+   "evidence_quote": "ALTER TABLE orders",
+   "trigger": "",
+   "recommendation": "Either run the DDL and backfill in separate transactions (commit the ADD COLUMN first, then a separate transaction/tool for the backfill loop), or drop the misleading 'never locked' claim and document that this migration takes an ACCESS EXCLUSIVE lock on orders. For large tables, use CREATE INDEX CONCURRENTLY and a separate, resumable backfill process.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "99d3bebf6d1a",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "migrations/004_orders_shipping_region.sql",
+   "line": 29,
+   "title": "Backfill assumes legacy_region exists with no guard",
+   "evidence": "The DO block does 'SET shipping_region = legacy_region' and filters on 'legacy_region IS NOT NULL', but the migration only adds/guards shipping_region. On any database where orders has no legacy_region column (e.g. a fresh schema built without the legacy column), the whole migration aborts with a column-does-not-exist error, breaking the idempotency claim.",
+   "evidence_quote": "        SET shipping_region = legacy_region",
+   "trigger": "",
+   "recommendation": "Guard the backfill on the existence of legacy_region (e.g. wrap the DO block in an IF EXISTS check against information_schema.columns for orders.legacy_region), or document/enforce that this migration only runs against schemas that already have legacy_region.",
+   "confidence": 0.5,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "c5a28053c73c",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "migrations/004_orders_shipping_region.sql",
+   "line": 14,
+   "title": "Copied region values are never validated and shipping_regions is unused",
+   "evidence": "shipping_regions(code PK) is created but orders.shipping_region is added as a bare 'TEXT' with no foreign key or CHECK, and the backfill copies legacy_region verbatim. Any stale/invalid legacy_region value is silently propagated into shipping_region, and afterward nothing ties shipping_region to a valid region code; the created lookup table is never referenced.",
+   "evidence_quote": "    ADD COLUMN IF NOT EXISTS shipping_region TEXT;",
+   "trigger": "",
+   "recommendation": "Add a foreign key (or a validating constraint/CHECK) from orders.shipping_region to shipping_regions.code, and either pre-seed shipping_regions before backfill or reject/unmap legacy values that lack a matching code so invalid data is surfaced rather than copied.",
+   "confidence": 0.5,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

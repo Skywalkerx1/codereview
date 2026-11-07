@@ -1,0 +1,138 @@
+{
+ "case_id": "xc-health-guard-selfcheck",
+ "seat": "deepseek",
+ "sample": 2,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "59f439becc993fac7b42a4aa09c1b72ffae4df0319a0c0af9bc2f768105170e7",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "59f439becc993fac7b42a4aa09c1b72ffae4df0319a0c0af9bc2f768105170e7",
+   "outcome": "content_invalid",
+   "error_class": "content",
+   "attempts": 1,
+   "tokens_in": 1535,
+   "tokens_out": 8192,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:46:15+00:00",
+   "finished_at": "2026-11-07T13:47:01+00:00",
+   "duration_ms": 46443,
+   "prompt_chars": 5832
+  },
+  {
+   "seat": "deepseek",
+   "prompt_hash": "7d0d4b9bbbc8263f14ca7972cdb31a8ae8193fda3f63e928bc3dbe622c77e33c",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1591,
+   "tokens_out": 4923,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:47:01+00:00",
+   "finished_at": "2026-11-07T13:47:29+00:00",
+   "duration_ms": 27094,
+   "prompt_chars": 6111
+  }
+ ],
+ "shadow_cost_usd": 0.015271,
+ "duration_ms": 73539,
+ "findings": [
+  {
+   "id": "44894b96d847",
+   "rule": "",
+   "severity": "major",
+   "category": "reliability",
+   "file": "app/health.py",
+   "line": 51,
+   "title": "http_probe timeout is per-read, not a total deadline",
+   "evidence": "The HTTP probe passes a single requests timeout, which bounds each socket read rather than the whole request, so a dependency that trickles bytes keeps the probe alive far beyond timeout_seconds despite the docstring promise of a 2xx response within the timeout.",
+   "evidence_quote": "        response = http_get(url, timeout=timeout)",
+   "trigger": "",
+   "recommendation": "Enforce a wall-clock budget: use a (connect, read) tuple plus an outer deadline (e.g. run the probe on a thread/future with future.result(timeout=...) or pass stream=True and abort once the deadline elapses), so a slow-dripping dependency cannot stall /healthz past timeout_seconds.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "937c24c2ccfc",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "app/health.py",
+   "line": 69,
+   "title": "Serial probe fan-out has no overall deadline",
+   "evidence": "The comprehension runs every probe sequentially, so worst-case health endpoint latency is len(probes) times timeout_seconds; with several dependencies that exceeds typical load-balancer timeouts even though each individual probe honours its own timeout.",
+   "evidence_quote": "        for name in sorted(probes)",
+   "trigger": "",
+   "recommendation": "Run probes concurrently (or enforce a single overall deadline across the whole batch) so total latency is bounded by timeout_seconds rather than the sum over all probes.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "42ae4f451ce1",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/health.py",
+   "line": 20,
+   "title": "Broad catch converts programming errors into dependency-down",
+   "evidence": "Any exception raised inside the probe, including TypeError from a probe with a mismatched signature (e.g. one that does not accept a timeout keyword) or an AttributeError from a bug in a probe factory, is reported as status down with the exception class name, hiding real bugs as dependency outages.",
+   "evidence_quote": "    except Exception as exc:  # deliberate: report, do not propagate",
+   "trigger": "",
+   "recommendation": "Catch only the expected transport errors (OSError, socket errors, requests.RequestException) and let programming errors propagate or be logged distinctly, or at minimum log the exception object and mark such cases separately from transport failures.",
+   "confidence": 0.55,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "344f7dd76647",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/health.py",
+   "line": 65,
+   "title": "Misconfigured timeout raises instead of returning a health payload",
+   "evidence": "healthcheck raises ValueError for a non-positive timeout (and TypeError if a string is passed from config), so an operator-supplied bad value turns /healthz into a 500 or crashes the caller instead of returning the (status, payload) contract the docstring promises.",
+   "evidence_quote": "    if timeout_seconds <= 0:",
+   "trigger": "",
+   "recommendation": "Validate the timeout at configuration/startup time, or fall back to DEFAULT_TIMEOUT_SECONDS and record the misconfiguration in the payload rather than raising from the request path.",
+   "confidence": 0.5,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

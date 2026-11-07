@@ -1,0 +1,30 @@
+{
+ "case_id": "xc-intl-currency-format",
+ "seat": "openai",
+ "sample": 3,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "76a8aa691e0a2e4767fcf089bdfb96a685116c4178f9e44376f9df1a8b339876",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "gpt-5.4",
+ "events": [
+  {
+   "seat": "openai",
+   "prompt_hash": "76a8aa691e0a2e4767fcf089bdfb96a685116c4178f9e44376f9df1a8b339876",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 890,
+   "tokens_out": 58,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:47:33+00:00",
+   "finished_at": "2026-11-07T13:47:35+00:00",
+   "duration_ms": 2062,
+   "prompt_chars": 3726
+  }
+ ],
+ "shadow_cost_usd": 0.001692,
+ "duration_ms": 2062,
+ "findings": []
+}

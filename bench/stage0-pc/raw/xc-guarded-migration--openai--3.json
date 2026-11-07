@@ -1,0 +1,54 @@
+{
+ "case_id": "xc-guarded-migration",
+ "seat": "openai",
+ "sample": 3,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "0d8090e326c0eec1f7f6a98d61b1e614bab64bb0b8ec29fed188723bd9c5cc5c",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "gpt-5.4",
+ "events": [
+  {
+   "seat": "openai",
+   "prompt_hash": "0d8090e326c0eec1f7f6a98d61b1e614bab64bb0b8ec29fed188723bd9c5cc5c",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1100,
+   "tokens_out": 269,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:45:07+00:00",
+   "finished_at": "2026-11-07T13:45:12+00:00",
+   "duration_ms": 5447,
+   "prompt_chars": 4656
+  }
+ ],
+ "shadow_cost_usd": 0.004065,
+ "duration_ms": 5448,
+ "findings": [
+  {
+   "id": "10a0934eeedd",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "migrations/004_orders_shipping_region.sql",
+   "line": 26,
+   "title": "Backfill loop can run forever when the batch selects rows whose value is already equal",
+   "evidence": "The loop exits only when ROW_COUNT is zero, but the subquery keeps selecting rows where shipping_region is NULL and legacy_region is NOT NULL. If legacy_region is also NULL-equivalent for assignment or the selected rows are repeatedly matched without changing state, the loop never makes progress and the migration hangs inside BEGIN/COMMIT.",
+   "evidence_quote": "        SET shipping_region = legacy_region",
+   "trigger": "",
+   "recommendation": "Make progress explicit in the UPDATE predicate so already-processed rows cannot be reselected, for example by updating from a CTE and filtering rows that will actually change state, or by selecting FOR UPDATE SKIP LOCKED and adding a stronger termination condition tied to the selected batch rather than ROW_COUNT alone. At minimum, include a guard proving the updated rows leave the selection set after each iteration.",
+   "confidence": 0.82,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

@@ -1,0 +1,123 @@
+{
+ "case_id": "xc-csrf-token-check",
+ "seat": "deepseek",
+ "sample": 3,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "48874f52ed5a83e32329656a30ed916da08889ea80a88e3667d80897677374c6",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "48874f52ed5a83e32329656a30ed916da08889ea80a88e3667d80897677374c6",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1110,
+   "tokens_out": 4005,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:40:56+00:00",
+   "finished_at": "2026-11-07T13:41:18+00:00",
+   "duration_ms": 22084,
+   "prompt_chars": 4277
+  }
+ ],
+ "shadow_cost_usd": 0.004705,
+ "duration_ms": 22084,
+ "findings": [
+  {
+   "id": "8e0150a671c3",
+   "rule": "",
+   "severity": "blocker",
+   "category": "correctness",
+   "file": "src/app.js",
+   "line": 30,
+   "title": "CSRF middleware mounted with no session middleware or token issuance - all POSTs return 403",
+   "evidence": "csrfProtection is registered app-wide, but the file never adds a session middleware and never writes req.session.csrfToken anywhere, so the second argument to tokensMatch is always undefined and the typeof check rejects it.",
+   "evidence_quote": "app.use(csrfProtection);",
+   "trigger": "",
+   "recommendation": "Add the session middleware (e.g. cookie-session/express-session with a server-side store) before csrfProtection, and issue/propagate a token (set req.session.csrfToken on session creation and expose it to clients). If session wiring is out of scope for this change, do not mount csrfProtection yet, or make it fail open with a logged warning until the session layer lands. Add an end-to-end test that a POST with a valid token succeeds.",
+   "confidence": 0.92,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "b0439d6da858",
+   "rule": "",
+   "severity": "major",
+   "category": "testing",
+   "file": "src/app.js",
+   "line": 19,
+   "title": "No tests for the new auth gate; total lockout went undetected",
+   "evidence": "The change adds a security gate that rejects every non-safe method when no token is present, yet no test exercises the accept path or the 403 path, so the fact that the happy path now always 403s was not caught.",
+   "evidence_quote": "export function csrfProtection(req, res, next) {",
+   "trigger": "",
+   "recommendation": "Add tests: POST /profile and /transfer with no header returns 403; with a mismatched token returns 403; with the session token in x-csrf-token reaches the handler; GET is unaffected. Wire them into the repo test command so they run in CI.",
+   "confidence": 0.8,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "dbb50fc3a71a",
+   "rule": "",
+   "severity": "minor",
+   "category": "security",
+   "file": "src/app.js",
+   "line": 29,
+   "title": "Request body parsed before CSRF validation",
+   "evidence": "express.json() is registered before csrfProtection, so a cross-site or unauthenticated mutating request has its body buffered and JSON-parsed before the token is ever checked.",
+   "evidence_quote": "app.use(express.json());",
+   "trigger": "",
+   "recommendation": "Register csrfProtection before express.json() so untrusted mutating requests are rejected before body allocation/parsing (the header-only check does not need the parsed body).",
+   "confidence": 0.55,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "76da3bebdd79",
+   "rule": "",
+   "severity": "nit",
+   "category": "security",
+   "file": "src/app.js",
+   "line": 15,
+   "title": "Length check before timingSafeEqual short-circuits and leaks token length",
+   "evidence": "The comparison returns early when the byte lengths differ instead of comparing fixed-length digests, so the expected token length is observable from response timing.",
+   "evidence_quote": "  return a.length === b.length && timingSafeEqual(a, b);",
+   "trigger": "",
+   "recommendation": "Hash both values with a fixed-size digest (e.g. sha256) before timingSafeEqual so the comparison is constant-time regardless of input lengths; the current guard is otherwise correct in preventing timingSafeEqual from throwing.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

@@ -1,0 +1,77 @@
+{
+ "case_id": "xc-jdbc-prepared",
+ "seat": "deepseek",
+ "sample": 3,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "4db578486e9cc2699555ce69a17ace0cb8ba59e30543ef834692572808383ba9",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "4db578486e9cc2699555ce69a17ace0cb8ba59e30543ef834692572808383ba9",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1039,
+   "tokens_out": 1460,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:48:06+00:00",
+   "finished_at": "2026-11-07T13:48:15+00:00",
+   "duration_ms": 9051,
+   "prompt_chars": 4195
+  }
+ ],
+ "shadow_cost_usd": 0.001887,
+ "duration_ms": 9051,
+ "findings": [
+  {
+   "id": "df71657461bf",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "src/main/java/com/example/db/UserRepository.java",
+   "line": 17,
+   "title": "Optional.of(rs.getString(...)) throws NPE when email is SQL NULL",
+   "evidence": "return rs.next() ? Optional.of(rs.getString(\"email\")) : Optional.empty();",
+   "evidence_quote": "                return rs.next() ? Optional.of(rs.getString(\"email\")) : Optional.empty();",
+   "trigger": "",
+   "recommendation": "Use Optional.ofNullable(rs.getString(\"email\")) so a NULL column yields Optional.empty() rather than an NPE; alternatively call rs.wasNull() to distinguish. Reachable path: row exists for the given id with email NULL -> getString returns null -> Optional.of(null) throws NPE (depends on the email column being nullable in the schema).",
+   "confidence": 0.65,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "2345fe4f4b45",
+   "rule": "",
+   "severity": "minor",
+   "category": "testing",
+   "file": "src/main/java/com/example/db/UserRepository.java",
+   "line": 12,
+   "title": "New repository has no test covering the NULL-email and empty-result paths",
+   "evidence": "public Optional<String> findEmail(long id) throws SQLException {",
+   "evidence_quote": "    public Optional<String> findEmail(long id) throws SQLException {",
+   "trigger": "",
+   "recommendation": "Add tests against an in-memory DB (e.g. H2) covering: found row, no row, and a row whose email is NULL, so the Optional mapping behaviour above is pinned down.",
+   "confidence": 0.55,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

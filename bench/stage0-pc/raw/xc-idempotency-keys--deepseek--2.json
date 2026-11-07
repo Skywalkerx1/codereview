@@ -1,0 +1,169 @@
+{
+ "case_id": "xc-idempotency-keys",
+ "seat": "deepseek",
+ "sample": 2,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "ed59ce6320b6b2f0283dfe23019fe7506b7d5e2745b1cd4d10cd6c62aa22fcbd",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "ed59ce6320b6b2f0283dfe23019fe7506b7d5e2745b1cd4d10cd6c62aa22fcbd",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1365,
+   "tokens_out": 6980,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:47:05+00:00",
+   "finished_at": "2026-11-07T13:47:46+00:00",
+   "duration_ms": 40922,
+   "prompt_chars": 5393
+  }
+ ],
+ "shadow_cost_usd": 0.008047,
+ "duration_ms": 40923,
+ "findings": [
+  {
+   "id": "a7f238e87f36",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "app/payments.py",
+   "line": 51,
+   "title": "None receipt from gateway is indistinguishable from an unclaimed key, so the retry charges again",
+   "evidence": "begin() returns self._completed[key] (which may be None) and charge_once treats a None return as 'no prior charge': '    if prior is not None:' then proceeds to gateway.charge. A gateway whose charge() returns None (stub, 204-style response, mis-wired adapter) gets None stored by 'self._completed[key] = receipt', and every subsequent call with the same key is charged a second time - the exact failure the module exists to prevent.",
+   "evidence_quote": "    if prior is not None:",
+   "trigger": "",
+   "recommendation": "Use an explicit sentinel (for example a module-level MISSING object, or have begin return a tuple of (found, receipt)) so a stored None receipt still short-circuits. Additionally reject a None gateway receipt in complete()/charge_once (raise instead of storing it) so a misbehaving gateway fails loudly rather than corrupting the dedup table.",
+   "confidence": 0.65,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "b7ac9a60fb7e",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "app/payments.py",
+   "line": 52,
+   "title": "Same key reused with a different amount or currency silently returns the old receipt",
+   "evidence": "The prior receipt is returned without comparing amount_cents or currency against the original request: '        return prior'. charge_once(store, gw, 5000, 'usd', key) after a completed 1000-cent charge returns the 1000-cent receipt, and a caller that only checks for a receipt will record a 5000-cent payment that never happened (or ship goods priced at the second amount).",
+   "evidence_quote": "        return prior",
+   "trigger": "",
+   "recommendation": "Persist the request fingerprint (amount_cents and currency) alongside the receipt and raise a dedicated conflict error when a repeat key arrives with different parameters, matching common payment-API idempotency semantics; only return the stored receipt when the fingerprint matches.",
+   "confidence": 0.65,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "67be77ab4139",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "app/payments.py",
+   "line": 28,
+   "title": "Completed-receipt table grows without bound; no expiry or eviction",
+   "evidence": "Every completed charge is retained forever in the process: '            self._completed[key] = receipt'. A long-lived service accepts unbounded unique idempotency keys, so both _completed and the transient _in_flight set need a TTL/eviction policy (payment providers expire keys after ~24h), otherwise memory grows monotonically and stale keys suppress legitimate future charges.",
+   "evidence_quote": "            self._completed[key] = receipt",
+   "trigger": "",
+   "recommendation": "Add an insertion timestamp per key and prune entries older than a configured retention window (on write, or via a periodic sweep under the existing lock).",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "bd7dd21c2a3f",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "app/payments.py",
+   "line": 23,
+   "title": "In-flight claim has no expiry, so a stalled gateway call poisons the key permanently",
+   "evidence": "The key is claimed and only released by complete() or abandon(): '            self._in_flight.add(key)'. If gateway.charge never returns (no timeout on the HTTP client), the key stays in flight forever and every later retry raises DuplicateRequestInFlight until the process restarts; the caller also gets an immediate exception with no way to observe the in-flight request's eventual outcome.",
+   "evidence_quote": "            self._in_flight.add(key)",
+   "trigger": "",
+   "recommendation": "Record a claim timestamp and allow re-claiming (or re-attempt against the gateway, which is idempotent by key) once the claim exceeds a timeout; alternatively expose the in-flight state so callers can retry-later instead of treating DuplicateRequestInFlight as a hard failure.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "3d5530fe5b3f",
+   "rule": "",
+   "severity": "minor",
+   "category": "data-loss",
+   "file": "app/payments.py",
+   "line": 13,
+   "title": "Idempotency state is process-local; cross-restart dedup relies on unverified gateway behaviour",
+   "evidence": "The store is a plain dict: '        self._completed = {}'. After a crash or restart the record of a completed charge is gone, and the docstring's claim that a retry is deduplicated by the provider assumes the injected gateway actually honours idempotency_key - nothing in charge_once verifies or documents that as a hard requirement, and a gateway ignoring the key charges twice.",
+   "evidence_quote": "        self._completed = {}",
+   "trigger": "",
+   "recommendation": "Either back the store with durable storage (DB row keyed by idempotency_key with the receipt) or make the provider-side dedup an explicit, documented contract of the gateway interface and state it as a precondition in the charge_once docstring.",
+   "confidence": 0.5,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "47c6fee7c391",
+   "rule": "",
+   "severity": "major",
+   "category": "testing",
+   "file": "app/payments.py",
+   "line": 36,
+   "title": "No tests for the double-charge, concurrency, or failure paths",
+   "evidence": "The diff adds a payment-deduplication entry point with zero accompanying tests: 'def charge_once(store, gateway, amount_cents, currency, idempotency_key):'. Untested behaviours include the exception path that calls abandon(), concurrent begin() raising DuplicateRequestInFlight (with a second thread that must not reach the gateway), repeat calls with mismatched amounts, and gateways returning None or raising after a successful charge.",
+   "evidence_quote": "def charge_once(store, gateway, amount_cents, currency, idempotency_key):",
+   "trigger": "",
+   "recommendation": "Add tests with a fake gateway that counts charge() calls: concurrent same-key calls must result in exactly one gateway call, exception paths must release the in-flight key, completed keys must never reach the gateway, and a None/mismatched receipt must fail rather than double charge.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

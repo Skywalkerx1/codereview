@@ -1,0 +1,54 @@
+{
+ "case_id": "xc-atomic-state-writer",
+ "seat": "openai",
+ "sample": 3,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "d7394253aa0c0e3c0110c901ff2b04701406e0529ec5fd431a4d3de4a434377f",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "gpt-5.4",
+ "events": [
+  {
+   "seat": "openai",
+   "prompt_hash": "d7394253aa0c0e3c0110c901ff2b04701406e0529ec5fd431a4d3de4a434377f",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1263,
+   "tokens_out": 247,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:36:27+00:00",
+   "finished_at": "2026-11-07T13:36:31+00:00",
+   "duration_ms": 3946,
+   "prompt_chars": 5237
+  }
+ ],
+ "shadow_cost_usd": 0.004049,
+ "duration_ms": 3947,
+ "findings": [
+  {
+   "id": "861c6cee7a33",
+   "rule": "",
+   "severity": "major",
+   "category": "data-loss",
+   "file": "app/state_store.py",
+   "line": 26,
+   "title": "Post-replace fsync failure can unlink the newly committed state file",
+   "evidence": "The broad exception handler wraps both 'os.replace(tmp_path, path)' and the later directory fsync call, then unconditionally runs 'os.unlink(tmp_path)'. After a successful replace, tmp_path now names the destination file, so any later exception from directory fsync will delete the committed state file.",
+   "evidence_quote": "    except BaseException:",
+   "trigger": "",
+   "recommendation": "Limit the cleanup handler to the temp-file creation/write/replace phase, or track whether 'os.replace' has already succeeded and skip unlinking once ownership has moved to the destination. For example, call '_fsync_directory(directory)' in a separate try/except after replace, without deleting 'tmp_path' on failure.",
+   "confidence": 0.98,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

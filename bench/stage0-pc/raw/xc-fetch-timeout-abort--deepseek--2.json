@@ -1,0 +1,123 @@
+{
+ "case_id": "xc-fetch-timeout-abort",
+ "seat": "deepseek",
+ "sample": 2,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "a732b18057c81219b26fa93a5905268813fe876738e82ff316f07e74ab2b190f",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "a732b18057c81219b26fa93a5905268813fe876738e82ff316f07e74ab2b190f",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1003,
+   "tokens_out": 2174,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:42:58+00:00",
+   "finished_at": "2026-11-07T13:43:11+00:00",
+   "duration_ms": 12751,
+   "prompt_chars": 3965
+  }
+ ],
+ "shadow_cost_usd": 0.002662,
+ "duration_ms": 12751,
+ "findings": [
+  {
+   "id": "48c5ed1d392b",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "src/fetchJson.js",
+   "line": 5,
+   "title": "Caller-supplied AbortSignal is silently discarded (cancellation regression)",
+   "evidence": "The spread places `...options` first and then hard-sets `signal: controller.signal`, so any `signal` the caller passed is dropped.",
+   "evidence_quote": "    const response = await fetch(url, { ...options, signal: controller.signal });",
+   "trigger": "",
+   "recommendation": "Preserve and combine the caller signal, e.g. `const signal = options.signal ? AbortSignal.any([options.signal, controller.signal]) : controller.signal;` and pass that; drop `options.signal` from the spread or overwrite it explicitly. Add a test that aborting a caller-provided controller cancels the request.",
+   "confidence": 0.8,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "f624cd2c3169",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "src/fetchJson.js",
+   "line": 3,
+   "title": "timeoutMs is unvalidated; 0, null or Infinity abort effectively immediately",
+   "evidence": "`timeoutMs` goes straight into `setTimeout`; the default only applies for `undefined`, so `timeoutMs: null` becomes 0 and `timeoutMs: Infinity` is clamped by the runtime to 1ms in Node.",
+   "evidence_quote": "  const timer = setTimeout(() => controller.abort(), timeoutMs);",
+   "trigger": "",
+   "recommendation": "Validate the value (e.g. require a finite number > 0, or treat non-finite/<=0 as 'no timeout' by skipping setTimeout) and throw a clear TypeError for invalid values.",
+   "confidence": 0.65,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "3737ed4a2dec",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "src/fetchJson.js",
+   "line": 2,
+   "title": "Timeout is indistinguishable from other aborts; no diagnostic error",
+   "evidence": "The abort reason is not recorded; the caller just receives the runtime's generic AbortError with no indication it was the 8s timeout.",
+   "evidence_quote": "  const controller = new AbortController();",
+   "trigger": "",
+   "recommendation": "Track whether the timer fired (a boolean flag or `controller.abort(new Error('timeout after ' + timeoutMs + 'ms'))`) and rethrow a descriptive timeout error from the catch path so callers can distinguish timeout from network failure.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "907503400f9e",
+   "rule": "",
+   "severity": "minor",
+   "category": "testing",
+   "file": "src/fetchJson.js",
+   "line": 12,
+   "title": "No tests were run for new timing/abort behaviour",
+   "evidence": "The change adds a new asynchronous timeout branch and a `finally` cleanup, and the report states no test commands were run, so neither the abort path nor the timer cleanup is exercised.",
+   "evidence_quote": "    clearTimeout(timer);",
+   "trigger": "",
+   "recommendation": "Add tests using a slow/never-resolving fetch stub and fake timers: assert the promise rejects on timeout, that the timer is cleared on success (no leaked handle), and that a caller-supplied signal still cancels.",
+   "confidence": 0.55,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

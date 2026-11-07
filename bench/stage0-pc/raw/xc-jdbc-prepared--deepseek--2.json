@@ -1,0 +1,77 @@
+{
+ "case_id": "xc-jdbc-prepared",
+ "seat": "deepseek",
+ "sample": 2,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "4db578486e9cc2699555ce69a17ace0cb8ba59e30543ef834692572808383ba9",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "4db578486e9cc2699555ce69a17ace0cb8ba59e30543ef834692572808383ba9",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1039,
+   "tokens_out": 1993,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:47:54+00:00",
+   "finished_at": "2026-11-07T13:48:07+00:00",
+   "duration_ms": 12527,
+   "prompt_chars": 4195
+  }
+ ],
+ "shadow_cost_usd": 0.002473,
+ "duration_ms": 12528,
+ "findings": [
+  {
+   "id": "b51b66d3772a",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "src/main/java/com/example/db/UserRepository.java",
+   "line": 17,
+   "title": "NPE on row whose email column is NULL (Optional.of instead of Optional.ofNullable)",
+   "evidence": "return rs.next() ? Optional.of(rs.getString(\"email\")) : Optional.empty();",
+   "evidence_quote": "                return rs.next() ? Optional.of(rs.getString(\"email\")) : Optional.empty();",
+   "trigger": "",
+   "recommendation": "Use Optional.ofNullable(rs.getString(\"email\")) so a matched row with a NULL email column yields Optional.empty() instead of throwing NullPointerException. If NULL email is supposed to be an error, throw a domain-specific exception with a clear message rather than letting an NPE escape from a query method. Note the defect is reachable only when the users.email column is nullable (or a legacy row holds NULL); confirm the schema.",
+   "confidence": 0.75,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "582542d50ed1",
+   "rule": "",
+   "severity": "minor",
+   "category": "testing",
+   "file": "src/main/java/com/example/db/UserRepository.java",
+   "line": 12,
+   "title": "No test exercises findEmail, in particular the NULL-email and no-row branches",
+   "evidence": "    public Optional<String> findEmail(long id) throws SQLException {",
+   "evidence_quote": "    public Optional<String> findEmail(long id) throws SQLException {",
+   "trigger": "",
+   "recommendation": "Add repository tests against the real query path covering: row found with a non-null email, row found with a NULL email, and no matching row (Optional.empty()). Also assert that the PreparedStatement/ResultSet are closed (e.g. via a mock or proxy connection) since the try-with-resources contract is the core of this change.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

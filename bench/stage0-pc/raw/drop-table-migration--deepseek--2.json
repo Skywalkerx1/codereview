@@ -1,0 +1,100 @@
+{
+ "case_id": "drop-table-migration",
+ "seat": "deepseek",
+ "sample": 2,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "c179cef63eefa24956594f595721a2404e57db807a9f82f3cfd1b92b35f32f97",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "c179cef63eefa24956594f595721a2404e57db807a9f82f3cfd1b92b35f32f97",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 890,
+   "tokens_out": 2325,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:35:23+00:00",
+   "finished_at": "2026-11-07T13:35:37+00:00",
+   "duration_ms": 14789,
+   "prompt_chars": 3480
+  }
+ ],
+ "shadow_cost_usd": 0.002798,
+ "duration_ms": 14790,
+ "findings": [
+  {
+   "id": "ecaf07899274",
+   "rule": "",
+   "severity": "major",
+   "category": "data-loss",
+   "file": "db/migrations/0042_cleanup.py",
+   "line": 5,
+   "title": "Irreversible data loss: table dropped with no archive, guard, or downgrade",
+   "evidence": "The added statement is 'conn.execute(\"DROP TABLE legacy_users\")' executed inside upgrade() with no preceding copy/archive of rows, no emptiness check, and no corresponding restore step visible in the hunk.",
+   "evidence_quote": "    conn.execute(\"DROP TABLE legacy_users\")",
+   "trigger": "",
+   "recommendation": "Reachability: running upgrade() against any database where legacy_users still holds rows deletes them permanently. Before dropping, archive the rows (e.g. CREATE TABLE legacy_users_archive AS SELECT * or export) or assert the table is empty and abort otherwise; add/verify an explicit downgrade() that recreates the table so the migration is reversible.",
+   "confidence": 0.75,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "a28d002648e3",
+   "rule": "",
+   "severity": "major",
+   "category": "reliability",
+   "file": "db/migrations/0042_cleanup.py",
+   "line": 5,
+   "title": "No IF EXISTS: migration hard-fails and leaves schema half-migrated",
+   "evidence": "The added line 'conn.execute(\"DROP TABLE legacy_users\")' uses a bare DROP TABLE with no IF EXISTS or prior existence probe, and it is sequenced after 'conn.execute(\"DROP INDEX idx_legacy_email\")'.",
+   "evidence_quote": "    conn.execute(\"DROP TABLE legacy_users\")",
+   "trigger": "",
+   "recommendation": "Reachability: on a fresh database or one where the table was never created / was already removed, upgrade() raises an error after the index was already dropped, so the environment is left with the index gone and no way to re-run cleanly. Use 'DROP TABLE IF EXISTS legacy_users' (or query the catalog first) so the step is idempotent, and keep the destructive steps ordered/atomic so partial application cannot strand the schema.",
+   "confidence": 0.8,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "777f8b4365aa",
+   "rule": "",
+   "severity": "minor",
+   "category": "testing",
+   "file": "db/migrations/0042_cleanup.py",
+   "line": 5,
+   "title": "Destructive migration added with no test exercising the drop or its absence case",
+   "evidence": "No test commands were run for this change, and the added 'conn.execute(\"DROP TABLE legacy_users\")' has no accompanying test for the table-absent and table-populated paths.",
+   "evidence_quote": "    conn.execute(\"DROP TABLE legacy_users\")",
+   "trigger": "",
+   "recommendation": "Add migration tests covering (a) upgrade() on a DB where legacy_users does not exist, (b) upgrade() where it exists with rows (assert archived/empty-guard behaviour), and (c) FK dependencies, since DROP TABLE without CASCADE fails on PostgreSQL when other objects reference the table.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

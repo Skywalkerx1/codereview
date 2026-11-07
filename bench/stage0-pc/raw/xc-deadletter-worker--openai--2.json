@@ -1,0 +1,54 @@
+{
+ "case_id": "xc-deadletter-worker",
+ "seat": "openai",
+ "sample": 2,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "7fa229e350a4a667413e65c4a2832b081436218e44ea67c1023a9bdbc330291f",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "gpt-5.4",
+ "events": [
+  {
+   "seat": "openai",
+   "prompt_hash": "7fa229e350a4a667413e65c4a2832b081436218e44ea67c1023a9bdbc330291f",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1223,
+   "tokens_out": 238,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:41:22+00:00",
+   "finished_at": "2026-11-07T13:41:26+00:00",
+   "duration_ms": 4536,
+   "prompt_chars": 5271
+  }
+ ],
+ "shadow_cost_usd": 0.003909,
+ "duration_ms": 4537,
+ "findings": [
+  {
+   "id": "d24d0a95f4a0",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "app/dlq_worker.py",
+   "line": 40,
+   "title": "Malformed or missing message.attributes can crash the consumer on final failure",
+   "evidence": "On the final failed attempt, the DLQ payload unconditionally expands message.attributes into a dict. If attributes is None or any non-mapping value, this raises before dlq.send is called, escapes the inner try/except, and aborts process_messages instead of retrying or leaving the message for redelivery.",
+   "evidence_quote": "                        **message.attributes,",
+   "trigger": "",
+   "recommendation": "Normalize attributes before use, e.g. treat non-dict values as {} in both _delivery_attempts and the DLQ send path, or wrap construction of the attributes dict inside the inner try/except so malformed metadata cannot terminate the worker.",
+   "confidence": 0.97,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

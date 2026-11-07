@@ -1,0 +1,146 @@
+{
+ "case_id": "xc-fetch-timeout-abort",
+ "seat": "deepseek",
+ "sample": 1,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "a732b18057c81219b26fa93a5905268813fe876738e82ff316f07e74ab2b190f",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "a732b18057c81219b26fa93a5905268813fe876738e82ff316f07e74ab2b190f",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1003,
+   "tokens_out": 3959,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:42:55+00:00",
+   "finished_at": "2026-11-07T13:43:18+00:00",
+   "duration_ms": 23258,
+   "prompt_chars": 3965
+  }
+ ],
+ "shadow_cost_usd": 0.004626,
+ "duration_ms": 23259,
+ "findings": [
+  {
+   "id": "90ab58eaeb23",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "src/fetchJson.js",
+   "line": 5,
+   "title": "Caller-supplied AbortSignal is silently overwritten by the internal controller",
+   "evidence": "The new fetch call spreads caller options first and then unconditionally sets 'signal: controller.signal', so any signal passed by the caller (e.g. 'fetchJson(url, { signal: ctrl.signal })' on unmount/navigation cancel) is dropped with no error and no linked aborting.",
+   "evidence_quote": "    const response = await fetch(url, { ...options, signal: controller.signal });",
+   "trigger": "",
+   "recommendation": "Compose the caller signal with the timeout controller instead of replacing it: capture 'const callerSignal = options.signal', omit it from the spread, and abort the internal controller when the caller signal fires (or pass a listener that calls controller.abort(callerSignal.reason) and remove it in the finally block). At minimum, throw or warn when options.signal is provided so cancellation is not silently lost.",
+   "confidence": 0.85,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "a2056aa40989",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "src/fetchJson.js",
+   "line": 1,
+   "title": "Explicit null options now throws before any request is made",
+   "evidence": "The old signature 'export async function fetchJson(url, options = {})' accepted 'fetchJson(url, null)' (fetch treats null as no init); destructuring the second parameter directly throws a TypeError for null because the '= {}' default only covers undefined.",
+   "evidence_quote": "export async function fetchJson(url, { timeoutMs = 8000, ...options } = {}) {",
+   "trigger": "",
+   "recommendation": "Normalize the argument first: 'export async function fetchJson(url, init = {}) { const { timeoutMs = 8000, ...options } = init ?? {}; ... }' so null/undefined both behave, or document the contract change and audit call sites.",
+   "confidence": 0.7,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "7b56b58dd97b",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "src/fetchJson.js",
+   "line": 3,
+   "title": "Timeout failures are indistinguishable from network errors and carry no context",
+   "evidence": "The timer abort rejects the awaited fetch/json with a bare AbortError DOMException; there is no catch that converts it into a timeout-specific error mentioning url or timeoutMs, and in Node DOMException is not an Error instance, so callers checking 'instanceof Error' or matching on message will misclassify the failure.",
+   "evidence_quote": "  const timer = setTimeout(() => controller.abort(), timeoutMs);",
+   "trigger": "",
+   "recommendation": "Wrap the try body with a catch that checks for the abort and, when the abort came from this timer (track a flag in the timeout callback), rethrows a descriptive error such as 'new Error(`request timed out after ${timeoutMs}ms: ${url}`)' with the original as cause and a machine-readable code, leaving genuine network errors untouched.",
+   "confidence": 0.7,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "60b08e3f383b",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "src/fetchJson.js",
+   "line": 1,
+   "title": "timeoutMs is unvalidated: 0/negative aborts immediately, huge/Infinity misbehaves",
+   "evidence": "The destructured timeoutMs is passed straight to setTimeout, so a caller passing 0 (a common idiom for no timeout) gets an immediate abort, and a value above 2^31-1, including Infinity, is clamped by Node to 1ms with a TimeoutOverflowWarning, aborting the request almost instantly.",
+   "evidence_quote": "export async function fetchJson(url, { timeoutMs = 8000, ...options } = {}) {",
+   "trigger": "",
+   "recommendation": "Guard the value before scheduling: treat null/Infinity/<=0 as no timeout (skip AbortController entirely or use a large sane cap) and validate with Number.isFinite; apply an explicit maximum such as 2147483647.",
+   "confidence": 0.65,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "fb2d2316fffe",
+   "rule": "",
+   "severity": "minor",
+   "category": "testing",
+   "file": "src/fetchJson.js",
+   "line": 9,
+   "title": "No tests for the new abort/timeout path",
+   "evidence": "The change adds timeout behaviour (abort firing before headers, abort firing during 'response.json()' body read, timer cleanup on both success and failure) with no accompanying test, and no test asserting that a caller-supplied signal is still honoured.",
+   "evidence_quote": "    return await response.json();",
+   "trigger": "",
+   "recommendation": "Add tests using a mocked fetch plus fake timers: (1) resolves when fetch settles before timeout and clearTimeout is invoked, (2) rejects with a timeout error when the timer fires before headers, (3) rejects when the timer fires during body parsing, (4) a caller-provided signal still aborts the request.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

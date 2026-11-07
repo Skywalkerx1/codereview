@@ -1,0 +1,54 @@
+{
+ "case_id": "xc-tz-aware-scheduling",
+ "seat": "openai",
+ "sample": 3,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "292c40c203c3a0326735ddb071a7efcae9d999743aa00ca06d93ecfb0981f52d",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "gpt-5.4",
+ "events": [
+  {
+   "seat": "openai",
+   "prompt_hash": "292c40c203c3a0326735ddb071a7efcae9d999743aa00ca06d93ecfb0981f52d",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 973,
+   "tokens_out": 281,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:55:06+00:00",
+   "finished_at": "2026-11-07T13:55:10+00:00",
+   "duration_ms": 4718,
+   "prompt_chars": 4052
+  }
+ ],
+ "shadow_cost_usd": 0.004026,
+ "duration_ms": 4718,
+ "findings": [
+  {
+   "id": "cc2e9725db0d",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "app/scheduling.py",
+   "line": 11,
+   "title": "Nonexistent local times are silently scheduled on DST spring-forward days",
+   "evidence": "The code constructs the target run time with datetime.combine(..., tzinfo=tz), which does not validate that the requested wall clock time exists in that zone on that date. On spring-forward dates, values like 02:30 in many zones are skipped, so this can return a UTC instant for a run time that never occurs locally.",
+   "evidence_quote": "    candidate = datetime.combine(local.date(), wall, tzinfo=tz)",
+   "trigger": "",
+   "recommendation": "Detect nonexistent local times before returning. One approach is to build the local candidate, round-trip it through UTC back into the target zone, and verify the local date/time still matches the requested wall time; if not, choose and document a policy such as scheduling at the next valid local time or skipping to the following day. Add tests covering DST gap dates in a real zone such as America/New_York.",
+   "confidence": 0.95,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

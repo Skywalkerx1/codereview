@@ -1,0 +1,123 @@
+{
+ "case_id": "xc-strict-json-body",
+ "seat": "deepseek",
+ "sample": 3,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "a76bfbe62cac0b94eebea46f8545408bae508902af7880d56775f6a3b099fe9a",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "a76bfbe62cac0b94eebea46f8545408bae508902af7880d56775f6a3b099fe9a",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1177,
+   "tokens_out": 7364,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:51:12+00:00",
+   "finished_at": "2026-11-07T13:51:56+00:00",
+   "duration_ms": 44163,
+   "prompt_chars": 4456
+  }
+ ],
+ "shadow_cost_usd": 0.008418,
+ "duration_ms": 44163,
+ "findings": [
+  {
+   "id": "19c1f22f4a88",
+   "rule": "",
+   "severity": "major",
+   "category": "reliability",
+   "file": "src/jsonBody.js",
+   "line": 18,
+   "title": "Receiving request socket is destroyed immediately after writing the 413 body, so the client may never see the 413",
+   "evidence": "In the over-limit path the handler does 'res.status(413).json({ error: ... })' and on the very next line calls 'req.destroy();'. The 413 body is written to the socket asynchronously, while IncomingMessage._destroy marks the message aborted (it is incomplete, since reading stopped mid-body) and tears down the socket, dropping pending writes.",
+   "evidence_quote": "      req.destroy();",
+   "trigger": "",
+   "recommendation": "Flush the response first, then close the connection: e.g. write the 413, set Connection: close, and destroy the socket/request from a res 'finish'/'close' handler (res.on('finish', () => req.destroy())) or stop consuming with req.pause() and let the response complete. Add a test that an oversized body yields status 413 rather than ECONNRESET.",
+   "confidence": 0.65,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "4ebbcc1c6b39",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "src/jsonBody.js",
+   "line": 33,
+   "title": "Parsed value is assigned to req.body without requiring an object, so a body of null/scalar/array violates the object contract downstream",
+   "evidence": "The parser does 'req.body = JSON.parse(text);' for any valid JSON. A request with Content-Type: application/json and body 'null' takes the success path and leaves req.body === null (same for '42', '\"x\"', '[]'), so any handler reading a property of req.body throws TypeError and returns 500 instead of a 4xx client error.",
+   "evidence_quote": "      req.body = JSON.parse(text);",
+   "trigger": "",
+   "recommendation": "After parsing, reject non-object results (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) with 400, matching strict JSON-body semantics, or document and test the intended contract for top-level arrays/scalars.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "7c0785f89e83",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "src/jsonBody.js",
+   "line": 14,
+   "title": "Byte accounting assumes Buffer chunks; if an earlier middleware set request encoding the cap is under-counted and Buffer.concat throws",
+   "evidence": "The comment asserts byte semantics via 'received += chunk.length;', but chunk.length is only bytes while chunks are Buffers. If any upstream middleware calls req.setEncoding('utf8'), chunk.length counts UTF-16 code units, so a multi-byte body can exceed MAX_BODY_BYTES without tripping the cap, and line 27's Buffer.concat(chunks) throws TypeError on string chunks (unhandled 500).",
+   "evidence_quote": "    received += chunk.length; // Buffer length: bytes, not characters",
+   "trigger": "",
+   "recommendation": "Coerce defensively: use Buffer.byteLength(chunk) when a chunk is a string, and Buffer.from(chunk) before pushing, or explicitly document/enforce that this middleware must run before any setEncoding call. Add a test with a multi-byte UTF-8 body near the cap.",
+   "confidence": 0.5,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "32e85125fb90",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "src/jsonBody.js",
+   "line": 29,
+   "title": "Empty or whitespace-only body is silently accepted as an empty object",
+   "evidence": "The end handler short-circuits with 'req.body = {};' and next() when text.trim() === '', so a client that sends Content-Type: application/json with no body gets a success path instead of a 400. For a strict JSON parser this hides client bugs and differs from strict body-parser behaviour (which 400s on an empty body).",
+   "evidence_quote": "      req.body = {};",
+   "trigger": "",
+   "recommendation": "Decide the contract explicitly: return 400 for an empty/whitespace body, or keep the {} default and document plus test it so downstream handlers can rely on it.",
+   "confidence": 0.45,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

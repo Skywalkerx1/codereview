@@ -1,0 +1,54 @@
+{
+ "case_id": "xc-idempotency-keys",
+ "seat": "openai",
+ "sample": 1,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "ed59ce6320b6b2f0283dfe23019fe7506b7d5e2745b1cd4d10cd6c62aa22fcbd",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "gpt-5.4",
+ "events": [
+  {
+   "seat": "openai",
+   "prompt_hash": "ed59ce6320b6b2f0283dfe23019fe7506b7d5e2745b1cd4d10cd6c62aa22fcbd",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1286,
+   "tokens_out": 248,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:46:53+00:00",
+   "finished_at": "2026-11-07T13:46:57+00:00",
+   "duration_ms": 4242,
+   "prompt_chars": 5393
+  }
+ ],
+ "shadow_cost_usd": 0.004087,
+ "duration_ms": 4242,
+ "findings": [
+  {
+   "id": "a5ae985a4010",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "app/payments.py",
+   "line": 58,
+   "title": "Successful charge can leave idempotency key stuck in-flight if local completion fails",
+   "evidence": "After the gateway call succeeds, the code writes the receipt to the local store without any cleanup path if that write raises. In that case the key remains in '_in_flight', and every retry will hit the duplicate-in-flight error forever even though the provider may already have charged the customer.",
+   "evidence_quote": "    store.complete(idempotency_key, receipt)",
+   "trigger": "",
+   "recommendation": "Wrap the post-charge persistence step so that failures do not leave the key permanently reserved. For example, catch exceptions from 'store.complete', call 'store.abandon(idempotency_key)' before re-raising, or make completion atomic/durable so retries can recover the original receipt instead of being blocked indefinitely.",
+   "confidence": 0.95,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

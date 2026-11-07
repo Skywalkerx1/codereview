@@ -1,0 +1,54 @@
+{
+ "case_id": "xss-innerhtml",
+ "seat": "deepseek",
+ "sample": 1,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "f63cb55fb7a41e512d445aa6ec9d1e0bec7462016bb85ba30fc4f749ba1819ab",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "f63cb55fb7a41e512d445aa6ec9d1e0bec7462016bb85ba30fc4f749ba1819ab",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 863,
+   "tokens_out": 714,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:55:48+00:00",
+   "finished_at": "2026-11-07T13:55:53+00:00",
+   "duration_ms": 5226,
+   "prompt_chars": 3438
+  }
+ ],
+ "shadow_cost_usd": 0.001018,
+ "duration_ms": 5226,
+ "findings": [
+  {
+   "id": "7a0af219bb5d",
+   "rule": "",
+   "severity": "blocker",
+   "category": "security",
+   "file": "web/comments.js",
+   "line": 14,
+   "title": "Stored XSS: comment body assigned to innerHTML",
+   "evidence": "Replaced 'el.textContent = comment.body;' with 'el.innerHTML = comment.body;', so any HTML/script payload in a comment body is parsed and executed when renderComment runs.",
+   "evidence_quote": "  el.innerHTML = comment.body;",
+   "trigger": "",
+   "recommendation": "Revert to textContent for the comment body; if rich formatting is required, sanitize through a vetted allow-list sanitizer (e.g. DOMPurify) before assignment and add a test that renders a comment body containing a script/img-onerror payload and asserts no element/attribute is created.",
+   "confidence": 0.97,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

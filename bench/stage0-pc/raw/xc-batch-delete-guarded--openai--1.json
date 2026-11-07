@@ -1,0 +1,100 @@
+{
+ "case_id": "xc-batch-delete-guarded",
+ "seat": "openai",
+ "sample": 1,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "9cfbf1fbfd0cc977f247e84288240441df3a6a0273f04bf47a0c224bc680e791",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "gpt-5.4",
+ "events": [
+  {
+   "seat": "openai",
+   "prompt_hash": "9cfbf1fbfd0cc977f247e84288240441df3a6a0273f04bf47a0c224bc680e791",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1230,
+   "tokens_out": 563,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:36:33+00:00",
+   "finished_at": "2026-11-07T13:36:41+00:00",
+   "duration_ms": 8078,
+   "prompt_chars": 5099
+  }
+ ],
+ "shadow_cost_usd": 0.007168,
+ "duration_ms": 8079,
+ "findings": [
+  {
+   "id": "675c6e5d45a7",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "app/cleanup.py",
+   "line": 30,
+   "title": "MySQL batched delete uses unsupported qmark placeholder syntax",
+   "evidence": "The file explicitly targets MySQL for batched deletes, but the delete statement binds the LIMIT value with a qmark placeholder. On supported POSIX deployments using a MySQL DB-API driver, parameter styles are typically format/pyformat rather than qmark, so this statement will fail at runtime instead of deleting rows.",
+   "evidence_quote": "            f\"DELETE FROM {table} WHERE {where_sql} LIMIT ?\",",
+   "trigger": "",
+   "recommendation": "Use the parameter style required by the project's actual MySQL driver, or avoid binding LIMIT with qmark syntax here. Add an integration test against the supported MySQL adapter to verify the batched delete executes successfully.",
+   "confidence": 0.97,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "02c9d509ca37",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "app/cleanup.py",
+   "line": 37,
+   "title": "Cleanup can stop after 1000 batches and leave matching rows undeleted",
+   "evidence": "The loop is hard-capped at 1000 iterations and raises once that cap is hit. With the default batch size of 500, any cleanup matching more than 500000 rows will abort partway through, leaving remaining rows undeleted in a reachable production case.",
+   "evidence_quote": "            f\"cleanup of {table} exceeded {MAX_BATCHES} batches; \"",
+   "trigger": "",
+   "recommendation": "Either remove the arbitrary cap, make it configurable per call, or return partial-progress information without pretending the operation completed. At minimum, document and enforce an upper bound before starting so operators know the cleanup will not finish.",
+   "confidence": 0.9,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "bd37d5b1960e",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/cleanup.py",
+   "line": 42,
+   "title": "Returned matching count is wrong for non-dry runs when batch cap aborts or rows change concurrently",
+   "evidence": "For non-dry runs the function reports matching equal to deleted, not the number of rows that matched the filter. If rows are inserted/deleted concurrently or the operation aborts at the batch cap, callers receive a misleading matching count that can hide incomplete cleanup.",
+   "evidence_quote": "    return {\"dry_run\": False, \"matching\": deleted, \"deleted\": deleted}",
+   "trigger": "",
+   "recommendation": "Return only deleted for non-dry runs, or compute matching separately before deletion and clearly distinguish it from deleted/remaining counts. Consider exposing whether the run completed fully.",
+   "confidence": 0.82,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

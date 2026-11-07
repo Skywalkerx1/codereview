@@ -1,0 +1,123 @@
+{
+ "case_id": "xc-circuit-breaker",
+ "seat": "deepseek",
+ "sample": 1,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "4745ad93069043ae3ff6d01c5509ad2d66c76ce2cf3010f13abe1be281fc31bd",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "4745ad93069043ae3ff6d01c5509ad2d66c76ce2cf3010f13abe1be281fc31bd",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1567,
+   "tokens_out": 6862,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:38:50+00:00",
+   "finished_at": "2026-11-07T13:39:28+00:00",
+   "duration_ms": 38237,
+   "prompt_chars": 6167
+  }
+ ],
+ "shadow_cost_usd": 0.007971,
+ "duration_ms": 38237,
+ "findings": [
+  {
+   "id": "cb80d901e1a0",
+   "rule": "",
+   "severity": "major",
+   "category": "reliability",
+   "file": "app/circuit_breaker.py",
+   "line": 72,
+   "title": "Success path unconditionally closes breaker and clears other threads' probe flag",
+   "evidence": "After releasing the lock for the call, the success branch does 'self._state = self.CLOSED', 'self._failures = 0', 'self._opened_at = None' and 'self._probe_in_flight = False' (line 75) without checking whether the breaker was tripped or a probe was taken in the meantime.",
+   "evidence_quote": "        self._state = self.CLOSED",
+   "trigger": "",
+   "recommendation": "Only apply the success transition if this call still owns the state it observed. Capture a generation counter (incremented on every state transition) under the lock before releasing it, and in the outcome handlers re-acquire the lock and bail out if the generation changed. At minimum, in the non-probing success case only reset '_failures'/'_opened_at' and never clear '_probe_in_flight' or overwrite OPEN/HALF_OPEN state set by another thread.",
+   "confidence": 0.75,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "7f619603596e",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/circuit_breaker.py",
+   "line": 57,
+   "title": "Outcome handlers can undo an explicit reset() performed while a call is in flight",
+   "evidence": "The probe failure handler sets 'self._state = self.OPEN' and a fresh '_opened_at' unconditionally, even if reset() ran after the probe was admitted; the same applies to a stale CLOSED call failing at line 63.",
+   "evidence_quote": "                    self._state = self.OPEN",
+   "trigger": "",
+   "recommendation": "Use the same generation/ownership check described above so a probe (or any in-flight call) that was admitted before reset() cannot re-open the breaker after the operator explicitly reset it.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "0d619717a874",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "app/circuit_breaker.py",
+   "line": 51,
+   "title": "No timeout for a hung half-open probe leaves breaker wedged",
+   "evidence": "The probe flag is set with 'self._probe_in_flight = True' and only cleared by that same call's success or exception handlers; if the underlying call never returns (blocked socket, deadlock), the breaker stays HALF_OPEN with the probe flag set and every later call gets CircuitOpenError forever with no recovery except a manual reset().",
+   "evidence_quote": "                self._probe_in_flight = True",
+   "trigger": "",
+   "recommendation": "Record the probe start time and treat an in-flight probe older than a configurable probe_timeout as expired inside _refresh_locked (clear the flag and allow a new probe), or document the wedging behaviour and require callers to wrap the probe in their own timeout.",
+   "confidence": 0.5,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "febaf7179d2c",
+   "rule": "",
+   "severity": "minor",
+   "category": "testing",
+   "file": "app/circuit_breaker.py",
+   "line": 50,
+   "title": "No tests for the single-probe half-open guarantee or the concurrent-success race",
+   "evidence": "The new module ships without tests; the behaviour guarded by 'raise CircuitOpenError(\"half-open probe in flight\")' and the racy success path are exactly the parts that need deterministic coverage with a fake clock and threaded callers.",
+   "evidence_quote": "                    raise CircuitOpenError(\"half-open probe in flight\")",
+   "trigger": "",
+   "recommendation": "Add tests using the injectable clock: trip at threshold, verify rejection while OPEN, verify exactly one probe is admitted after reset_timeout, verify probe failure re-opens with a fresh cooldown, and add a concurrency test where a slow CLOSED-state call succeeds after another thread trips the breaker.",
+   "confidence": 0.5,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

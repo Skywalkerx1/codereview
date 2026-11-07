@@ -1,0 +1,77 @@
+{
+ "case_id": "xc-timeout-http-fetch",
+ "seat": "openai",
+ "sample": 1,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "6cccfe37c162912945abc8ad3a2c24e426d7a60645b0cc221cb7d8d7e138a131",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "gpt-5.4",
+ "events": [
+  {
+   "seat": "openai",
+   "prompt_hash": "6cccfe37c162912945abc8ad3a2c24e426d7a60645b0cc221cb7d8d7e138a131",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1100,
+   "tokens_out": 367,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:51:29+00:00",
+   "finished_at": "2026-11-07T13:51:34+00:00",
+   "duration_ms": 5715,
+   "prompt_chars": 4393
+  }
+ ],
+ "shadow_cost_usd": 0.005045,
+ "duration_ms": 5716,
+ "findings": [
+  {
+   "id": "2a9f6cade693",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "lib/http_fetch.rb",
+   "line": 26,
+   "title": "GET request is built from the full URI object instead of the request path",
+   "evidence": "Passing the parsed URI directly to Net::HTTP::Get.new can generate an absolute-form request target rather than the origin-form path expected by normal origin servers, causing valid HTTPS fetches to fail depending on the server/proxy path handling.",
+   "evidence_quote": "        response = http.request(Net::HTTP::Get.new(uri))",
+   "trigger": "",
+   "recommendation": "Construct the request with the path/query component, for example using 'Net::HTTP::Get.new(uri.request_uri)' or an explicit request object with the correct path and headers.",
+   "confidence": 0.95,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "2751dda88622",
+   "rule": "",
+   "severity": "major",
+   "category": "reliability",
+   "file": "lib/http_fetch.rb",
+   "line": 6,
+   "title": "Write timeouts are not retried even though Net::HTTP can raise them on supported Ruby versions",
+   "evidence": "The retry list only includes open timeout, read timeout, and connection reset, so a transient 'Net::WriteTimeout' during request transmission will bypass the bounded retry logic and fail immediately on Python-supported POSIX deployments using Ruby 3.11+ Net::HTTP.",
+   "evidence_quote": "    Net::OpenTimeout, Net::ReadTimeout, Errno::ECONNRESET",
+   "trigger": "",
+   "recommendation": "Include 'Net::WriteTimeout' in 'RETRYABLE_ERRORS' and add a test covering a transient write-timeout followed by success.",
+   "confidence": 0.84,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

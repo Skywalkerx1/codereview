@@ -1,0 +1,77 @@
+{
+ "case_id": "sql-injection-concat",
+ "seat": "deepseek",
+ "sample": 2,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "1f4d48b7786a5375f88fa61a7bbb47685849e0dbaac1509071065a7d9db00bef",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "1f4d48b7786a5375f88fa61a7bbb47685849e0dbaac1509071065a7d9db00bef",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 885,
+   "tokens_out": 1211,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:36:20+00:00",
+   "finished_at": "2026-11-07T13:36:27+00:00",
+   "duration_ms": 7568,
+   "prompt_chars": 3478
+  }
+ ],
+ "shadow_cost_usd": 0.001571,
+ "duration_ms": 7568,
+ "findings": [
+  {
+   "id": "b0010ec3f20b",
+   "rule": "",
+   "severity": "blocker",
+   "category": "security",
+   "file": "app/search.py",
+   "line": 5,
+   "title": "SQL injection: search term concatenated directly into query text",
+   "evidence": "The query is built by concatenating the caller-supplied term into the SQL literal instead of binding it as a parameter: '    q = \"SELECT * FROM docs WHERE title LIKE '%\" + term + \"%\"''",
+   "evidence_quote": "    q = \"SELECT * FROM docs WHERE title LIKE '%\" + term + \"%'\"",
+   "trigger": "",
+   "recommendation": "Revert to parameter binding: build the pattern in Python and pass it as a bound parameter, e.g. q = \"SELECT * FROM docs WHERE title LIKE ?\" and db.execute(q, (f\"%{term}%\",)). If the LIKE pattern must be escaped, escape % and _ in term before binding.",
+   "confidence": 0.97,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "da56e2d31416",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "app/search.py",
+   "line": 6,
+   "title": "Benign search terms with a quote break the query (no params bound)",
+   "evidence": "The statement is executed with no parameters, so a term such as \"O'Brien\" produces unbalanced quotes and the SQL layer raises an OperationalError instead of returning results: '    return db.execute(q)'",
+   "evidence_quote": "    return db.execute(q)",
+   "trigger": "",
+   "recommendation": "Bind the term as a parameter (db.execute(q, (f\"%{term}%\",))) so quoting is handled by the driver; add a regression test searching for a term containing a single quote and one containing % / _.",
+   "confidence": 0.9,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

@@ -1,0 +1,100 @@
+{
+ "case_id": "clean-input-validation",
+ "seat": "deepseek",
+ "sample": 1,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "977c93b0806d30b4ae3e429503ecfc4e043fad1dcb25ab0481610ef3c696d72b",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "977c93b0806d30b4ae3e429503ecfc4e043fad1dcb25ab0481610ef3c696d72b",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 897,
+   "tokens_out": 2486,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:34:58+00:00",
+   "finished_at": "2026-11-07T13:35:15+00:00",
+   "duration_ms": 16910,
+   "prompt_chars": 3525
+  }
+ ],
+ "shadow_cost_usd": 0.002977,
+ "duration_ms": 16911,
+ "findings": [
+  {
+   "id": "a6c464860092",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "app/forms.py",
+   "line": 10,
+   "title": "clean_tag changes contract from total to partial; non-form callers will see an uncaught ValidationError",
+   "evidence": "    if len(tag) > 40 or tag not in ALLOWED_TAGS:",
+   "evidence_quote": "    if len(tag) > 40 or tag not in ALLOWED_TAGS:",
+   "trigger": "",
+   "recommendation": "Previously clean_tag always returned a string; now it can raise for any non-allowlisted input. Check every caller of clean_tag (API serializers, bulk import, migration/backfill scripts, template helpers) and either wrap them to translate ValidationError into a user-facing error or confine the raising behaviour to a Django form field's clean_<field> method. Also confirm ValidationError is actually imported in app/forms.py (the import is outside this hunk); otherwise this raise is a NameError at r",
+   "confidence": 0.45,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "2ab35c30eaa3",
+   "rule": "",
+   "severity": "nit",
+   "category": "quality",
+   "file": "app/forms.py",
+   "line": 10,
+   "title": "Length check is unreachable: every allowlisted tag is far shorter than 40 chars",
+   "evidence": "    if len(tag) > 40 or tag not in ALLOWED_TAGS:",
+   "evidence_quote": "    if len(tag) > 40 or tag not in ALLOWED_TAGS:",
+   "trigger": "",
+   "recommendation": "Since ALLOWED_TAGS contains only short lowercase tokens, len(tag) > 40 can never be true for an accepted tag; the length bound contributes nothing and the advertised length validation is effectively inert. Either drop the length clause, or actualize length validation by deriving it from the allowlist (e.g. max(len(t) for t in ALLOWED_TAGS)) and covering it with a test so the intent is testable.",
+   "confidence": 0.8,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "fdf2c345e521",
+   "rule": "",
+   "severity": "minor",
+   "category": "testing",
+   "file": "app/forms.py",
+   "line": 10,
+   "title": "No test added for the new rejection path (case folding, whitespace, unknown tag)",
+   "evidence": "    if len(tag) > 40 or tag not in ALLOWED_TAGS:",
+   "evidence_quote": "    if len(tag) > 40 or tag not in ALLOWED_TAGS:",
+   "trigger": "",
+   "recommendation": "Add unit tests covering: allowlisted tag in mixed case and with surrounding whitespace returns the lowercase tag; an unknown tag raises ValidationError; and the caller-level behaviour (form error surfaced, not a 500) for the same input.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

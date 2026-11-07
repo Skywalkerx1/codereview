@@ -1,0 +1,77 @@
+{
+ "case_id": "xc-csrf-token-check",
+ "seat": "openai",
+ "sample": 2,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "48874f52ed5a83e32329656a30ed916da08889ea80a88e3667d80897677374c6",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "gpt-5.4",
+ "events": [
+  {
+   "seat": "openai",
+   "prompt_hash": "48874f52ed5a83e32329656a30ed916da08889ea80a88e3667d80897677374c6",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1036,
+   "tokens_out": 444,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:40:42+00:00",
+   "finished_at": "2026-11-07T13:40:51+00:00",
+   "duration_ms": 8617,
+   "prompt_chars": 4277
+  }
+ ],
+ "shadow_cost_usd": 0.005735,
+ "duration_ms": 8619,
+ "findings": [
+  {
+   "id": "58fd89e0582e",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "src/app.js",
+   "line": 26,
+   "title": "Global CSRF check blocks all mutating requests before any route-specific exemptions or token bootstrap",
+   "evidence": "The middleware is installed globally for every request after JSON parsing, and it rejects any non-safe method unless 'x-csrf-token' matches 'req.session?.csrfToken'. In this file there is no route or middleware that creates or exposes a CSRF token, so any POST to the existing endpoints is reachable and will now return 403 unless some external middleware happens to populate the session token.",
+   "evidence_quote": "app.use(csrfProtection);",
+   "trigger": "",
+   "recommendation": "Only enable CSRF protection after confirming the app has session and token-issuance middleware in this stack, or scope it to routes that are known to have a token lifecycle. Add an explicit token bootstrap endpoint or response mechanism and tests proving existing POST routes still work in the supported configuration.",
+   "confidence": 0.89,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "7b5eee16b67e",
+   "rule": "",
+   "severity": "major",
+   "category": "reliability",
+   "file": "src/app.js",
+   "line": 20,
+   "title": "Rejecting every non-GET/HEAD/OPTIONS method is a breaking change for common CORS preflight alternatives and method-override flows",
+   "evidence": "The middleware treats every method outside the hardcoded safe set as requiring a CSRF header, so legitimate mutating requests using methods like DELETE, PATCH, or PUT will fail unless clients are updated to send the new header. This is a reachable API contract break because the check runs before route handling for all requests.",
+   "evidence_quote": "  if (SAFE_METHODS.has(req.method)) {",
+   "trigger": "",
+   "recommendation": "Document and version this API change, or limit enforcement to the specific existing mutating routes being protected. Add compatibility tests for all supported mutating methods and any method-override mechanism used by clients.",
+   "confidence": 0.78,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

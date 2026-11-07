@@ -1,0 +1,169 @@
+{
+ "case_id": "xc-health-guard-selfcheck",
+ "seat": "deepseek",
+ "sample": 3,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "59f439becc993fac7b42a4aa09c1b72ffae4df0319a0c0af9bc2f768105170e7",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "59f439becc993fac7b42a4aa09c1b72ffae4df0319a0c0af9bc2f768105170e7",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1535,
+   "tokens_out": 5998,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:46:20+00:00",
+   "finished_at": "2026-11-07T13:46:53+00:00",
+   "duration_ms": 32747,
+   "prompt_chars": 5832
+  }
+ ],
+ "shadow_cost_usd": 0.007012,
+ "duration_ms": 32748,
+ "findings": [
+  {
+   "id": "045d93aacca8",
+   "rule": "",
+   "severity": "major",
+   "category": "reliability",
+   "file": "app/health.py",
+   "line": 68,
+   "title": "No overall deadline: sequential probes make worst-case latency N x timeout_seconds",
+   "evidence": "checks loop calls _run_probe sequentially per name with the same timeout_seconds, so with 3 probes each hitting the 2.0s limit the endpoint blocks ~6s",
+   "evidence_quote": "        _run_probe(name, probes[name], timeout_seconds)",
+   "trigger": "",
+   "recommendation": "Treat timeout_seconds as a total budget: compute a deadline (time.monotonic() + timeout_seconds) once, pass each probe the remaining budget (max(0, deadline - now)), and skip/mark remaining probes as down/timeout once the budget is exhausted. Alternatively document and cap the aggregate (timeout_seconds / len(probes) per probe).",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "91b54f792526",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "app/health.py",
+   "line": 39,
+   "title": "socket.create_connection timeout does not cover DNS resolution",
+   "evidence": "socket.create_connection is given timeout=timeout, but getaddrinfo runs before the socket timeout applies and blocks the probe past the budget",
+   "evidence_quote": "        with socket.create_connection((host, port), timeout=timeout):",
+   "trigger": "",
+   "recommendation": "Resolve the host under the same deadline (e.g. run getaddrinfo in a worker with a bounded wait, or accept pre-resolved addresses) so a slow/hanging resolver cannot stall the health endpoint; at minimum document that the timeout only bounds connect().",
+   "confidence": 0.65,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "f997d0d45c79",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/health.py",
+   "line": 72,
+   "title": "Core-ness keyed on hardcoded probe names with no validation",
+   "evidence": "core_down checks membership in CORE_PROBES, so a deployment naming its DB probe e.g. postgres or primary never triggers 503 when the database is down",
+   "evidence_quote": "        check[\"status\"] == \"down\" and check[\"name\"] in CORE_PROBES",
+   "trigger": "",
+   "recommendation": "Let callers declare which probes are core (e.g. healthcheck(probes, core_probes=CORE_PROBES) or a per-probe core flag) and fail fast (ValueError/key error in payload) when a required core probe is missing from probes.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "1e60e7d2df30",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/health.py",
+   "line": 75,
+   "title": "Empty or non-core-only probe set reports healthy 200",
+   "evidence": "any_down and core_down are both False for an empty probes mapping, so the function returns 200 with status ok and no checks",
+   "evidence_quote": "    any_down = any(check[\"status\"] == \"down\" for check in checks)",
+   "trigger": "",
+   "recommendation": "Guard against an empty probes mapping (raise ValueError, or return 503/down with an empty checks list) so a configuration load failure cannot masquerade as a healthy instance.",
+   "confidence": 0.55,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "6df615c70723",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "app/health.py",
+   "line": 51,
+   "title": "requests float timeout applies to connect and read separately",
+   "evidence": "a single float is passed to http_get, which requests interprets as separate connect and read timeouts, allowing up to 2x timeout per HTTP probe",
+   "evidence_quote": "        response = http_get(url, timeout=timeout)",
+   "trigger": "",
+   "recommendation": "Pass a (connect, read) tuple derived from the remaining budget, or document that the effective per-probe ceiling is twice the configured value.",
+   "confidence": 0.55,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "af34e6f36bbe",
+   "rule": "",
+   "severity": "minor",
+   "category": "testing",
+   "file": "app/health.py",
+   "line": 57,
+   "title": "No tests for the down/degraded/ok branching or probe factories",
+   "evidence": "the diff adds healthcheck and both probe factories with no accompanying test module, and no test command was run",
+   "evidence_quote": "def healthcheck(probes, timeout_seconds=DEFAULT_TIMEOUT_SECONDS):",
+   "trigger": "",
+   "recommendation": "Add unit tests using the http_get injection point and a fake tcp probe: core down returns 503, non-core down returns 200 degraded, all-ok returns 200 ok, probe raising is recorded as down with the exception type, and timeout_seconds <= 0 raises.",
+   "confidence": 0.7,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

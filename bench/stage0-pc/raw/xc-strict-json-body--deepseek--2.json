@@ -1,0 +1,123 @@
+{
+ "case_id": "xc-strict-json-body",
+ "seat": "deepseek",
+ "sample": 2,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "a76bfbe62cac0b94eebea46f8545408bae508902af7880d56775f6a3b099fe9a",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "a76bfbe62cac0b94eebea46f8545408bae508902af7880d56775f6a3b099fe9a",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1177,
+   "tokens_out": 6952,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:50:48+00:00",
+   "finished_at": "2026-11-07T13:51:29+00:00",
+   "duration_ms": 40913,
+   "prompt_chars": 4456
+  }
+ ],
+ "shadow_cost_usd": 0.007965,
+ "duration_ms": 40913,
+ "findings": [
+  {
+   "id": "0dcac122aa60",
+   "rule": "",
+   "severity": "major",
+   "category": "reliability",
+   "file": "src/jsonBody.js",
+   "line": 18,
+   "title": "req.destroy() right after 413 tears down the socket before the response flushes",
+   "evidence": "After queueing the error response the handler immediately destroys the request; IncomingMessage.destroy() destroys the underlying socket, so the 413 body is often never delivered.",
+   "evidence_quote": "      req.destroy();",
+   "trigger": "",
+   "recommendation": "Do not kill the socket synchronously in the data handler. Either pause/drain instead of destroying (req.pause() plus res.status(413).set('Connection', 'close')).json(...) and destroy only after res 'finish'/'close': res.on('finish', () => req.destroy()) \u2014 or use req.unpipe()/req.resume() to drain so the 413 is flushed first. Add a test asserting the client actually receives 413 for an oversize body.",
+   "confidence": 0.72,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "164f9a6285ba",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "src/jsonBody.js",
+   "line": 33,
+   "title": "Top-level JSON scalars accepted, so req.body can be null/number/string",
+   "evidence": "Empty and whitespace-only bodies are normalised to {}, but any valid JSON value is assigned directly, so a body of 'null' yields req.body === null and any handler doing req.body.x throws a TypeError (500).",
+   "evidence_quote": "      req.body = JSON.parse(text);",
+   "trigger": "",
+   "recommendation": "Mirror express.json strict mode: after parsing, reject with 400 when the value is not a non-null object (optionally arrays only), e.g. if (parsed === null || typeof parsed !== 'object') return res.status(400).json(...). Cover 'null', '5' and '\"s\"' bodies in tests.",
+   "confidence": 0.65,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "ff1ae845f461",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "src/jsonBody.js",
+   "line": 14,
+   "title": "Chunk size accounting and Buffer.concat assume Buffer chunks",
+   "evidence": "The comment claims bytes, which is only true for Buffer chunks; if any earlier middleware called req.setEncoding() the chunks are strings, so the cap counts characters (multi-byte bodies bypass the 100_000 byte limit) and Buffer.concat(chunks) in the end handler throws an uncaught TypeError.",
+   "evidence_quote": "    received += chunk.length; // Buffer length: bytes, not characters",
+   "trigger": "",
+   "recommendation": "Normalise chunks (Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk, 'utf8')) before measuring/pushing, and wrap Buffer.concat in the end handler's try/catch so a decode failure becomes a 400 rather than an unhandled throw. Alternatively call req.setEncoding(null) defensively at entry.",
+   "confidence": 0.5,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "782aaf5889bd",
+   "rule": "",
+   "severity": "minor",
+   "category": "testing",
+   "file": "src/jsonBody.js",
+   "line": 15,
+   "title": "No tests around the byte cap and error paths",
+   "evidence": "The change adds a 100KB cap, 413/415/400 branches and a settled-state race guard, but no test files were added or run, so the boundary (exactly 100_000 vs 100_001) and the response-flush behaviour are unverified.",
+   "evidence_quote": "    if (received > MAX_BODY_BYTES) {",
+   "trigger": "",
+   "recommendation": "Add tests for: body exactly at the limit (accepted), one byte over (413 actually received by client), content-type gate (415), invalid JSON (400), empty body ({}), and chunked multi-byte UTF-8 split across data events.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

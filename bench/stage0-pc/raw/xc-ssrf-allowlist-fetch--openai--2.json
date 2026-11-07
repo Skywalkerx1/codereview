@@ -1,0 +1,77 @@
+{
+ "case_id": "xc-ssrf-allowlist-fetch",
+ "seat": "openai",
+ "sample": 2,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "f1807f4d6363c038fb5d86b72fc7f4ac533b727d6afbad02f4082076c8b8424a",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "gpt-5.4",
+ "events": [
+  {
+   "seat": "openai",
+   "prompt_hash": "f1807f4d6363c038fb5d86b72fc7f4ac533b727d6afbad02f4082076c8b8424a",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1412,
+   "tokens_out": 361,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:48:49+00:00",
+   "finished_at": "2026-11-07T13:48:55+00:00",
+   "duration_ms": 5775,
+   "prompt_chars": 5857
+  }
+ ],
+ "shadow_cost_usd": 0.005375,
+ "duration_ms": 5775,
+ "findings": [
+  {
+   "id": "2013efe05f83",
+   "rule": "",
+   "severity": "major",
+   "category": "security",
+   "file": "app/safe_fetch.py",
+   "line": 52,
+   "title": "Requests will honor environment proxies, allowing outbound fetches to be redirected off-allowlist",
+   "evidence": "The call to requests.get does not disable trust in environment proxy settings, so in supported deployments with HTTP(S)_PROXY configured the request can be sent to an arbitrary proxy even after URL validation.",
+   "evidence_quote": "            current, timeout=TIMEOUT_SECONDS, allow_redirects=False",
+   "trigger": "",
+   "recommendation": "Use a Session with trust_env set to False, or pass proxies={} in a way that reliably disables environment proxy use for this code path, so validated URLs are fetched directly.",
+   "confidence": 0.95,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "5c886c6dbc14",
+   "rule": "",
+   "severity": "major",
+   "category": "security",
+   "file": "app/safe_fetch.py",
+   "line": 34,
+   "title": "Allowlist check can be bypassed with a trailing-dot hostname form",
+   "evidence": "The hostname is compared directly against the allowlist after lowercasing, but DNS treats a trailing dot as equivalent, so an input like https://api.example.com./ will not match the allowlist while still resolving to the same host form if later code or callers normalize differently.",
+   "evidence_quote": "    if host is None or host.lower() not in ALLOWED_HOSTS:",
+   "trigger": "",
+   "recommendation": "Canonicalize hostnames before comparison, for example by lowercasing and stripping a single trailing dot, and use the same canonical form for DNS resolution and request dispatch.",
+   "confidence": 0.88,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

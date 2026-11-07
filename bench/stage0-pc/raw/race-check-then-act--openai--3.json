@@ -1,0 +1,54 @@
+{
+ "case_id": "race-check-then-act",
+ "seat": "openai",
+ "sample": 3,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "1fb99fba2a12c6355694855475c53f35cafb6e7747760440b2fea08ef05c76fb",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "gpt-5.4",
+ "events": [
+  {
+   "seat": "openai",
+   "prompt_hash": "1fb99fba2a12c6355694855475c53f35cafb6e7747760440b2fea08ef05c76fb",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 818,
+   "tokens_out": 194,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:35:45+00:00",
+   "finished_at": "2026-11-07T13:35:48+00:00",
+   "duration_ms": 3689,
+   "prompt_chars": 3466
+  }
+ ],
+ "shadow_cost_usd": 0.002962,
+ "duration_ms": 3690,
+ "findings": [
+  {
+   "id": "cc5c1976a290",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "app/files.py",
+   "line": 14,
+   "title": "Non-atomic existence check allows duplicate claims and overwrite under concurrency",
+   "evidence": "The new code checks for existence and then opens the path in write mode, so two callers can both observe the file as absent and one can truncate or overwrite a file created by the other before raising any error.",
+   "evidence_quote": "        return open(path, \"w\")",
+   "trigger": "",
+   "recommendation": "Keep atomic exclusive creation by using open(path, 'x') directly, or use os.open with O_CREAT|O_EXCL and wrap the fd. Do not split the existence check from file creation.",
+   "confidence": 0.99,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

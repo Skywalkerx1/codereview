@@ -1,0 +1,123 @@
+{
+ "case_id": "xc-decimal-money",
+ "seat": "deepseek",
+ "sample": 2,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "eec5c23c07fa130474abc1b35d4cd6bca761aba75ff8763eddbfc9e033ef6e19",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "eec5c23c07fa130474abc1b35d4cd6bca761aba75ff8763eddbfc9e033ef6e19",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1041,
+   "tokens_out": 7051,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:42:05+00:00",
+   "finished_at": "2026-11-07T13:42:47+00:00",
+   "duration_ms": 41859,
+   "prompt_chars": 4019
+  }
+ ],
+ "shadow_cost_usd": 0.008037,
+ "duration_ms": 41859,
+ "findings": [
+  {
+   "id": "bd1509314e0d",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/money.py",
+   "line": 8,
+   "title": "Non-float invalid inputs raise decimal.InvalidOperation, not TypeError",
+   "evidence": "The guard only rejects float; any other non-Decimal value is stringified and handed to Decimal, so parse_money(None) or parse_money(True) or parse_money([1]) raises decimal.InvalidOperation (an ArithmeticError), bypassing the TypeError contract implied by the float check.",
+   "evidence_quote": "    amount = value if isinstance(value, Decimal) else Decimal(str(value))",
+   "trigger": "",
+   "recommendation": "Whitelist accepted types explicitly: accept str, int (excluding bool) and Decimal, raise TypeError otherwise; keep the str conversion only inside that branch so callers can reliably catch TypeError.",
+   "confidence": 0.75,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "6901a0df91b7",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/money.py",
+   "line": 12,
+   "title": "quantity type is never validated before the negative check and multiply",
+   "evidence": "The only quantity check is a bare numeric comparison, so line_total with a str or None quantity dies with an unhelpful TypeError from the comparison, and a float quantity slips past the check and only fails later at Decimal times float inside the return expression; bool is silently accepted as 1.",
+   "evidence_quote": "    if quantity < 0:",
+   "trigger": "",
+   "recommendation": "Validate quantity up front: isinstance(quantity, int) and not isinstance(quantity, bool), or Decimal; raise TypeError for anything else, then check negativity. This also makes the float rejection consistent with parse_money.",
+   "confidence": 0.8,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "5bf60da20c4f",
+   "rule": "",
+   "severity": "minor",
+   "category": "testing",
+   "file": "app/money.py",
+   "line": 14,
+   "title": "No tests cover the rounding and validation behaviour",
+   "evidence": "The change is entirely money rounding logic (half-up quantize on unit price times quantity and on tax) and no test command was run; the float-rejection branch, the negative-quantity branch, the half-up boundary (e.g. 1.005 to 1.01) and the InvalidOperation cases above are all unverified.",
+   "evidence_quote": "    return (parse_money(unit_price) * quantity).quantize(CENT, rounding=ROUND_HALF_UP)",
+   "trigger": "",
+   "recommendation": "Add unit tests for: float price rejected, negative quantity rejected, half-up rounding at the cent boundary, Decimal vs str vs int price equivalence, and the invalid-type cases identified above.",
+   "confidence": 0.65,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "655e83253ae5",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "app/money.py",
+   "line": 9,
+   "title": "Rounding depends on the ambient thread-local decimal context",
+   "evidence": "quantize and the multiplications run against the caller's thread-local decimal context; if any code in the process lowers getcontext().prec (or enables Inexact/Rounded traps), parse_money either raises InvalidOperation for values with more digits than the configured precision or produces different results, with no protection inside this module.",
+   "evidence_quote": "    return amount.quantize(CENT, rounding=ROUND_HALF_UP)",
+   "trigger": "",
+   "recommendation": "Perform the arithmetic inside decimal.localcontext() with an explicit precision (and explicit traps) so money results do not depend on process-global decimal state.",
+   "confidence": 0.55,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

@@ -1,0 +1,54 @@
+{
+ "case_id": "xss-innerhtml",
+ "seat": "deepseek",
+ "sample": 3,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "f63cb55fb7a41e512d445aa6ec9d1e0bec7462016bb85ba30fc4f749ba1819ab",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "f63cb55fb7a41e512d445aa6ec9d1e0bec7462016bb85ba30fc4f749ba1819ab",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 863,
+   "tokens_out": 1302,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:55:53+00:00",
+   "finished_at": "2026-11-07T13:56:02+00:00",
+   "duration_ms": 8422,
+   "prompt_chars": 3438
+  }
+ ],
+ "shadow_cost_usd": 0.001665,
+ "duration_ms": 8423,
+ "findings": [
+  {
+   "id": "2eb08ae757bd",
+   "rule": "",
+   "severity": "blocker",
+   "category": "security",
+   "file": "web/comments.js",
+   "line": 13,
+   "title": "DOM XSS: comment body parsed as HTML via innerHTML",
+   "evidence": "The only change replaces 'el.textContent = comment.body;' with 'el.innerHTML = comment.body;', so the comment body string is handed to the HTML parser instead of being treated as text. Reachable path: comment.body comes from stored/reflected user content; a value such as '<img src=x onerror=fetch(...)>' (or '<svg onload=...>', event-handler attributes on any element) survives the parse, fires its handler in the page origin, and can read cookies/DOM, call authenticated APIs, or exfiltrate the session. Even inline '<script>' markup not executing does not help \u2014 handler attributes and javascript: URLs on injected nodes do. The prior textContent assignment was the only thing making this sink safe.",
+   "evidence_quote": "  el.innerHTML = comment.body;",
+   "trigger": "",
+   "recommendation": "Revert to textContent (or build nodes/append text nodes) so the body is never parsed as markup. If limited formatting is genuinely required, sanitize with a vetted sanitizer (e.g. DOMPurify with an explicit allow-list) before assignment, and add a regression test asserting that a body containing '<img src=x onerror=...>' produces no element node / no handler attribute.",
+   "confidence": 0.97,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

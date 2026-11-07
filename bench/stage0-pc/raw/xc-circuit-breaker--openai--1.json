@@ -1,0 +1,77 @@
+{
+ "case_id": "xc-circuit-breaker",
+ "seat": "openai",
+ "sample": 1,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "4745ad93069043ae3ff6d01c5509ad2d66c76ce2cf3010f13abe1be281fc31bd",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "gpt-5.4",
+ "events": [
+  {
+   "seat": "openai",
+   "prompt_hash": "4745ad93069043ae3ff6d01c5509ad2d66c76ce2cf3010f13abe1be281fc31bd",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1460,
+   "tokens_out": 350,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:38:33+00:00",
+   "finished_at": "2026-11-07T13:38:39+00:00",
+   "duration_ms": 6227,
+   "prompt_chars": 6167
+  }
+ ],
+ "shadow_cost_usd": 0.005325,
+ "duration_ms": 6227,
+ "findings": [
+  {
+   "id": "19eca9d4bbc7",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "app/circuit_breaker.py",
+   "line": 66,
+   "title": "Successful closed-state calls can incorrectly close an open circuit after a concurrent failure",
+   "evidence": "After any successful call, the code unconditionally resets the breaker to closed, even if another concurrent call has already opened it due to reaching the failure threshold.",
+   "evidence_quote": "            self._state = self.CLOSED",
+   "trigger": "",
+   "recommendation": "Track the state observed for the current invocation and only reset to closed on success when this call was the half-open probe or when the breaker is still closed for this generation. At minimum, avoid unconditionally overwriting OPEN on success from a call that started in CLOSED while another concurrent call may have opened the breaker in the meantime.",
+   "confidence": 0.96,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "14daf100537e",
+   "rule": "",
+   "severity": "major",
+   "category": "testing",
+   "file": "app/circuit_breaker.py",
+   "line": 38,
+   "title": "No tests accompany concurrency-sensitive state transitions introduced here",
+   "evidence": "The implementation adds lock-based half-open single-probe behavior and concurrent state mutation paths, but the change includes no tests to cover races such as one call succeeding while another opens the breaker.",
+   "evidence_quote": "    def call(self, func, *args, **kwargs):",
+   "trigger": "",
+   "recommendation": "Add multithreaded tests covering: concurrent closed-state calls where one failure opens the breaker while another succeeds, half-open single-probe rejection, probe failure reopening, and probe success reclosing.",
+   "confidence": 0.84,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

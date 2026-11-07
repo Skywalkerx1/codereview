@@ -1,0 +1,2171 @@
+{
+ "clean": {
+  "rho_block": {
+   "n": 32,
+   "recurring": 7,
+   "rho": 0.21875,
+   "rho_both_seats_variant": 0.21875,
+   "rho_major_only_sensitivity": 0.21875
+  },
+  "table": [
+   {
+    "case_id": "xc-atomic-state-writer",
+    "file": "app/state_store.py",
+    "line": 18,
+    "category": "security",
+    "title": "State file permissions are widened to process defaults instead of preserving the existing file mode",
+    "severity": "major",
+    "raising_seats": [
+     "openai"
+    ],
+    "per_seat": {
+     "openai": {
+      "valid_samples": 3,
+      "recurs_in": 0,
+      "recurs_in_major_only": 0,
+      "recurs": false,
+      "recurs_major_only": false,
+      "detail": [
+       {
+        "sample": 1,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 2,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 3,
+        "matched": 0,
+        "matched_titles": []
+       }
+      ]
+     }
+    },
+    "recurs_either_seat": false,
+    "recurs_both_seats": false,
+    "recurs_either_seat_major_only": false
+   },
+   {
+    "case_id": "xc-batch-delete-guarded",
+    "file": "app/cleanup.py",
+    "line": 30,
+    "category": "correctness",
+    "title": "DELETE statement uses sqlite-style placeholder despite MySQL-specific SQL",
+    "severity": "major",
+    "raising_seats": [
+     "openai"
+    ],
+    "per_seat": {
+     "openai": {
+      "valid_samples": 3,
+      "recurs_in": 3,
+      "recurs_in_major_only": 3,
+      "recurs": true,
+      "recurs_major_only": true,
+      "detail": [
+       {
+        "sample": 1,
+        "matched": 1,
+        "matched_titles": [
+         "MySQL batched delete uses unsupported qmark placeholder syntax"
+        ]
+       },
+       {
+        "sample": 2,
+        "matched": 1,
+        "matched_titles": [
+         "DELETE statement uses sqlite-style placeholder despite MySQL-specific syntax"
+        ]
+       },
+       {
+        "sample": 3,
+        "matched": 1,
+        "matched_titles": [
+         "Parameterized LIMIT uses SQLite-style placeholder in MySQL-specific query"
+        ]
+       }
+      ]
+     }
+    },
+    "recurs_either_seat": true,
+    "recurs_both_seats": true,
+    "recurs_either_seat_major_only": true
+   },
+   {
+    "case_id": "xc-batch-delete-guarded",
+    "file": "app/cleanup.py",
+    "line": 41,
+    "category": "correctness",
+    "title": "for/else raises failure after a complete, committed cleanup and discards the deleted count",
+    "severity": "major",
+    "raising_seats": [
+     "deepseek"
+    ],
+    "per_seat": {
+     "deepseek": {
+      "valid_samples": 3,
+      "recurs_in": 0,
+      "recurs_in_major_only": 0,
+      "recurs": false,
+      "recurs_major_only": false,
+      "detail": [
+       {
+        "sample": 1,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 2,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 3,
+        "matched": 0,
+        "matched_titles": []
+       }
+      ]
+     }
+    },
+    "recurs_either_seat": false,
+    "recurs_both_seats": false,
+    "recurs_either_seat_major_only": false
+   },
+   {
+    "case_id": "xc-bigdecimal-invoice",
+    "file": "src/main/java/com/example/billing/InvoiceCalculator.java",
+    "line": 39,
+    "category": "correctness",
+    "title": "Tax calculation accepts null or negative rates, causing crashes or invalid negative totals",
+    "severity": "major",
+    "raising_seats": [
+     "openai"
+    ],
+    "per_seat": {
+     "openai": {
+      "valid_samples": 3,
+      "recurs_in": 1,
+      "recurs_in_major_only": 1,
+      "recurs": false,
+      "recurs_major_only": false,
+      "detail": [
+       {
+        "sample": 1,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 2,
+        "matched": 1,
+        "matched_titles": [
+         "totalWithTax accepts null or negative tax rates and can crash or return invalid negative totals"
+        ]
+       },
+       {
+        "sample": 3,
+        "matched": 0,
+        "matched_titles": []
+       }
+      ]
+     }
+    },
+    "recurs_either_seat": false,
+    "recurs_both_seats": false,
+    "recurs_either_seat_major_only": false
+   },
+   {
+    "case_id": "xc-bounded-response-read",
+    "file": "app/fetch_body.py",
+    "line": 42,
+    "category": "correctness",
+    "title": "Function now crashes on any non-UTF-8 response body",
+    "severity": "major",
+    "raising_seats": [
+     "openai"
+    ],
+    "per_seat": {
+     "openai": {
+      "valid_samples": 3,
+      "recurs_in": 0,
+      "recurs_in_major_only": 0,
+      "recurs": false,
+      "recurs_major_only": false,
+      "detail": [
+       {
+        "sample": 1,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 2,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 3,
+        "matched": 0,
+        "matched_titles": []
+       }
+      ]
+     }
+    },
+    "recurs_either_seat": false,
+    "recurs_both_seats": false,
+    "recurs_either_seat_major_only": false
+   },
+   {
+    "case_id": "xc-circuit-breaker",
+    "file": "app/circuit_breaker.py",
+    "line": 72,
+    "category": "reliability",
+    "title": "Stale success unconditionally re-closes a circuit opened by another thread",
+    "severity": "major",
+    "raising_seats": [
+     "deepseek"
+    ],
+    "per_seat": {
+     "deepseek": {
+      "valid_samples": 3,
+      "recurs_in": 0,
+      "recurs_in_major_only": 0,
+      "recurs": false,
+      "recurs_major_only": false,
+      "detail": [
+       {
+        "sample": 1,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 2,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 3,
+        "matched": 0,
+        "matched_titles": []
+       }
+      ]
+     }
+    },
+    "recurs_either_seat": false,
+    "recurs_both_seats": false,
+    "recurs_either_seat_major_only": false
+   },
+   {
+    "case_id": "xc-circuit-breaker",
+    "file": "app/circuit_breaker.py",
+    "line": 66,
+    "category": "correctness",
+    "title": "Successful closed-state call can incorrectly reset an already-open breaker under concurrency",
+    "severity": "major",
+    "raising_seats": [
+     "openai"
+    ],
+    "per_seat": {
+     "openai": {
+      "valid_samples": 3,
+      "recurs_in": 1,
+      "recurs_in_major_only": 1,
+      "recurs": false,
+      "recurs_major_only": false,
+      "detail": [
+       {
+        "sample": 1,
+        "matched": 1,
+        "matched_titles": [
+         "Successful closed-state calls can incorrectly close an open circuit after a concurrent failure"
+        ]
+       },
+       {
+        "sample": 2,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 3,
+        "matched": 0,
+        "matched_titles": []
+       }
+      ]
+     }
+    },
+    "recurs_either_seat": false,
+    "recurs_both_seats": false,
+    "recurs_either_seat_major_only": false
+   },
+   {
+    "case_id": "xc-context-http-timeout",
+    "file": "internal/fetch/fetch.go",
+    "line": 37,
+    "category": "data-loss",
+    "title": "Response body is silently truncated at 1 MiB and returned as success",
+    "severity": "major",
+    "raising_seats": [
+     "deepseek"
+    ],
+    "per_seat": {
+     "deepseek": {
+      "valid_samples": 3,
+      "recurs_in": 1,
+      "recurs_in_major_only": 1,
+      "recurs": false,
+      "recurs_major_only": false,
+      "detail": [
+       {
+        "sample": 1,
+        "matched": 1,
+        "matched_titles": [
+         "Body larger than maxBody is silently truncated and returned as success"
+        ]
+       },
+       {
+        "sample": 2,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 3,
+        "matched": 0,
+        "matched_titles": []
+       }
+      ]
+     }
+    },
+    "recurs_either_seat": false,
+    "recurs_both_seats": false,
+    "recurs_either_seat_major_only": false
+   },
+   {
+    "case_id": "xc-context-http-timeout",
+    "file": "internal/fetch/fetch.go",
+    "line": 34,
+    "category": "data-loss",
+    "title": "Responses larger than 1 MiB are silently truncated and reported as success",
+    "severity": "major",
+    "raising_seats": [
+     "openai"
+    ],
+    "per_seat": {
+     "openai": {
+      "valid_samples": 3,
+      "recurs_in": 3,
+      "recurs_in_major_only": 3,
+      "recurs": true,
+      "recurs_major_only": true,
+      "detail": [
+       {
+        "sample": 1,
+        "matched": 1,
+        "matched_titles": [
+         "Responses larger than 1 MiB are silently truncated and reported as success"
+        ]
+       },
+       {
+        "sample": 2,
+        "matched": 1,
+        "matched_titles": [
+         "Responses larger than 1 MiB are silently truncated and reported as success"
+        ]
+       },
+       {
+        "sample": 3,
+        "matched": 1,
+        "matched_titles": [
+         "Responses larger than 1 MiB are silently truncated and reported as success"
+        ]
+       }
+      ]
+     }
+    },
+    "recurs_either_seat": true,
+    "recurs_both_seats": true,
+    "recurs_either_seat_major_only": true
+   },
+   {
+    "case_id": "xc-csrf-token-check",
+    "file": "src/app.js",
+    "line": 24,
+    "category": "security",
+    "title": "Global CSRF enforcement blocks every mutating route when session middleware is absent or ordered later",
+    "severity": "major",
+    "raising_seats": [
+     "openai"
+    ],
+    "per_seat": {
+     "openai": {
+      "valid_samples": 3,
+      "recurs_in": 0,
+      "recurs_in_major_only": 0,
+      "recurs": false,
+      "recurs_major_only": false,
+      "detail": [
+       {
+        "sample": 1,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 2,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 3,
+        "matched": 0,
+        "matched_titles": []
+       }
+      ]
+     }
+    },
+    "recurs_either_seat": false,
+    "recurs_both_seats": false,
+    "recurs_either_seat_major_only": false
+   },
+   {
+    "case_id": "xc-csrf-token-check",
+    "file": "src/app.js",
+    "line": 30,
+    "category": "correctness",
+    "title": "csrfProtection is mounted but nothing in this module creates req.session or a csrfToken, so all mutating requests 403",
+    "severity": "major",
+    "raising_seats": [
+     "deepseek"
+    ],
+    "per_seat": {
+     "deepseek": {
+      "valid_samples": 3,
+      "recurs_in": 1,
+      "recurs_in_major_only": 1,
+      "recurs": false,
+      "recurs_major_only": false,
+      "detail": [
+       {
+        "sample": 1,
+        "matched": 1,
+        "matched_titles": [
+         "csrfProtection mounted before any session middleware, so req.session is always undefined and all POSTs 403"
+        ]
+       },
+       {
+        "sample": 2,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 3,
+        "matched": 0,
+        "matched_titles": []
+       }
+      ]
+     }
+    },
+    "recurs_either_seat": false,
+    "recurs_both_seats": false,
+    "recurs_either_seat_major_only": false
+   },
+   {
+    "case_id": "xc-deadletter-worker",
+    "file": "app/dlq_worker.py",
+    "line": 38,
+    "category": "reliability",
+    "title": "Dead-letter send is not idempotent-safe and can create duplicate DLQ entries on ack failure",
+    "severity": "major",
+    "raising_seats": [
+     "openai"
+    ],
+    "per_seat": {
+     "openai": {
+      "valid_samples": 3,
+      "recurs_in": 0,
+      "recurs_in_major_only": 0,
+      "recurs": false,
+      "recurs_major_only": false,
+      "detail": [
+       {
+        "sample": 1,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 2,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 3,
+        "matched": 0,
+        "matched_titles": []
+       }
+      ]
+     }
+    },
+    "recurs_either_seat": false,
+    "recurs_both_seats": false,
+    "recurs_either_seat_major_only": false
+   },
+   {
+    "case_id": "xc-deadletter-worker",
+    "file": "app/dlq_worker.py",
+    "line": 29,
+    "category": "correctness",
+    "title": "Retry counting relies on broker-updated delivery_count; can loop forever instead of dead-lettering",
+    "severity": "major",
+    "raising_seats": [
+     "deepseek"
+    ],
+    "per_seat": {
+     "deepseek": {
+      "valid_samples": 3,
+      "recurs_in": 0,
+      "recurs_in_major_only": 0,
+      "recurs": false,
+      "recurs_major_only": false,
+      "detail": [
+       {
+        "sample": 1,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 2,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 3,
+        "matched": 0,
+        "matched_titles": []
+       }
+      ]
+     }
+    },
+    "recurs_either_seat": false,
+    "recurs_both_seats": false,
+    "recurs_either_seat_major_only": false
+   },
+   {
+    "case_id": "xc-decimal-money",
+    "file": "app/money.py",
+    "line": 14,
+    "category": "correctness",
+    "title": "Unit price rounded to cents before multiplying by quantity",
+    "severity": "major",
+    "raising_seats": [
+     "deepseek"
+    ],
+    "per_seat": {
+     "deepseek": {
+      "valid_samples": 3,
+      "recurs_in": 1,
+      "recurs_in_major_only": 1,
+      "recurs": false,
+      "recurs_major_only": false,
+      "detail": [
+       {
+        "sample": 1,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 2,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 3,
+        "matched": 1,
+        "matched_titles": [
+         "line_total quantizes unit price to cents before multiplying, double-rounding the total"
+        ]
+       }
+      ]
+     }
+    },
+    "recurs_either_seat": false,
+    "recurs_both_seats": false,
+    "recurs_either_seat_major_only": false
+   },
+   {
+    "case_id": "xc-fetch-timeout-abort",
+    "file": "src/fetchJson.js",
+    "line": 5,
+    "category": "correctness",
+    "title": "Caller-supplied AbortSignal is silently discarded, breaking external cancellation",
+    "severity": "major",
+    "raising_seats": [
+     "deepseek",
+     "openai"
+    ],
+    "per_seat": {
+     "deepseek": {
+      "valid_samples": 3,
+      "recurs_in": 3,
+      "recurs_in_major_only": 3,
+      "recurs": true,
+      "recurs_major_only": true,
+      "detail": [
+       {
+        "sample": 1,
+        "matched": 1,
+        "matched_titles": [
+         "Caller-supplied AbortSignal is silently overwritten by the internal controller"
+        ]
+       },
+       {
+        "sample": 2,
+        "matched": 1,
+        "matched_titles": [
+         "Caller-supplied AbortSignal is silently discarded (cancellation regression)"
+        ]
+       },
+       {
+        "sample": 3,
+        "matched": 1,
+        "matched_titles": [
+         "Caller-supplied options.signal is silently discarded (regression in cancellation contract)"
+        ]
+       }
+      ]
+     },
+     "openai": {
+      "valid_samples": 3,
+      "recurs_in": 3,
+      "recurs_in_major_only": 3,
+      "recurs": true,
+      "recurs_major_only": true,
+      "detail": [
+       {
+        "sample": 1,
+        "matched": 1,
+        "matched_titles": [
+         "Caller-provided AbortSignal is overwritten, breaking external cancellation"
+        ]
+       },
+       {
+        "sample": 2,
+        "matched": 1,
+        "matched_titles": [
+         "Caller-provided AbortSignal is overwritten, breaking external cancellation"
+        ]
+       },
+       {
+        "sample": 3,
+        "matched": 1,
+        "matched_titles": [
+         "Caller-provided AbortSignal is overwritten, breaking external cancellation"
+        ]
+       }
+      ]
+     }
+    },
+    "recurs_either_seat": true,
+    "recurs_both_seats": true,
+    "recurs_either_seat_major_only": true
+   },
+   {
+    "case_id": "xc-graceful-http-shutdown",
+    "file": "cmd/server/main.go",
+    "line": 55,
+    "category": "correctness",
+    "title": "Draining flag is set and Shutdown is called with no gap, so the health flip is never observable by balancers",
+    "severity": "major",
+    "raising_seats": [
+     "deepseek"
+    ],
+    "per_seat": {
+     "deepseek": {
+      "valid_samples": 3,
+      "recurs_in": 1,
+      "recurs_in_major_only": 1,
+      "recurs": false,
+      "recurs_major_only": false,
+      "detail": [
+       {
+        "sample": 1,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 2,
+        "matched": 1,
+        "matched_titles": [
+         "No drain window: health flip is unobservable before Shutdown closes the listener"
+        ]
+       },
+       {
+        "sample": 3,
+        "matched": 0,
+        "matched_titles": []
+       }
+      ]
+     }
+    },
+    "recurs_either_seat": false,
+    "recurs_both_seats": false,
+    "recurs_either_seat_major_only": false
+   },
+   {
+    "case_id": "xc-graceful-shutdown",
+    "file": "app/worker.py",
+    "line": 36,
+    "category": "reliability",
+    "title": "Signal handlers installed but never restored; SIGTERM ignored after shutdown",
+    "severity": "major",
+    "raising_seats": [
+     "deepseek"
+    ],
+    "per_seat": {
+     "deepseek": {
+      "valid_samples": 3,
+      "recurs_in": 0,
+      "recurs_in_major_only": 0,
+      "recurs": false,
+      "recurs_major_only": false,
+      "detail": [
+       {
+        "sample": 1,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 2,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 3,
+        "matched": 0,
+        "matched_titles": []
+       }
+      ]
+     }
+    },
+    "recurs_either_seat": false,
+    "recurs_both_seats": false,
+    "recurs_either_seat_major_only": false
+   },
+   {
+    "case_id": "xc-guarded-migration",
+    "file": "migrations/004_orders_shipping_region.sql",
+    "line": 14,
+    "category": "reliability",
+    "title": "Exclusive locks from DDL held for the whole backfill, defeating the batching claim",
+    "severity": "major",
+    "raising_seats": [
+     "deepseek"
+    ],
+    "per_seat": {
+     "deepseek": {
+      "valid_samples": 3,
+      "recurs_in": 0,
+      "recurs_in_major_only": 0,
+      "recurs": false,
+      "recurs_major_only": false,
+      "detail": [
+       {
+        "sample": 1,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 2,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 3,
+        "matched": 0,
+        "matched_titles": []
+       }
+      ]
+     }
+    },
+    "recurs_either_seat": false,
+    "recurs_both_seats": false,
+    "recurs_either_seat_major_only": false
+   },
+   {
+    "case_id": "xc-guarded-migration",
+    "file": "migrations/004_orders_shipping_region.sql",
+    "line": 35,
+    "category": "performance",
+    "title": "Loop has no cursor, so every batch re-scans already-backfilled rows (quadratic work)",
+    "severity": "major",
+    "raising_seats": [
+     "deepseek"
+    ],
+    "per_seat": {
+     "deepseek": {
+      "valid_samples": 3,
+      "recurs_in": 0,
+      "recurs_in_major_only": 0,
+      "recurs": false,
+      "recurs_major_only": false,
+      "detail": [
+       {
+        "sample": 1,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 2,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 3,
+        "matched": 0,
+        "matched_titles": []
+       }
+      ]
+     }
+    },
+    "recurs_either_seat": false,
+    "recurs_both_seats": false,
+    "recurs_either_seat_major_only": false
+   },
+   {
+    "case_id": "xc-health-guard-selfcheck",
+    "file": "app/health.py",
+    "line": 51,
+    "category": "reliability",
+    "title": "requests timeout bounds each socket op, not the probe: /healthz can hang indefinitely",
+    "severity": "major",
+    "raising_seats": [
+     "deepseek"
+    ],
+    "per_seat": {
+     "deepseek": {
+      "valid_samples": 3,
+      "recurs_in": 0,
+      "recurs_in_major_only": 0,
+      "recurs": false,
+      "recurs_major_only": false,
+      "detail": [
+       {
+        "sample": 1,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 2,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 3,
+        "matched": 0,
+        "matched_titles": []
+       }
+      ]
+     }
+    },
+    "recurs_either_seat": false,
+    "recurs_both_seats": false,
+    "recurs_either_seat_major_only": false
+   },
+   {
+    "case_id": "xc-idempotency-keys",
+    "file": "app/payments.py",
+    "line": 51,
+    "category": "correctness",
+    "title": "None sentinel conflates with a falsy stored receipt, enabling a second charge",
+    "severity": "major",
+    "raising_seats": [
+     "deepseek"
+    ],
+    "per_seat": {
+     "deepseek": {
+      "valid_samples": 3,
+      "recurs_in": 0,
+      "recurs_in_major_only": 0,
+      "recurs": false,
+      "recurs_major_only": false,
+      "detail": [
+       {
+        "sample": 1,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 2,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 3,
+        "matched": 0,
+        "matched_titles": []
+       }
+      ]
+     }
+    },
+    "recurs_either_seat": false,
+    "recurs_both_seats": false,
+    "recurs_either_seat_major_only": false
+   },
+   {
+    "case_id": "xc-idempotency-keys",
+    "file": "app/payments.py",
+    "line": 20,
+    "category": "correctness",
+    "title": "Reused key with a different amount/currency silently returns the old receipt",
+    "severity": "major",
+    "raising_seats": [
+     "deepseek"
+    ],
+    "per_seat": {
+     "deepseek": {
+      "valid_samples": 3,
+      "recurs_in": 3,
+      "recurs_in_major_only": 3,
+      "recurs": true,
+      "recurs_major_only": true,
+      "detail": [
+       {
+        "sample": 1,
+        "matched": 1,
+        "matched_titles": [
+         "Replay with a different amount/currency returns the old receipt instead of rejecting the conflict"
+        ]
+       },
+       {
+        "sample": 2,
+        "matched": 1,
+        "matched_titles": [
+         "Same key reused with a different amount or currency silently returns the old receipt"
+        ]
+       },
+       {
+        "sample": 3,
+        "matched": 1,
+        "matched_titles": [
+         "Reused key with different amount/currency returns the stale receipt instead of a conflict"
+        ]
+       }
+      ]
+     }
+    },
+    "recurs_either_seat": true,
+    "recurs_both_seats": true,
+    "recurs_either_seat_major_only": true
+   },
+   {
+    "case_id": "xc-intl-currency-format",
+    "file": "src/formatMoney.js",
+    "line": 9,
+    "category": "correctness",
+    "title": "Fixed /100 divisor is wrong for currencies whose minor unit is not 1/100",
+    "severity": "major",
+    "raising_seats": [
+     "deepseek"
+    ],
+    "per_seat": {
+     "deepseek": {
+      "valid_samples": 3,
+      "recurs_in": 3,
+      "recurs_in_major_only": 2,
+      "recurs": true,
+      "recurs_major_only": true,
+      "detail": [
+       {
+        "sample": 1,
+        "matched": 1,
+        "matched_titles": [
+         "Unconditional /100 is wrong for currencies not using 2 minor digits"
+        ]
+       },
+       {
+        "sample": 2,
+        "matched": 1,
+        "matched_titles": [
+         "amountCents contract silently wrong for currencies whose minor unit is not 1/100 (JPY, KWD, BHD)"
+        ]
+       },
+       {
+        "sample": 3,
+        "matched": 1,
+        "matched_titles": [
+         "Hardcoded /100 is wrong for currencies whose minor unit is not 1/100"
+        ]
+       }
+      ]
+     }
+    },
+    "recurs_either_seat": true,
+    "recurs_both_seats": true,
+    "recurs_either_seat_major_only": true
+   },
+   {
+    "case_id": "xc-jdbc-prepared",
+    "file": "src/main/java/com/example/db/UserRepository.java",
+    "line": 17,
+    "category": "correctness",
+    "title": "Optional.of throws NPE when the email column is NULL",
+    "severity": "major",
+    "raising_seats": [
+     "deepseek"
+    ],
+    "per_seat": {
+     "deepseek": {
+      "valid_samples": 3,
+      "recurs_in": 2,
+      "recurs_in_major_only": 2,
+      "recurs": true,
+      "recurs_major_only": true,
+      "detail": [
+       {
+        "sample": 1,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 2,
+        "matched": 1,
+        "matched_titles": [
+         "NPE on row whose email column is NULL (Optional.of instead of Optional.ofNullable)"
+        ]
+       },
+       {
+        "sample": 3,
+        "matched": 1,
+        "matched_titles": [
+         "Optional.of(rs.getString(...)) throws NPE when email is SQL NULL"
+        ]
+       }
+      ]
+     }
+    },
+    "recurs_either_seat": true,
+    "recurs_both_seats": true,
+    "recurs_either_seat_major_only": true
+   },
+   {
+    "case_id": "xc-password-hash-verify",
+    "file": "src/auth.php",
+    "line": 28,
+    "category": "correctness",
+    "title": "INSERT failure is ignored; lastInsertId returns a bogus id under default PDO error mode",
+    "severity": "major",
+    "raising_seats": [
+     "deepseek"
+    ],
+    "per_seat": {
+     "deepseek": {
+      "valid_samples": 3,
+      "recurs_in": 0,
+      "recurs_in_major_only": 0,
+      "recurs": false,
+      "recurs_major_only": false,
+      "detail": [
+       {
+        "sample": 1,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 2,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 3,
+        "matched": 0,
+        "matched_titles": []
+       }
+      ]
+     }
+    },
+    "recurs_either_seat": false,
+    "recurs_both_seats": false,
+    "recurs_either_seat_major_only": false
+   },
+   {
+    "case_id": "xc-password-hash-verify",
+    "file": "src/auth.php",
+    "line": 50,
+    "category": "security",
+    "title": "Rehash UPDATE has no old-hash guard and can silently revert a concurrent password change",
+    "severity": "major",
+    "raising_seats": [
+     "deepseek"
+    ],
+    "per_seat": {
+     "deepseek": {
+      "valid_samples": 3,
+      "recurs_in": 0,
+      "recurs_in_major_only": 0,
+      "recurs": false,
+      "recurs_major_only": false,
+      "detail": [
+       {
+        "sample": 1,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 2,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 3,
+        "matched": 0,
+        "matched_titles": []
+       }
+      ]
+     }
+    },
+    "recurs_either_seat": false,
+    "recurs_both_seats": false,
+    "recurs_either_seat_major_only": false
+   },
+   {
+    "case_id": "xc-ssrf-allowlist-fetch",
+    "file": "app/safe_fetch.py",
+    "line": 52,
+    "category": "security",
+    "title": "DNS rebinding remains possible because validation and the actual connection use separate resolutions",
+    "severity": "major",
+    "raising_seats": [
+     "openai"
+    ],
+    "per_seat": {
+     "openai": {
+      "valid_samples": 3,
+      "recurs_in": 1,
+      "recurs_in_major_only": 1,
+      "recurs": false,
+      "recurs_major_only": false,
+      "detail": [
+       {
+        "sample": 1,
+        "matched": 1,
+        "matched_titles": [
+         "DNS rebinding remains possible because validation and the actual connection use separate resolutions"
+        ]
+       },
+       {
+        "sample": 2,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 3,
+        "matched": 0,
+        "matched_titles": []
+       }
+      ]
+     }
+    },
+    "recurs_either_seat": false,
+    "recurs_both_seats": false,
+    "recurs_either_seat_major_only": false
+   },
+   {
+    "case_id": "xc-ssrf-allowlist-fetch",
+    "file": "app/safe_fetch.py",
+    "line": 42,
+    "category": "security",
+    "title": "DNS validated by a separate lookup than the one requests connects with (rebinding / TOCTOU)",
+    "severity": "major",
+    "raising_seats": [
+     "deepseek"
+    ],
+    "per_seat": {
+     "deepseek": {
+      "valid_samples": 3,
+      "recurs_in": 1,
+      "recurs_in_major_only": 1,
+      "recurs": false,
+      "recurs_major_only": false,
+      "detail": [
+       {
+        "sample": 1,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 2,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 3,
+        "matched": 1,
+        "matched_titles": [
+         "Private-IP check is a separate DNS lookup from the connection (rebinding / TOCTOU)"
+        ]
+       }
+      ]
+     }
+    },
+    "recurs_either_seat": false,
+    "recurs_both_seats": false,
+    "recurs_either_seat_major_only": false
+   },
+   {
+    "case_id": "xc-strict-json-body",
+    "file": "src/jsonBody.js",
+    "line": 18,
+    "category": "reliability",
+    "title": "req.destroy() right after 413 can RST the socket and drop the response",
+    "severity": "major",
+    "raising_seats": [
+     "deepseek"
+    ],
+    "per_seat": {
+     "deepseek": {
+      "valid_samples": 3,
+      "recurs_in": 2,
+      "recurs_in_major_only": 2,
+      "recurs": true,
+      "recurs_major_only": true,
+      "detail": [
+       {
+        "sample": 1,
+        "matched": 1,
+        "matched_titles": [
+         "req.destroy() right after writing 413 can reset the socket before the response flushes"
+        ]
+       },
+       {
+        "sample": 2,
+        "matched": 1,
+        "matched_titles": [
+         "req.destroy() right after 413 tears down the socket before the response flushes"
+        ]
+       },
+       {
+        "sample": 3,
+        "matched": 0,
+        "matched_titles": []
+       }
+      ]
+     }
+    },
+    "recurs_either_seat": true,
+    "recurs_both_seats": true,
+    "recurs_either_seat_major_only": true
+   },
+   {
+    "case_id": "xc-timeout-http-fetch",
+    "file": "lib/http_fetch.rb",
+    "line": 5,
+    "category": "reliability",
+    "title": "Retries omit common transient SSL and connection-refused errors, so bounded retry is not actually applied on many HTTPS failures",
+    "severity": "major",
+    "raising_seats": [
+     "openai"
+    ],
+    "per_seat": {
+     "openai": {
+      "valid_samples": 3,
+      "recurs_in": 0,
+      "recurs_in_major_only": 0,
+      "recurs": false,
+      "recurs_major_only": false,
+      "detail": [
+       {
+        "sample": 1,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 2,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 3,
+        "matched": 0,
+        "matched_titles": []
+       }
+      ]
+     }
+    },
+    "recurs_either_seat": false,
+    "recurs_both_seats": false,
+    "recurs_either_seat_major_only": false
+   },
+   {
+    "case_id": "xc-tz-aware-scheduling",
+    "file": "app/scheduling.py",
+    "line": 13,
+    "category": "correctness",
+    "title": "Fall-back hour: candidate (fold=0) compared by wall clock can yield an instant earlier than `after`",
+    "severity": "major",
+    "raising_seats": [
+     "deepseek"
+    ],
+    "per_seat": {
+     "deepseek": {
+      "valid_samples": 3,
+      "recurs_in": 0,
+      "recurs_in_major_only": 0,
+      "recurs": false,
+      "recurs_major_only": false,
+      "detail": [
+       {
+        "sample": 1,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 2,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 3,
+        "matched": 0,
+        "matched_titles": []
+       }
+      ]
+     }
+    },
+    "recurs_either_seat": false,
+    "recurs_both_seats": false,
+    "recurs_either_seat_major_only": false
+   },
+   {
+    "case_id": "xc-tz-aware-scheduling",
+    "file": "app/scheduling.py",
+    "line": 11,
+    "category": "correctness",
+    "title": "Nonexistent local times are accepted and converted to the wrong UTC instant across DST gaps",
+    "severity": "major",
+    "raising_seats": [
+     "openai"
+    ],
+    "per_seat": {
+     "openai": {
+      "valid_samples": 3,
+      "recurs_in": 1,
+      "recurs_in_major_only": 1,
+      "recurs": false,
+      "recurs_major_only": false,
+      "detail": [
+       {
+        "sample": 1,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 2,
+        "matched": 1,
+        "matched_titles": [
+         "Nonexistent spring-forward wall times are accepted and converted to a different instant"
+        ]
+       },
+       {
+        "sample": 3,
+        "matched": 0,
+        "matched_titles": []
+       }
+      ]
+     }
+    },
+    "recurs_either_seat": false,
+    "recurs_both_seats": false,
+    "recurs_either_seat_major_only": false
+   }
+  ],
+  "cases_still_blocked_under_pc": [
+   "xc-batch-delete-guarded",
+   "xc-context-http-timeout",
+   "xc-fetch-timeout-abort",
+   "xc-idempotency-keys",
+   "xc-intl-currency-format",
+   "xc-jdbc-prepared",
+   "xc-strict-json-body"
+  ],
+  "cases_with_no_seat_raised_findings": [],
+  "blocked_cases_total": 22
+ },
+ "defect": {
+  "rho_block": {
+   "n": 17,
+   "recurring": 10,
+   "rho": 0.5882352941176471,
+   "rho_both_seats_variant": 0.5882352941176471,
+   "rho_major_only_sensitivity": 0.5882352941176471
+  },
+  "table": [
+   {
+    "case_id": "auth-admin-or-true",
+    "file": "app/admin.py",
+    "line": 10,
+    "category": "security",
+    "title": "Admin access check is bypassed unconditionally",
+    "severity": "blocker",
+    "raising_seats": [
+     "openai"
+    ],
+    "per_seat": {
+     "openai": {
+      "valid_samples": 3,
+      "recurs_in": 3,
+      "recurs_in_major_only": 3,
+      "recurs": true,
+      "recurs_major_only": true,
+      "detail": [
+       {
+        "sample": 1,
+        "matched": 1,
+        "matched_titles": [
+         "Admin permission gate is bypassed unconditionally"
+        ]
+       },
+       {
+        "sample": 2,
+        "matched": 1,
+        "matched_titles": [
+         "Admin permission check is bypassed for all requests"
+        ]
+       },
+       {
+        "sample": 3,
+        "matched": 1,
+        "matched_titles": [
+         "Admin permission check is bypassed for all requests"
+        ]
+       }
+      ]
+     }
+    },
+    "recurs_either_seat": true,
+    "recurs_both_seats": true,
+    "recurs_either_seat_major_only": true
+   },
+   {
+    "case_id": "auth-admin-or-true",
+    "file": "app/admin.py",
+    "line": 7,
+    "category": "security",
+    "title": "Admin gate disabled by 'or True' \u2014 authentication/authorization bypass on admin_panel",
+    "severity": "blocker",
+    "raising_seats": [
+     "deepseek"
+    ],
+    "per_seat": {
+     "deepseek": {
+      "valid_samples": 3,
+      "recurs_in": 2,
+      "recurs_in_major_only": 2,
+      "recurs": true,
+      "recurs_major_only": true,
+      "detail": [
+       {
+        "sample": 1,
+        "matched": 1,
+        "matched_titles": [
+         "Admin authorization check is disabled by or True"
+        ]
+       },
+       {
+        "sample": 2,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 3,
+        "matched": 1,
+        "matched_titles": [
+         "Admin authorization check is permanently short-circuited by or True"
+        ]
+       }
+      ]
+     }
+    },
+    "recurs_either_seat": true,
+    "recurs_both_seats": true,
+    "recurs_either_seat_major_only": true
+   },
+   {
+    "case_id": "clean-input-validation",
+    "file": "app/forms.py",
+    "line": 9,
+    "category": "correctness",
+    "title": "Rejecting unknown tags breaks re-validation of already-stored tag values",
+    "severity": "major",
+    "raising_seats": [
+     "deepseek"
+    ],
+    "per_seat": {
+     "deepseek": {
+      "valid_samples": 3,
+      "recurs_in": 0,
+      "recurs_in_major_only": 0,
+      "recurs": false,
+      "recurs_major_only": false,
+      "detail": [
+       {
+        "sample": 1,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 2,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 3,
+        "matched": 0,
+        "matched_titles": []
+       }
+      ]
+     }
+    },
+    "recurs_either_seat": false,
+    "recurs_both_seats": false,
+    "recurs_either_seat_major_only": false
+   },
+   {
+    "case_id": "drop-table-migration",
+    "file": "db/migrations/0042_cleanup.py",
+    "line": 4,
+    "category": "reliability",
+    "title": "Existing unconditional index drop still blocks the migration when the index is absent",
+    "severity": "major",
+    "raising_seats": [
+     "openai"
+    ],
+    "per_seat": {
+     "openai": {
+      "valid_samples": 3,
+      "recurs_in": 0,
+      "recurs_in_major_only": 0,
+      "recurs": false,
+      "recurs_major_only": false,
+      "detail": [
+       {
+        "sample": 1,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 2,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 3,
+        "matched": 0,
+        "matched_titles": []
+       }
+      ]
+     }
+    },
+    "recurs_either_seat": false,
+    "recurs_both_seats": false,
+    "recurs_either_seat_major_only": false
+   },
+   {
+    "case_id": "drop-table-migration",
+    "file": "db/migrations/0042_cleanup.py",
+    "line": 5,
+    "category": "data-loss",
+    "title": "Irreversible table drop with no backup or downgrade path",
+    "severity": "major",
+    "raising_seats": [
+     "deepseek"
+    ],
+    "per_seat": {
+     "deepseek": {
+      "valid_samples": 3,
+      "recurs_in": 2,
+      "recurs_in_major_only": 2,
+      "recurs": true,
+      "recurs_major_only": true,
+      "detail": [
+       {
+        "sample": 1,
+        "matched": 1,
+        "matched_titles": [
+         "Irreversible DROP TABLE of legacy_users with no backup or archival step"
+        ]
+       },
+       {
+        "sample": 2,
+        "matched": 1,
+        "matched_titles": [
+         "Irreversible data loss: table dropped with no archive, guard, or downgrade"
+        ]
+       },
+       {
+        "sample": 3,
+        "matched": 0,
+        "matched_titles": []
+       }
+      ]
+     }
+    },
+    "recurs_either_seat": true,
+    "recurs_both_seats": true,
+    "recurs_either_seat_major_only": true
+   },
+   {
+    "case_id": "drop-table-migration",
+    "file": "db/migrations/0042_cleanup.py",
+    "line": 5,
+    "category": "reliability",
+    "title": "Unconditional table drop makes the migration fail on already-cleaned or partially migrated databases",
+    "severity": "major",
+    "raising_seats": [
+     "openai"
+    ],
+    "per_seat": {
+     "openai": {
+      "valid_samples": 3,
+      "recurs_in": 0,
+      "recurs_in_major_only": 0,
+      "recurs": false,
+      "recurs_major_only": false,
+      "detail": [
+       {
+        "sample": 1,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 2,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 3,
+        "matched": 0,
+        "matched_titles": []
+       }
+      ]
+     }
+    },
+    "recurs_either_seat": false,
+    "recurs_both_seats": false,
+    "recurs_either_seat_major_only": false
+   },
+   {
+    "case_id": "payment-refund-partial",
+    "file": "billing/refunds.py",
+    "line": 11,
+    "category": "data-loss",
+    "title": "Partial refund path now refunds the full order total",
+    "severity": "blocker",
+    "raising_seats": [
+     "openai"
+    ],
+    "per_seat": {
+     "openai": {
+      "valid_samples": 3,
+      "recurs_in": 2,
+      "recurs_in_major_only": 2,
+      "recurs": true,
+      "recurs_major_only": true,
+      "detail": [
+       {
+        "sample": 1,
+        "matched": 1,
+        "matched_titles": [
+         "Partial refund amount is ignored and full order total is refunded"
+        ]
+       },
+       {
+        "sample": 2,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 3,
+        "matched": 1,
+        "matched_titles": [
+         "Partial refund amount is ignored and full order total is always refunded"
+        ]
+       }
+      ]
+     }
+    },
+    "recurs_either_seat": true,
+    "recurs_both_seats": true,
+    "recurs_either_seat_major_only": true
+   },
+   {
+    "case_id": "payment-refund-partial",
+    "file": "billing/refunds.py",
+    "line": 9,
+    "category": "data-loss",
+    "title": "Partial refund pays out full order total instead of approved amount",
+    "severity": "blocker",
+    "raising_seats": [
+     "deepseek"
+    ],
+    "per_seat": {
+     "deepseek": {
+      "valid_samples": 3,
+      "recurs_in": 3,
+      "recurs_in_major_only": 3,
+      "recurs": true,
+      "recurs_major_only": true,
+      "detail": [
+       {
+        "sample": 1,
+        "matched": 1,
+        "matched_titles": [
+         "Partial refund pays out order.total_cents instead of approved amount_cents"
+        ]
+       },
+       {
+        "sample": 2,
+        "matched": 1,
+        "matched_titles": [
+         "Partial refund pays out order.total_cents instead of the approved amount_cents"
+        ]
+       },
+       {
+        "sample": 3,
+        "matched": 1,
+        "matched_titles": [
+         "Partial refund now disburses the full order total"
+        ]
+       }
+      ]
+     }
+    },
+    "recurs_either_seat": true,
+    "recurs_both_seats": true,
+    "recurs_either_seat_major_only": true
+   },
+   {
+    "case_id": "race-check-then-act",
+    "file": "app/files.py",
+    "line": 11,
+    "category": "data-loss",
+    "title": "Non-atomic check-then-open race in claim_path",
+    "severity": "blocker",
+    "raising_seats": [
+     "deepseek"
+    ],
+    "per_seat": {
+     "deepseek": {
+      "valid_samples": 3,
+      "recurs_in": 0,
+      "recurs_in_major_only": 0,
+      "recurs": false,
+      "recurs_major_only": false,
+      "detail": [
+       {
+        "sample": 1,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 2,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 3,
+        "matched": 0,
+        "matched_titles": []
+       }
+      ]
+     }
+    },
+    "recurs_either_seat": false,
+    "recurs_both_seats": false,
+    "recurs_either_seat_major_only": false
+   },
+   {
+    "case_id": "race-check-then-act",
+    "file": "app/files.py",
+    "line": 14,
+    "category": "correctness",
+    "title": "Check-then-open race can overwrite a file created by another caller",
+    "severity": "major",
+    "raising_seats": [
+     "openai"
+    ],
+    "per_seat": {
+     "openai": {
+      "valid_samples": 3,
+      "recurs_in": 0,
+      "recurs_in_major_only": 0,
+      "recurs": false,
+      "recurs_major_only": false,
+      "detail": [
+       {
+        "sample": 1,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 2,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 3,
+        "matched": 0,
+        "matched_titles": []
+       }
+      ]
+     }
+    },
+    "recurs_either_seat": false,
+    "recurs_both_seats": false,
+    "recurs_either_seat_major_only": false
+   },
+   {
+    "case_id": "race-check-then-act",
+    "file": "app/files.py",
+    "line": 11,
+    "category": "security",
+    "title": "Dangling symlink bypasses the existence guard",
+    "severity": "major",
+    "raising_seats": [
+     "deepseek"
+    ],
+    "per_seat": {
+     "deepseek": {
+      "valid_samples": 3,
+      "recurs_in": 1,
+      "recurs_in_major_only": 0,
+      "recurs": false,
+      "recurs_major_only": false,
+      "detail": [
+       {
+        "sample": 1,
+        "matched": 1,
+        "matched_titles": [
+         "Dangling symlink bypasses existence check and redirects write"
+        ]
+       },
+       {
+        "sample": 2,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 3,
+        "matched": 0,
+        "matched_titles": []
+       }
+      ]
+     }
+    },
+    "recurs_either_seat": false,
+    "recurs_both_seats": false,
+    "recurs_either_seat_major_only": false
+   },
+   {
+    "case_id": "race-check-then-act",
+    "file": "app/files.py",
+    "line": 14,
+    "category": "data-loss",
+    "title": "Using write mode allows truncation instead of preserving existing content",
+    "severity": "major",
+    "raising_seats": [
+     "openai"
+    ],
+    "per_seat": {
+     "openai": {
+      "valid_samples": 3,
+      "recurs_in": 0,
+      "recurs_in_major_only": 0,
+      "recurs": false,
+      "recurs_major_only": false,
+      "detail": [
+       {
+        "sample": 1,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 2,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 3,
+        "matched": 0,
+        "matched_titles": []
+       }
+      ]
+     }
+    },
+    "recurs_either_seat": false,
+    "recurs_both_seats": false,
+    "recurs_either_seat_major_only": false
+   },
+   {
+    "case_id": "secret-aws-key",
+    "file": "ops/deploy.py",
+    "line": 8,
+    "category": "security",
+    "title": "Hardcoded AWS access key committed to source",
+    "severity": "blocker",
+    "raising_seats": [
+     "deepseek",
+     "openai"
+    ],
+    "per_seat": {
+     "deepseek": {
+      "valid_samples": 3,
+      "recurs_in": 3,
+      "recurs_in_major_only": 3,
+      "recurs": true,
+      "recurs_major_only": true,
+      "detail": [
+       {
+        "sample": 1,
+        "matched": 1,
+        "matched_titles": [
+         "Hardcoded AWS access key committed to source"
+        ]
+       },
+       {
+        "sample": 2,
+        "matched": 1,
+        "matched_titles": [
+         "Hardcoded AWS access key committed to the repository"
+        ]
+       },
+       {
+        "sample": 3,
+        "matched": 1,
+        "matched_titles": [
+         "AWS access key ID hardcoded and committed to the repository"
+        ]
+       }
+      ]
+     },
+     "openai": {
+      "valid_samples": 3,
+      "recurs_in": 2,
+      "recurs_in_major_only": 2,
+      "recurs": true,
+      "recurs_major_only": true,
+      "detail": [
+       {
+        "sample": 1,
+        "matched": 1,
+        "matched_titles": [
+         "Hard-coded AWS access key committed to source"
+        ]
+       },
+       {
+        "sample": 2,
+        "matched": 0,
+        "matched_titles": []
+       },
+       {
+        "sample": 3,
+        "matched": 1,
+        "matched_titles": [
+         "Hard-coded AWS access key committed to source"
+        ]
+       }
+      ]
+     }
+    },
+    "recurs_either_seat": true,
+    "recurs_both_seats": true,
+    "recurs_either_seat_major_only": true
+   },
+   {
+    "case_id": "sql-injection-concat",
+    "file": "app/search.py",
+    "line": 6,
+    "category": "security",
+    "title": "SQL injection: search term concatenated into query text instead of bound as a parameter",
+    "severity": "blocker",
+    "raising_seats": [
+     "deepseek"
+    ],
+    "per_seat": {
+     "deepseek": {
+      "valid_samples": 3,
+      "recurs_in": 3,
+      "recurs_in_major_only": 3,
+      "recurs": true,
+      "recurs_major_only": true,
+      "detail": [
+       {
+        "sample": 1,
+        "matched": 1,
+        "matched_titles": [
+         "SQL injection via concatenated search term"
+        ]
+       },
+       {
+        "sample": 2,
+        "matched": 1,
+        "matched_titles": [
+         "SQL injection: search term concatenated directly into query text"
+        ]
+       },
+       {
+        "sample": 3,
+        "matched": 1,
+        "matched_titles": [
+         "SQL injection via concatenated search term"
+        ]
+       }
+      ]
+     }
+    },
+    "recurs_either_seat": true,
+    "recurs_both_seats": true,
+    "recurs_either_seat_major_only": true
+   },
+   {
+    "case_id": "sql-injection-concat",
+    "file": "app/search.py",
+    "line": 8,
+    "category": "security",
+    "title": "Untrusted search term is concatenated into SQL, enabling injection",
+    "severity": "blocker",
+    "raising_seats": [
+     "openai"
+    ],
+    "per_seat": {
+     "openai": {
+      "valid_samples": 3,
+      "recurs_in": 3,
+      "recurs_in_major_only": 3,
+      "recurs": true,
+      "recurs_major_only": true,
+      "detail": [
+       {
+        "sample": 1,
+        "matched": 1,
+        "matched_titles": [
+         "Untrusted search term is concatenated into SQL, enabling injection"
+        ]
+       },
+       {
+        "sample": 2,
+        "matched": 1,
+        "matched_titles": [
+         "Untrusted search term is concatenated into SQL, enabling injection"
+        ]
+       },
+       {
+        "sample": 3,
+        "matched": 1,
+        "matched_titles": [
+         "Untrusted search term is concatenated into SQL, enabling injection"
+        ]
+       }
+      ]
+     }
+    },
+    "recurs_either_seat": true,
+    "recurs_both_seats": true,
+    "recurs_either_seat_major_only": true
+   },
+   {
+    "case_id": "xss-innerhtml",
+    "file": "web/comments.js",
+    "line": 14,
+    "category": "security",
+    "title": "Stored XSS: untrusted comment.body assigned to innerHTML",
+    "severity": "blocker",
+    "raising_seats": [
+     "deepseek"
+    ],
+    "per_seat": {
+     "deepseek": {
+      "valid_samples": 3,
+      "recurs_in": 2,
+      "recurs_in_major_only": 2,
+      "recurs": true,
+      "recurs_major_only": true,
+      "detail": [
+       {
+        "sample": 1,
+        "matched": 1,
+        "matched_titles": [
+         "Stored XSS: comment body assigned to innerHTML"
+        ]
+       },
+       {
+        "sample": 2,
+        "matched": 1,
+        "matched_titles": [
+         "Stored/DOM XSS: comment body assigned to innerHTML without sanitization"
+        ]
+       },
+       {
+        "sample": 3,
+        "matched": 0,
+        "matched_titles": []
+       }
+      ]
+     }
+    },
+    "recurs_either_seat": true,
+    "recurs_both_seats": true,
+    "recurs_either_seat_major_only": true
+   },
+   {
+    "case_id": "xss-innerhtml",
+    "file": "web/comments.js",
+    "line": 15,
+    "category": "security",
+    "title": "XSS via innerHTML on user-controlled comment body",
+    "severity": "blocker",
+    "raising_seats": [
+     "openai"
+    ],
+    "per_seat": {
+     "openai": {
+      "valid_samples": 3,
+      "recurs_in": 3,
+      "recurs_in_major_only": 3,
+      "recurs": true,
+      "recurs_major_only": true,
+      "detail": [
+       {
+        "sample": 1,
+        "matched": 1,
+        "matched_titles": [
+         "Untrusted comment body is injected into the DOM via innerHTML"
+        ]
+       },
+       {
+        "sample": 2,
+        "matched": 1,
+        "matched_titles": [
+         "User-controlled comment body is injected into the DOM via innerHTML"
+        ]
+       },
+       {
+        "sample": 3,
+        "matched": 1,
+        "matched_titles": [
+         "Untrusted comment body is injected into the DOM via innerHTML"
+        ]
+       }
+      ]
+     }
+    },
+    "recurs_either_seat": true,
+    "recurs_both_seats": true,
+    "recurs_either_seat_major_only": true
+   }
+  ]
+ },
+ "spend": {
+  "shadow_spent_usd": 0.905959,
+  "raw_calls": 234,
+  "samples_ok": 186,
+  "samples_total": 186
+ }
+}

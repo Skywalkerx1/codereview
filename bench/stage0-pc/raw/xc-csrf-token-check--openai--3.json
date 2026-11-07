@@ -1,0 +1,77 @@
+{
+ "case_id": "xc-csrf-token-check",
+ "seat": "openai",
+ "sample": 3,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "48874f52ed5a83e32329656a30ed916da08889ea80a88e3667d80897677374c6",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "gpt-5.4",
+ "events": [
+  {
+   "seat": "openai",
+   "prompt_hash": "48874f52ed5a83e32329656a30ed916da08889ea80a88e3667d80897677374c6",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1036,
+   "tokens_out": 424,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:40:49+00:00",
+   "finished_at": "2026-11-07T13:40:56+00:00",
+   "duration_ms": 7102,
+   "prompt_chars": 4277
+  }
+ ],
+ "shadow_cost_usd": 0.005535,
+ "duration_ms": 7102,
+ "findings": [
+  {
+   "id": "206de844ffff",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "src/app.js",
+   "line": 28,
+   "title": "Global CSRF check blocks all mutating requests before route-specific parsing or exemptions",
+   "evidence": "The middleware is installed application-wide with 'app.use(csrfProtection);', and it rejects every non-safe method unless the 'x-csrf-token' header matches. This is a reachable regression for any existing POST, PUT, PATCH, or DELETE endpoint in this app that is intended for non-browser/API clients, webhooks, or other callers that do not send this header.",
+   "evidence_quote": "app.use(csrfProtection);",
+   "trigger": "",
+   "recommendation": "Apply CSRF protection only to browser session-backed routes that need it, or add explicit exemptions for API/webhook endpoints and document the required token flow before enabling it globally.",
+   "confidence": 0.89,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "2bb1da8742ef",
+   "rule": "",
+   "severity": "major",
+   "category": "reliability",
+   "file": "src/app.js",
+   "line": 21,
+   "title": "Middleware denies all mutating requests when no session token has been established",
+   "evidence": "The check compares the request header against 'req.session?.csrfToken' and returns 403 on mismatch, but this file only comments that session middleware is assumed and does not establish or initialize a CSRF token anywhere in the request path shown here. In any supported deployment where session setup is absent, misordered, or does not populate 'csrfToken', every POST to '/profile' and '/transfer' will be rejected.",
+   "evidence_quote": "  if (!tokensMatch(req.get(\"x-csrf-token\"), req.session?.csrfToken)) {",
+   "trigger": "",
+   "recommendation": "Ensure session middleware and CSRF token generation run before this middleware, or guard startup/configuration so the app fails fast instead of silently rejecting all mutating requests when 'req.session.csrfToken' is unavailable.",
+   "confidence": 0.84,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

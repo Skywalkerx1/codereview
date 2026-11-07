@@ -1,0 +1,162 @@
+{
+ "case_id": "xc-deadletter-worker",
+ "seat": "deepseek",
+ "sample": 1,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "7fa229e350a4a667413e65c4a2832b081436218e44ea67c1023a9bdbc330291f",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "7fa229e350a4a667413e65c4a2832b081436218e44ea67c1023a9bdbc330291f",
+   "outcome": "content_invalid",
+   "error_class": "empty",
+   "attempts": 1,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:41:25+00:00",
+   "finished_at": "2026-11-07T13:42:15+00:00",
+   "detail": "deepseek empty: empty content",
+   "duration_ms": 49507,
+   "prompt_chars": 5271
+  },
+  {
+   "seat": "deepseek",
+   "prompt_hash": "b2e1b1f6837bef9b3639eef526f0f85b450be2b6a82868406c7632462ae40533",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1360,
+   "tokens_out": 6820,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:42:15+00:00",
+   "finished_at": "2026-11-07T13:42:54+00:00",
+   "duration_ms": 39028,
+   "prompt_chars": 5550
+  }
+ ],
+ "shadow_cost_usd": 0.007869,
+ "duration_ms": 88537,
+ "findings": [
+  {
+   "id": "6675646dda54",
+   "rule": "",
+   "severity": "major",
+   "category": "reliability",
+   "file": "app/dlq_worker.py",
+   "line": 29,
+   "title": "Retry budget depends entirely on broker-supplied delivery_count; missing/stale count loops forever",
+   "evidence": "attempts is computed once as _delivery_attempts(message) + 1 and nothing in the worker ever increments a local counter; on failure the code calls queue.nack(message) and continues, so if the broker does not bump delivery_count (default 0 is used when the attribute is absent or unparsable, per _delivery_attempts) attempts stays 1 and the message is nacked and re-received indefinitely, never reaching MAX_ATTEMPTS and never dead-lettered.",
+   "evidence_quote": "attempts = _delivery_attempts(message) + 1",
+   "trigger": "",
+   "recommendation": "Track attempts locally (e.g. keep the incremented count on the requeued message, or hold a per-message in-process counter keyed by message id) and dead-letter once the local budget is exhausted, so dead-lettering does not depend on the broker mutating delivery_count. Alternatively assert/require the attribute and fail fast when it is absent.",
+   "confidence": 0.5,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "9c1cb7c09d65",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/dlq_worker.py",
+   "line": 54,
+   "title": "Ack calls are outside the try blocks: an ack failure aborts the batch and duplicates side effects",
+   "evidence": "Both queue.ack(message) calls sit outside any try/except (after dlq.send and in the success else-branch), so an ack exception propagates out of process_messages: the outcome counters are lost, and on redelivery the handler runs again after its side effects already committed (or the message is dead-lettered a second time).",
+   "evidence_quote": "queue.ack(message)",
+   "trigger": "",
+   "recommendation": "Wrap the ack calls so a failed ack is logged and the message left for redelivery without aborting the whole loop, and make handler side effects idempotent or document at-least-once semantics explicitly.",
+   "confidence": 0.7,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "8c900ad8d613",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/dlq_worker.py",
+   "line": 33,
+   "title": "Message already at or past the attempt budget is still executed once more",
+   "evidence": "The check is only attempts < MAX_ATTEMPTS after the handler has already run; a message redelivered with delivery_count already at MAX_ATTEMPTS or greater is handed to handler(message.body) one extra time before being dead-lettered.",
+   "evidence_quote": "if attempts < MAX_ATTEMPTS:",
+   "trigger": "",
+   "recommendation": "Check the delivery count before invoking the handler and send straight to the DLQ when the budget is already exhausted.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "809076b811b8",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "app/dlq_worker.py",
+   "line": 50,
+   "title": "Dead-letter send failures are only logged, never counted or surfaced to the caller",
+   "evidence": "On a failed dlq.send the code logs and continues without nacking and without incrementing any failure counter; the returned dict only has processed and dead_lettered, so the caller cannot tell a drained queue from one where messages were abandoned or are being re-received in a tight loop.",
+   "evidence_quote": "logger.exception(",
+   "trigger": "",
+   "recommendation": "Add a failed/dead_letter_failed counter to the return value and explicitly nack (or otherwise bound the retry) on DLQ send failure so the loop cannot spin on the same message.",
+   "confidence": 0.55,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "99d53d807d70",
+   "rule": "",
+   "severity": "minor",
+   "category": "testing",
+   "file": "app/dlq_worker.py",
+   "line": 4,
+   "title": "No tests exercise the retry, dead-letter, or ack-failure branches",
+   "evidence": "The change adds a new worker with MAX_ATTEMPTS retry logic and no tests were run or added; the two riskiest paths (nack-then-success, dlq.send failure, ack failure) are uncovered.",
+   "evidence_quote": "MAX_ATTEMPTS = 3",
+   "trigger": "",
+   "recommendation": "Add unit tests with a fake queue/DLQ covering: success on first attempt, success after retries, dead-letter at the attempt limit, dlq.send raising, ack raising, and a message with missing delivery_count.",
+   "confidence": 0.75,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

@@ -1,0 +1,123 @@
+{
+ "case_id": "xc-idempotency-keys",
+ "seat": "deepseek",
+ "sample": 1,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "ed59ce6320b6b2f0283dfe23019fe7506b7d5e2745b1cd4d10cd6c62aa22fcbd",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "ed59ce6320b6b2f0283dfe23019fe7506b7d5e2745b1cd4d10cd6c62aa22fcbd",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1365,
+   "tokens_out": 6505,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:47:04+00:00",
+   "finished_at": "2026-11-07T13:47:39+00:00",
+   "duration_ms": 35236,
+   "prompt_chars": 5393
+  }
+ ],
+ "shadow_cost_usd": 0.007524,
+ "duration_ms": 35236,
+ "findings": [
+  {
+   "id": "edda7fd64303",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "app/payments.py",
+   "line": 51,
+   "title": "Replay with a different amount/currency returns the old receipt instead of rejecting the conflict",
+   "evidence": "prior = store.begin(idempotency_key) followed by 'if prior is not None:' / 'return prior' \u2014 the prior receipt is returned without comparing amount_cents or currency, and begin/complete never store the request parameters.",
+   "evidence_quote": "    if prior is not None:",
+   "trigger": "",
+   "recommendation": "Record the request fingerprint alongside the receipt (e.g. _completed[key] = (amount_cents, currency, receipt)) and, on replay, compare the stored amount/currency with the incoming ones; raise a distinct IdempotencyKeyConflict error (HTTP 409-style) when they differ instead of returning the stale receipt. Scope the key namespace to the caller/account if keys are client-supplied so two callers cannot share receipts.",
+   "confidence": 0.85,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "0c8af6f25859",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "app/payments.py",
+   "line": 20,
+   "title": "None receipt is indistinguishable from the not-claimed sentinel, allowing a double charge",
+   "evidence": "begin returns 'return self._completed[key]' for a completed key, but if gateway.charge returned None, complete stored None and the caller's 'if prior is not None:' check treats the key as unclaimed and charges the gateway a second time.",
+   "evidence_quote": "                return self._completed[key]",
+   "trigger": "",
+   "recommendation": "Use an explicit sentinel or a tuple/result object (e.g. return a (claimed, receipt) pair, or store a dedicated CompletedReceipt wrapper) so a None/falsy receipt is still recognised as already completed; alternatively reject a None receipt from the gateway in complete().",
+   "confidence": 0.5,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "44c1e6cecdd7",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "app/payments.py",
+   "line": 22,
+   "title": "In-flight keys have no lease/timeout, so a hung gateway call blocks that key forever",
+   "evidence": "'raise DuplicateRequestInFlight(key)' \u2014 a key is only released by complete() or abandon(), so if gateway.charge blocks indefinitely (charge_once passes no timeout) every subsequent retry for that key fails permanently; _completed also grows without bound on a long-lived process.",
+   "evidence_quote": "                raise DuplicateRequestInFlight(key)",
+   "trigger": "",
+   "recommendation": "Give in-flight entries a timestamp/lease so stale claims can be reclaimed (and log/metric the reclaim), pass an explicit timeout to gateway.charge so hang windows are bounded, and add an eviction/TTL policy for _completed.",
+   "confidence": 0.55,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "ca63e8a6304d",
+   "rule": "",
+   "severity": "minor",
+   "category": "testing",
+   "file": "app/payments.py",
+   "line": 36,
+   "title": "No tests exercise the dedupe, concurrent-duplicate, or error-path behaviour",
+   "evidence": "charge_once and PaymentStore are added with no accompanying test module, and the change context states no test commands were run.",
+   "evidence_quote": "def charge_once(store, gateway, amount_cents, currency, idempotency_key):",
+   "trigger": "",
+   "recommendation": "Add tests with a fake gateway asserting: single charge for a repeated key, DuplicateRequestInFlight for a concurrent claim (two threads / pre-seeded _in_flight), gateway exception releases the key and propagates, mismatched amount on replay is rejected, and validation errors do not consume the key.",
+   "confidence": 0.8,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

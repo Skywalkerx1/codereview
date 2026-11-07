@@ -1,0 +1,123 @@
+{
+ "case_id": "xc-csrf-token-check",
+ "seat": "deepseek",
+ "sample": 2,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "48874f52ed5a83e32329656a30ed916da08889ea80a88e3667d80897677374c6",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "48874f52ed5a83e32329656a30ed916da08889ea80a88e3667d80897677374c6",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1110,
+   "tokens_out": 4568,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:40:54+00:00",
+   "finished_at": "2026-11-07T13:41:22+00:00",
+   "duration_ms": 28056,
+   "prompt_chars": 4277
+  }
+ ],
+ "shadow_cost_usd": 0.005325,
+ "duration_ms": 28057,
+ "findings": [
+  {
+   "id": "455d77e0f557",
+   "rule": "",
+   "severity": "blocker",
+   "category": "correctness",
+   "file": "src/app.js",
+   "line": 30,
+   "title": "csrfProtection mounted with no session middleware or token issuance, so every POST returns 403",
+   "evidence": "The whole file is shown in this hunk (new file is 33 lines) and it registers only express.json() and csrfProtection before the routes. csrfProtection reads req.session?.csrfToken, and tokensMatch returns false when expected is not a string. Nothing in this module (and nothing that could be mounted on app before this module finishes executing) sets req.session, and no route hands a csrfToken to the client. Line 24 therefore fires for every POST /profile and POST /transfer: 'return res.status(403).json({ error: \"invalid CSRF token\" });'. The comment on line 18 states the assumption the code depends on but no code satisfies it.",
+   "evidence_quote": "app.use(csrfProtection);",
+   "trigger": "",
+   "recommendation": "Register the session middleware (and a token issuance/rotation path, e.g. issuing req.session.csrfToken on first use and exposing it via a GET route) in this module before line 30, or make csrfProtection explicitly assert/throw on a missing session at startup wiring time. Add an end-to-end test that a valid token obtained from the app is accepted on POST /profile and POST /transfer.",
+   "confidence": 0.8,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "914bcf0744de",
+   "rule": "",
+   "severity": "minor",
+   "category": "security",
+   "file": "src/app.js",
+   "line": 29,
+   "title": "JSON body is parsed and buffered before the CSRF token is validated",
+   "evidence": "Line 29 mounts the body parser ahead of line 30, so cross-site or unauthenticated POSTs with arbitrary bodies reach express.json() (allocating up to the configured limit) and can also return parser 400s before any token check. Moving the token gate first also keeps malformed-body error paths unreachable for unauthenticated callers.",
+   "evidence_quote": "app.use(express.json());",
+   "trigger": "",
+   "recommendation": "Mount csrfProtection before express.json() so unauthenticated mutations are rejected with 403 before any body is read or parsed.",
+   "confidence": 0.7,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "051812e53109",
+   "rule": "",
+   "severity": "minor",
+   "category": "security",
+   "file": "src/app.js",
+   "line": 15,
+   "title": "Early return on length mismatch leaks the token length",
+   "evidence": "Because the length check short-circuits the constant-time compare, an attacker can learn the exact length of the session token by measuring response timing across repeated requests, then only needs to guess within that space. Comparing fixed-width digests removes the oracle.",
+   "evidence_quote": "return a.length === b.length && timingSafeEqual(a, b);",
+   "trigger": "",
+   "recommendation": "Hash both sides to a fixed size first (e.g. createHash(sha256) over each string) and then timingSafeEqual the digests, so unequal-length inputs still take constant time.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "ae0beec0724b",
+   "rule": "",
+   "severity": "minor",
+   "category": "testing",
+   "file": "src/app.js",
+   "line": 19,
+   "title": "Security-critical middleware shipped with no tests",
+   "evidence": "The change adds the exported guard on line 19 with SAFE_METHODS bypass and header-only token checking, and the run report says no test commands were run. There is no coverage for the safe-method bypass, missing header, missing/expired session, wrong-length token, or a valid-token happy path, so any regression in the wiring above would ship silently.",
+   "evidence_quote": "export function csrfProtection(req, res, next) {",
+   "trigger": "",
+   "recommendation": "Add tests exercising: GET/HEAD/OPTIONS pass through; POST without header or without session returns 403; POST with valid session token passes; missing x-csrf-token on POST returns 403.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

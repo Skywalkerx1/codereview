@@ -1,0 +1,146 @@
+{
+ "case_id": "xc-atomic-state-writer",
+ "seat": "deepseek",
+ "sample": 2,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "d7394253aa0c0e3c0110c901ff2b04701406e0529ec5fd431a4d3de4a434377f",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "d7394253aa0c0e3c0110c901ff2b04701406e0529ec5fd431a4d3de4a434377f",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1349,
+   "tokens_out": 6724,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:36:29+00:00",
+   "finished_at": "2026-11-07T13:37:06+00:00",
+   "duration_ms": 36940,
+   "prompt_chars": 5237
+  }
+ ],
+ "shadow_cost_usd": 0.007761,
+ "duration_ms": 36940,
+ "findings": [
+  {
+   "id": "b504b2069f01",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/state_store.py",
+   "line": 27,
+   "title": "Replacing the destination drops its existing mode/ownership",
+   "evidence": "os.replace(tmp_path, path) swaps in the mkstemp file, which is created 0600 (umask-independent), so a pre-existing 0640/0644 state file becomes 0600 and owned by the writing euid; any reader running as another user or group loses access.",
+   "evidence_quote": "        os.replace(tmp_path, path)",
+   "trigger": "",
+   "recommendation": "If the destination exists, stat it and os.chmod (and if privileged, os.chown) the temp file to the previous mode/owner before the rename; otherwise document explicitly that the file is always created 0600 and that callers must set permissions themselves.",
+   "confidence": 0.7,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "75e2007191dc",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/state_store.py",
+   "line": 18,
+   "title": "Symlinked state path is replaced instead of followed",
+   "evidence": "directory = os.path.dirname(os.path.abspath(path)) uses abspath, which does not resolve symlinks, so a path that is a symlink to another file is replaced by a regular file (the link is destroyed and the real target is never updated).",
+   "evidence_quote": "directory = os.path.dirname(os.path.abspath(path)) uses abspath, which does not resolve symlinks, so a path that is a symlink to another file is replaced by a regular file (the link is destroyed and the real target is never updated).",
+   "trigger": "",
+   "recommendation": "Resolve the destination with os.path.realpath (or refuse symlinked paths with an explicit error) before deriving the temp directory and calling os.replace, so the documented atomic-rename contract applies to the real file.",
+   "confidence": 0.65,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "38499a1d9214",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "app/state_store.py",
+   "line": 36,
+   "title": "Directory fsync failure reports failure after the write is already committed",
+   "evidence": "_fsync_directory(directory) runs after os.replace has already made the new state visible, so if the directory fsync raises (some filesystems return EINVAL/ENOTSUP, or EACCES on restrictive dirs) save_state raises even though the data is durably replaced, and the caller may believe the save failed and retry with stale data.",
+   "evidence_quote": "_fsync_directory(directory) runs after os.replace has already made the new state visible, so if the directory fsync raises (some filesystems return EINVAL/ENOTSUP, or EACCES on restrictive dirs) save_state raises even though the data is durably replaced, and the caller may believe the save failed and retry with stale data.",
+   "trigger": "",
+   "recommendation": "Wrap the directory fsync so known-unsupported errors (EINVAL, ENOTSUP, EBADF) are ignored and the function only signals success once os.replace has completed; re-raise other OSErrors only if you intend to report the save as failed.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "b42ab4a7314e",
+   "rule": "",
+   "severity": "minor",
+   "category": "testing",
+   "file": "app/state_store.py",
+   "line": 6,
+   "title": "Atomic state writer ships with no tests",
+   "evidence": "def save_state(path, state) introduces file-persistence behaviour (temp-file creation, exception cleanup, os.replace, directory fsync, load_state corrupt-root error) with no accompanying test covering success, serialisation failure cleanup, or the non-dict-root ValueError.",
+   "evidence_quote": "def save_state(path, state) introduces file-persistence behaviour (temp-file creation, exception cleanup, os.replace, directory fsync, load_state corrupt-root error) with no accompanying test covering success, serialisation failure cleanup, or the non-dict-root ValueError.",
+   "trigger": "",
+   "recommendation": "Add tests asserting: successful round-trip via load_state; temp file is removed when json.dump raises on a non-serialisable value; load_state returns {} for a missing file and raises ValueError for a non-object root; and no .state-*.tmp files remain in the directory after a failed save.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "b8da14a32a25",
+   "rule": "",
+   "severity": "nit",
+   "category": "reliability",
+   "file": "app/state_store.py",
+   "line": 19,
+   "title": "File descriptor leaks if wrapping the raw fd fails",
+   "evidence": "fd, tmp_path = tempfile.mkstemp( acquires a raw fd that is only owned by the context manager once os.fdopen succeeds; if that call itself raises, the cleanup path unlinks the temp file but never closes fd.",
+   "evidence_quote": "fd, tmp_path = tempfile.mkstemp( acquires a raw fd that is only owned by the context manager once os.fdopen succeeds; if that call itself raises, the cleanup path unlinks the temp file but never closes fd.",
+   "trigger": "",
+   "recommendation": "Wrap the fd in try/except immediately after mkstemp and close it with os.close(fd) when os.fdopen fails, or restructure so the fd is closed in a finally block when no handle was created.",
+   "confidence": 0.45,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

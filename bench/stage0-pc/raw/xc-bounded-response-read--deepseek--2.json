@@ -1,0 +1,123 @@
+{
+ "case_id": "xc-bounded-response-read",
+ "seat": "deepseek",
+ "sample": 2,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "38bc6ae17e6af4be06e4a233a4cc5f251035514fa3ec80da6ec8181deda323ba",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "38bc6ae17e6af4be06e4a233a4cc5f251035514fa3ec80da6ec8181deda323ba",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1204,
+   "tokens_out": 6883,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:38:13+00:00",
+   "finished_at": "2026-11-07T13:38:54+00:00",
+   "duration_ms": 40866,
+   "prompt_chars": 4816
+  }
+ ],
+ "shadow_cost_usd": 0.007896,
+ "duration_ms": 40867,
+ "findings": [
+  {
+   "id": "7646a9c0a2b8",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/fetch_body.py",
+   "line": 42,
+   "title": "Unconditional UTF-8 decode raises UnicodeDecodeError for non-UTF-8 or cap-truncated bodies",
+   "evidence": "Body bytes are joined and decoded with no charset negotiation and no error handling, ignoring the charset in Content-Type and any multi-byte sequence cut off at the cap: `return b\"\".join(chunks).decode(\"utf-8\")`. A server returning ISO-8859-1/GBK text, or a body whose final multi-byte char straddles the max_bytes boundary, makes the call raise instead of returning text.",
+   "evidence_quote": "return b\"\".join(chunks).decode(\"utf-8\")",
+   "trigger": "",
+   "recommendation": "Capture the declared encoding inside the with block (e.g. encoding = response.encoding or utf-8) and decode the joined bytes after the block with an explicit errors policy (e.g. errors=replace or errors=strict documented in the docstring); alternatively expose an encoding parameter so the null/unknown-charset case is caller-controlled.",
+   "confidence": 0.8,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "fb49a3f995ab",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "app/fetch_body.py",
+   "line": 20,
+   "title": "Cap bounds bytes but not wall-clock time; slow-drip response can stall the caller forever",
+   "evidence": "The timeout is passed straight to requests, which applies it per socket operation (connect and each read), not to the total transfer: `    with requests.get(url, timeout=timeout, stream=True) as response:`. A server that sends one byte just under the read timeout keeps the streamed loop alive far beyond 10 seconds (1 MB at 1 byte / 9 s is weeks), so the size cap provides no latency bound. Reachable with any slow or adversarial origin; note this depends on server behaviour, hence minor.",
+   "evidence_quote": "The timeout is passed straight to requests, which applies it per socket operation (connect and each read), not to the total transfer: `    with requests.get(url, timeout=timeout, stream=True) as response:`. A server that sends one byte just under the read timeout keeps the streamed loop alive far beyond 10 seconds (1 MB at 1 byte / 9 s is weeks), so the size cap provides no latency bound. Reachable with any slow or adversarial origin; note this depends on server behaviour, hence minor.",
+   "trigger": "",
+   "recommendation": "Record a deadline (time.monotonic() + timeout) before the loop and raise on each iteration when it is exceeded, or wrap the loop in a total-budget check, so the cap bounds both bytes and elapsed time.",
+   "confidence": 0.75,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "9ecf2654cfdc",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/fetch_body.py",
+   "line": 29,
+   "title": "except ValueError also encloses the ResponseTooLarge raise, silently swallowing cap failures if the class changes",
+   "evidence": "The try block is broader than the single int() conversion it needs to guard, and it also contains the size-cap raise: `            except ValueError:`. Today ResponseTooLarge derives from Exception so it propagates, but any refactor that makes ResponseTooLarge a ValueError subclass (or an int() raising a different exception type) turns an enforced cap into a silent pass-through, defeating the whole guard. The pass also hides malformed headers with no trace, making such servers hard to diagnose.",
+   "evidence_quote": "The try block is broader than the single int() conversion it needs to guard, and it also contains the size-cap raise: `            except ValueError:`. Today ResponseTooLarge derives from Exception so it propagates, but any refactor that makes ResponseTooLarge a ValueError subclass (or an int() raising a different exception type) turns an enforced cap into a silent pass-through, defeating the whole guard. The pass also hides malformed headers with no trace, making such servers hard to diagnose.",
+   "trigger": "",
+   "recommendation": "Narrow the try to only the conversion (parse declared into an int inside try/except, then compare and raise outside it), so the cap failure path can never be caught by the parse-error handler.",
+   "confidence": 0.7,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "ea13892ccc01",
+   "rule": "",
+   "severity": "minor",
+   "category": "testing",
+   "file": "app/fetch_body.py",
+   "line": 37,
+   "title": "No tests cover the size-cap paths despite the security-relevant guard",
+   "evidence": "The diff adds only the module; no test exercises the boundary condition or the two distinct enforcement paths: `            if total > max_bytes:`. Untested branches include: declared Content-Length over the cap (should raise before streaming), declared header absent or unparsable (must fall through), body exactly at max_bytes (must succeed), and body one byte over (must raise and not accumulate the offending chunk).",
+   "evidence_quote": "The diff adds only the module; no test exercises the boundary condition or the two distinct enforcement paths: `            if total > max_bytes:`. Untested branches include: declared Content-Length over the cap (should raise before streaming), declared header absent or unparsable (must fall through), body exactly at max_bytes (must succeed), and body one byte over (must raise and not accumulate the offending chunk).",
+   "trigger": "",
+   "recommendation": "Add unit tests with a stubbed response/mock transport covering declared-over-cap, missing/bad Content-Length, exactly-at-cap, streaming overflow, and non-UTF-8 bytes, so the fallback from header check to streaming check is pinned.",
+   "confidence": 0.8,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

@@ -1,0 +1,100 @@
+{
+ "case_id": "xc-bigdecimal-invoice",
+ "seat": "openai",
+ "sample": 3,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "d4bc0a8ecd4c8853c69a6dd9d43fa007642ab17eae01d468c076023667c0cb7b",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "gpt-5.4",
+ "events": [
+  {
+   "seat": "openai",
+   "prompt_hash": "d4bc0a8ecd4c8853c69a6dd9d43fa007642ab17eae01d468c076023667c0cb7b",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1118,
+   "tokens_out": 495,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:37:42+00:00",
+   "finished_at": "2026-11-07T13:37:49+00:00",
+   "duration_ms": 6860,
+   "prompt_chars": 4893
+  }
+ ],
+ "shadow_cost_usd": 0.006347,
+ "duration_ms": 6860,
+ "findings": [
+  {
+   "id": "19c057a336f1",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "src/main/java/com/example/billing/InvoiceCalculator.java",
+   "line": 27,
+   "title": "Public methods dereference a null item list without validation",
+   "evidence": "The subtotal loop iterates directly over the caller-provided list, and totalWithTax passes its items argument straight through to subtotal with no null guard. A null list now causes an immediate NullPointerException instead of a controlled validation error.",
+   "evidence_quote": "        for (LineItem item : items) {",
+   "trigger": "",
+   "recommendation": "Validate public inputs at method entry, for example reject null items with IllegalArgumentException or treat null as an empty list consistently in both subtotal and totalWithTax.",
+   "confidence": 0.97,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "3032aaf5a9c9",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "src/main/java/com/example/billing/InvoiceCalculator.java",
+   "line": 39,
+   "title": "Null taxRate causes a reachable NullPointerException in totalWithTax",
+   "evidence": "The method multiplies subtotal by taxRate without checking for null, so any caller passing a null tax rate will crash at runtime.",
+   "evidence_quote": "        BigDecimal tax = cents(subtotal.multiply(taxRate));",
+   "trigger": "",
+   "recommendation": "Add an explicit null check for taxRate at the start of totalWithTax and fail with a clear IllegalArgumentException, or define and implement a default such as zero tax.",
+   "confidence": 0.99,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "dd5ed6f50b6d",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "src/main/java/com/example/billing/InvoiceCalculator.java",
+   "line": 39,
+   "title": "Negative tax rates are accepted and can produce invalid negative invoice totals",
+   "evidence": "There is validation for unitPrice and quantity, but totalWithTax applies any taxRate directly. With a taxRate less than -1, the computed tax exceeds the subtotal in magnitude and the returned invoice total becomes negative, which is an invalid billing result in normal supported use.",
+   "evidence_quote": "        BigDecimal tax = cents(subtotal.multiply(taxRate));",
+   "trigger": "",
+   "recommendation": "Validate taxRate to the supported domain, typically taxRate >= 0, and reject out-of-range values before computing totals.",
+   "confidence": 0.88,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

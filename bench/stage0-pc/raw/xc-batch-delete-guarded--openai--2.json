@@ -1,0 +1,77 @@
+{
+ "case_id": "xc-batch-delete-guarded",
+ "seat": "openai",
+ "sample": 2,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "9cfbf1fbfd0cc977f247e84288240441df3a6a0273f04bf47a0c224bc680e791",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "gpt-5.4",
+ "events": [
+  {
+   "seat": "openai",
+   "prompt_hash": "9cfbf1fbfd0cc977f247e84288240441df3a6a0273f04bf47a0c224bc680e791",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1230,
+   "tokens_out": 397,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:36:41+00:00",
+   "finished_at": "2026-11-07T13:36:48+00:00",
+   "duration_ms": 6757,
+   "prompt_chars": 5099
+  }
+ ],
+ "shadow_cost_usd": 0.005508,
+ "duration_ms": 6758,
+ "findings": [
+  {
+   "id": "99e06af4a6fe",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "app/cleanup.py",
+   "line": 30,
+   "title": "DELETE statement uses sqlite-style placeholder despite MySQL-specific syntax",
+   "evidence": "The function explicitly targets MySQL DELETE ... LIMIT, but the executed DELETE binds the limit with a '?' placeholder. On supported POSIX Python deployments, common MySQL DB-API drivers use '%s' paramstyle, so this statement will fail at runtime when dry_run is false.",
+   "evidence_quote": "            f\"DELETE FROM {table} WHERE {where_sql} LIMIT ?\",",
+   "trigger": "",
+   "recommendation": "Use the placeholder style required by the actual database driver, or avoid parameterizing LIMIT if the driver does not support it and safely interpolate a validated integer batch_size instead. Add an integration test against the supported MySQL driver.",
+   "confidence": 0.98,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "9b3bdda3819a",
+   "rule": "",
+   "severity": "major",
+   "category": "reliability",
+   "file": "app/cleanup.py",
+   "line": 36,
+   "title": "Hard batch cap can leave matching rows undeleted while returning a normal result shape",
+   "evidence": "The loop stops after a fixed MAX_BATCHES and only then raises, meaning any cleanup with more than MAX_BATCHES * batch_size matches will commit partial deletions before failing. This is a reachable path for large tables and can leave retention cleanup incomplete after deleting up to 500000 rows by default.",
+   "evidence_quote": "    for _batch in range(MAX_BATCHES):",
+   "trigger": "",
+   "recommendation": "Either make the cap configurable per call and surface partial-progress explicitly, or pre-count rows and refuse to start when the requested cleanup would exceed the cap. Consider wrapping the operation in clearer reporting so callers can distinguish partial deletion from complete success.",
+   "confidence": 0.87,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

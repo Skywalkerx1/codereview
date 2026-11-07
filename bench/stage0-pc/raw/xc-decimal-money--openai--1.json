@@ -1,0 +1,54 @@
+{
+ "case_id": "xc-decimal-money",
+ "seat": "openai",
+ "sample": 1,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "eec5c23c07fa130474abc1b35d4cd6bca761aba75ff8763eddbfc9e033ef6e19",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "gpt-5.4",
+ "events": [
+  {
+   "seat": "openai",
+   "prompt_hash": "eec5c23c07fa130474abc1b35d4cd6bca761aba75ff8763eddbfc9e033ef6e19",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 959,
+   "tokens_out": 306,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:41:29+00:00",
+   "finished_at": "2026-11-07T13:41:34+00:00",
+   "duration_ms": 5784,
+   "prompt_chars": 4019
+  }
+ ],
+ "shadow_cost_usd": 0.004259,
+ "duration_ms": 5784,
+ "findings": [
+  {
+   "id": "b2e4ae2931d1",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "app/money.py",
+   "line": 16,
+   "title": "Tax is rounded independently, causing incorrect totals for small subtotals",
+   "evidence": "The implementation computes tax as a separately quantized amount before adding it to the subtotal, so values like subtotal 0.05 with tax_rate 0.10 produce tax 0.01 and total 0.06, while rounding the final total would yield 0.055 -> 0.06 and tax effectively 0.00 or, for subtotal 0.01 at 10%, tax becomes 0.00 vs other expected policies. This hard-codes a per-line tax rounding policy and can change billed totals compared with rounding only the final amount.",
+   "evidence_quote": "    tax = (subtotal * Decimal(str(tax_rate))).quantize(CENT, rounding=ROUND_HALF_UP)",
+   "trigger": "",
+   "recommendation": "Clarify and implement the intended tax policy explicitly. If totals should be rounded only once, compute '(subtotal * (Decimal('1') + rate)).quantize(...)' and derive tax from that, or document and test that tax is intentionally rounded independently per call.",
+   "confidence": 0.89,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

@@ -1,0 +1,54 @@
+{
+ "case_id": "xc-timeout-http-fetch",
+ "seat": "openai",
+ "sample": 3,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "6cccfe37c162912945abc8ad3a2c24e426d7a60645b0cc221cb7d8d7e138a131",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "gpt-5.4",
+ "events": [
+  {
+   "seat": "openai",
+   "prompt_hash": "6cccfe37c162912945abc8ad3a2c24e426d7a60645b0cc221cb7d8d7e138a131",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1100,
+   "tokens_out": 210,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:51:39+00:00",
+   "finished_at": "2026-11-07T13:51:43+00:00",
+   "duration_ms": 3806,
+   "prompt_chars": 4393
+  }
+ ],
+ "shadow_cost_usd": 0.003475,
+ "duration_ms": 3807,
+ "findings": [
+  {
+   "id": "b53f1147fa2a",
+   "rule": "",
+   "severity": "major",
+   "category": "reliability",
+   "file": "lib/http_fetch.rb",
+   "line": 5,
+   "title": "WriteTimeout is not retried even though Net::HTTP can raise it during a GET request",
+   "evidence": "The retry list only includes open timeout, read timeout, and connection reset, so a supported transient timeout from Net::HTTP will bypass the retry block and fail on the first attempt.",
+   "evidence_quote": "    Net::OpenTimeout, Net::ReadTimeout, Errno::ECONNRESET",
+   "trigger": "",
+   "recommendation": "Include Net::WriteTimeout in RETRYABLE_ERRORS, or otherwise document and handle the full set of transient Net::HTTP timeout exceptions that can occur on supported Ruby versions during request transmission.",
+   "confidence": 0.95,
+   "sources": [
+    "openai"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "openai": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

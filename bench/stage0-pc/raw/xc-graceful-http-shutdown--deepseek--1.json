@@ -1,0 +1,123 @@
+{
+ "case_id": "xc-graceful-http-shutdown",
+ "seat": "deepseek",
+ "sample": 1,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "495e060fb9ffdf494f00177f5f08783b6998c781bdb1ebaf333e56c47b205a03",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "495e060fb9ffdf494f00177f5f08783b6998c781bdb1ebaf333e56c47b205a03",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1361,
+   "tokens_out": 4804,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:43:23+00:00",
+   "finished_at": "2026-11-07T13:43:52+00:00",
+   "duration_ms": 29064,
+   "prompt_chars": 4839
+  }
+ ],
+ "shadow_cost_usd": 0.005652,
+ "duration_ms": 29064,
+ "findings": [
+  {
+   "id": "4aa27e7998f4",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "cmd/server/main.go",
+   "line": 55,
+   "title": "Health flip is unobservable: Shutdown closes the listener in the same instant",
+   "evidence": "draining.Store(true) is immediately followed by srv.Shutdown(shutdownCtx). Shutdown closes all listeners and stops accepting connections, so after the flip the /healthz handler can no longer be reached at all: probes get connection refused rather than 503. The comment claims balancers are told to stop sending traffic, but there is no drain pause between the flip and the listener close, so the LB never sees the new health state and requests routed during endpoint-propagation still hit a closed port.",
+   "evidence_quote": "\t\tdraining.Store(true)",
+   "trigger": "",
+   "recommendation": "Insert a bounded drain delay (or wait for an external readiness signal) between draining.Store(true) and srv.Shutdown, sized to the load balancer's probe interval and endpoint propagation, e.g. sleep for a configurable preStop duration before calling Shutdown. Alternatively serve the health endpoint on a separate listener that outlives the main listener.",
+   "confidence": 0.75,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "8420e07e1a4d",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "cmd/server/main.go",
+   "line": 40,
+   "title": "Second SIGTERM/SIGINT is swallowed instead of forcing exit",
+   "evidence": "stop() is only deferred, and defers do not run until main returns. After ctx.Done() fires, signal.NotifyContext is still installed, so a second operator SIGTERM during the 15s shutdown window is delivered to the still-registered channel and discarded; the default terminating disposition is not restored and the operator cannot force an immediate exit.",
+   "evidence_quote": "\tdefer stop()",
+   "trigger": "",
+   "recommendation": "Call stop() explicitly at the top of the ctx.Done() branch (before srv.Shutdown) so a second signal restores default handling and terminates the process immediately.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "d8977dcd8719",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "cmd/server/main.go",
+   "line": 62,
+   "title": "Forced close of in-flight requests still exits with status 0",
+   "evidence": "When Shutdown exceeds the deadline, srv.Close() aborts in-flight requests mid-response (truncated responses, possible client-visible errors), but this outcome is only logged at info level and the process then returns normally. A supervisor or orchestrator cannot distinguish a clean drain from a forced kill that dropped requests.",
+   "evidence_quote": "\t\t\t_ = srv.Close()",
+   "trigger": "",
+   "recommendation": "Track whether the forced close path was taken and exit non-zero (or emit a metric/counter) so dropped-request shutdowns are detectable.",
+   "confidence": 0.5,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "9c434d19621c",
+   "rule": "",
+   "severity": "minor",
+   "category": "testing",
+   "file": "cmd/server/main.go",
+   "line": 17,
+   "title": "No tests for the draining/health behaviour or shutdown ordering",
+   "evidence": "The change adds a new health handler and a shutdown state machine with a 15s deadline and a forced-close fallback, but no test file accompanies it and no test commands were run. The two behaviours that matter (503 after the flip, Shutdown completion within the deadline) are unverified, which is exactly how the unobservable-flip defect slipped in.",
+   "evidence_quote": "func healthHandler(w http.ResponseWriter, r *http.Request) {",
+   "trigger": "",
+   "recommendation": "Add a test using httptest for the handler's draining/non-draining responses, and a test that signals a test server and asserts Shutdown returns within the deadline with a shortened timeout.",
+   "confidence": 0.55,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

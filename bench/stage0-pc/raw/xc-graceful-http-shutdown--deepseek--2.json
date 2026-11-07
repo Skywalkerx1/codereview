@@ -1,0 +1,116 @@
+{
+ "case_id": "xc-graceful-http-shutdown",
+ "seat": "deepseek",
+ "sample": 2,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "495e060fb9ffdf494f00177f5f08783b6998c781bdb1ebaf333e56c47b205a03",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "495e060fb9ffdf494f00177f5f08783b6998c781bdb1ebaf333e56c47b205a03",
+   "outcome": "content_invalid",
+   "error_class": "empty",
+   "attempts": 1,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:43:26+00:00",
+   "finished_at": "2026-11-07T13:44:15+00:00",
+   "detail": "deepseek empty: empty content",
+   "duration_ms": 48306,
+   "prompt_chars": 4839
+  },
+  {
+   "seat": "deepseek",
+   "prompt_hash": "75fc353577fcc26cd68e4f49a53e842831c52c73a354284d7413826dd9c6adc7",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 1417,
+   "tokens_out": 7022,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:44:15+00:00",
+   "finished_at": "2026-11-07T13:44:57+00:00",
+   "duration_ms": 42561,
+   "prompt_chars": 5118
+  }
+ ],
+ "shadow_cost_usd": 0.008107,
+ "duration_ms": 90868,
+ "findings": [
+  {
+   "id": "91dcfea1db7f",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "cmd/server/main.go",
+   "line": 55,
+   "title": "No drain window: health flip is unobservable before Shutdown closes the listener",
+   "evidence": "draining.Store(true) is immediately followed by srv.Shutdown(shutdownCtx); Shutdown closes listeners right away, so /healthz returns 503 only for requests already accepted, and any balancer that has not yet polled keeps sending traffic to a closed port.",
+   "evidence_quote": "\t\tdraining.Store(true)",
+   "trigger": "",
+   "recommendation": "Insert a configurable drain period (e.g. a 5s timer, still serving) between draining.Store(true) and srv.Shutdown, then give Shutdown the remaining budget; log the start/end of the drain so operators can tune it against the balancer poll interval.",
+   "confidence": 0.7,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "7d55527add33",
+   "rule": "",
+   "severity": "major",
+   "category": "testing",
+   "file": "cmd/server/main.go",
+   "line": 27,
+   "title": "Graceful shutdown and forced-close paths have no test coverage",
+   "evidence": "The whole behaviour under review lives in main with a package-level atomic flag and no test file is added, so the SIGTERM handler, the 15s deadline and the forced Close path are unverified.",
+   "evidence_quote": "func main() {",
+   "trigger": "",
+   "recommendation": "Extract the serve/shutdown logic into a testable function and add tests: signal during an in-flight request (request completes), request slower than the deadline (connection force-closed), and health returning 503 while draining.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "9a7636fa1bd4",
+   "rule": "",
+   "severity": "minor",
+   "category": "reliability",
+   "file": "cmd/server/main.go",
+   "line": 62,
+   "title": "Forced close still exits with status 0",
+   "evidence": "After the deadline expires the code logs the failure and calls _ = srv.Close(), then falls out of main normally, so supervisors and alerting see a successful exit despite aborted in-flight requests.",
+   "evidence_quote": "\t\t\t_ = srv.Close()",
+   "trigger": "",
+   "recommendation": "Record that the shutdown was not graceful and exit non-zero (e.g. os.Exit(1) after logging) so a dropped-request shutdown is visible to orchestrators and metrics.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

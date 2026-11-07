@@ -1,0 +1,100 @@
+{
+ "case_id": "clean-input-validation",
+ "seat": "deepseek",
+ "sample": 2,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "977c93b0806d30b4ae3e429503ecfc4e043fad1dcb25ab0481610ef3c696d72b",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "977c93b0806d30b4ae3e429503ecfc4e043fad1dcb25ab0481610ef3c696d72b",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 897,
+   "tokens_out": 2852,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:34:58+00:00",
+   "finished_at": "2026-11-07T13:35:16+00:00",
+   "duration_ms": 18063,
+   "prompt_chars": 3525
+  }
+ ],
+ "shadow_cost_usd": 0.003379,
+ "duration_ms": 18064,
+ "findings": [
+  {
+   "id": "cd74a450cb2f",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "app/forms.py",
+   "line": 9,
+   "title": "Blank/empty tag now raises instead of returning empty string",
+   "evidence": "if len(tag) > 40 or tag not in ALLOWED_TAGS:  -- an empty submitted value strips to '' which is not in ALLOWED_TAGS, so the function now raises instead of returning '' as before",
+   "evidence_quote": "    if len(tag) > 40 or tag not in ALLOWED_TAGS:",
+   "trigger": "",
+   "recommendation": "Decide explicitly what a blank value means: if the field is optional, short-circuit before the allowlist check (e.g. return '' early when the stripped tag is empty, or have callers skip cleaning on blank) so optional forms submitting no tag do not start failing. If the field is required, add a distinct error message for the blank case so the failure is diagnosable.",
+   "confidence": 0.55,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "aa396f8b2385",
+   "rule": "",
+   "severity": "minor",
+   "category": "quality",
+   "file": "app/forms.py",
+   "line": 10,
+   "title": "Length guard is unreachable on its own and error message does not match it",
+   "evidence": "raise ValidationError(\"unknown tag\") -- the only possible failure is the allowlist membership test, since every entry in ALLOWED_TAGS is far shorter than 40 chars, so the len(tag) > 40 branch never fires independently and is reported as an unknown tag",
+   "evidence_quote": "        raise ValidationError(\"unknown tag\")",
+   "trigger": "",
+   "recommendation": "Either drop the redundant length check, or make it a real independent guard with its own error (e.g. raise a length-specific message) and put it before the allowlist test; also add a test asserting the error for an over-length input so the guard's purpose is verifiable.",
+   "confidence": 0.8,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "304dc90a7b38",
+   "rule": "",
+   "severity": "minor",
+   "category": "testing",
+   "file": "app/forms.py",
+   "line": 9,
+   "title": "New rejection paths have no test coverage",
+   "evidence": "if len(tag) > 40 or tag not in ALLOWED_TAGS: adds two new failure modes (unknown tag, long tag) and changes the success path to lowercase-then-validate, but no tests were run or added",
+   "evidence_quote": "    if len(tag) > 40 or tag not in ALLOWED_TAGS:",
+   "trigger": "",
+   "recommendation": "Add tests covering: an allowed tag in mixed case (accepted and returned lowercased), a disallowed tag (ValidationError), an over-length tag (ValidationError), and a blank/whitespace-only input to pin down the intended contract.",
+   "confidence": 0.75,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}

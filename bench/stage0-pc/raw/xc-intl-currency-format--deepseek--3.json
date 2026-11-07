@@ -1,0 +1,123 @@
+{
+ "case_id": "xc-intl-currency-format",
+ "seat": "deepseek",
+ "sample": 3,
+ "status": "ok",
+ "error": null,
+ "prompt_hash": "76a8aa691e0a2e4767fcf089bdfb96a685116c4178f9e44376f9df1a8b339876",
+ "params_hash": "67e2b57b3185e9b7f60b6cbdf9337189dc3259bcb4524d1d8a94d396c516bd0d",
+ "model": "deepseek-flash",
+ "events": [
+  {
+   "seat": "deepseek",
+   "prompt_hash": "76a8aa691e0a2e4767fcf089bdfb96a685116c4178f9e44376f9df1a8b339876",
+   "outcome": "ok",
+   "error_class": null,
+   "attempts": 1,
+   "tokens_in": 959,
+   "tokens_out": 4483,
+   "tokens_estimated": false,
+   "cached": false,
+   "started_at": "2026-11-07T13:47:39+00:00",
+   "finished_at": "2026-11-07T13:48:07+00:00",
+   "duration_ms": 27241,
+   "prompt_chars": 3726
+  }
+ ],
+ "shadow_cost_usd": 0.00519,
+ "duration_ms": 27242,
+ "findings": [
+  {
+   "id": "e33ee426f4c9",
+   "rule": "",
+   "severity": "major",
+   "category": "correctness",
+   "file": "src/formatMoney.js",
+   "line": 9,
+   "title": "Hardcoded /100 is wrong for currencies whose minor unit is not 1/100",
+   "evidence": "The function accepts an arbitrary `currency` but always converts with 'amountCents / 100', then formats with style currency, whose fraction digits follow the currency default (0 for JPY, 3 for KWD/BHD). Reachable path: formatMoney(1234, 'JPY') renders 12 yen (trailing digits dropped) instead of 1234 yen, and formatMoney(1234, 'KWD') renders 12.34 instead of 1.234 -a silent 100x / 10x error in displayed money with no validation rejecting unsupported currencies.",
+   "evidence_quote": "  return formatter.format(amountCents / 100);",
+   "trigger": "",
+   "recommendation": "Either restrict the API to 2-decimal currencies with an explicit allowlist/assertion on currency, or take the amount in the currency's minor units and derive the exponent (e.g. from Intl.NumberFormat resolvedOptions().maximumFractionDigits or an ISO 4217 exponent table) before dividing, so the scaling matches the target currency.",
+   "confidence": 0.7,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "4a7c0e874408",
+   "rule": "",
+   "severity": "minor",
+   "category": "correctness",
+   "file": "src/formatMoney.js",
+   "line": 9,
+   "title": "Float division of large cent amounts can round to the wrong cent",
+   "evidence": "'amountCents / 100' produces a double; for amounts the guard still accepts as safe integers the ULP exceeds 0.005 above roughly 5e13 cents, so the formatter's 2-digit rounding can land on the wrong cent. Reachable path: formatMoney(9007199254740901, 'USD') - the double nearest to 90071992547409.01 is 90071992547409.015625 (ULP 2^-6), which Intl rounds to .02, an off-by-one-cent output that the safe-integer check does not prevent.",
+   "evidence_quote": "  return formatter.format(amountCents / 100);",
+   "trigger": "",
+   "recommendation": "Split the integer part and the cents remainder before formatting (e.g. format Math.trunc(cents/100) and append the 2-digit remainder, or format via a BigInt/string path), or document and enforce a maximum absolute amount well below the precision-loss threshold.",
+   "confidence": 0.55,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "383dbd2a3548",
+   "rule": "",
+   "severity": "minor",
+   "category": "performance",
+   "file": "src/formatMoney.js",
+   "line": 5,
+   "title": "Intl.NumberFormat constructed on every call",
+   "evidence": "'const formatter = new Intl.NumberFormat(locale, {' is executed per invocation; constructing an Intl formatter is roughly two orders of magnitude more expensive than reusing one, so any list/table rendering calling formatMoney/formatUsd per row pays that cost each time.",
+   "evidence_quote": "  const formatter = new Intl.NumberFormat(locale, {",
+   "trigger": "",
+   "recommendation": "Memoize formatters in a Map keyed by locale+currency (module-level cache) and reuse them across calls.",
+   "confidence": 0.75,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  },
+  {
+   "id": "22d699c62164",
+   "rule": "",
+   "severity": "minor",
+   "category": "testing",
+   "file": "src/formatMoney.js",
+   "line": 1,
+   "title": "New public money-formatting API ships without tests",
+   "evidence": "'export function formatMoney(amountCents, currency, locale = \"en-US\") {' introduces the project's money-display contract with no accompanying test file in the diff and no test command run; the non-2-decimal-currency and negative/zero behaviour above are exactly the cases a test would pin down.",
+   "evidence_quote": "export function formatMoney(amountCents, currency, locale = \"en-US\") {",
+   "trigger": "",
+   "recommendation": "Add unit tests covering: 2-decimal currency basics (0, 1, 1099, negatives), a 0-decimal currency (JPY), a 3-decimal currency (KWD), rejection of non-safe-integer input (1.5, NaN, Infinity, string), and an invalid currency code.",
+   "confidence": 0.6,
+   "sources": [
+    "deepseek"
+   ],
+   "consensus": false,
+   "source_lenses": {
+    "deepseek": [
+     "correctness"
+    ]
+   }
+  }
+ ]
+}
