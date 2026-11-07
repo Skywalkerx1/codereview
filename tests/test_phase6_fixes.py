@@ -377,5 +377,102 @@ class TestP605EscalatedInInventory(unittest.TestCase):
             [r["id"] for r in inv["dispositioned"]], [self.FID])
 
 
+class TestP606AgentFamilies(unittest.TestCase):
+    """P6-06 (her j4/j4b): agent-CLI seats were all family
+    'agent', so a Claude+Codex panel computed as a single
+    family — 'no independent review', and two_families
+    release eligibility was impossible without a hand-written
+    --seat-meta that setup never saved. Family now derives
+    from the CLI the seat runs, and setup persists the seat
+    metadata it derives."""
+
+    def test_describe_spec_derives_vendor_family(self):
+        from codereview import providers
+        cases = [
+            ("agent:claude:claude -p x", "anthropic"),
+            ("agent:codex:codex exec", "openai"),
+            ("agent:gemini:gemini -p x", "google"),
+            # the command's program decides, not the seat name
+            ("agent:reviewer:codex exec", "openai"),
+            # a seat NAMED for a known CLI keeps its vendor
+            # even behind a wrapper script
+            ("agent:claude:/opt/bin/wrapper.sh", "anthropic"),
+            # an unknown CLI keeps the generic family
+            ("agent:bot:mytool run", "agent"),
+        ]
+        for spec, family in cases:
+            self.assertEqual(
+                providers.describe_spec(spec)["family"],
+                family, spec)
+
+    def test_two_agent_vendors_two_families_end_to_end(self):
+        from codereview import cli, providers
+        with tempfile.TemporaryDirectory() as tmp:
+            for name in ("claude", "codex"):
+                path = os.path.join(tmp, name)
+                with open(path, "w", encoding="utf-8") as fh:
+                    fh.write(
+                        "#!/usr/bin/env python3\n"
+                        "import sys, json\n"
+                        "sys.stdin.read()\n"
+                        "sys.stdout.write(json.dumps("
+                        "{'summary': 'ok', 'findings': []}))\n")
+                os.chmod(path, 0o755)
+            specs = [f"agent:claude:{tmp}/claude",
+                     f"agent:codex:{tmp}/codex"]
+            panel = providers.build_providers(specs)
+            meta = cli._default_seat_meta(panel)
+            self.assertEqual(
+                {m["family"] for m in meta.values()},
+                {"anthropic", "openai"})
+            report = core.run_review(_PATCH, panel,
+                                     seat_meta=meta)
+            self.assertEqual(report["gate"], "pass")
+            self.assertNotIn(
+                "no independent review",
+                " ".join(report["gate_reasons"]))
+            check = _named(core.verify_record(report),
+                           "two_families")
+            self.assertTrue(check["ok"], check)
+
+    def test_userconfig_seat_meta_round_trip(self):
+        from codereview import userconfig
+        with tempfile.TemporaryDirectory() as tmp:
+            environ = {"HOME": tmp,
+                       "CODEREVIEW_CONFIG":
+                           os.path.join(tmp, "config.toml")}
+            userconfig.save_user_config(
+                ["agent:claude:claude -p x"], {},
+                environ=environ,
+                seat_meta={"claude": "anthropic"})
+            self.assertEqual(
+                userconfig.default_seat_meta(environ),
+                {"claude": "anthropic"})
+            with open(environ["CODEREVIEW_CONFIG"],
+                      encoding="utf-8") as fh:
+                self.assertIn("[seat_meta]", fh.read())
+
+    def test_wizard_persists_derived_seat_meta(self):
+        from codereview import setup_wizard, userconfig
+        with tempfile.TemporaryDirectory() as tmp:
+            environ = {"HOME": tmp, "PATH": "",
+                       "CODEREVIEW_CONFIG":
+                           os.path.join(tmp, "config.toml")}
+            answers = iter([
+                "agent:claude:claude -p x",  # providers
+                "",                           # family guard
+                "", "", "", "", "",           # roles
+            ])
+            result = setup_wizard.run_wizard(
+                input_fn=lambda _p: next(answers),
+                print_fn=lambda _s: None, environ=environ,
+                discover_fn=lambda: [])
+            self.assertEqual(result["seat_meta"],
+                             {"claude": "anthropic"})
+            self.assertEqual(
+                userconfig.default_seat_meta(environ),
+                {"claude": "anthropic"})
+
+
 if __name__ == "__main__":
     unittest.main()

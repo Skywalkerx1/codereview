@@ -65,8 +65,8 @@ def _panel_families(providers):
     from the spec; agent seats resolve their vendor through the
     discovery table by seat name (agent:claude:* is Anthropic's
     CLI) — an agent seat the table does not know contributes no
-    family, exactly the gate's own conservative reading (its
-    family tag is 'agent', never a vendor)."""
+    family, the same conservative reading the gate's derivation
+    makes (its family tag is 'agent', never a guessed vendor)."""
     families = set()
     for spec in providers:
         family = None
@@ -327,10 +327,23 @@ def run_wizard(input_fn=input, print_fn=print, environ=None,
                              f"{'ok' if seat.get('ok') else 'FAILED'}")
             except Exception as exc:  # noqa: BLE001
                 print_fn(f"  probe failed: {exc}")
-    path = userconfig.save_user_config(providers, roles,
-                                       environ=environ)
+    # P6-06: persist the seat metadata the wizard derived
+    # for the confirmed panel (each spec's family, agent
+    # seats included — describe_spec resolves an agent seat
+    # to its CLI's vendor family). Runs apply the saved table
+    # over the derived baseline, so the families a saved
+    # panel is judged by are the ones setup computed.
+    seat_meta = {}
+    for spec in providers:
+        try:
+            desc = describe_spec(spec)
+        except ProviderError:
+            continue
+        seat_meta[desc["seat"]] = desc["family"]
+    path = userconfig.save_user_config(
+        providers, roles, environ=environ, seat_meta=seat_meta)
     print_fn(f"Saved your setup to {path} — providers: "
              f"{', '.join(providers)}; roles: "
              f"{len(roles)} assigned.")
     return {"providers": providers, "roles": roles,
-            "path": path}
+            "seat_meta": seat_meta, "path": path}

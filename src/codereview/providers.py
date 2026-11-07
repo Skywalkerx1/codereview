@@ -57,6 +57,14 @@ try:
 except ImportError:  # standalone module load
     import herdrhost  # type: ignore
 
+try:
+    from . import discovery as _discovery
+except ImportError:  # standalone module load
+    try:
+        import discovery as _discovery  # type: ignore
+    except ImportError:
+        _discovery = None
+
 DEFAULT_TIMEOUT = 240
 AGENT_TIMEOUT = 900
 
@@ -1179,6 +1187,38 @@ def parse_local_spec(spec):
     return name, base, model
 
 
+def _agent_vendor_family(name, command):
+    """Vendor family for an agent seat (P6-06): the CLI the
+    seat RUNS decides — the command's program, matched
+    against discovery's known-CLI table by binary name,
+    then the seat name against the same table (a seat named
+    'claude' running a wrapper script is still Anthropic's
+    CLI seat). Before this, every agent seat was family
+    'agent', so a Claude+Codex panel computed as ONE family
+    and could never satisfy two-family release eligibility
+    without a hand-written --seat-meta. A CLI the table does
+    not know keeps the generic 'agent' family: recorded,
+    never guessed."""
+    if _discovery is not None:
+        program = ""
+        if command:
+            try:
+                tokens = shlex.split(command)
+            except ValueError:
+                tokens = command.split()
+            if tokens:
+                program = os.path.basename(
+                    tokens[0]).strip("\"'").lower()
+        if program:
+            for entry in _discovery.KNOWN_CLIS:
+                if program in entry["binaries"]:
+                    return entry["family"]
+        family = _discovery.family_for_seat_name(name)
+        if family:
+            return family
+    return "agent"
+
+
 def describe_spec(spec):
     """spec -> {seat, kind, preset, model, key_env, family,
     base_url} WITHOUT building or calling anything. The CLI uses
@@ -1188,7 +1228,8 @@ def describe_spec(spec):
     if spec.startswith("agent:"):
         name, _options, _cmd = _parse_agent_spec(spec)
         return {"seat": name, "kind": "agent", "preset": None,
-                "model": None, "key_env": None, "family": "agent",
+                "model": None, "key_env": None,
+                "family": _agent_vendor_family(name, _cmd),
                 "base_url": None}
     stripped = spec.strip()
     if stripped.lower().startswith(registry.LOCAL_SPEC_PREFIX):
@@ -1520,6 +1561,7 @@ def build_providers(specs, text_mode=False, agent_timeout=None,
     counts = {}
     name_kind = {}
     seat_models = {}
+    agent_spec_by_name = {}
     for idx, (kind, base, spec) in enumerate(parsed):
         seat_key = (kind, base.lower())
         counts[seat_key] = counts.get(seat_key, 0) + 1
@@ -1535,6 +1577,7 @@ def build_providers(specs, text_mode=False, agent_timeout=None,
             name = agent_final[idx]
             seats[name] = [(f"agent:{name}", fn)]
             name_kind[name] = kind
+            agent_spec_by_name[name] = spec
             continue
         owner = name_kind.setdefault(name, kind)
         if owner != kind:
@@ -1564,7 +1607,19 @@ def build_providers(specs, text_mode=False, agent_timeout=None,
         # 'moonshot', and a custom-named DeepSeek seat is family
         # 'deepseek'. Unknown for fully custom specs, as before —
         # --seat-meta remains the operator's override.
-        fam = "agent" if name_kind.get(name) == "agent" else None
+        # Agent seats carry the vendor family of the CLI
+        # they run (P6-06: claude -> anthropic, codex ->
+        # openai, gemini -> google; an unknown CLI keeps the
+        # generic 'agent'), read off the seat's own spec via
+        # describe_spec — the same derivation the CLI's role
+        # records use, so the two can never disagree.
+        fam = None
+        if name_kind.get(name) == "agent":
+            try:
+                fam = describe_spec(
+                    agent_spec_by_name[name])["family"]
+            except ProviderError:
+                fam = "agent"
         if fam is None:
             for (_k, base, spec) in parsed:
                 if base.lower() == name.lower() and _k == "api":

@@ -15,6 +15,10 @@ THAT as their defaults. This module is the storage half:
           spec grammar) or a registry preset (whose key env the
           registry names) — key VALUES never appear here, are
           never prompted into the file, and are never echoed.
+          The wizard also saves the seat metadata it derived
+          for the panel (P6-06: [seat_meta], seat name ->
+          vendor family) so a saved panel's families are the
+          ones setup computed, not a later re-derivation.
 
 Resolution order at run time (cli): explicit --provider/--role
 flags, then $CODEREVIEW_PROVIDERS, then this config. Nothing
@@ -26,6 +30,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import tomllib
 
 
@@ -128,8 +133,26 @@ def load_user_config(environ=None):
             f"list of strings (the notify command's argv), "
             f"got {raw_command!r}")
     notify = {"command": [str(c) for c in raw_command]}
+    # P6-06: the optional [seat_meta] table — seat name ->
+    # vendor family, written by the setup wizard from the
+    # metadata it derived for the confirmed panel. The CLI
+    # applies it over the derived baseline (explicit
+    # --seat-meta still wins). Type-validated like the rest.
+    raw_seat_meta = data.get("seat_meta")
+    if raw_seat_meta is None:
+        raw_seat_meta = {}
+    if not isinstance(raw_seat_meta, dict) or not all(
+            isinstance(k, str) and isinstance(v, str)
+            for k, v in raw_seat_meta.items()):
+        raise ValueError(
+            f"user config {path}: 'seat_meta' must be a "
+            f"table of seat name = \"family\" entries, got "
+            f"{raw_seat_meta!r}")
+    seat_meta = {str(k): str(v)
+                 for k, v in raw_seat_meta.items()}
     return {"providers": providers, "roles": roles,
-            "hosting": hosting, "notify": notify, "path": path}
+            "hosting": hosting, "notify": notify,
+            "seat_meta": seat_meta, "path": path}
 
 
 def _toml_str(value):
@@ -138,14 +161,23 @@ def _toml_str(value):
     return json.dumps(str(value), ensure_ascii=False)
 
 
+def _toml_key(name):
+    # Bare TOML keys are [A-Za-z0-9_-]+; anything else is
+    # written as a quoted key.
+    if re.fullmatch(r"[A-Za-z0-9_-]+", str(name)):
+        return str(name)
+    return _toml_str(name)
+
+
 def save_user_config(providers, roles, environ=None,
-                     hosting=None, notify=None):
+                     hosting=None, notify=None, seat_meta=None):
     """Write the setup file (specs only — never a key value) and
     return its path. `hosting` ({"herdr": [seat names]}) adds
     the [hosting] table; `notify` ({"command": [argv...]})
-    adds the [notify] table (Epic L4); the defaults write
-    exactly the bytes earlier versions wrote, so an unchanged
-    setup stays byte-identical."""
+    adds the [notify] table (Epic L4); `seat_meta`
+    ({seat name: family}) adds the [seat_meta] table (P6-06);
+    the defaults write exactly the bytes earlier versions
+    wrote, so an unchanged setup stays byte-identical."""
     path = config_path(environ)
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     lines = [
@@ -185,6 +217,22 @@ def save_user_config(providers, roles, environ=None,
             "command = [" + ", ".join(
                 _toml_str(c) for c in notify_command) + "]",
         ]
+    seat_meta = dict(seat_meta or {})
+    if seat_meta:
+        lines += [
+            "",
+            "[seat_meta]",
+            "# Seat metadata the setup wizard derived for "
+            "this panel",
+            "# (P6-06): each seat's vendor family. Runs apply "
+            "it over",
+            "# the derived baseline; --seat-meta overrides it "
+            "per seat.",
+        ]
+        for name in sorted(seat_meta):
+            lines.append(
+                f"{_toml_key(name)} = "
+                f"{_toml_str(seat_meta[name])}")
     with open(path, "w", encoding="utf-8") as fh:
         fh.write("\n".join(lines) + "\n")
     return path
@@ -226,6 +274,15 @@ def default_hosting_herdr_seats(environ=None):
     if not cfg:
         return []
     return list((cfg.get("hosting") or {}).get("herdr") or [])
+
+
+def default_seat_meta(environ=None):
+    """The saved setup's [seat_meta] table ({seat name:
+    family}; {} when no setup or no table)."""
+    cfg = load_user_config(environ)
+    if not cfg:
+        return {}
+    return dict(cfg.get("seat_meta") or {})
 
 
 def default_notify_command(environ=None):

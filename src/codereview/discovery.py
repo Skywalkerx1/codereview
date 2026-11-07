@@ -152,8 +152,9 @@ def family_for_seat_name(name):
     """Vendor family for an agent seat name, from the discovery
     table (agent:claude:* -> 'anthropic'); None for names the
     table does not know (a wrapper script, an echo stub, ...).
-    Used by the wizard's family warning only — never by the
-    gate, whose family tags come from cli seat metadata."""
+    Used by the wizard's family warning and by providers'
+    agent-seat family derivation (P6-06), which tries the
+    seat command's program against the same table first."""
     entry = _BY_NAME.get(str(name).strip().lower())
     return entry["family"] if entry else None
 

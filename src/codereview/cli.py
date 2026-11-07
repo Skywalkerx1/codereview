@@ -1113,8 +1113,12 @@ def _apply_role_assignments(providers, role_values,
 
 def _default_seat_meta(providers):
     """Baseline family tags from seat names (v0.7.3): a preset seat
-    carries its vendor family; an agent seat is family 'agent'.
-    Tier stays 'unknown' unless tagged — recorded, never guessed.
+    carries its vendor family; an agent seat carries the vendor
+    family of the CLI it runs when that CLI is known (P6-06:
+    claude -> anthropic, codex -> openai, gemini -> google,
+    derived by build_providers from the seat's spec), else the
+    generic family 'agent'. Tier stays 'unknown' unless tagged
+    — recorded, never guessed.
 
     Agent seats are detected by the kind tag build_providers puts
     on the callable, NOT by name shape: resolved agent seat names
@@ -1126,7 +1130,9 @@ def _default_seat_meta(providers):
     for name, fn in providers.items():
         if getattr(fn, "_codereview_kind", None) == "agent" \
                 or name.startswith("agent:"):
-            meta[name] = {"family": "agent", "tier": "unknown"}
+            tagged = getattr(fn, "_codereview_family", None)
+            meta[name] = {"family": tagged or "agent",
+                          "tier": "unknown"}
             continue
         tagged = getattr(fn, "_codereview_family", None)
         if tagged and tagged != "unknown":
@@ -2505,9 +2511,25 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
                   file=sys.stderr)
             return 2
 
+    # Seat metadata precedence: the derived baseline, then
+    # the saved setup's [seat_meta] (P6-06 — the families the
+    # wizard computed for this panel), then explicit
+    # --seat-meta, then the caller's override below.
+    try:
+        saved_meta = userconfig.default_seat_meta()
+    except ValueError as exc:
+        print(f"codereview: {exc}", file=sys.stderr)
+        return 2
+    baseline_meta = _default_seat_meta(providers)
+    for _name, _family in saved_meta.items():
+        if _name in baseline_meta and _family:
+            baseline_meta[_name] = {
+                "family": _family,
+                "tier": baseline_meta[_name].get(
+                    "tier", "unknown")}
     try:
         seat_meta = _parse_seat_meta(
-            args.seat_meta, _default_seat_meta(providers))
+            args.seat_meta, baseline_meta)
     except ValueError as exc:
         print(f"codereview: {exc}", file=sys.stderr)
         return 2
