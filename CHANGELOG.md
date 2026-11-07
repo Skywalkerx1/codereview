@@ -121,7 +121,12 @@ partly closed):
   consistent pre-stamp evidence, and a stamping-era,
   garbled or absent provenance fails verification in
   single and chain mode. Honest pre-stamp records keep
-  the exemption. One documented cost: unstamped records
+  the exemption. Records carrying no trace of the v1
+  machinery at all (the pre-schema shape) stay
+  not-applicable, as for every machinery-era check;
+  reaching that shape from a current record means
+  deleting its entire format layer, the documented
+  wholesale-rewrite residual. One documented cost: unstamped records
   from 0.13.0 dev builds in the hours before the stamp
   landed no longer read as legacy. The standing limit is
   unchanged: the hash detects edits, it is not a
