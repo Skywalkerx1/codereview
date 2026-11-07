@@ -1,5 +1,46 @@
 # Changelog
 
+## Unreleased — 0.13.0.dev0 (external Phase 5 second-rerun fixes)
+
+Fixes from the external tester's Phase 5 second rerun on
+the fixed build 784ff95 (2026-11-06), each independently
+verified against master. The rerun verified all four
+previous residuals fixed; what remained was in the claim
+lint, plus the write-atomicity remainder of P6-01 (the
+same write path P5-07b hardened, fixed early ahead of the
+Phase 6 follow-up):
+
+- **Record writes are atomic (P6-01).** `write_report`
+  wrote the final path in place: a write failing midway
+  (file-size limit, disk full, a kill) left a truncated,
+  invalid JSON record at the `--out` path — the P5-07b
+  fallback net preserved the review, but a tool scanning
+  `--out` still picked up the broken file. Both the JSON
+  record and the Markdown report now land via a temp file
+  in the same directory, fsync, and `os.replace`; on
+  failure the temp is removed and the final path holds the
+  previous file or nothing. The hooks' rewrite of the
+  record (the record is rewritten at the same stem once
+  the post-record hooks have fired) goes through the same
+  writer, so a midway rewrite failure leaves the first,
+  complete record intact.
+- **Claim lint: six more evasions closed (P5-08c).**
+  Paragraphs are matched NFKC-normalised, so full-width
+  digits and letters can no longer disguise a figure;
+  the pattern table gains the count-free all-of-set
+  form, the spelled-out percent form, and the remaining
+  perfection phrasings the second rerun tried; and the
+  fraction rule accepts the spelled N-of-N form under
+  the same local-context discipline. The guarded
+  shipped docs pass unedited, and the tester's three
+  lint scripts are now fully caught — the newest set
+  went from four of ten caught to ten of ten.
+- **The claim lint states its own limit (P5-08d).** The
+  lint's docstring now says plainly that it is a phrase
+  list — a tripwire over known phrasings, not a proof a
+  document makes no unqualified claim — and that any new
+  wording passes until it is added.
+
 ## Unreleased — 0.13.0.dev0 (external Phase 5 rerun fixes)
 
 Fixes from the external tester's Phase 5 rerun on the fixed
