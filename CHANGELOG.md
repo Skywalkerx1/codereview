@@ -1,5 +1,80 @@
 # Changelog
 
+## Unreleased — 0.13.0.dev0 (external Phase 6 follow-up fixes)
+
+Fixes from the external tester's Phase 6 report (end-to-end
+journeys and non-functional tests, run against ebfa217;
+2026-11-06), each re-verified against the current master —
+P6-01 (the S1) was already fixed by the Phase 5 second-rerun
+batch (atomic record writes) and her crash repro passes
+clean:
+
+- **Same-second runs no longer overwrite each other
+  (P6-02).** The automatic record stem has one-second
+  resolution; two runs in one second on the same `--out`
+  silently replaced the first run's record. A taken auto
+  stem now gains a counter suffix; explicit stems (the
+  post-hooks rewrite contract) are never renamed.
+- **record-verify detects hand-edited records (P6-03).**
+  The writer stamps a content hash over the whole record
+  (excluding the `record_identity` envelope) and verify
+  recomputes it in single and chain mode — a flipped gate,
+  a softened finding, forged test results all fail. The
+  hash detects edits; it is not a signature (an editor
+  who recomputes it passes). Records written before the
+  stamp carry no hash and verify as legacy,
+  not-applicable — never retro-failed.
+- **Git-quoted paths resolve to their real names
+  (P6-04).** Paths git C-quotes (non-ASCII, tab, quote)
+  were attributed to the file `unknown`; the patch parser
+  now decodes the quoted form everywhere paths are read
+  (sections, added lines, line maps, patch stats), so
+  per-file coverage, path rules and SARIF locations see
+  the real path.
+- **Escalated findings appear in the disputes inventory
+  (P6-05).** A finding the Tech Lead escalated to the
+  owner was in no open-dispute list: invisible in
+  `codereview disputes` and passed over by
+  `disputes --check`. `escalated` is now an open
+  (human-decision) status there and in the record's own
+  `open_disputes` summary; an owner disposition closes it.
+- **Agent-CLI seats carry their CLI's vendor family
+  (P6-06).** Every agent seat was family `agent`, so a
+  Claude+Codex panel computed as one family and could
+  never satisfy two-family release eligibility without a
+  hand-written `--seat-meta`. Family now derives from the
+  CLI a seat runs (claude → anthropic, codex → openai,
+  gemini → google; unknown CLIs keep `agent`), and the
+  setup wizard persists the seat metadata it derives
+  (`[seat_meta]` in the user config), applied between
+  the derived baseline and explicit `--seat-meta`.
+- **The re-ground pass has a call budget (P6-07).**
+  Re-grounding fanned out one model call per ungrounded
+  finding (3,000 findings → 2,996 calls). The pass stops
+  at `MAX_REGROUND_CALLS` (100); findings past the budget
+  stay ungrounded with the budget named in their
+  re-ground note and in the gate reasons.
+- **`loop`'s surface is documented (P6-08).** The README
+  and `loop --help` state what loop takes and what it
+  does not (`--seat-meta`/`--policy`/`--role`), and why
+  its per-round records — working-tree rounds with no
+  committed range/head — are not Form B chain or release
+  records. Docs only.
+- **`on_blocked` names a seat state (P6-09).** The hook
+  fires when a SEAT ends in a K2 blocked class, not when
+  the gate verdict is BLOCKED; the docs now say so, and
+  `[hooks]` accepts the additive alias key
+  `on_seat_blocked` for the same slot. No rename; the old
+  key keeps working.
+- **Record JSON is written with sorted keys (P6-10).**
+- **High-band evidence doctrine aligned (P6-11).** A
+  high-band run with no evidence record supplied BLOCKS
+  (required evidence *missing*); the docs now state the
+  per-item distinction explicitly — a supplied record
+  whose required item is *unavailable* is the
+  INCONCLUSIVE branch. Code unchanged; a contrast pin
+  covers the unavailable case.
+
 ## Unreleased — 0.13.0.dev0 (external Phase 5 second-rerun fixes)
 
 Fixes from the external tester's Phase 5 second rerun on
