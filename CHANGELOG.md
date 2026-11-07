@@ -1,5 +1,44 @@
 # Changelog
 
+## Unreleased — post-RC fixes from the L6 source review (2026-11-07)
+
+The external tester's L6 source review of the 0.13.0 release
+candidate (`69d1c65`, verdict NOT READY) found defects in code
+the earlier phases never exercised. All are fixed here; none
+is a regression from 0.12.1.
+
+- **L6 F1/F2 (S1) — the probe tree copy dereferenced
+  symlinks.** `run_probe` copied the reviewed tree without
+  `symlinks=True`, so a planted link was replaced by its
+  target's content inside the sandbox copy (pulling any host
+  file the operator can read into the probe tree), a dangling
+  link made the copy raise out of `run_probe` — silently
+  losing every probe on such a repo — and a link to a special
+  file streamed its content into the copy in the parent
+  process, unbounded. The copy now preserves links (parity
+  with `evidence._copy_tree`), and a copy failure returns an
+  `error` probe outcome instead of raising.
+- **L6 F3 (S2) — a non-JSON 2xx reply lost the finished
+  review.** `post_review`/`set_status` parsed the response
+  body unguarded; an HTML 200 (captive portal, proxy) raised
+  `JSONDecodeError` past `review_pr`'s `GitHubError` handler,
+  so the CLI died with a traceback and wrote no record. An
+  unparseable POST body now raises `GitHubError`, which
+  `review_pr` records in the report.
+- **L6 F4 (S3) — `parse_pr_url` accepted malformed URLs.**
+  The pattern was not end-anchored (`…/pull/12abc` parsed as
+  PR 12) and owner/repo admitted `?`, `#`, `%` into the API
+  path. Owner/repo are now `[\w.-]+` and the number must end
+  the URL (one trailing slash allowed); suffixed URLs such
+  as `/pull/12/files` are rejected, not silently truncated.
+- **L6 F5 (S3) — the auto-stem choice in `write_report` was
+  still racy.** The P6-02 exists-check let two processes in
+  the same second both pick a free stem, the later
+  `os.replace` silently overwriting the earlier record. The
+  chosen auto stem is now claimed with an `O_EXCL` claim
+  file for the duration of the write; explicit stems (the
+  caller's contract) are never claimed or renamed.
+
 ## 0.13.0 — 2026-11-07
 
 First release candidate of the 0.13.0 line. Everything the
