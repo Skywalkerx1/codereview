@@ -55,6 +55,25 @@ upload.
   6/64 passed; default stays `strict`), and B3 is
   described only as design-only and unconfirmed.
 
+### L3 smoke fix — the gpt-5 family takes `max_completion_tokens` (2026-11-07)
+
+Folded in from the L3 real-system smoke's first pass: the
+`openai` provider preset's default model (gpt-5-mini) could
+not serve through the CLI at all — the provider layer sent
+`max_tokens`, which the gpt-5 family rejects (HTTP 400; it
+requires `max_completion_tokens`), so the seat errored and
+the run degraded; the same seat passed with the documented
+`openai:gpt-4.1` override. Fix: a per-preset
+`completion_tokens` quirk table in the registry (the
+gpt-5 / o-series prefixes on the `openai` preset, empty
+elsewhere), wired through the seat factory beside the
+existing temperature quirk — those models now send the cap
+as `max_completion_tokens`; every other model keeps
+`max_tokens`. Pinned by a payload test per model family
+(no live call). The B2 confirmation's gpt-5.4 seat was
+unaffected: the bench `llm_chain` path builds its own
+payloads.
+
 ### THREAT-MODEL: accepted record-integrity limit stated; probe paragraph corrected (2026-11-07)
 
 Phase 6 rerun 4 verified P6-12b fixed on `35f6043` and
