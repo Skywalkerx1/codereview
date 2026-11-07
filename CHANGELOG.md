@@ -1,5 +1,55 @@
 # Changelog
 
+## Unreleased — P6-12b: legacy rule applies inside the pre-machinery shape (2026-11-07)
+
+The Phase 6 rerun-2 scope boundary exempted any record
+carrying no v1 machinery (`schema_version`, `provenance`,
+`record_identity`) from the P6-12 provenance rule
+categorically. Rerun 3 (the tester's `p6_downgrade3.py`)
+showed the exemption was wider than stated: deleting
+those three sections from a fresh 0.13.0 record — with a
+planted blocker finding added — verified as a "legacy
+record" even while the record still declared
+`version: 0.13.0.dev0` (variant G6), and deleting all
+five declarations verified on no evidence at all (G1).
+
+- **The declarations rule now applies to the
+  pre-machinery shape too.** `content_hash_required`
+  reads the surviving declarations of every hash-less
+  record under the same fail-closed rule: legacy needs
+  at least one parseable pre-stamp declaration among
+  `version`, `provenance.generator_version`,
+  `created_at`, and no stamping-era or garbled one.
+  G1 and G6 now fail verification; the consistent-
+  forgery variants (G2/G3/G4 — forge every declaration
+  pre-stamp) still pass, the documented not-a-signature
+  limit, unchanged.
+- **Genuine historical records are unaffected.** Every
+  writer of the pre-schema era stamped `version` and
+  `created_at` (the 0.9.4 / 0.9.6 historical fixtures
+  carry both) and they keep the exemption on that
+  evidence (pinned).
+- **Pins.** `tests/test_phase6_fixes.py`: the rerun-2
+  boundary pin asserted the all-five-deleted shape read
+  legacy — that shape is G1, so it is replaced by G1/G6
+  failure pins plus a genuine-pre-schema legacy pin
+  (+2 net). The hand-built minimal records in
+  `tests/test_solution_v073.py`,
+  `tests/test_v093_phase2.py` and
+  `tests/test_v095_fixes.py` carried no declarations at
+  all — a shape no writer ever emitted — and now carry
+  the pre-stamp `version`/`created_at` of their era;
+  no assertion in them changed.
+- **Release note — the 0.13.0 dev window (noted at the
+  tester's rerun-3 request).** Unstamped records written
+  by 0.13.0 dev builds between the 0.13.0 version bump
+  (2026-11-06 19:16Z) and the content stamp landing
+  (2026-11-07 02:07Z) do not read as legacy: their
+  version line is stamping-era while their hash was
+  never stamped. That closed set is dev artefacts only;
+  registered and B2-era records predate the 0.13.0 line
+  and are unaffected.
+
 ## Unreleased — probe sandbox C5 hardening (2026-11-06)
 
 The B3 design's hard prerequisite (its §5.1, pass/fail row
