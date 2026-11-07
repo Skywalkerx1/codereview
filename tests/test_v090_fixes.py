@@ -20,6 +20,7 @@ sys.path.insert(0, os.path.join(
     os.path.dirname(__file__), "..", "src"))
 
 from codereview import bench, cli, core, providers  # noqa: E402
+from codereview import record_schema  # noqa: E402
 
 NO_SLEEP = lambda _s: None  # noqa: E731
 
@@ -253,7 +254,7 @@ class FixtureScopeVerifyTests(unittest.TestCase):
                      self.manifest_bytes).hexdigest(),
                  "policy_version": 1,
                  "patterns": ["bench/corpus/**"]}
-        return core.run_review(
+        record = core.run_review(
             patch, {"a": ok_provider, "b": ok_provider},
             test_results=[{"command": "true", "ok": True,
                            "exit_code": 0, "output": ""}],
@@ -263,6 +264,17 @@ class FixtureScopeVerifyTests(unittest.TestCase):
             record_extra={"range": "HEAD~1..HEAD",
                           "head": self.head},
             sleep=NO_SLEEP)
+        # These tests verify records as the writer emits
+        # them; since P6-03 the writer stamps a content hash
+        # at write time, and since P6-12 a record declaring
+        # stamping-era provenance without one fails
+        # verification as stripped. run_review alone never
+        # stamps (write_report does), so stamp here exactly
+        # as the writer does — the mutations the tests then
+        # apply are post-write edits, as in production.
+        record["record_identity"]["content_sha256"] = \
+            record_schema.record_content_sha256(record)
+        return record
 
     def _checks(self, record):
         result = core.verify_record(record, repo=self.td,
