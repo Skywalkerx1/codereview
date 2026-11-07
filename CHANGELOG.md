@@ -1,5 +1,30 @@
 # Changelog
 
+## Unreleased — crash handling and user feedback (L17–L19)
+
+- **L17 — crash handling.** `codereview` now runs under a top-level
+  guard (`console_main`). An internal error prints one line, writes
+  a redacted `codereview-crash-*.json` note (mode 0600) and exits
+  **2**, never 0 or 1. `--debug` / `CODEREVIEW_DEBUG=1` adds the
+  redacted traceback. Ctrl-C exits 130; a closed pipe exits 141
+  quietly. A crashed `pr --post` run sets the commit status to
+  *pending*, never *success*.
+- **L18 — bug reports.** `codereview support-bundle` writes one
+  redacted zip (identity, package list, environment variable
+  *names*, redacted config and policy, latest record, crash notes,
+  MANIFEST). Per-file and total caps; anything left out is listed.
+  `codereview report` shows the contents and sends only after
+  confirmation, over HTTPS (http only to loopback), without
+  following redirects. No endpoint is built in; the owner sets one.
+- **L19 — feedback.** Optional anonymous crash ping, off by
+  default (`codereview telemetry enable|disable|status`), fixed
+  field list, one per crash signature per day, 3 s timeout, never
+  changes the exit code. `CODEREVIEW_TELEMETRY=0` overrides.
+  See `PRIVACY.md`, `SECURITY.md`, `CONTRIBUTING.md`.
+- Owner must set before launch: collector endpoint, security and
+  privacy contacts, retention text, public tracker URL
+  (`CODEREVIEW_RELEASE_CHECK=1` lists what is left).
+
 ## Unreleased — post-RC fixes from the L6 source review (2026-11-07)
 
 The external tester's L6 source review of the 0.13.0 release

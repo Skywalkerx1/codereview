@@ -24,6 +24,17 @@ builder ──diff──▶ deterministic checks ──▶ reviewer A (correctne
 - **LLM opinions are not a gate.** Findings are structured, merged across reviewers (consensus raises confidence, never lowers severity), and the pass/block decision is made by deterministic rules over those findings.
 - **Alerts about the loop itself can't flood you** — the same dedup discipline CodeReview checks for in your code is part of its own design brief (see the `alert-no-guard` rule, born from a real incident: an hourly checker that emailed on every run while the same violation persisted for weeks).
 
+
+## If something goes wrong
+
+1. `codereview --version`, then re-run the failing command.
+2. `codereview support-bundle` writes one redacted zip. Read it, then attach it to an issue (templates in `.github/ISSUE_TEMPLATE/`). Run records contain excerpts of reviewed code; `--no-records` leaves them out.
+3. `codereview report` shows what it would send and sends only after you confirm.
+4. A crash prints one line (`codereview: internal error ...`), writes a redacted `codereview-crash-*.json` note and exits **2**, never 0 or 1. `--debug` adds the redacted traceback.
+5. Security problems: see `SECURITY.md`; do not open a public issue.
+
+**Privacy.** Feedback is opt-in. Nothing leaves your machine because of these features unless you run `codereview report` and confirm, or turn on the optional anonymous crash ping with `codereview telemetry enable` (off by default). Exactly what each sends: `PRIVACY.md`.
+
 ## Quick start
 
 ```bash

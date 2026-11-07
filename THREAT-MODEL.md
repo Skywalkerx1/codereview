@@ -113,6 +113,20 @@ it that way here too.
   discovered policy may not set are enumerated in one place:
   `policy.DISCOVERED_POLICY_RESTRICTED_KEYS`.
 
+## Feedback features as network egress
+
+`report` and the crash ping are the only places this tool sends
+data to the CodeReview project. Both are off until the user acts:
+`report` sends only after showing the bundle and getting
+confirmation; the ping needs `telemetry enable`. Both refuse
+non-HTTPS endpoints (loopback excepted), do not follow redirects,
+and never run inside evidence or probe sandboxes (those run with a
+relocated HOME and scrubbed environment, so they find no consent
+state). Redaction removes secret-shaped text only; run records can
+contain code excerpts, so the user is told to read the bundle. The
+receiving server is outside this repository and needs its own
+review.
+
 ## Residual risks — stated plainly
 
 The sandbox is confinement against accidents and casual
