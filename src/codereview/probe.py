@@ -20,6 +20,14 @@ Sandbox discipline:
   level actually achieved is recorded on the result —
   never overstated.
 - A hard wall-clock timeout bounds every probe.
+- Resource limits and tree kill (the C5 discipline the
+  evidence sandbox established): the probe runs in its own
+  session under POSIX rlimits (CPU time, address space,
+  per-file size, open files; core dumps off), its output
+  is drained under a per-stream byte cap so a spewing
+  probe cannot grow the harness's memory, and expiry —
+  or normal exit — kills the probe's whole process
+  group, so children a probe forks cannot outlive it.
 
 Probe semantics: a probe tests the CLAIM's falsifiable
 prediction. Exit 0 means the probe's assertion held. The
@@ -35,13 +43,45 @@ import json
 import os
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
+import threading
 import time
+
+try:
+    import resource
+except ImportError:  # non-POSIX: no rlimits to apply
+    resource = None
 
 PROBE_TIMEOUT_DEFAULT = 120
 _OUTPUT_CAP = 20000
+# C5 sandbox discipline (the evidence sandbox's conventions,
+# src/codereview/evidence.py): the wall-clock timeout is the
+# primary bound; these are the backstops that hold even if
+# supervision itself misbehaves.
+_CPU_SLACK_S = 5            # RLIMIT_CPU = timeout + this
+_PROBE_MEMORY_LIMIT = 2 * 1024 * 1024 * 1024    # RLIMIT_AS:
+                            # ~100x a bare interpreter's
+                            # footprint, so fat stacks fit,
+                            # while resident growth (RSS can
+                            # never exceed AS) stays bounded
+_PROBE_FILE_SIZE_LIMIT = 256 * 1024 * 1024      # RLIMIT_FSIZE
+                            # per file (evidence convention)
+_PROBE_OPEN_FILES_LIMIT = 1024                  # RLIMIT_NOFILE
+_PROBE_OUTPUT_CAP_BYTES = 8 * 1024 * 1024       # captured per
+                            # stream, drained past the cap
+                            # (evidence convention)
+_KILL_SETTLE_S = 10         # post-kill drain budget
+_DRAIN_GRACE_S = 2          # post-exit pipe-drain grace
+# RLIMIT_NPROC is deliberately NOT set: it is a per-USER
+# ceiling, not a per-tree one — the probe shares the
+# operator's uid, whose live process count could already
+# exceed any sane per-probe budget and would then break
+# every fork a legitimate probe makes. Process-count
+# containment comes from the process-group kill plus the
+# CPU/address-space limits above.
 _ENV_ALLOW = ("PATH", "LANG", "LC_ALL", "LC_CTYPE", "TERM")
 _IGNORE = shutil.ignore_patterns(
     ".git", "__pycache__", "*.pyc", "codereview-out",
@@ -152,6 +192,194 @@ def _sandbox_env(tmp, work):
     return env
 
 
+def _apply_probe_limits(timeout):
+    """preexec_fn body (executed in the child): POSIX
+    rlimits for the probe. A limit that cannot be set must
+    not kill the child before it starts; the wall-clock
+    timeout (enforced by the parent) always applies
+    regardless."""
+    if resource is None:
+        return
+
+    def _set(res, value):
+        try:
+            resource.setrlimit(res, (value, value))
+        except (ValueError, OSError):
+            pass
+
+    _set(resource.RLIMIT_CPU, int(timeout) + _CPU_SLACK_S)
+    _set(resource.RLIMIT_AS, _PROBE_MEMORY_LIMIT)
+    _set(resource.RLIMIT_FSIZE, _PROBE_FILE_SIZE_LIMIT)
+    _set(resource.RLIMIT_NOFILE, _PROBE_OPEN_FILES_LIMIT)
+    _set(resource.RLIMIT_CORE, 0)
+
+
+def _kill_probe_group(proc):
+    """Kill the probe's whole process group (it runs in its
+    own session), so a timed-out — or merely backgrounding —
+    probe leaves no children behind. Never raises."""
+    killpg = getattr(os, "killpg", None)
+    if killpg is not None:
+        try:
+            pgid = os.getpgid(proc.pid)
+        except (ProcessLookupError, PermissionError, OSError):
+            # The child has exited and been reaped (the
+            # normal-exit path): it WAS its group leader
+            # (start_new_session), so the pid IS the pgid —
+            # and the group can still hold live
+            # grandchildren.
+            pgid = proc.pid
+        try:
+            killpg(pgid, signal.SIGKILL)
+            return
+        except (ProcessLookupError, PermissionError, OSError):
+            pass
+    try:
+        proc.kill()
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _drain_probe_stream(stream, sink):
+    """Reader-thread body: pull `stream` to EOF, keeping at
+    most _PROBE_OUTPUT_CAP_BYTES in sink["data"] and
+    draining (and discarding) the rest, so a spewing probe
+    never blocks on a full pipe and never grows the
+    harness's memory without bound. sink["truncated"]
+    records that output was dropped."""
+    try:
+        while True:
+            # read1, not read: read(n) waits until n bytes or
+            # EOF, which would strand a trickling probe's
+            # available bytes inside the buffer when EOF
+            # never comes (a detached pipe holder).
+            chunk = stream.read1(65536)
+            if not chunk:
+                break
+            room = _PROBE_OUTPUT_CAP_BYTES - len(sink["data"])
+            if room > 0:
+                sink["data"] += chunk[:room]
+            if len(chunk) > max(room, 0):
+                sink["truncated"] = True
+    except Exception:  # noqa: BLE001 — a dead stream is EOF
+        pass
+    finally:
+        try:
+            stream.close()
+        except Exception:  # noqa: BLE001
+            pass
+
+
+def _probe_settled(proc, readers, deadline):
+    """True when the probe has exited and both pipes are
+    drained by `deadline` (an absolute monotonic time)."""
+    for reader in readers:
+        reader.join(max(deadline - time.monotonic(), 0.0))
+    return proc.poll() is not None and not any(
+        reader.is_alive() for reader in readers)
+
+
+def _probe_output(out_sink, err_sink, incomplete=False):
+    """The combined output text the result records: stdout
+    then stderr, exactly as the harness has always combined
+    them, plus a marker when the bytes are less than what
+    the probe wrote — partial output is never presented as
+    whole."""
+    output = bytes(out_sink["data"]).decode("utf-8", "replace") \
+        + bytes(err_sink["data"]).decode("utf-8", "replace")
+    if out_sink["truncated"] or err_sink["truncated"]:
+        output += (
+            f"\n[codereview] probe output truncated at the "
+            f"sandbox cap of {_PROBE_OUTPUT_CAP_BYTES} bytes "
+            f"per stream")
+    if incomplete:
+        output += (
+            "\n[codereview] probe output capture incomplete — "
+            "a detached process still holds the pipe")
+    return output
+
+
+def _execute_probe(argv, cwd, env, timeout):
+    """Run one probe command under the C5 discipline and
+    return (outcome, exit_code, output) in run_probe's
+    long-standing vocabulary: pass (exit 0), fail (any
+    other exit — a signal death included, its exit_code
+    the negative signal number, exactly as subprocess has
+    always reported it), timeout (the wall clock expired,
+    or a forked child holding a pipe forced the deadline),
+    error (the harness itself could not run the probe).
+    Never raises for probe failures — they are outcomes."""
+    try:
+        proc = subprocess.Popen(
+            argv, cwd=cwd, env=env,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            start_new_session=True,
+            preexec_fn=lambda: _apply_probe_limits(timeout))
+    except Exception as exc:  # noqa: BLE001 — an outcome, not a crash
+        return "error", None, f"probe spawn failed: {exc}"
+    out_sink = {"data": bytearray(), "truncated": False}
+    err_sink = {"data": bytearray(), "truncated": False}
+    readers = [
+        threading.Thread(target=_drain_probe_stream,
+                         args=(proc.stdout, out_sink),
+                         daemon=True),
+        threading.Thread(target=_drain_probe_stream,
+                         args=(proc.stderr, err_sink),
+                         daemon=True),
+    ]
+    for reader in readers:
+        reader.start()
+    started = time.monotonic()
+    try:
+        timed_out = False
+        try:
+            proc.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            timed_out = True
+        if not timed_out and not _probe_settled(
+                proc, readers,
+                started + timeout + _DRAIN_GRACE_S):
+            # The probe exited but a pipe is still not
+            # drained at the deadline — a child it forked
+            # inherited the pipe and is holding it open.
+            # subprocess.run reported this as a timeout (and
+            # could hang on it after the kill); so does the
+            # sandbox.
+            timed_out = True
+        if timed_out:
+            _kill_probe_group(proc)
+            try:
+                proc.wait(timeout=_KILL_SETTLE_S)
+            except Exception:  # noqa: BLE001
+                pass
+            # Post-kill drain: after the group kill the
+            # pipes reach EOF and the drainers finish, so
+            # the sinks are final before the output is read.
+            # A drainer still blocked after the settle means
+            # a detached process (outside the killed group)
+            # holds the pipe — the capture is partial and
+            # is marked incomplete, never presented whole.
+            final = _probe_settled(
+                proc, readers,
+                time.monotonic() + _KILL_SETTLE_S)
+            return "timeout", None, _probe_output(
+                out_sink, err_sink, incomplete=not final)
+        # Normal exit: kill the group anyway — a probe that
+        # backgrounded a child with redirected stdio and
+        # then exited cleanly must not leave that child
+        # running past the sandbox (the evidence runner's
+        # P3-06 lesson). _probe_settled above has already
+        # confirmed the readers are done, so the captured
+        # output is final.
+        _kill_probe_group(proc)
+        outcome = "pass" if proc.returncode == 0 else "fail"
+        return outcome, proc.returncode, _probe_output(
+            out_sink, err_sink)
+    except Exception as exc:  # noqa: BLE001 — an outcome, not a crash
+        _kill_probe_group(proc)
+        return "error", None, f"probe execution failed: {exc}"
+
+
 def run_probe(spec, tree_dir, timeout=PROBE_TIMEOUT_DEFAULT):
     """Execute one probe spec against a temp COPY of
     `tree_dir`. Returns the structured result:
@@ -196,25 +424,9 @@ def run_probe(spec, tree_dir, timeout=PROBE_TIMEOUT_DEFAULT):
                     "discover", "-s", start,
                     "-p", os.path.basename(target)]
         prefix, net_level = _network_prefix()
-        try:
-            res = subprocess.run(
-                prefix + argv, cwd=work, env=_sandbox_env(tmp, work),
-                capture_output=True, text=True,
-                timeout=timeout)
-            output = (res.stdout or "") + (res.stderr or "")
-            outcome = "pass" if res.returncode == 0 else "fail"
-            exit_code = res.returncode
-        except subprocess.TimeoutExpired as exc:
-            output = ((exc.stdout or b"") if isinstance(
-                exc.stdout, bytes) else (exc.stdout or "")) \
-                + ((exc.stderr or b"") if isinstance(
-                    exc.stderr, bytes) else (exc.stderr or ""))
-            if isinstance(output, bytes):
-                output = output.decode("utf-8", "replace")
-            outcome, exit_code = "timeout", None
-        except Exception as exc:  # noqa: BLE001 — an outcome, not a crash
-            output = f"probe spawn failed: {exc}"
-            outcome, exit_code = "error", None
+        outcome, exit_code, output = _execute_probe(
+            prefix + argv, work, _sandbox_env(tmp, work),
+            timeout)
         if spec["kind"] == "test" and outcome in ("pass",
                                                    "fail"):
             # A test probe's verdict is evidence only if tests
