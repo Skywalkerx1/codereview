@@ -1,5 +1,31 @@
 # Changelog
 
+## Unreleased — THREAT-MODEL: accepted record-integrity limit stated; probe paragraph corrected (2026-11-07)
+
+Phase 6 rerun 4 verified P6-12b fixed on `35f6043` and
+closed release-gate item L1 on that build. The tester's
+acceptance of the consistent-forgery variants (G2/G3/G4)
+was conditioned on the accepted limit being stated in
+THREAT-MODEL (gate item L12); this entry makes that doc
+change, and corrects one stale paragraph the same
+read-through exposed.
+
+- **New residual 13 in `THREAT-MODEL.md`.** The record
+  content hash is edit detection, not a signature: it
+  detects edits to any record that carries one, and
+  verification fails closed on stamping-era or garbled
+  declarations — but a record whose declarations are
+  rewritten to look pre-stamp is indistinguishable from a
+  genuine pre-stamp record, is accepted as legacy, and
+  edits to it are not detected. Accepted limit, stated in
+  the threat model in the tester's terms.
+- **Probe trust-boundary paragraph corrected.**
+  `THREAT-MODEL.md` still said Tech Lead probes set no
+  rlimits and kill only the direct child on timeout; the
+  C5 hardening (2026-11-06) set rlimits and a process-group
+  kill in `probe.py`, so the paragraph now describes the
+  sandbox as built. Documentation only — no code changed.
+
 ## Unreleased — P6-12b: legacy rule applies inside the pre-machinery shape (2026-11-07)
 
 The Phase 6 rerun-2 scope boundary exempted any record

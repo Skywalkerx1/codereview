@@ -72,10 +72,14 @@ it that way here too.
   own code.
 - **Tech Lead probes** (`probe.py`) execute reviewer-requested
   checks in a parallel, smaller sandbox of their own: temp
-  copy, a tighter env allow-list, a timeout, an output cap,
-  and an `unshare -n` probe with honest fallback. It does
-  **not** set rlimits and does not kill a process group on
-  timeout (only the direct child). Do not assume the evidence
+  copy, a tighter env allow-list, a timeout whose expiry
+  kills the whole process group (`start_new_session` +
+  `killpg`), rlimits set in the child (`RLIMIT_CPU` =
+  timeout + 5 s, `RLIMIT_AS` 2 GiB, `RLIMIT_FSIZE` 256 MiB,
+  `RLIMIT_NOFILE` 1024, core dumps off — the C5 hardening of
+  2026-11-06), drained output caps, and an `unshare -n`
+  probe with honest fallback. Its confinement is per-probe
+  and its reporting is its own; do not assume the evidence
   guarantees apply there verbatim.
 - The MCP server's `run_gate` calls the CLI's own `main()`,
   so MCP-served runs get exactly this sandbox — and exactly
@@ -205,3 +209,23 @@ or a container.
     the known key/token shapes; a novel secret format could
     evade a pattern. Exposure is bounded by design: only a
     4 000-char tail is ever stored.
+13. **The record content hash is edit detection, not a
+    signature.** `record-verify`'s `content_integrity` check
+    recomputes a record's `content_sha256`: the content hash
+    detects edits to any record that carries one, and
+    verification fails closed when a hash-less record's
+    surviving declarations (`version`,
+    `provenance.generator_version`, `created_at`) show the
+    stamping era or are garbled — inside the pre-machinery
+    shape too, which reads legacy only when at least one
+    declaration parses as pre-stamp and none is stamping-era
+    or garbled. What the hash cannot do: there is no
+    signature and no allowlist of genuine records, so a
+    record whose declarations are rewritten to look
+    pre-stamp — machinery sections removed, a consistent old
+    `version` and `created_at` left standing — is
+    indistinguishable from a genuine pre-stamp record, is
+    accepted as a legacy record, and edits to it are not
+    detected. That is the accepted limit of hash-based edit
+    detection without signatures (tester items P6-12 /
+    P6-12b, limit accepted at rerun 4, 2026-11-07).
