@@ -506,6 +506,31 @@ class RunReviewTieringTests(unittest.TestCase):
         self.assertEqual(section["evidence"], "missing")
         self.assertFalse(section["escalated"])
 
+    def test_high_with_unavailable_evidence_is_inconclusive(self):
+        # P6-11 contrast pin: a SUPPLIED evidence record whose
+        # required item is unavailable (tool not installed)
+        # takes C3's INCONCLUSIVE branch — "unavailable" is a
+        # status of a configured item. It is the absent record
+        # (test_high_full_panel_and_evidence_missing_blocks)
+        # that is "missing" and blocks: the tiering policy
+        # itself is the requirement, and nothing configured
+        # satisfies it.
+        evidence = {"items": [{"name": "gitleaks",
+                               "required": True,
+                               "status": "unavailable",
+                               "detail": "tool not installed"}]}
+        calls = {}
+        with tempfile.TemporaryDirectory() as tmp:
+            pol = self._tiering_policy(tmp)
+            report = _run(HIGH_PATCH, _panel(
+                calls, {"a": PASS, "b": PASS, "c": PASS}), pol,
+                evidence=evidence)
+        self.assertEqual(report["tiering"]["evidence"],
+                         "supplied")
+        self.assertEqual(report["gate"], "inconclusive")
+        self.assertTrue(any("unavailable" in r
+                            for r in report["gate_reasons"]))
+
     def test_high_with_passing_evidence_passes(self):
         evidence = {"items": [{"name": "tests",
                                "required": True,

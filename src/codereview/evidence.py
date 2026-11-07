@@ -15,6 +15,17 @@ first-class input (ticket C3):
       -> the gate is INCONCLUSIVE (a human decides; the tool's
          absence is not the builder's failure)
 
+"missing" and "unavailable" are statuses OF AN ITEM, and the
+distinction is the whole rule (P6-11): "missing" is a
+requirement with nothing configured to satisfy it — a
+`require` name with no configured item, or (the tiering
+case) a high-band run where the caller supplied no evidence
+record at all: the policy demanded evidence and none exists,
+so the gate BLOCKS. "unavailable" is a configured item whose
+tool is absent on this machine, so the gate cannot decide —
+INCONCLUSIVE. An absent record is never an "unavailable"
+item: there is no item.
+
 It also verifies builder claims (ticket C4): commands a builder's
 work report claims to have run, with claimed outcomes, are re-run
 in the sandbox and compared; a claim whose re-run contradicts it

@@ -10,7 +10,15 @@ description to size the panel that reviews it:
   * band "medium" → a reduced panel;
   * band "high"   → the full panel, and evidence is required
                     (the Epic C rule: required evidence that
-                    is missing BLOCKS the gate).
+                    is missing BLOCKS the gate). "Missing"
+                    includes the run where the caller supplied
+                    no evidence record at all — the tiering
+                    policy is itself the requirement. A supplied
+                    record whose required item is UNAVAILABLE
+                    (tool not installed) is the other C3 branch
+                    and makes the gate INCONCLUSIVE instead
+                    (P6-11: the two statuses are per-item, and
+                    an absent record is not an item).
 
 E4 is the safety valve on the smaller tiers: if the
 pre-screen / reduced panel returns uncertainty or any
