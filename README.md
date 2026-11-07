@@ -6,7 +6,7 @@ CodeReview is a multi-model review gate for AI-written code: a panel of models f
 
 CodeReview runs your change past a panel of independent AI reviewers — different providers, different model families — instead of a single model. Findings are cross-examined across families, executable claims are tested by running probes against the code, and the verdict is written to a verifiable record you keep. It ships as a CLI and an MCP server, so your coding agents can submit their own work to the gate before it merges. You bring your own API keys and assign models per role; your code goes to the providers you chose, nowhere else.
 
-The default `strict` gate is deliberately unforgiving. In registered confirmation testing it caught every seeded defect (recall 1.00) at 0.87 precision — and it blocked 65% of clean changes. That's the trade, stated plainly: strict is a high-recall gate for code you can't afford to get wrong, with a documented waiver path for the blocks you choose to accept.
+The default `strict` gate is deliberately unforgiving. In registered confirmation testing it caught every seeded defect (recall 1.00) at 0.87 precision — and it blocked 65% of clean changes. That's the trade, stated plainly: strict is a high-recall gate for code you can't afford to get wrong, with a documented waiver path for the blocks you choose to accept. (Registered confirmation record: bench/BASELINE-V2-2026-11-05.md.)
 
 ```
 builder ──diff──▶ deterministic checks ──▶ reviewer A (correctness/security)
