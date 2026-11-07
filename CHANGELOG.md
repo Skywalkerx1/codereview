@@ -1,5 +1,58 @@
 # Changelog
 
+## Unreleased — 0.13.0.dev0 (external Phase 5 rerun fixes)
+
+Fixes from the external tester's Phase 5 rerun on the fixed
+build ebfa217 (2026-11-06), each independently verified
+against master:
+
+- **The `--out` check proves writability, and a late write
+  failure keeps the review (P5-07b).** The Phase 5 up-front
+  check inferred writability from `os.access`, which passes
+  for a root user on `/proc` and `/sys`: the full review ran,
+  then the report write crashed and discarded the result.
+  Three prongs: (1) the check now proves the directory by
+  creating the directory chain and a temp file for real,
+  then removing them — a create fails for root exactly as
+  for anyone else — so an unusable `--out` still refuses
+  before any provider call; (2) independently, the report
+  write is wrapped: an `OSError` after the review completes
+  prints the verdict, writes the record to a fallback
+  location (current directory, then temp directory, then
+  stdout itself) and exits 2 instead of tracebacking;
+  (3) the tests simulate the unwritable case by mocking the
+  create, so they pass identically as root and non-root.
+- **The PR reasons line carries no live Markdown (P5-04b).**
+  Gate reasons are untrusted text (they can carry
+  repo-policy-derived content), and the Phase 5
+  neutralisation left bare URLs autolinking, `#N` and
+  `owner/repo#N` forming cross-references, and
+  reference-style links live. The rendering boundary now
+  also breaks the scheme separator in bare URLs, splits
+  the reference-link join, defuses line-start reference
+  definitions, and breaks `#` before a digit.
+- **Claim lint: wider scope, more phrasings (P5-08b).**
+  The lint's doc set is now every shipped *.md in the tree
+  (docs/, skills/, plugin and probe READMEs included),
+  with records excluded by name and by tree under the same
+  immutability rule as before; the pattern table gains the
+  reversed-decimal, spelled-out, all-of-set and
+  no-miss phrasing families the rerun evaded with, under
+  the same same-paragraph qualification and local-window
+  discipline.
+- **SARIF `..` segments resolve (P5-01b).** The Phase 5
+  normalisation dropped `..` segments, which could point a
+  finding at a different file. Paths now resolve with
+  `posixpath.normpath`; a path that still escapes the root
+  after normalisation emits no location at all rather
+  than a misleading one.
+- **P5-14 recheck: not a defect.** The rerun's capture
+  showed the herdr launcher's file-path message clipped;
+  the literal in the launcher source is intact ("workspace
+  path is not a directory") — the tester's harness cut the
+  line. Pinned in the rerun regression tests so the
+  wording cannot silently regress.
+
 ## Unreleased — 0.13.0.dev0 (external Phase 4 rerun fixes)
 
 Fixes from the external tester's Phase 4 rerun on the fixed
