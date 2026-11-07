@@ -8615,6 +8615,34 @@ def _validate_evidence_sidecars(record, evidence_dir):
     return problems
 
 
+def _atomic_write_text(path, text):
+    """Write `text` to `path` atomically (P6-01): the full
+    text goes to a temp file in the SAME directory, is
+    fsynced, and is then os.replace()d over the final path;
+    on any failure the temp file is removed and the error
+    propagates. A write that fails midway (file-size limit,
+    disk full, a kill) therefore leaves either the previous
+    file or nothing at the final path — never a truncated
+    file for a tool scanning the directory to pick up.
+    Mirrors the temp + fsync + replace pattern the JSONL
+    tail repair established (P4-08b, _repair_jsonl_tail);
+    the temp name carries the pid so two processes writing
+    the same path never share a temp file."""
+    tmp = f"{path}.tmp-{os.getpid()}"
+    try:
+        with open(tmp, "w", encoding="utf-8") as fh:
+            fh.write(text)
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+
+
 def write_report(report, out_dir, stem=None):
     os.makedirs(out_dir, exist_ok=True)
     stem = stem or ("codereview-" + datetime.datetime.now(
@@ -8639,9 +8667,15 @@ def write_report(report, out_dir, stem=None):
                 + record_schema_mod.SCHEMA_VERSION
                 + " validation before writing: "
                 + "; ".join(problems))
-    with open(jpath, "w", encoding="utf-8") as fh:
-        json.dump(record, fh, ensure_ascii=False, indent=2)
-        fh.write("\n")
-    with open(mpath, "w", encoding="utf-8") as fh:
-        fh.write(render_markdown(record))
+    # Both files land atomically (P6-01): a midway failure
+    # leaves the previous pair (or nothing) at the final
+    # paths, never a truncated record — this writer is also
+    # the hooks' rewrite path (the CLI rewrites the record
+    # at the same stem once the post-record hooks have
+    # fired), where a torn write would destroy the complete
+    # record the hooks were handed.
+    _atomic_write_text(
+        jpath, json.dumps(record, ensure_ascii=False, indent=2)
+        + "\n")
+    _atomic_write_text(mpath, render_markdown(record))
     return jpath, mpath
