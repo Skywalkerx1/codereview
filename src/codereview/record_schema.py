@@ -104,11 +104,14 @@ Semantics locked by this schema (the GTM engineering contract):
   evidence — the B2-era records predate the 0.13.0 version
   line entirely and keep the exemption. Records with no
   trace of the v1 machinery at all (no `schema_version`,
-  `provenance` or `record_identity`) predate the format
-  itself and stay not-applicable, as they have been for
-  every machinery-era check; reaching that shape from a
-  current record means deleting its entire format layer,
-  the wholesale-rewrite residual stated above.
+  `provenance` or `record_identity`) are read by the same
+  rule on their surviving declarations (P6-12b, rerun 3):
+  the three-key deletion from a current record no longer
+  reaches a categorical exemption — a surviving
+  stamping-era `version` defeats it, and no declarations
+  at all establishes nothing. Genuine pre-schema records
+  carry a pre-stamp `version` and `created_at` and keep
+  the exemption on that evidence.
 """
 
 import datetime
@@ -573,19 +576,26 @@ def content_hash_required(record):
     - legacy requires at least one parseable pre-stamp
       declaration and no defeating one.
 
-    Scope boundary: a record carrying NO trace of the v1
-    machinery (no `schema_version`, no `provenance`, no
-    `record_identity`) predates the format the
-    declarations belong to; edit detection is not
-    applicable to it — the same machinery-era semantics
-    the coverage, tier and sidecar checks apply to their
-    pre-machinery records. Any one surviving machinery
-    section keeps a record in the scope above, so the
-    only way here is deleting the record's entire format
-    layer — the wholesale-rewrite residual the threat
-    model already states (an editor who rewrites a
-    record wholesale was never detectable by an in-record
-    hash; it is not a signature).
+    The rule applies inside the pre-machinery shape too
+    (P6-12b, rerun 3): a record carrying no trace of the
+    v1 machinery (no `schema_version`, no `provenance`,
+    no `record_identity`) is NOT categorically exempt —
+    its surviving declarations (`version`, `created_at`)
+    are read by the same rule. That closes the three-key
+    deletion: dropping the machinery sections from a
+    current record while keeping `version: 0.13.0.dev0`
+    (her G6) declares the stamping era and fails, and
+    deleting every declaration (her G1) establishes
+    nothing and fails. Genuine pre-schema records still
+    pass: every writer of that era stamped `version` and
+    `created_at` (the 0.9.4 / 0.9.6 historicals carry
+    both), so one parseable pre-stamp declaration is
+    positive evidence, not a new burden. A record with
+    no declarations at all was never written by any
+    version of the writer; the consistent-forgery
+    residual (forge every declaration pre-stamp, her
+    G2/G3/G4) remains the documented not-a-signature
+    limit, unchanged.
 
     The first P6-12 bound read missing/unparseable fields
     as pre-stamp and let any one edited declaration carry
@@ -598,12 +608,6 @@ def content_hash_required(record):
     as legacy — a closed set of dev artefacts; registered
     and B2-era records predate the 0.13.0 line entirely.
     """
-    if not any(key in record for key in
-               ("schema_version", "provenance",
-                "record_identity")):
-        # Pre-machinery record (see the scope boundary in
-        # the docstring): not applicable, never required.
-        return False
     provenance = record.get("provenance")
     generator_version = (provenance.get("generator_version")
                          if isinstance(provenance, dict)
