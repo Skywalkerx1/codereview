@@ -228,9 +228,18 @@ def build_bundle(path, records_dir=None, include_records=True,
             bundle.notes.append("no run record found")
     else:
         bundle.notes.append("run records left out (--no-records)")
-    for note in _find_crash_notes([rec_dir or records_dir, "."]):
-        bundle.add_file(os.path.join("crash", os.path.basename(note)),
-                        note, "crash note (redacted)")
+    if include_records:
+        for note in _find_crash_notes([rec_dir or records_dir,
+                                       "."]):
+            bundle.add_file(
+                os.path.join("crash", os.path.basename(note)),
+                note, "crash note (redacted)")
+    else:
+        # PRIVACY.md promises --no-records leaves the crash
+        # notes out too (security fix 0.13.2, audit D) — they
+        # used to ride along unconditionally, outside the
+        # include_records branch.
+        bundle.notes.append("crash notes left out (--no-records)")
     if with_doctor:
         _run_doctor(bundle)
     else:

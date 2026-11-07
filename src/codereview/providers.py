@@ -45,6 +45,7 @@ import tempfile
 import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 try:
@@ -284,6 +285,35 @@ _SOLVER_SYSTEM = ("You are the solver in a software-maintenance "
                   "plan and an independent review gates the result.")
 
 
+_LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+
+
+def _require_secure_base_url(base_url, key_env):
+    """An authenticated endpoint must speak HTTPS (security
+    fix 0.13.2, audit G).
+
+    A keyed provider used to accept any scheme, so a
+    plaintext http:// base URL sent the operator's bearer
+    credential — and every prompt — unencrypted. Keyless
+    seats send no credential and are untouched; http:// is
+    still allowed for loopback hosts, where the traffic
+    never leaves the machine (a keyed loopback server keeps
+    working)."""
+    if key_env is None:
+        return
+    parsed = urllib.parse.urlparse(base_url or "")
+    if parsed.scheme == "https":
+        return
+    if parsed.scheme == "http" \
+            and (parsed.hostname or "").lower() in _LOOPBACK_HOSTS:
+        return
+    raise ProviderError(
+        f"refusing an authenticated provider at "
+        f"{base_url!r}: the credential from {key_env} would "
+        "be sent without TLS — use an https:// base URL "
+        "(http:// is allowed only for loopback hosts)")
+
+
 def openai_compatible(base_url, model, key_env, extra_payload=None,
                       system=_SYSTEM, omit_temperature=False,
                       completion_tokens=False, timeout=None):
@@ -307,7 +337,13 @@ def openai_compatible(base_url, model, key_env, extra_payload=None,
     credential is read and NO Authorization header is sent — the
     endpoint is a model server on the user's own machine, which
     expects none. Keyed callers are untouched: same header, same
-    _key failure when the env var is unset."""
+    _key failure when the env var is unset.
+
+    Construction refuses a non-HTTPS base URL whenever a
+    credential is attached (security fix 0.13.2, audit G —
+    see _require_secure_base_url)."""
+    _require_secure_base_url(base_url, key_env)
+
     def call(prompt):
         payload = {
             "model": model,

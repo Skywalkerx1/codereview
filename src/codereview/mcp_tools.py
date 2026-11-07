@@ -113,7 +113,12 @@ TOOL_DEFS = [
                     "type": "string",
                     "description": "builder's change "
                                    "description, shown to the "
-                                   "reviewers",
+                                   "reviewers. Literal text "
+                                   "only: a leading @ is NOT "
+                                   "treated as a file path "
+                                   "(unlike the CLI's "
+                                   "--context, MCP context is "
+                                   "never read from disk)",
                 },
             },
             "additionalProperties": False,
@@ -281,7 +286,14 @@ class GateTools:
         if args.get("trust_repo_policy"):
             argv += ["--trust-repo-policy"]
         if args.get("context"):
-            argv += ["--context", args["context"]]
+            # Security fix (0.13.2, audit C): MCP context is
+            # literal text. It goes through the CLI's
+            # --context-literal flag so a value starting with
+            # @ is never expanded into a local file read —
+            # an agent driving this tool must not be able to
+            # make the server read arbitrary files (e.g. SSH
+            # keys) into the reviewers' prompts.
+            argv += ["--context-literal", args["context"]]
         patch_file = None
         if args.get("patch") is not None:
             fd, patch_file = tempfile.mkstemp(
@@ -344,7 +356,13 @@ class GateTools:
             raise ToolError(
                 f"get_verdict: could not read the record: "
                 f"{exc}") from exc
-        return _verdict_payload(record, jpath)
+        payload = _verdict_payload(record, jpath)
+        # Security fix (0.13.2, audit F): the summary is read
+        # from a stored record without re-verifying it — the
+        # output says so itself, so a client never mistakes a
+        # read-back for a verified verdict.
+        payload["verification"] = "unverified"
+        return payload
 
 
 def _printed_path(text, label):

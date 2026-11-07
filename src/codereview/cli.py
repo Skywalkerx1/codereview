@@ -2131,6 +2131,11 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
                          "(codereview setup)")
     ap.add_argument("--context", default="",
                     help="builder's change description (or @file)")
+    ap.add_argument("--context-literal", default=None,
+                    help="builder's change description taken "
+                         "literally: a leading @ is never read "
+                         "as a file path (the MCP server passes "
+                         "its context argument this way)")
     ap.add_argument("--test-command", action="append", default=[],
                     help="test command to run and include; repeatable")
     ap.add_argument("--evidence-config",
@@ -2805,8 +2810,17 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
         if claim_section is not None:
             report["claim_verification"] = claim_section
     else:
+        # Security fix (0.13.2, audit C): --context-literal —
+        # what the MCP server passes — is taken verbatim. A
+        # leading @ in MCP-supplied context must never make
+        # the gate read a local file into the reviewer
+        # prompts; @file expansion stays a CLI-only
+        # convenience for the operator's own terminal.
+        _context = getattr(args, "context_literal", None)
+        if _context is None:
+            _context = _maybe_file(args.context)
         report = core.run_review(
-            patch, providers, context=_maybe_file(args.context),
+            patch, providers, context=_context,
             test_results=test_results,
             max_patch_chars=args.max_patch_chars,
             allow_major=args.allow_major, strict=args.strict,

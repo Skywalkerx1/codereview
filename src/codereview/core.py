@@ -56,7 +56,7 @@ from . import notify as notify_mod
 from . import policy as policy_mod
 from . import seatstate
 
-VERSION = "0.13.1"
+VERSION = "0.13.2"
 SCHEMA = "codereview.report/1"
 
 SEVERITIES = ("blocker", "major", "minor", "nit")
@@ -237,6 +237,14 @@ def collect_file_context(repo, patch, range_spec=None, staged=False,
         if "\x00" in content:
             entry["skipped"] = "binary"
             continue
+        # Security fix (0.13.2, audit A): redact to the same
+        # standard as the patch AT COLLECTION, before the caps
+        # below truncate — a secret sitting on an unchanged
+        # line of a touched file must not reach a reviewer
+        # prompt, or anything downstream of this mapping, in
+        # clear text. The AGENTS.md collector already redacts
+        # this way; the file-context collector was the gap.
+        content = redact_secrets(content)
         entry["chars"] = len(content)
         candidates.append((len(text), entry, content))
     mapping = {}
@@ -4617,6 +4625,16 @@ def run_review(patch, providers, context="", test_results=None,
     confirmation runs never configure it."""
     _record_started = time.monotonic()
     test_results = test_results or []
+    # Security fix (0.13.2, audit B): the builder-supplied
+    # context is redacted to the same standard as the patch
+    # before it can reach a reviewer prompt or the record —
+    # previously only the patch was redacted, so a secret
+    # pasted into the change description was sent to every
+    # provider verbatim and stored in the run record. Done
+    # here, once, so every caller (CLI, MCP, loop) is covered
+    # and the redaction precedes both truncations (the
+    # prompt's 4000 chars and the record's 500).
+    context = redact_secrets(context or "")
     # Gate profile resolution (step 6): explicit argument >
     # policy file's [gate] profile > "strict" default. An
     # unknown profile is a caller error and fails loudly —
@@ -8933,12 +8951,19 @@ def _atomic_write_text(path, text):
     file or nothing at the final path — never a truncated
     file for a tool scanning the directory to pick up.
     Mirrors the temp + fsync + replace pattern the JSONL
-    tail repair established (P4-08b, _repair_jsonl_tail);
-    the temp name carries the pid so two processes writing
-    the same path never share a temp file."""
-    tmp = f"{path}.tmp-{os.getpid()}"
+    tail repair established (P4-08b, _repair_jsonl_tail).
+    The temp file is created by mkstemp in the same
+    directory: an unpredictable name, opened O_EXCL with
+    0600 permissions — two processes never share one, and a
+    pre-planted symlink at a predictable temp path is never
+    followed (security fix 0.13.2, audit I; the temp name
+    used to be the pid-derived `path.tmp-<pid>`)."""
+    import tempfile
+    fd, tmp = tempfile.mkstemp(
+        dir=os.path.dirname(os.path.abspath(path)),
+        prefix=os.path.basename(path) + ".tmp-")
     try:
-        with open(tmp, "w", encoding="utf-8") as fh:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
             fh.write(text)
             fh.flush()
             os.fsync(fh.fileno())
