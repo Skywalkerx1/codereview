@@ -10,7 +10,14 @@ that fire at three points in a review run's lifecycle:
                 committed;
   on-blocked    after the record is written, when the run's
                 first seat (in record order) ended in a K2
-                blocked class (quota / auth / input / stalled);
+                blocked class (quota / auth / input / stalled).
+                The name means a SEAT blocked, not that the
+                gate verdict is BLOCKED (P6-09): a PASS run
+                with a blocked seat fires it, a BLOCKED run
+                with no blocked seat does not. The [hooks]
+                policy key `on_seat_blocked` is accepted as
+                an alias for `on_blocked` (policy.py folds
+                it into the same slot);
   post-verdict  after the record is written, on every run that
                 configures it.
 

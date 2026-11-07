@@ -513,5 +513,37 @@ class TestP607RegroundCap(unittest.TestCase):
             for r in report["gate_reasons"]))
 
 
+class TestP609OnSeatBlockedAlias(unittest.TestCase):
+    """P6-09: `on_blocked` fires when a SEAT blocks (K2 class),
+    not when the gate verdict is BLOCKED — the name invited
+    the misreading. The event keeps its name (no breaking
+    rename); the policy key gains the additive alias
+    `on_seat_blocked`, folded into the same slot at load."""
+
+    def _load(self, tmp, hooks_toml):
+        from codereview import policy
+        path = os.path.join(tmp, ".codereview.toml")
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(hooks_toml)
+        return policy.load_policy(path)
+
+    def test_alias_fills_the_on_blocked_slot(self):
+        from codereview import hooks
+        with tempfile.TemporaryDirectory() as tmp:
+            pol = self._load(
+                tmp, '[hooks]\non_seat_blocked = "echo hi"\n')
+        self.assertEqual(pol["hooks"]["on_blocked"], "echo hi")
+        config = hooks.hooks_from_policy(pol)
+        self.assertEqual(config["on_blocked"], "echo hi")
+
+    def test_canonical_key_wins_over_alias(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            pol = self._load(
+                tmp, '[hooks]\non_blocked = "echo canon"\n'
+                     'on_seat_blocked = "echo alias"\n')
+        self.assertEqual(pol["hooks"]["on_blocked"],
+                         "echo canon")
+
+
 if __name__ == "__main__":
     unittest.main()

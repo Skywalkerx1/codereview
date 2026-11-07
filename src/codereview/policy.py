@@ -122,7 +122,12 @@ Schema (every key optional; defaults in parentheses):
                            # written, and
   on_blocked = ""          # on_blocked (also after the record
                            # is written) when the run's first
-                           # seat ended in a K2 blocked class.
+                           # SEAT ended in a K2 blocked class —
+                           # a seat state, not the gate verdict
+                           # (a PASS run can fire it; a BLOCKED
+                           # run with no blocked seat does not).
+                           # on_seat_blocked is accepted as an
+                           # alias for the same slot.
   timeout = 600            # per-hook wall-clock bound, seconds
                            # Hooks run through the Epic C
                            # evidence sandbox and are pure
@@ -218,7 +223,14 @@ _PATH_KEYS = ("match", "require_full_panel", "require_tests",
               "require_tests_pass", "min_seats", "min_families",
               "enforce")
 _WAIVER_KEYS = ("allow", "require_reason", "max_age_days")
-_HOOK_KEYS = ("pre_run", "post_verdict", "on_blocked", "timeout")
+# on_seat_blocked is an accepted ALIAS for on_blocked (P6-09:
+# the event means a SEAT blocked, not that the gate verdict is
+# BLOCKED, and the alias says so). It is an input key only —
+# the load loop folds it into the canonical on_blocked slot,
+# so _HOOK_COMMAND_KEYS (and the hooks module's event keys it
+# mirrors) never see it.
+_HOOK_KEYS = ("pre_run", "post_verdict", "on_blocked",
+              "on_seat_blocked", "timeout")
 _HOOK_COMMAND_KEYS = ("pre_run", "post_verdict", "on_blocked")
 _RISK_KEYS = ("enabled", "medium_threshold", "high_threshold",
               "tiering", "prescreen_seats", "medium_seats")
@@ -253,6 +265,7 @@ DISCOVERED_POLICY_RESTRICTED_KEYS = (
     "hooks.pre_run",
     "hooks.post_verdict",
     "hooks.on_blocked",
+    "hooks.on_seat_blocked",
     "hooks.timeout",
     # [gate] profile — when it selects anything weaker than
     # "strict" ("balanced" or "corroborated").
@@ -555,6 +568,19 @@ def load_policy(path):
                       f"command string, got {value!r}",
                       "hooks", key)
             policy["hooks"][key] = value
+    if "on_seat_blocked" in hooks:
+        # P6-09 alias: folds into the on_blocked slot. When
+        # both are given the canonical key wins — one slot,
+        # one command, stated here rather than resolved by
+        # dict order.
+        value = hooks["on_seat_blocked"]
+        if not isinstance(value, str) or not value.strip():
+            _fail(path, lines,
+                  f"[hooks] on_seat_blocked must be a "
+                  f"non-empty command string, got {value!r}",
+                  "hooks", "on_seat_blocked")
+        if policy["hooks"]["on_blocked"] is None:
+            policy["hooks"]["on_blocked"] = value
     if "timeout" in hooks:
         value = hooks["timeout"]
         if isinstance(value, bool) \
