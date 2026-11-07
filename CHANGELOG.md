@@ -1,5 +1,60 @@
 # Changelog
 
+## Unreleased — 0.13.0.dev0 (external Phase 4 rerun fixes)
+
+Fixes from the external tester's Phase 4 rerun on the fixed
+build (2026-11-06), each independently verified against
+master. The fix implementations for the four code items were
+adopted from the tester's own solution patch (p4-residuals),
+with completions noted:
+
+- **Torn JSONL tails are removed before appending
+  (P4-08b).** The P4-08 read tolerance left the torn bytes in
+  place: the first resume appended after them, and the
+  second resume crashed on the fragment turned corrupt
+  mid-file line. Before the generation/attempt/journal
+  append handles open, a torn final line is now dropped
+  (temp file + fsync + atomic replace) and an unterminated
+  parseable final line gains its newline; when dropping the
+  tail would expose another invalid line, the file is left
+  untouched — real damage still raises on read.
+- **Provider and seat error text is redacted before it can
+  reach a record (P4-01b).** The P4-01 error-body excerpt
+  entered the ProviderError message unredacted, and that
+  message is persisted verbatim into records and reports —
+  a 401 body quoting the caller's own key back leaked it.
+  The excerpt now passes through `redact_secrets` before
+  truncation (class-deciding text such as
+  `insufficient_quota` survives); if redaction itself fails
+  the excerpt is dropped and the status kept. Audit
+  extension: an agent seat's stderr tail, quoted into its
+  error on a non-zero exit, is redacted at the same
+  boundary.
+- **JSON error envelopes are scanned by value (P4-06b).**
+  A line that is a JSON error envelope (`is_error: true`,
+  or an `error` key with no verdict fields) is matched
+  against its decoded string values, so a CLI's own failure
+  text is no longer rejected for sitting inside JSON quotes.
+  Keys are never scanned, and a verdict object — whose free
+  text quotes the diff under review — is never
+  value-scanned.
+- **Quotation lead-ins do not classify (P4-06c).** A line
+  whose first non-space character is `+`, `>` or `|` (diff /
+  markdown quoting), and a lead-in containing a code call
+  (`print(...)`), are content under review, not the CLI
+  speaking. `-` is deliberately allowed (an ordinary vendor
+  bullet). Accepted residual, documented in seatstate.py:
+  the bare unquoted third-party state report ("MCP server
+  docs not logged in; continuing") still matches — the
+  `; continuing` lookahead that would catch it encodes one
+  vendor's phrasing and was rejected on that basis.
+- **Suite portability.** `test_score_confirmation_v3` now
+  skips cleanly when the swarm environment's `llm_chain`
+  module is unavailable (it drives bench scripts that import
+  it from outside the repo), matching the guard its two
+  sibling modules already carry — a clean checkout reports
+  the suite green instead of one import error.
+
 ## Unreleased — 0.13.0.dev0 (external Phase 5 test fixes)
 
 Fixes from the external tester's Phase 5 report (2026-11-06 —
