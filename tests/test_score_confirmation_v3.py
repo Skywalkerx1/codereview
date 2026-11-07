@@ -33,8 +33,22 @@ def _load(name, rel):
 
 sc2 = _load("score_confirmation_v2",
             "bench/scripts/score_confirmation_v2.py")
-runner = _load("run_confirmation_b2",
-               "bench/scripts/run_confirmation_b2.py")
+try:
+    runner = _load("run_confirmation_b2",
+                   "bench/scripts/run_confirmation_b2.py")
+except ModuleNotFoundError as exc:  # env dependent
+    # run_confirmation_b2 drives run_generation_v2, which
+    # imports the swarm environment's llm_chain from a path
+    # outside this repo. A clean checkout must report this
+    # module as SKIPPED, not as an import error (Phase 4
+    # rerun, suite portability) — the same guard
+    # test_generation_driver.py and
+    # test_deepseek_connector_switch.py already carry.
+    if exc.name != "llm_chain":
+        raise
+    raise unittest.SkipTest(
+        "bench/scripts/run_confirmation_b2.py needs the swarm "
+        "environment's llm_chain module, which is not importable")
 import generation as gen  # noqa: E402
 
 
