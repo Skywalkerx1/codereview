@@ -64,6 +64,7 @@ Vocabulary notes:
 from __future__ import annotations
 
 import contextvars
+import json
 import os
 import re
 import threading
@@ -181,6 +182,12 @@ def _unquoted_lead_in(prefix):
     no quoted matter: no quote characters, and every apostrophe
     word-internal (You've — the vendor's own voice), never a
     quote opening or closing a span ('docs', "…")."""
+    # Diff / markdown quoting (P4-06c): a line that begins with a
+    # unified-diff '+' marker or a '>' quote marker is content
+    # under review, not the CLI speaking. ('-' is left alone: it
+    # is also an ordinary bullet in vendor output.)
+    if prefix[:1] in ("+", ">"):
+        return False
     for i, ch in enumerate(prefix):
         if ch in _QUOTE_CHARS:
             return False
@@ -190,6 +197,56 @@ def _unquoted_lead_in(prefix):
             if not (left.isalpha() and right.isalpha()):
                 return False
     return True
+
+
+def _json_strings(obj, out):
+    if isinstance(obj, str):
+        out.append(obj)
+    elif isinstance(obj, dict):
+        for v in obj.values():
+            _json_strings(v, out)
+    elif isinstance(obj, list):
+        for v in obj:
+            _json_strings(v, out)
+
+
+def _is_error_envelope(obj):
+    """True for a JSON object that is the CLI/API reporting a
+    failure — {"is_error": true, ...} (Claude Code's result
+    envelope) or {"error": ...} without verdict fields — and
+    False for a review verdict, whose free-text fields quote
+    the diff under review and must never be scanned (P4-06)."""
+    if "findings" in obj or "verdict" in obj:
+        return False
+    return obj.get("is_error") is True or "error" in obj
+
+
+def _candidate_lines(text):
+    """Lines to scan (P4-06b). A line that is a JSON object —
+    Claude Code's `--output-format json` result, or an API-style
+    {"error": ...} — is scanned by its decoded string VALUES, so
+    the CLI's own message is not rejected for sitting inside the
+    JSON string quotes — but only for error envelopes (see
+    _is_error_envelope); a verdict object is left as it was.
+    Key names are not scanned, and text
+    inside the values is still split into lines and subject to
+    the same lead-in test. Non-JSON lines pass through."""
+    out = []
+    for line in text.splitlines():
+        st = line.strip()
+        if st.startswith("{") and st.endswith("}"):
+            try:
+                obj = json.loads(st)
+            except ValueError:
+                obj = None
+            if isinstance(obj, dict) and _is_error_envelope(obj):
+                vals = []
+                _json_strings(obj, vals)
+                for v in vals:
+                    out.extend(v.splitlines())
+                continue
+        out.append(line)
+    return out
 
 
 def match_failure(cli_key, text):
@@ -204,7 +261,7 @@ def match_failure(cli_key, text):
     searched at once."""
     if not cli_key or not text:
         return None
-    lines = text.splitlines()
+    lines = _candidate_lines(text)
     for entry in _COMPILED.get(cli_key, ()):
         rx = entry["rx"]
         for line in lines:
