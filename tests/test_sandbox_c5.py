@@ -225,6 +225,31 @@ class CleanupPinTests(unittest.TestCase):
     paths (a leftover would be a copy of untrusted code
     sitting in the operator's temp dir)."""
 
+    def setUp(self):
+        # Isolation (P6-15): the leftover scan reads the
+        # temp dir, and the system temp dir is shared with
+        # every other process — a second suite running
+        # concurrently creates its own codereview-evidence-*
+        # sandboxes between this test's two snapshots and
+        # the diff fails on a stranger's directory. Give the
+        # class a private temp dir (the code under test
+        # creates its sandboxes through tempfile, so it
+        # follows), and restore everything on the way out.
+        self._private_tmp = tempfile.mkdtemp(
+            prefix="c5-private-")
+        self._saved_tempdir = tempfile.tempdir
+        self._saved_env = os.environ.get("TMPDIR")
+        tempfile.tempdir = self._private_tmp
+        os.environ["TMPDIR"] = self._private_tmp
+
+    def tearDown(self):
+        tempfile.tempdir = self._saved_tempdir
+        if self._saved_env is None:
+            os.environ.pop("TMPDIR", None)
+        else:
+            os.environ["TMPDIR"] = self._saved_env
+        shutil.rmtree(self._private_tmp, ignore_errors=True)
+
     def test_no_leftover_after_a_normal_run(self):
         before = _sandbox_leftovers()
         src = _tree({"app.py": "x\n"})
