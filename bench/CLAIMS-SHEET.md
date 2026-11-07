@@ -65,6 +65,29 @@ travels with its figures wherever they are quoted.
   p95 57.9 s.
   Source: `bench/generation-v2/RESULTS-2026-11-05.md`.
 
+- **Confirmation attempt 1, the paired `strict` row (same
+  records):** "On the identical attempt-1 records, the default
+  `strict` profile caught every labelled defect (A5 recall
+  7 of 7 = 1.000; Wilson 95% [0.646, 1.000] — identical under
+  both profiles), blocked 32/34 clean cases = 0.941 (Wilson
+  95% [0.809, 0.984]), and its merged blocking precision on
+  the A5 holdout was 0.583 (Wilson 95% [0.320, 0.807])."
+  Mandatory attachments: the attempt-1 FAIL travels with
+  these figures exactly as with the `balanced` row above;
+  this is a paired rescoring of attempt 1's preserved
+  records, not a new run. Recall and the clean-BLOCKED count
+  are the RESULTS document's own paired row (item 7.1). The
+  precision figure was derived 2026-11-07 by re-running the
+  frozen scorer's merged-blocking-precision function
+  (`bench/scripts/score_confirmation_v2.py`) over the
+  preserved attempt-1 records with B1's demotions restored
+  to their original severities (D=7, U=5, 18 duplicates
+  removed); the same harness reproduces the registered
+  `balanced` row exactly (0.875; D=7, U=1; 12 duplicates
+  removed), which validates the derivation.
+  Source: `bench/generation-v2/RESULTS-2026-11-05.md`
+  item 7.1 + `bench/generation-v2/attempt-1.jsonl`.
+
 - **B2 registered confirmation, as a failed registered run:**
   "The registered confirmation of the `corroborated` profile
   (policy B2) ran on 2026-11-06 on fresh sealed sets (88

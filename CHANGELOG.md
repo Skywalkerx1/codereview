@@ -1,5 +1,27 @@
 # Changelog
 
+## Unreleased — C1 claim correction + profile-attribution lint (2026-11-07)
+
+- **Corrected (defect C1, found by the external tester's
+  verification pass):** the README lead paragraph attributed
+  the `balanced` profile's registered attempt-1 figures
+  (precision 0.875; clean-BLOCKED 22/34 = 0.647, quoted as
+  "65%") to the default `strict` gate, and cited a record
+  that measured neither. The paragraph now states `strict`'s
+  own paired row from the same records — recall 1.00 (7 of 7),
+  merged blocking precision 0.583, clean-BLOCKED 32 of 34
+  (0.941), each with its Wilson 95% interval — and cites the
+  attempt-1 results record,
+  `bench/generation-v2/RESULTS-2026-11-05.md`.
+  `bench/CLAIMS-SHEET.md` carries
+  the paired-`strict` row as a governed claim, with the
+  precision derivation stated.
+- The claim lint now checks profile attribution (W0): a
+  paragraph that states one profile's recorded figure while
+  naming only a different profile — and never the profile of
+  record in the paragraph or its section — fails. The
+  original C1 sentence is pinned as a mutation test.
+
 ## Unreleased — L19 collector endpoint live (2026-11-07)
 
 - The feedback collector endpoint is set (`feedback.ENDPOINT`
