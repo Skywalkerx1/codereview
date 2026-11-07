@@ -505,7 +505,19 @@ def _loop_main(argv, providers_override=None):
                     "diff, a builder command (the coding agent) fixes "
                     "the findings and writes a work report, and a "
                     "verification round decides whether the workflow "
-                    "advances.")
+                    "advances.",
+        epilog="Surface note (P6-08): loop takes --provider (or the "
+               "environment / saved setup), --range/--staged, "
+               "--waive, --test-command, --allow-major and "
+               "--strict — and no --seat-meta, --policy or --role: "
+               "it drives its own rounds against the working tree "
+               "as the builder edits it, so the policy-driven "
+               "surfaces (tiering, hooks, gate profile, role "
+               "assignment) belong to the gate command. Its "
+               "per-round records carry no committed range/head "
+               "and are not Form B chain / release records; for a "
+               "release record, run the gate command over a "
+               "committed range.")
     ap.add_argument("--repo", default=".",
                     help="git repository path (default: .)")
     ap.add_argument("--range", dest="range",

@@ -106,6 +106,8 @@ codereview loop --repo . \
 
 Per-round reports land in `round-1/`, `round-2/`, … and `loop-result.json` summarizes the run (`advanced: true/false`).
 
+The loop's surface is deliberately narrower than the gate command's (P6-08): it takes `--provider` (or the environment / your saved setup), `--range`/`--staged` for the diff it starts from, `--waive`, `--test-command`, `--allow-major` and `--strict` — and no `--seat-meta`, `--policy` or `--role`, because it drives its own rounds against the working tree as the builder edits it; the policy-driven surfaces (tiering, hooks, gate profile, role assignment) belong to the gate command. For the same reason its per-round records are *working* records: they carry no committed range/head, so they are not Form B chain records and cannot be release-eligible through `record-verify`. For a release record, run the gate command over a committed range.
+
 ## The verification round
 
 A blocked change is fixed — or rebutted with evidence — and re-checked:
