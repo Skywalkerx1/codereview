@@ -1646,6 +1646,16 @@ def _b2_confirmation_fn(fam_by_seat, ok_seats, seat_fns,
 # amendment review, confirmed major f6064fc5e515).
 MAX_PROBE_ROUNDS = 1
 
+# Hard bound on the re-ground pass's model calls (§2b, P6-07):
+# the pass makes one call per candidate seat per ungrounded
+# finding, and a run whose panel produced thousands of
+# ungrounded findings fanned out without limit (3,000
+# findings -> 2,996 calls). The pass now has a call budget;
+# findings the budget never reaches stay ungrounded on the
+# record with the budget named in their re-ground note and
+# in the gate reasons — visible, never silent.
+MAX_REGROUND_CALLS = 100
+
 # Shadow Tech Lead (refutation-process solution Q2/Q4 +
 # four-disputed solution, owner-adopted 2026-11-04): the FULL
 # structured adjudication, run in shadow — decisions recorded
@@ -5127,6 +5137,8 @@ def run_review(patch, providers, context="", test_results=None,
     # gate's finding list but stay IN the record (withdrawn_findings)
     # with the seat's stated reason — visible, never silent.
     withdrawn_findings = []
+    reground_calls = 0
+    reground_capped = []
     if ungrounded:
         seat_fns = {}
         for name, fn, _lens in tasks:
@@ -5134,6 +5146,20 @@ def run_review(patch, providers, context="", test_results=None,
         for _lens, (fb_name, fb_fn) in (fallbacks or {}).items():
             seat_fns.setdefault(fb_name, fb_fn)
         for nf, sname, sfn in ungrounded:
+            if reground_calls >= MAX_REGROUND_CALLS:
+                # P6-07: the call budget is spent — this
+                # finding is never attempted. It stays
+                # ungrounded (the human-decision state), with
+                # the budget named as the reason.
+                nf["grounding"] = "unresolved"
+                nf["reground_note"] = (
+                    f"re-ground pass call budget "
+                    f"(MAX_REGROUND_CALLS="
+                    f"{MAX_REGROUND_CALLS}) exhausted before "
+                    f"this finding was attempted — left "
+                    f"ungrounded for a human to decide")
+                reground_capped.append(nf)
+                continue
             fam = _seat_meta(seat_meta, sname)["family"]
             candidates = [(sname, sfn)]
             for other, ofn in seat_fns.items():
@@ -5145,7 +5171,10 @@ def run_review(patch, providers, context="", test_results=None,
             outcome, quote, reason = "unresolved", "", ""
             tried = []
             for cname, cfn in candidates:
+                if reground_calls >= MAX_REGROUND_CALLS:
+                    break
                 tried.append(cname)
+                reground_calls += 1
                 outcome, quote, reason = _reground_call(
                     cfn, nf, region)
                 if outcome != "unresolved":
@@ -5814,6 +5843,13 @@ def run_review(patch, providers, context="", test_results=None,
             f"{len(unresolved_grounding)} finding(s) could not be "
             f"re-grounded (evidence quote unverifiable) — a human "
             f"must decide them"]
+    if reground_capped:
+        reasons = reasons + [
+            f"{len(reground_capped)} finding(s) were not "
+            f"attempted in the re-ground pass: its call budget "
+            f"(MAX_REGROUND_CALLS={MAX_REGROUND_CALLS}) was "
+            f"exhausted — they stay ungrounded for a human to "
+            f"decide"]
     if standing_findings:
         reasons = reasons + [
             f"{len(standing_findings)} standing finding(s) "

@@ -474,5 +474,44 @@ class TestP606AgentFamilies(unittest.TestCase):
                 {"claude": "anthropic"})
 
 
+class TestP607RegroundCap(unittest.TestCase):
+    """P6-07 (her n_scale2): the re-ground pass made one model
+    call per ungrounded finding with no cap — 3,000 findings
+    cost 2,996 calls. The pass now has a call budget
+    (core.MAX_REGROUND_CALLS); findings past it stay
+    ungrounded with the budget named, never silently."""
+
+    def test_fanout_is_capped_and_the_record_says_so(self):
+        calls = {"n": 0}
+        findings = [{
+            "severity": "major", "category": "correctness",
+            "file": "a.py", "line": i + 1,
+            "title": f"tok{i}x tok{i}y tok{i}z",
+            "evidence": f"a quote {i} that is not in the diff",
+            "recommendation": "fix"} for i in range(80)]
+
+        def seat(_prompt):
+            calls["n"] += 1
+            return json.dumps({"summary": "s",
+                               "findings": findings})
+
+        meta = {"alpha": {"family": "google", "tier": "paid"},
+                "beta": {"family": "openai", "tier": "paid"}}
+        report = core.run_review(
+            _PATCH, {"alpha": seat, "beta": seat},
+            seat_meta=meta)
+        reground_calls = calls["n"] - 2  # two review batches
+        self.assertGreater(reground_calls, 0)
+        self.assertLessEqual(reground_calls,
+                             core.MAX_REGROUND_CALLS)
+        capped = [f for f in report["findings"]
+                  if "call budget" in
+                  (f.get("reground_note") or "")]
+        self.assertTrue(capped)
+        self.assertTrue(any(
+            "call budget" in r
+            for r in report["gate_reasons"]))
+
+
 if __name__ == "__main__":
     unittest.main()
