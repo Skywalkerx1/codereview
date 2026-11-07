@@ -90,6 +90,7 @@ RECORD_DIRS = (
     os.path.join("bench", "analysis-2026-11-05"),
     os.path.join("bench", "expanded-clean"),
     os.path.join("bench", "pilot-b2-2026-11-05"),
+    os.path.join("bench", "stage0-pc"),
     os.path.join("bench", "real-world"),
     os.path.join("acceptance-run-2026-11-04"),
     os.path.join("pilot", "demo"),
