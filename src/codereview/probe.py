@@ -415,7 +415,30 @@ def run_probe(spec, tree_dir, timeout=PROBE_TIMEOUT_DEFAULT):
     try:
         work = os.path.join(tmp, "tree")
         if tree_dir and os.path.isdir(tree_dir):
-            shutil.copytree(tree_dir, work, ignore=_IGNORE)
+            try:
+                # symlinks=True, as in evidence._copy_tree: a
+                # link planted in the reviewed tree must arrive
+                # as a link, never be dereferenced into the
+                # copy — dereferencing would pull the target's
+                # content (any host file the operator can read)
+                # into the sandbox tree, and would stream a
+                # special file (e.g. /dev/zero) into the copy
+                # in THIS process, unbounded (L6 F1/F2).
+                shutil.copytree(tree_dir, work, ignore=_IGNORE,
+                                symlinks=True)
+            except Exception as exc:  # noqa: BLE001 — an outcome
+                # A copy failure is a probe outcome, never an
+                # exception escaping run_probe (its contract:
+                # probe failures are outcomes, not crashes).
+                return {"outcome": "error", "exit_code": None,
+                        "duration_s": round(
+                            time.monotonic() - started, 3),
+                        "output": "",
+                        "output_sha256": hashlib.sha256(
+                            b"").hexdigest(),
+                        "sandbox": {}, "spec": spec,
+                        "can_rebut": True, "can_support": False,
+                        "detail": f"probe tree copy failed: {exc}"}
         else:
             os.makedirs(work)
         if spec["kind"] == "python":

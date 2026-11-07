@@ -4,11 +4,13 @@ No network, no real providers."""
 
 import json
 import os
+import shutil
 import signal
 import sys
 import tempfile
 import time
 import unittest
+from unittest import mock
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
@@ -155,6 +157,70 @@ _FAILING_TEST = ("import unittest\n\n\n"
                  "        self.assertEqual(1, 2)\n")
 _MAIN_GUARD = ('\n\nif __name__ == "__main__":\n'
                "    unittest.main()\n")
+
+
+class ProbeTreeCopyTests(unittest.TestCase):
+    """L6 F1/F2: the probe's tree copy must preserve symlinks
+    (never dereference them into the sandbox copy — parity with
+    evidence._copy_tree), and a copy failure must surface as an
+    `error` OUTCOME, never as an exception escaping run_probe
+    (its contract: probe failures are outcomes, not crashes)."""
+
+    def _outside_file(self, text="TOPSECRET-OUTSIDE"):
+        fd, path = tempfile.mkstemp(prefix="probe-outside-")
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(text)
+        self.addCleanup(os.unlink, path)
+        return path
+
+    def test_symlink_to_outside_file_is_copied_as_link(self):
+        outside = self._outside_file()
+        root = _tree({"real.txt": "hello\n"})
+        self.addCleanup(shutil.rmtree, root, True)
+        os.symlink(outside, os.path.join(root, "link.txt"))
+        res = probe_mod.run_probe(
+            {"kind": "python",
+             "code": "import os; print(os.path.islink('link.txt'))"},
+            root, timeout=30)
+        self.assertEqual(res["outcome"], "pass")
+        self.assertIn("True", res["output"])
+
+    def test_dangling_symlink_does_not_escape_run_probe(self):
+        root = _tree({"real.txt": "hello\n"})
+        self.addCleanup(shutil.rmtree, root, True)
+        os.symlink("/nonexistent/definitely-missing",
+                   os.path.join(root, "link.txt"))
+        res = probe_mod.run_probe(
+            {"kind": "python",
+             "code": "import os; print(os.path.islink('link.txt'))"},
+            root, timeout=30)
+        # No exception; the link arrives in the copy as a link.
+        self.assertEqual(res["outcome"], "pass")
+        self.assertIn("True", res["output"])
+
+    def test_special_file_symlink_is_not_streamed_into_copy(self):
+        if not os.path.exists("/dev/zero"):
+            self.skipTest("no /dev/zero on this platform")
+        root = _tree({"real.txt": "hello\n"})
+        self.addCleanup(shutil.rmtree, root, True)
+        os.symlink("/dev/zero", os.path.join(root, "zero"))
+        res = probe_mod.run_probe(
+            {"kind": "python",
+             "code": "import os; print(os.path.islink('zero'))"},
+            root, timeout=30)
+        self.assertEqual(res["outcome"], "pass")
+        self.assertIn("True", res["output"])
+
+    def test_copy_failure_is_an_error_outcome(self):
+        root = _tree({"real.txt": "hello\n"})
+        self.addCleanup(shutil.rmtree, root, True)
+        with mock.patch("shutil.copytree",
+                        side_effect=shutil.Error("boom")):
+            res = probe_mod.run_probe(
+                {"kind": "python", "code": "print('x')"}, root,
+                timeout=30)
+        self.assertEqual(res["outcome"], "error")
+        self.assertIn("copy", res["detail"])
 
 
 class TestKindRunnerTests(unittest.TestCase):
