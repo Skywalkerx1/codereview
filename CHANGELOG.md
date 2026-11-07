@@ -75,6 +75,37 @@ clean:
   INCONCLUSIVE branch. Code unchanged; a contrast pin
   covers the unavailable case.
 
+Rerun addendum (the tester's Phase 6 rerun on the build
+carrying the fixes above confirmed every Phase 6
+disposition, and raised four new items — each re-verified
+here before any change):
+
+- **The legacy exemption is bounded by provenance
+  (P6-12).** Deleting `content_sha256` from a freshly
+  stamped record made record-verify report it as a legacy
+  record and pass any edit. A record whose own
+  declarations (generator version, creation time) place
+  it in the stamping era must now carry the hash; its
+  absence fails verification in single and chain mode.
+  Records declaring pre-stamp provenance keep the legacy
+  reading. The standing limit is unchanged: the hash
+  detects edits, it is not a signature.
+- **Hook commands are redacted in the record (P6-13).**
+  A `[hooks]` command was stored verbatim in the record's
+  hooks section, so a credential embedded in the command
+  travelled with the artefact. Stored copies now pass
+  through the same secret redaction as captured output;
+  the executed command is unchanged.
+- **The sdist ships the guarded docs (P6-14).** The
+  claims sheet, the public benchmark doc, the pilot kit
+  and the root roadmap/review notes are in the
+  distribution, so the unpacked suite runs green and the
+  claim lint guards the same doc set everywhere.
+- **Cleanup pins are temp-isolated (P6-15).** The
+  sandbox-cleanup tests diffed snapshots of the shared
+  system temp dir and could fail on another process's
+  sandbox; they now run against a private temp dir.
+
 ## Unreleased — 0.13.0.dev0 (external Phase 5 second-rerun fixes)
 
 Fixes from the external tester's Phase 5 second rerun on
