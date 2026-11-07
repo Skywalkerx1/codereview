@@ -654,6 +654,61 @@ def _read_jsonl(path):
     return rows
 
 
+def _repair_jsonl_tail(path):
+    """Make an append-only JSONL file safe to append to (P4-08b).
+
+    _read_jsonl skips a torn FINAL line on read, but the bytes
+    stay in the file: the next append lands after them and the
+    torn fragment becomes a corrupt NON-final line, which the
+    following resume correctly refuses. Repair at the same
+    boundary the reader tolerates — drop trailing lines that do
+    not parse (a crash can only tear the tail) and make sure
+    the file ends with a newline — before any append. A corrupt
+    line that is followed by a valid one is NOT touched: that is
+    real damage and still raises on read."""
+    if not os.path.isfile(path):
+        return False
+    with open(path, "rb") as fh:
+        data = fh.read()
+    if not data:
+        return False
+    # Only the FINAL non-blank line may be torn (exactly what
+    # _read_jsonl tolerates); an invalid line earlier in the file
+    # is damage and is left for the reader to raise on.
+    parts = data.split(b"\n")       # last element: text after final \n
+    idx = len(parts) - 1
+    while idx >= 0 and not parts[idx].strip():
+        idx -= 1
+    keep = len(data)
+    if idx >= 0:
+        try:
+            json.loads(parts[idx].decode("utf-8"))
+        except (ValueError, UnicodeDecodeError):
+            keep = sum(len(x) + 1 for x in parts[:idx])
+    keep = min(keep, len(data))
+    # If dropping the torn tail would expose an invalid line as
+    # the new "final" line, that is real damage, not a torn
+    # append: leave the file alone so the reader raises.
+    rest = [x for x in data[:keep].split(b"\n") if x.strip()]
+    if keep != len(data) and rest:
+        try:
+            json.loads(rest[-1].decode("utf-8"))
+        except (ValueError, UnicodeDecodeError):
+            return False
+    new = data[:keep]
+    if new and not new.endswith(b"\n"):
+        new += b"\n"
+    if new == data:
+        return False
+    tmp = path + ".repair"
+    with open(tmp, "wb") as fh:
+        fh.write(new)
+        fh.flush()
+        os.fsync(fh.fileno())
+    os.replace(tmp, path)
+    return True
+
+
 def _merge_journal_events(prior, current):
     """Fold one case's journaled events from earlier passes
     into this pass's events for the record fold (P4-09).
@@ -794,6 +849,8 @@ def run_generation(cases, seats, seat_lenses, *, cache_dir,
         prior_journal.setdefault(ev.get("case_id"),
                                  []).append(ev)
 
+    for _p in (gen_path, att_path, journal_path):
+        _repair_jsonl_tail(_p)
     gen_fh = open(gen_path, "a", encoding="utf-8")
     att_fh = open(att_path, "a", encoding="utf-8")
     journal_fh = open(journal_path, "a", encoding="utf-8")
