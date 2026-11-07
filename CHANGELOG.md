@@ -1,6 +1,61 @@
 # Changelog
 
-## Unreleased — THREAT-MODEL: accepted record-integrity limit stated; probe paragraph corrected (2026-11-07)
+## 0.13.0 — 2026-11-07
+
+First release candidate of the 0.13.0 line. Everything the
+0.13.0.dev0 development window accumulated (the external
+tester's Phases 2–6 follow-ups, the Epic K/L surfaces, the
+B3 prerequisites) is collected in the subsections below,
+followed by the release-candidate prep batch that closes
+the tester's standing must-fix queue (release-gate items
+L8, L10, L11, L13, L15, L16). The default gate profile
+remains `strict`; the B2 registered confirmation ran on
+2026-11-06 and FAILED its primary threshold, and B3 remains
+design-only — no claim in this release rests on either.
+PyPI publication stays on the owner's hold: this release
+exists as a git tag and mirror state, not a package-index
+upload.
+
+### Release-candidate prep — L8, L10, L11, L15, L16 (2026-11-07)
+
+- **L8 (P3-03 residual) — the bare PEM body shape.**
+  `redact_secrets` now redacts a standalone PEM body line
+  that carries a key's DER/OpenSSH start (a diff hunk that
+  starts mid-key has no header line). Redaction coverage
+  26/32 → 27/32 shapes; the five transformed forms remain
+  the accepted residual, and README + THREAT-MODEL now
+  state the encoded-form boundary plainly.
+- **L10 (P3-12 / NT9) — the notifier's process group dies
+  with it.** The summary cap half already landed with
+  P3-12 (500 chars, argv and record). The runner now starts
+  the command in its own session under a supervised wait
+  and kills the whole process group on timeout — and
+  sweeps it on normal exit (the P3-06 rule) — instead of
+  `subprocess.run`'s direct-child-only kill.
+- **L11 (P3-04 residual) — hardening inside `collect()`.**
+  `evidence.collect` applies the process hardening at its
+  own entry, so direct library use carries the same
+  /proc-environ protection as the CLI path by construction
+  (the `_execute` backstop stays). Sibling-process
+  exposure remains residual 7, documented and warned.
+- **L15 — the superseded naive precision figure is no
+  longer quoted in shipped prose.** It appeared, always
+  marked superseded, in `bench/README.md`,
+  `bench/PUBLIC-BENCHMARK.md` §5, `bench/CLAIMS-SHEET.md`
+  and this CHANGELOG's 0.12.0 entry; all four now refer to
+  it by description and point to the corrected counting.
+  It survives only in the registered baseline records
+  (immutable history) and in the claim lint's detection
+  fixture.
+- **L16 — no B2/B3-derived claims; the stale confirmation
+  status is corrected.** Shipped docs no longer say the B2
+  confirmation "has not run": README, PUBLIC-BENCHMARK
+  §3.5 and CLAIMS-SHEET now record the registered FAIL
+  (blocking-tier recall 7/24 against ≥ 0.60; clean-BLOCKED
+  6/64 passed; default stays `strict`), and B3 is
+  described only as design-only and unconfirmed.
+
+### THREAT-MODEL: accepted record-integrity limit stated; probe paragraph corrected (2026-11-07)
 
 Phase 6 rerun 4 verified P6-12b fixed on `35f6043` and
 closed release-gate item L1 on that build. The tester's
@@ -26,7 +81,7 @@ read-through exposed.
   kill in `probe.py`, so the paragraph now describes the
   sandbox as built. Documentation only — no code changed.
 
-## Unreleased — P6-12b: legacy rule applies inside the pre-machinery shape (2026-11-07)
+### P6-12b: legacy rule applies inside the pre-machinery shape (2026-11-07)
 
 The Phase 6 rerun-2 scope boundary exempted any record
 carrying no v1 machinery (`schema_version`, `provenance`,
@@ -76,7 +131,7 @@ five declarations verified on no evidence at all (G1).
   registered and B2-era records predate the 0.13.0 line
   and are unaffected.
 
-## Unreleased — probe sandbox C5 hardening (2026-11-06)
+### probe sandbox C5 hardening (2026-11-06)
 
 The B3 design's hard prerequisite (its §5.1, pass/fail row
 P0): `probe.py`'s sandbox set no rlimits and its timeout
@@ -110,7 +165,7 @@ cover the limits as observed from inside the probe, the
 forked-child and backgrounded-child kills, the CPU and
 memory ceilings, the file-size ceiling, and the output cap.
 
-## Unreleased — B3 dev-pilot scaffolding (2026-11-06)
+### B3 dev-pilot scaffolding (2026-11-06)
 
 Mechanism-agnostic harness for the B3 dev pilot (design §8).
 Scaffolding and data collection only: no new gate profile, no
@@ -151,7 +206,7 @@ Q1 protocol ruling.
   wired, and emits `calibration-table.json` in the documented
   `codereview.b3-calibration/1` format.
 
-## Unreleased — 0.13.0.dev0 (external Phase 6 follow-up fixes)
+### 0.13.0.dev0 (external Phase 6 follow-up fixes)
 
 Fixes from the external tester's Phase 6 report (end-to-end
 journeys and non-functional tests, run against ebfa217;
@@ -288,7 +343,7 @@ partly closed):
   error under `-W error`); the set is unchanged, the
   spelling is now correct, and a compile pin holds it.
 
-## Unreleased — 0.13.0.dev0 (external Phase 5 second-rerun fixes)
+### 0.13.0.dev0 (external Phase 5 second-rerun fixes)
 
 Fixes from the external tester's Phase 5 second rerun on
 the fixed build 784ff95 (2026-11-06), each independently
@@ -329,7 +384,7 @@ Phase 6 follow-up):
   document makes no unqualified claim — and that any new
   wording passes until it is added.
 
-## Unreleased — 0.13.0.dev0 (external Phase 5 rerun fixes)
+### 0.13.0.dev0 (external Phase 5 rerun fixes)
 
 Fixes from the external tester's Phase 5 rerun on the fixed
 build ebfa217 (2026-11-06), each independently verified
@@ -382,7 +437,7 @@ against master:
   line. Pinned in the rerun regression tests so the
   wording cannot silently regress.
 
-## Unreleased — 0.13.0.dev0 (external Phase 4 rerun fixes)
+### 0.13.0.dev0 (external Phase 4 rerun fixes)
 
 Fixes from the external tester's Phase 4 rerun on the fixed
 build (2026-11-06), each independently verified against
@@ -437,7 +492,7 @@ with completions noted:
   sibling modules already carry — a clean checkout reports
   the suite green instead of one import error.
 
-## Unreleased — 0.13.0.dev0 (external Phase 5 test fixes)
+### 0.13.0.dev0 (external Phase 5 test fixes)
 
 Fixes from the external tester's Phase 5 report (2026-11-06 —
 interfaces and protocol conformance), each independently
@@ -497,7 +552,7 @@ closed by P3-10, and P5-09's help exit codes by D-004/D-005
   herdr plugin launcher says "is not a directory" for a
   path that exists but is a file.
 
-## Unreleased — 0.13.0.dev0 (external Phase 4 test fixes)
+### 0.13.0.dev0 (external Phase 4 test fixes)
 
 Fixes from the external tester's Phase 4 report (2026-11-06 —
 provider failure totality), each independently verified
@@ -553,7 +608,7 @@ against master before landing:
   independent review" in its gate reasons, mirroring the
   solo-panel label. No verdict change.
 
-## Unreleased — 0.13.0.dev0 (external Phase 3 test fixes)
+### 0.13.0.dev0 (external Phase 3 test fixes)
 
 Fixes from the external tester's Phase 3 (security) report
 (2026-11-06), each independently verified against master
@@ -694,7 +749,7 @@ re-verified against master before landing:
   record — always present (null / [] when the run had no
   policy section), so clients can rely on the shape.
 
-## Unreleased — 0.13.0.dev0 (external Phase 2 test fixes)
+### 0.13.0.dev0 (external Phase 2 test fixes)
 
 Fixes from the external tester's Phase 2 report (2026-11-06),
 each independently verified against master before landing:
@@ -759,7 +814,7 @@ possible remedy. Landing it needs a product decision:
 add a CLI/policy binding surface in the same change, or
 have the CLI derive and record an explicit binding.
 
-## Unreleased — 0.13.0.dev0 (external Phase 0–1 test fixes)
+### 0.13.0.dev0 (external Phase 0–1 test fixes)
 
 Version bumped to 0.13.0.dev0 (pyproject.toml and
 core.VERSION, kept identical) for the fixes from the
@@ -793,7 +848,7 @@ external tester's Phase 0–1 report (2026-11-06):
   duration_ms, which intermittently failed them on timing
   alone.
 
-## Unreleased — verdict record schema v1.0.0
+### verdict record schema v1.0.0
 
 The run record is now a formal, versioned contract
 (`src/codereview/record_schema.py`): `RECORD_SCHEMA` +
@@ -821,7 +876,7 @@ records without `schema_version` are pre-v1, not corrupt.
 Golden PASS / BLOCKED / INCONCLUSIVE fixtures and parity,
 tamper, and self-tests in `tests/test_record_schema.py`.
 
-## Unreleased — Epic E2 + E4 (tiered panels + escalation)
+### Epic E2 + E4 (tiered panels + escalation)
 
 E1's risk band now sizes the panel that reviews a change,
 and the smaller tiers carry a safety valve: escalation to
@@ -869,7 +924,7 @@ byte-identical to before this epic.
   the high tier's stage is the identical full task list
   and prompts as an untiered run (fixture-pinned), plus
   the evidence requirement.
-## Unreleased — 2026-11-05 (registration verifier: Addendum A append)
+### 2026-11-05 (registration verifier: Addendum A append)
 
 Addendum A to the 2026-11-05 pre-registration was appended to the
 registration's §3 on 2026-11-05 (signed the same day by the owner
@@ -891,7 +946,7 @@ A5 set hash:
   state — including the superseded one — fails. Attempts consumed
   under the registration remain 0; no run was started.
 
-## Unreleased — Epic C5 (sandbox safety audit)
+### Epic C5 (sandbox safety audit)
 
 Ticket C5's machinery largely shipped with the Epic C runner;
 this track audited it line by line against the ticket ("no
@@ -937,7 +992,7 @@ documented threat model + tests) and closed the one real gap.
   `npm` is a built-in adapter), so memory growth is bounded
   only by the wall-clock/CPU limits and the risk is
   documented rather than theatre-capped.
-## Unreleased — Epic E1 (risk scorer)
+### Epic E1 (risk scorer)
 
 A review run can now record a deterministic risk score for
 the change under review. When the project policy's new
@@ -982,7 +1037,7 @@ pattern classes touched, dependency files).
   schema errors, and record integration through
   `run_review` with stub seats.
 
-## Unreleased — Epic E3 (panel-diversity enforcement)
+### Epic E3 (panel-diversity enforcement)
 
 A project can now enforce panel diversity in the
 `[diversity]` table of its `.codereview.toml`, judged on the
@@ -1022,7 +1077,7 @@ COMPOSED panel before any seat is called:
   integration (degrade vs block, exclusion never calling the
   builder's seats, unconfigured equivalence).
 
-## Unreleased — Epic C4 (builder-claim verification in the run record)
+### Epic C4 (builder-claim verification in the run record)
 
 Builder-claim verification now lands in the run record. The
 machinery is not new — `evidence.parse_claims` /
@@ -1065,7 +1120,7 @@ no second parser, no second executor):
   pre-existing behaviour by design (no builder report ⇒ no
   section; a review run ⇒ no section).
 
-## Unreleased — Epic L3 (lifecycle hooks)
+### Epic L3 (lifecycle hooks)
 
 A project can now declare shell commands in the `[hooks]`
 table of its `.codereview.toml` that fire around a review
@@ -1107,7 +1162,7 @@ the event name is `$CODEREVIEW_HOOK_EVENT` / `$1`).
   seats, the fallback-primary trigger, and verdict identity
   across absent vs failing hooks.
 
-## Unreleased — Epic L2 (MCP server for the gate)
+### Epic L2 (MCP server for the gate)
 
 The gate is now callable from inside another agent's loop:
 `codereview mcp serve` speaks the Model Context Protocol
@@ -1152,7 +1207,7 @@ stored record → verdict summary and findings).
   no agent CLI on the build machine is logged in. Full
   suite 1005/1005 on the branch; 1018/1018 on master after
   the parallel L5 merge.
-## Unreleased — Epic L4 (attention notifications)
+### Epic L4 (attention notifications)
 
 A gate run can now call the operator back: when a seat
 enters a blocked state (the Epic K2 classes) or the gate
@@ -1200,7 +1255,7 @@ CodeReview-managed endpoint.
   outcome-invariance, prompt identity), and the CLI seam
   end to end (setup → run → record on disk).
 
-## Unreleased — Epic L5 (first-class local-model seats)
+### Epic L5 (first-class local-model seats)
 
 Local model servers are now first-class seats: named
 presets in the provider registry for the endpoints a user
@@ -1241,7 +1296,7 @@ unchanged).
   malformed-spec test pass on both by design); full suite
   1003/1003.
 
-## Unreleased — Epic L1 (AGENTS.md ingestion)
+### Epic L1 (AGENTS.md ingestion)
 
 Reviewer context now includes the repository's own guidance:
 `AGENTS.md` at the repo root and nested along the changed
@@ -1281,7 +1336,7 @@ paths is ingested at run start, alongside (never instead of)
   (`tests/test_agents_md.py`), none passing on pre-L1
   master; full suite 990/990.
 
-## Unreleased — Epic K3b (herdr ecosystem artefact)
+### Epic K3b (herdr ecosystem artefact)
 
 Presence in herdr's ecosystem, with the engine staying in
 the pip package: a herdr plugin artefact and an agent skill,
@@ -1336,7 +1391,7 @@ the sdist — verified: a test sdist build carries both).
   The skill's procedure is the exact command sequence the
   end-to-end smoke above executed by hand.
 
-## Unreleased — Epic K3a (herdr pane hosting)
+### Epic K3a (herdr pane hosting)
 
 Agent seats named in the saved config's `[hosting]` table
 (`herdr = ["seat", ...]` in the user setup file) can now run
@@ -1401,7 +1456,7 @@ and herdr is never a hard dependency.
   adapter's reading of herdr's response envelopes is taken
   from herdr's source and docs, not from a live session.
 
-## Unreleased — Epic K2 (seat-state supervision)
+### Epic K2 (seat-state supervision)
 
 Every seat in a run now carries a live state — pending →
 working → done / blocked:<class> / failed / timed-out, with
@@ -1455,7 +1510,7 @@ never changes a verdict.
   one scripted-wizard test pins PATH so host-installed CLIs
   cannot add prompts to its script.
 
-## Unreleased — 2026-11-05 (empty-content failure class)
+### 2026-11-05 (empty-content failure class)
 
 - **Seat `ProviderError(kind="empty")` is now a content-class
   failure in the bench generation layer**
@@ -1479,7 +1534,7 @@ never changes a verdict.
   fix"). No change to policy B1, thresholds, metric
   definitions, gate semantics, or the confirmation scorer.
 
-## Unreleased — 2026-11-05 (void solution: generation machinery, S1, S4)
+### 2026-11-05 (void solution: generation machinery, S1, S4)
 
 Implements the machinery of the adopted post-void solution
 (`codereview-baseline-v2-void-solution-2026-11-05.md` §3) plus
@@ -1548,7 +1603,7 @@ confirmation scorer.
   per-case budget (per-seat case deadlines in
   `bench/generation.py`).
 
-## Unreleased — 2026-11-05 (Epic K1: setup CLI discovery)
+### 2026-11-05 (Epic K1: setup CLI discovery)
 
 First-run setup now looks at the machine before asking for
 provider specs (`src/codereview/discovery.py` + the wizard's
@@ -1575,7 +1630,7 @@ stops with setup instructions. Tests:
 executables throughout, plus a hermetic end-to-end where a
 discovered stub seat serves a real review).
 
-## Unreleased — 2026-11-05 (step-3 error persistence)
+### 2026-11-05 (step-3 error persistence)
 
 Implements step-3 recommendation 3 of the void forensics
 (`void-forensics-2026-11-05.md`): the bench record writer used
@@ -1607,7 +1662,7 @@ metric definitions, gate semantics, or the confirmation scorer.
   legacy record, and the shipped v1 baseline results still load
   (pinned by test).
 
-## Unreleased — 2026-11-05 (acceptance wiring, protocol v2)
+### 2026-11-05 (acceptance wiring, protocol v2)
 
 - `acceptance.run_acceptance_v2`: the redesigned Tech Lead
   (techlead.adjudicate) can now be scored over the acceptance
@@ -1623,7 +1678,7 @@ metric definitions, gate semantics, or the confirmation scorer.
   decision); the scorer's per-case false_dismissal flag is
   vestigial and unused. M4 is not run in v2 baseline mode.
 
-## Unreleased — 2026-11-05
+### 2026-11-05
 
 - Baseline v2 confirmation (step 7): VOID — no counting attempt
   completed. The pre-registered confirmation of policy B1 on the
@@ -1737,6 +1792,7 @@ metric definitions, gate semantics, or the confirmation scorer.
   is verified by neither the cited line nor the finding's
   grounded quote (9 of 48 shipped cases, P06 among them),
   carried loudly on the shadow entry.
+
 
 ## 0.12.1 — 2026-11-05 — acceptance fixes
 
