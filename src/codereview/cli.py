@@ -33,6 +33,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 
 import inspect
 
@@ -240,12 +241,50 @@ def _stdin_is_tty():
         return False
 
 
+def _probe_writable(path):
+    """Prove `path` can be written into, or return the OSError
+    that says it cannot (P5-07b): create the directory chain
+    and a temp file for real, then remove them. The Phase 5
+    check inferred writability from os.access, which lies for
+    a root user on /proc and /sys — the full review ran and
+    the late write crashed, discarding the result. A real
+    create cannot lie: it fails for root exactly as it fails
+    for anyone else. The side effect is brief — the temp file
+    is unlinked and any directories the probe created are
+    removed again (deepest first, best effort)."""
+    missing = []
+    probe = path
+    while not os.path.exists(probe):
+        missing.append(probe)
+        probe = os.path.dirname(probe)
+    try:
+        os.makedirs(path, exist_ok=True)
+        fd, tmpname = tempfile.mkstemp(
+            dir=path, prefix=".codereview-probe-")
+        try:
+            os.close(fd)
+        finally:
+            os.unlink(tmpname)
+    except OSError as exc:
+        return exc
+    finally:
+        for created in missing:  # deepest first (walk order)
+            try:
+                os.rmdir(created)
+            except OSError:
+                pass
+    return None
+
+
 def _out_dir_problem(out):
     """Why the --out directory cannot be written into, or None
-    (P5-07). Pure path inspection — creates nothing. The check
-    runs at argument-validation time so an unwritable --out
-    fails BEFORE any provider call, instead of after the review
-    has spent them (when the late crash also lost the result)."""
+    (P5-07). The check runs at argument-validation time so an
+    unwritable --out fails BEFORE any provider call, instead
+    of after the review has spent them (when the late crash
+    also lost the result). Writability is PROVEN by
+    _probe_writable, not inferred from os.access (P5-07b);
+    os.access is still consulted first so a plainly unwritable
+    ancestor is reported without creating anything."""
     if not out:
         return None
     path = os.path.abspath(os.path.expanduser(out))
@@ -262,6 +301,10 @@ def _out_dir_problem(out):
             return f"--out {out}: directory is not writable"
         return (f"--out {out}: cannot be created — "
                 f"{probe} is not writable")
+    exc = _probe_writable(path)
+    if exc is not None:
+        return (f"--out {out}: cannot be written "
+                f"({exc.strerror or exc})")
     return None
 
 
@@ -273,6 +316,54 @@ def _refuse_unwritable_out(out, prog):
         print(f"{prog}: {problem}", file=sys.stderr)
         return True
     return False
+
+
+class _ReportWriteFailed(Exception):
+    """The review completed but writing its report failed
+    (P5-07b): _write_report has already printed the verdict
+    and preserved the record — the caller just exits 2."""
+
+
+def _write_report(report, out_dir, prog, stem=None):
+    """core.write_report with the P5-07b late-failure net.
+
+    The up-front --out probe cannot see a disk that fills, a
+    permission change or a mount that goes read-only DURING
+    the review. When the write then raises OSError, the
+    completed review must not be discarded with a traceback:
+    the verdict is printed to stdout, the record is written
+    to a fallback location (the current directory, then the
+    temp directory, then — last resort — stdout itself as
+    JSON), and _ReportWriteFailed is raised so the caller
+    exits 2. Non-OSError failures (e.g. record-schema
+    validation) are NOT caught: they are defects, not
+    environment failures, and a fallback write would fail
+    identically."""
+    try:
+        return core.write_report(report, out_dir, stem=stem)
+    except OSError as exc:
+        print(f"{prog}: report write to {out_dir} failed: "
+              f"{exc}", file=sys.stderr)
+        gate = str(report.get("gate") or "inconclusive").upper()
+        reasons = "; ".join(report.get("gate_reasons") or [])
+        print(f"{prog}: gate = {gate} ({reasons})")
+        saved = None
+        for fallback in (os.getcwd(), tempfile.gettempdir()):
+            try:
+                saved, _mpath = core.write_report(
+                    report, fallback, stem=stem)
+                break
+            except OSError:
+                continue
+        if saved is not None:
+            print(f"{prog}: record saved to fallback: {saved}")
+        else:
+            print(f"{prog}: no fallback location was writable; "
+                  f"the full record follows on stdout",
+                  file=sys.stderr)
+            print(json.dumps(report, ensure_ascii=False,
+                             indent=2, default=str))
+        raise _ReportWriteFailed(str(exc)) from exc
 
 
 def _run_setup_wizard():
@@ -500,15 +591,22 @@ def _loop_main(argv, providers_override=None):
             "utf-8", errors="replace")[-4000:]
 
     def on_round(rnd, report):
-        core.write_report(report, os.path.join(args.out,
-                                               f"round-{rnd}"))
+        _write_report(report, os.path.join(args.out,
+                                           f"round-{rnd}"),
+                      "codereview loop")
 
-    result = core.run_loop(
-        get_patch, invoke_builder, providers, context=args.context,
-        test_runner=lambda: _run_tests(args.test_command, args.repo),
-        max_rounds=args.max_rounds, allow_major=args.allow_major,
-        strict=args.strict, on_round=on_round,
-        waived_ids=args.waive)
+    try:
+        result = core.run_loop(
+            get_patch, invoke_builder, providers,
+            context=args.context,
+            test_runner=lambda: _run_tests(args.test_command,
+                                           args.repo),
+            max_rounds=args.max_rounds,
+            allow_major=args.allow_major,
+            strict=args.strict, on_round=on_round,
+            waived_ids=args.waive)
+    except _ReportWriteFailed:
+        return 2
     summary = {k: v for k, v in result.items() if k != "rounds"}
     summary["rounds"] = [{"round": r["round"], "kind": r["kind"],
                           "gate": r["gate"],
@@ -516,9 +614,32 @@ def _loop_main(argv, providers_override=None):
                           "changes_vs_previous":
                               r.get("changes_vs_previous") or {}}
                          for r in result["rounds"]]
-    with open(os.path.join(args.out, "loop-result.json"), "w",
-              encoding="utf-8") as fh:
-        json.dump(summary, fh, ensure_ascii=False, indent=1)
+    summary_path = os.path.join(args.out, "loop-result.json")
+    try:
+        with open(summary_path, "w", encoding="utf-8") as fh:
+            json.dump(summary, fh, ensure_ascii=False, indent=1)
+    except OSError as exc:
+        # P5-07b: the loop's outcome must survive a late write
+        # failure the same way a gate report does — print the
+        # final gate, park the summary in a fallback location,
+        # exit 2 instead of tracebacking.
+        print(f"codereview loop: writing {summary_path} "
+              f"failed: {exc}", file=sys.stderr)
+        print(f"codereview loop: final gate = "
+              f"{result['final_gate'].upper()} — "
+              f"{result['stop_reason']}")
+        for fallback in (os.getcwd(), tempfile.gettempdir()):
+            try:
+                alt = os.path.join(fallback, "loop-result.json")
+                with open(alt, "w", encoding="utf-8") as fh:
+                    json.dump(summary, fh, ensure_ascii=False,
+                              indent=1)
+                print(f"codereview loop: summary saved to "
+                      f"fallback: {alt}")
+                break
+            except OSError:
+                continue
+        return 2
     print(f"codereview loop: final gate = "
           f"{result['final_gate'].upper()} — {result['stop_reason']}")
     print(f"  rounds: {len(result['rounds'])} "
@@ -861,7 +982,11 @@ def _pr_main(argv, providers_override=None):
     except GitHubError as exc:
         print(f"codereview pr: {exc}", file=sys.stderr)
         return 2
-    jpath, mpath = core.write_report(report, args.out)
+    try:
+        jpath, mpath = _write_report(report, args.out,
+                                     "codereview pr")
+    except _ReportWriteFailed:
+        return 2
     print(f"codereview pr: {owner}/{repo}#{number} — "
           f"{report['pr']['title']}")
     print(f"  gate = {report['gate'].upper()} "
@@ -2663,7 +2788,10 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
             hooks_mod.first_blocked_trigger(
                 report.get("reviewer_reports"))
         report["hooks"] = hook_runner.section()
-    jpath, mpath = core.write_report(report, args.out)
+    try:
+        jpath, mpath = _write_report(report, args.out, "codereview")
+    except _ReportWriteFailed:
+        return 2
     if hook_runner is not None:
         # The record now exists: on-blocked (only when a seat
         # blocked) and post-verdict fire with its path. Their
@@ -2675,9 +2803,12 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
             hook_runner.fire("on-blocked", record_path=jpath)
         hook_runner.fire("post-verdict", record_path=jpath)
         report["hooks"] = hook_runner.section()
-        jpath, mpath = core.write_report(
-            report, args.out,
-            stem=os.path.basename(jpath)[:-len(".json")])
+        try:
+            jpath, mpath = _write_report(
+                report, args.out, "codereview",
+                stem=os.path.basename(jpath)[:-len(".json")])
+        except _ReportWriteFailed:
+            return 2
     if args.attempts_log:
         try:
             entry = {
