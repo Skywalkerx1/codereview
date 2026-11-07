@@ -11,8 +11,9 @@ solution (disposition types, §4 reason fields):
 - §5.1: the inventory is COMPUTED from the records, never
   reconstructed by hand. `codereview disputes` scans every
   review-*/ record for findings in a human-decision state
-  (status `disputed` or `refutation_weak`) with no entry in
-  the disposition store.
+  (status `disputed`, `refutation_weak`, or `escalated` —
+  the Tech Lead routed it to the owner, who has not yet
+  ruled; P6-05) with no entry in the disposition store.
 - §5.2: dispositions live in an append-only store,
   `dispositions.jsonl` at the repo root, keyed by finding
   fingerprint. A disposition is never edited or deleted; a
@@ -64,7 +65,7 @@ DISPOSITION_TYPES = (
 DECIDERS = ("owner", "tech_lead", "probe")
 REASON_CHECKS = ("verified", "unverified", "contradicted")
 MARKERS = ("ratified", "override")
-OPEN_STATUSES = ("disputed", "refutation_weak")
+OPEN_STATUSES = ("disputed", "refutation_weak", "escalated")
 
 _FINGERPRINT_RE = re.compile(r"^[0-9a-f]{12}$")
 _SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
@@ -421,6 +422,8 @@ def _record_disputes(record):
                     status = "disputed"
                 elif list_key == "refutation_weak_findings":
                     status = "refutation_weak"
+                elif list_key == "escalated_findings":
+                    status = "escalated"
                 else:
                     continue
             cur = found.get(f["id"])
@@ -450,12 +453,17 @@ def dispute_summary(record, finding, record_rel):
     """The inventory row for one open dispute."""
     dispute = finding.get("dispute")
     dispute = dispute if isinstance(dispute, dict) else {}
+    adjudication = finding.get("adjudication")
+    adjudication = adjudication \
+        if isinstance(adjudication, dict) else {}
     sources = [s for s in (finding.get("sources") or [])
                if s != "deterministic"]
     return {
         "id": finding.get("id"),
         "record": record_rel,
         "status": finding.get("status"),
+        "escalation_reason":
+            adjudication.get("escalation_reason"),
         "severity": finding.get("severity"),
         "category": finding.get("category"),
         "file": finding.get("file"),

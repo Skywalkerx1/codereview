@@ -318,5 +318,64 @@ class TestP603ContentIntegrity(unittest.TestCase):
         self.assertTrue(check["ok"], check)
 
 
+class TestP605EscalatedInInventory(unittest.TestCase):
+    """P6-05 (her j8b/j8c): while the Tech Lead escalates a
+    finding to the owner and the gate sits INCONCLUSIVE, the
+    finding was absent from the disputes inventory and
+    `disputes --check` exited 0. Escalated is a human-decision
+    state: it belongs in the inventory until the owner rules
+    (a disposition entry closes it, like any dispute)."""
+
+    FID = "610401f91b1c"
+
+    def _drop_record(self, root):
+        record = {
+            "schema": "codereview.report/1", "mode": "review",
+            "gate": "inconclusive", "head": "abc123",
+            "range": "a..b", "findings": [],
+            "escalated_findings": [{
+                "id": self.FID, "severity": "blocker",
+                "category": "correctness", "file": "app.py",
+                "line": 2, "title": "cwd leak",
+                "status": "escalated",
+                "sources": ["alpha"],
+                "adjudication": {
+                    "decision": "escalate",
+                    "escalation_reason": "protected class"}}],
+            "reviewer_reports": [{
+                "provider": "alpha", "lens": "correctness",
+                "status": "ok", "family": "famA",
+                "findings": [{"id": self.FID}]}]}
+        rdir = os.path.join(root, "review-t1")
+        os.makedirs(rdir)
+        with open(os.path.join(rdir, "rec.json"), "w",
+                  encoding="utf-8") as fh:
+            json.dump(record, fh)
+
+    def test_escalated_finding_is_inventoried(self):
+        from codereview import disputes
+        with tempfile.TemporaryDirectory() as tmp:
+            self._drop_record(tmp)
+            inv = disputes.build_inventory(tmp, [])
+        self.assertEqual([r["id"] for r in inv["open"]],
+                         [self.FID])
+        row = inv["open"][0]
+        self.assertEqual(row["status"], "escalated")
+        self.assertEqual(row["escalation_reason"],
+                         "protected class")
+
+    def test_owner_disposition_closes_the_escalation(self):
+        from codereview import disputes
+        entry = {"finding_id": self.FID,
+                 "type": "sustain_finding", "decider": "owner",
+                 "date": "2026-11-06T12:00:00+00:00"}
+        with tempfile.TemporaryDirectory() as tmp:
+            self._drop_record(tmp)
+            inv = disputes.build_inventory(tmp, [entry])
+        self.assertEqual(inv["open"], [])
+        self.assertEqual(
+            [r["id"] for r in inv["dispositioned"]], [self.FID])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -6184,8 +6184,12 @@ def run_review(patch, providers, context="", test_results=None,
     # Open-dispute summary (§5.1): the count a release flow can
     # check without reconstructing it — every finding this run
     # leaves in a human-decision state, by fingerprint.
+    # Escalated findings are in that state by definition — the
+    # Tech Lead routed them to the owner (P6-05: they were
+    # missing here and from the disputes inventory alike).
     open_ids = []
-    for f in disputed_findings + weak_findings:
+    for f in disputed_findings + weak_findings \
+            + escalated_findings:
         if f.get("id") and f["id"] not in open_ids:
             open_ids.append(f["id"])
     report["open_disputes"] = {"count": len(open_ids),
