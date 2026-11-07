@@ -8,15 +8,24 @@ patterns; 11 of 11 unqualified claim variants the tester
 appended to the README passed it. The lint now works at
 PARAGRAPH level over every shipped reader-facing doc:
 
-- Scope: README.md, CHANGELOG.md, ROADMAP.md, REVIEW-NOTES.md
-  and THREAT-MODEL.md at the root, every bench/*.md and every
-  pilot/*.md — minus the named RECORD docs below. Records of
-  registered runs are immutable evidence: they state what was
-  measured and claimed at the time and are never edited to
-  satisfy a lint, so they are out of scope BY NAME, with the
-  reason recorded here. (The root review-*.md response and
-  disposition files and gate-attempts.md are likewise
-  historical adjudication records and are not in the root set.)
+- Scope: every tracked *.md in the tree (recursive glob) —
+  the root docs, bench/*.md, pilot/*.md, docs/, skills/,
+  the herdr plugin README, probes/ — minus the RECORDS
+  below. Widened after the Phase 5 rerun (P5-08b): the fixed
+  root+bench+pilot set let any claim in docs/*.md (and any
+  other unlisted directory) sail past the lint.
+- Records are out of scope, by name and by tree, with the
+  reason recorded here: records of registered runs are
+  immutable evidence — they state what was measured and
+  claimed at the time and are never edited to satisfy a
+  lint. That covers the two named baseline records, the
+  registered-run stores (bench/sealed/, bench/generation-v2/,
+  bench/generation-v3/, bench/confirmation-b2/,
+  bench/confirmation-v2/), the dated analysis/pilot/provenance
+  record trees under bench/, the acceptance-run scorecard,
+  the pilot demo sample records, and the tests/ fixtures.
+  The root review-* files and directories and gate-attempts.md
+  are likewise historical adjudication records.
 - A claim is a paragraph (blank-line-delimited block, matched
   whitespace-normalised) that states a headline figure: the
   baseline's corrected decimals, a perfect N/N fraction, or a
@@ -50,24 +59,63 @@ REPO_ROOT = os.path.abspath(
 BASELINE_REL = os.path.join("bench", "BASELINE-2026-11-04.md")
 BASELINE_REF = "bench/BASELINE-2026-11-04.md"
 
-ROOT_GUARDED = ("README.md", "CHANGELOG.md", "ROADMAP.md",
-                "REVIEW-NOTES.md", "THREAT-MODEL.md")
-
 # Records of registered runs: immutable, out of scope by name.
 RECORD_DOCS = frozenset({
     os.path.join("bench", "BASELINE-V2-2026-11-05.md"),
     os.path.join("bench", "baseline-2026-11-04-report.md"),
 })
 
+# Record TREES: registered-run stores and dated run artefacts.
+# Same principle as RECORD_DOCS — immutable evidence, never
+# edited to satisfy a lint.
+RECORD_DIRS = (
+    os.path.join("bench", "sealed"),
+    os.path.join("bench", "generation-v2"),
+    os.path.join("bench", "generation-v3"),
+    os.path.join("bench", "confirmation-b2"),
+    os.path.join("bench", "confirmation-v2"),
+    os.path.join("bench", "analysis-2026-11-05"),
+    os.path.join("bench", "expanded-clean"),
+    os.path.join("bench", "pilot-b2-2026-11-05"),
+    os.path.join("bench", "real-world"),
+    os.path.join("acceptance-run-2026-11-04"),
+    os.path.join("pilot", "demo"),
+    "test-runs",
+    "tests",
+)
+
+
+def _is_record(rel):
+    """True when a repo-relative *.md path is a record, not a
+    shipped reader-facing doc (see the scope note above)."""
+    if rel in RECORD_DOCS or rel == "gate-attempts.md":
+        return True
+    parts = rel.split(os.sep)
+    # Historical adjudication records: the root review-*
+    # response files and run-output directories. (Case matters:
+    # REVIEW-NOTES.md is a guarded doc, not a record.)
+    if parts[0].startswith("review-"):
+        return True
+    # Runtime caches are not tracked docs.
+    if any(c in ("cache", "__pycache__") or c.endswith("-cache")
+           for c in parts):
+        return True
+    for prefix in RECORD_DIRS:
+        pp = prefix.split(os.sep)
+        if parts[:len(pp)] == pp:
+            return True
+    return False
+
 
 def guarded_files():
-    rels = set(ROOT_GUARDED)
-    for pattern in (os.path.join("bench", "*.md"),
-                    os.path.join("pilot", "*.md")):
-        for path in glob.glob(os.path.join(REPO_ROOT, pattern)):
-            rels.add(os.path.relpath(path, REPO_ROOT))
+    rels = set()
+    for path in glob.glob(os.path.join(REPO_ROOT, "**", "*.md"),
+                          recursive=True):
+        rel = os.path.relpath(path, REPO_ROOT)
+        if not _is_record(rel):
+            rels.add(rel)
     rels.discard(BASELINE_REL)
-    return sorted(rels - RECORD_DOCS)
+    return sorted(rels)
 
 
 # Claim patterns, matched against a whitespace-normalised
@@ -84,6 +132,15 @@ CLAIM_PATTERNS = (
     r"[Pp]erfect recall",
     r"[Cc]atches every bug",
     r"[Zz]ero false positives",
+    # P5-08b: the phrasing families the rerun evaded with.
+    # The reversed decimal needs the lookbehind: "attempt-1
+    # recall point" is prose about a run, not a claim.
+    r"(?<![\w-])1(?:\.0+)?\s+[Rr]ecall\b",
+    r"[Rr]ecall of (?:one|1(?:\.0+)?)\b",
+    r"\ball\s+\d{1,3}\s+(?:seeded|planted)\s+"
+    r"(?:defects|bugs|cases|findings)\b",
+    r"\bno misses\b",
+    r"\bnever misses\b",
 )
 
 # A perfect N/N fraction is a claim only in a LOCAL metric
@@ -94,6 +151,15 @@ FRACTION_PATTERN = r"\b(\d{1,2})/\1\b"
 FRACTION_CONTEXT = (r"recall|precision|defect|clean[- ]case|"
                     r"benchmark|corpus|split|stratum|baseline")
 FRACTION_WINDOW = 80
+
+# "100% of …" is an all-of-set perfection claim only in a
+# LOCAL metric context, under the same window discipline as
+# the fraction rule (P5-08b): "finds 100% of seeded defects"
+# is a headline claim; a bare percentage in unrelated prose
+# is not.
+ALL_OF_PATTERN = r"\b100\s*%\s+of\b"
+ALL_OF_CONTEXT = (r"defect|bug|finding|seeded|planted|"
+                  r"recall|case|vulnerab|flaw")
 
 # In-paragraph qualification, in the docs' own established
 # vocabulary: a reference to a baseline document that carries
@@ -167,6 +233,13 @@ def claim_violations(texts):
                 if re.search(FRACTION_CONTEXT, window,
                              re.IGNORECASE):
                     hits.append(FRACTION_PATTERN)
+                    break
+            for m in re.finditer(ALL_OF_PATTERN, norm):
+                window = norm[max(0, m.start() - FRACTION_WINDOW):
+                              m.end() + FRACTION_WINDOW]
+                if re.search(ALL_OF_CONTEXT, window,
+                             re.IGNORECASE):
+                    hits.append(ALL_OF_PATTERN)
                     break
             if hits and not _qualified(norm, caveat):
                 violations.append(
@@ -245,6 +318,58 @@ class ClaimLintTests(unittest.TestCase):
             self.assertIn(expected, guarded)
         for record in RECORD_DOCS:
             self.assertNotIn(record, guarded)
+
+    def test_scope_widened_beyond_the_fixed_set(self):
+        # P5-08b: the scope is the whole shipped doc set, not
+        # the Phase 5 root+bench+pilot list — a claim in
+        # docs/*.md (or skills/, or a plugin README) is linted
+        # exactly like one in the README. Record trees and the
+        # adjudication records stay out (see _is_record).
+        guarded = guarded_files()
+        for expected in (
+                os.path.join("skills", "codereview", "SKILL.md"),
+                os.path.join("herdr-plugin-codereview",
+                             "README.md"),
+                os.path.join("probes", "README.md")):
+            self.assertIn(expected, guarded)
+        for record in (
+                os.path.join("bench", "sealed", "SEALED.md"),
+                os.path.join("bench", "generation-v2",
+                             "RESULTS-2026-11-05.md"),
+                os.path.join("bench", "confirmation-b2",
+                             "RESULTS-2026-11-06.md"),
+                "gate-attempts.md",
+                "review-v10-dispositions.md"):
+            self.assertNotIn(record, guarded)
+        self.assertFalse(_is_record(os.path.join("docs",
+                                                  "X.md")))
+        self.assertTrue(_is_record(
+            os.path.join("bench", "sealed", "SEALED.md")))
+
+    def test_claim_in_a_docs_file_fails(self):
+        texts = load_texts()
+        texts[os.path.join("docs", "GUIDE.md")] = (
+            "We reach recall 1.0 on the corpus.\n")
+        violations = claim_violations(texts)
+        self.assertTrue(any("GUIDE.md" in v for v in violations))
+
+    def test_every_phase5_rerun_variant_fails(self):
+        # The rerun's evasion set (P5-08b): each appended to
+        # the README must fail the lint.
+        variants = (
+            "The panel finds 100% of seeded defects.",
+            "It caught all 34 seeded defects.",
+            "A 1.0 recall on the public split.",
+            "The gate has no misses.",
+            "Recall of one on every case.",
+        )
+        for variant in variants:
+            texts = load_texts()
+            texts["README.md"] += "\n\n" + variant + "\n"
+            violations = claim_violations(texts)
+            self.assertTrue(
+                any("README.md" in v for v in violations),
+                f"rerun mutation not caught: {variant!r}")
 
     def test_guarded_docs_pass_the_lint(self):
         self.assertEqual(claim_violations(load_texts()), [])
