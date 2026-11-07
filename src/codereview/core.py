@@ -8939,6 +8939,7 @@ def _atomic_write_text(path, text):
 
 def write_report(report, out_dir, stem=None):
     os.makedirs(out_dir, exist_ok=True)
+    claim_path = None
     if stem is None:
         # Auto stems carry one-second resolution (P6-02): two
         # runs landing in the same second on the same --out
@@ -8948,16 +8949,46 @@ def write_report(report, out_dir, stem=None):
         # free. An EXPLICIT stem is the caller's contract (the
         # CLI's post-hooks rewrite must land on the very file
         # it first wrote) and is never renamed.
+        #
+        # L6 F5: the exists-check alone left a same-second
+        # race — two processes could both observe a stem free,
+        # both write, and the later os.replace silently
+        # overwrote the earlier record. The chosen stem is
+        # therefore CLAIMED with an O_EXCL claim file held for
+        # the whole write; a candidate whose record pair or
+        # claim already exists is skipped. A crashed holder
+        # leaves a stale claim behind, which only ever costs
+        # that one stem. Explicit stems are never claimed.
         base = ("codereview-" + datetime.datetime.now(
             datetime.timezone.utc).strftime("%Y%m%d-%H%M%S"))
-        stem = base
-        n = 2
-        while os.path.exists(os.path.join(out_dir,
-                                          stem + ".json")) \
-                or os.path.exists(os.path.join(out_dir,
-                                               stem + ".md")):
-            stem = f"{base}-{n}"
+        n = 1
+        while claim_path is None:
+            cand = base if n == 1 else f"{base}-{n}"
             n += 1
+            if os.path.exists(os.path.join(out_dir,
+                                           cand + ".json")) \
+                    or os.path.exists(os.path.join(
+                            out_dir, cand + ".md")):
+                continue
+            claim = os.path.join(out_dir, cand + ".json.claim")
+            try:
+                fd = os.open(claim, os.O_CREAT | os.O_EXCL
+                             | os.O_WRONLY)
+            except FileExistsError:
+                continue
+            os.close(fd)
+            stem, claim_path = cand, claim
+    try:
+        return _write_report_at_stem(report, out_dir, stem)
+    finally:
+        if claim_path is not None:
+            try:
+                os.unlink(claim_path)
+            except OSError:
+                pass
+
+
+def _write_report_at_stem(report, out_dir, stem):
     record = _attach_evidence_sidecars(report, out_dir)
     jpath = os.path.join(out_dir, stem + ".json")
     mpath = os.path.join(out_dir, stem + ".md")
