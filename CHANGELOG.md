@@ -1,5 +1,39 @@
 # Changelog
 
+## Unreleased — probe sandbox C5 hardening (2026-11-06)
+
+The B3 design's hard prerequisite (its §5.1, pass/fail row
+P0): `probe.py`'s sandbox set no rlimits and its timeout
+killed only the direct child, so a forked or backgrounded
+probe process could outlive its budget. Probe execution
+now meets the C5 discipline the evidence sandbox
+established, as a standalone enforcement-only change:
+
+- **Process-group kill.** The probe runs in its own
+  session; expiry — and normal exit, so a probe that
+  backgrounds a child and exits cleanly leaves nothing
+  behind — kills the whole process group.
+- **POSIX rlimits** (applied in the child): CPU time =
+  wall timeout + 5 s, address space 2 GiB, per-file size
+  256 MiB, open files 1024, core dumps off. The process
+  count is deliberately not rlimited (a per-user ceiling
+  the operator's uid shares); containment is the group
+  kill plus the CPU/address-space limits.
+- **Drained, capped output.** Reader threads drain both
+  streams under an 8 MiB per-stream cap instead of
+  `communicate()`'s unbounded buffering; a capture cut
+  short by the cap or by a detached pipe-holder is marked
+  in the output, never presented as whole.
+
+Outcome vocabulary, the result contract, `probe_decision`,
+`parse_probe_spec` and every gate profile are unchanged —
+a limit-killed probe is an ordinary fail (its exit code is
+the negative signal number), a timed-out probe an ordinary
+timeout. Seven new pins in `tests/test_probe_harness.py`
+cover the limits as observed from inside the probe, the
+forked-child and backgrounded-child kills, the CPU and
+memory ceilings, the file-size ceiling, and the output cap.
+
 ## Unreleased — B3 dev-pilot scaffolding (2026-11-06)
 
 Mechanism-agnostic harness for the B3 dev pilot (design §8).
