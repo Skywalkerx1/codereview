@@ -827,7 +827,10 @@ def validate_record(record):
             if not isinstance(value, list) \
                     or not all(isinstance(c, str) for c in value or []):
                 bad(f"checks.{key} must be a list of check names")
-            lists[key] = set(value or [])
+            # A non-list value is reported above and must not
+            # crash the validator (set(5) is a TypeError).
+            lists[key] = set(value) if isinstance(value, list) \
+                else set()
         seen = lists["run"] | lists["not_run"] | lists["unavailable"]
         total = sum(len(lists[k]) for k in lists)
         if len(seen) != total:
