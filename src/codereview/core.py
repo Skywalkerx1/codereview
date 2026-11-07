@@ -679,7 +679,7 @@ _KEYWORD_FIND_RE = re.compile(r"(?i)" + _SECRET_NAME_RE)
 _NAME_CHARS = frozenset(
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
     "0123456789_.-")
-_VALUE_STOP_CHARS = frozenset(" \t\r\n,'\"`(){}\[]")
+_VALUE_STOP_CHARS = frozenset(" \t\r\n,'\"`(){}\\[]")
 _QUOTE_CHARS = "\"'`"
 # Values that are status markers, not secret material — the
 # evidence/env audit idiom prints NAME=ABSENT, and redacting

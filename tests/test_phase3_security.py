@@ -517,6 +517,31 @@ class RedactionCoverageTests(unittest.TestCase):
 @unittest.skipUnless(sys.platform.startswith("linux"),
                      "PR_SET_DUMPABLE / /proc semantics are "
                      "Linux-only")
+class ValueStopCharsEscapeTests(unittest.TestCase):
+    """Rerun-2 nit (S3): `_VALUE_STOP_CHARS` spelled the
+    backslash member as the invalid escape `\\[` in a
+    non-raw string — a SyntaxWarning on compile under
+    Python 3.12+, a SyntaxError under `-W error`, and a
+    future hard error. The set itself was always correct
+    (Python kept the backslash); pin both the set and a
+    warning-free compile of the whole module."""
+
+    def test_stop_char_set_is_exact(self):
+        self.assertEqual(core._VALUE_STOP_CHARS, frozenset(
+            " \t\r\n,'\"`(){}[]\\"))
+
+    def test_core_module_compiles_without_syntax_warnings(
+            self):
+        import warnings
+        path = os.path.join(os.path.dirname(
+            os.path.abspath(core.__file__)), "core.py")
+        with open(path, encoding="utf-8") as fh:
+            source = fh.read()
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", SyntaxWarning)
+            compile(source, path, "exec")
+
+
 class ParentEnvironHardeningTests(unittest.TestCase):
     """P3-04: in env-only sandbox mode the child's own env is
     allow-listed, but /proc/$PPID/environ exposed the gate
