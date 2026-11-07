@@ -1,5 +1,46 @@
 # Changelog
 
+## Unreleased — B3 dev-pilot scaffolding (2026-11-06)
+
+Mechanism-agnostic harness for the B3 dev pilot (design §8).
+Scaffolding and data collection only: no new gate profile, no
+probe-promotion decision, no prediction is computed or
+registered — those wait on the owner's design approval and the
+Q1 protocol ruling.
+
+- **Probe channel wired into the bench pipeline (opt-in).**
+  `bench.run_bench` accepts `probes=True` (or a config's own
+  `"probes": true`) and passes a `probe.make_probe_fn` channel
+  into `run_review` — the existing adjudication channel, bounded
+  by `MAX_PROBE_ROUNDS`, able only to rebut. Probe outcomes are
+  collected onto the result record (`probes_enabled`,
+  `probe_outcomes`) as data; wiring the channel changes no
+  verdict. Default OFF: the run_review call and the record
+  shape are byte-identical to before (pinned by test), and a
+  config's identity hash moves only when its probe opt-in is
+  enabled.
+- **New module `codereview.pilot`.** The §8 hash split
+  (deterministic sha256 partition of case ids into calibration
+  / evaluation slices) with a committed split manifest whose
+  `inputs_sha256` binds salt + case set + rule, so a split
+  cannot be re-rolled silently (`verify_split_manifest`); the
+  §3.1/§3.2 eligibility screen (blocking tier + executable
+  basis in the A5 taxonomy + the R4 concrete-trigger test,
+  deterministic, basis recorded per finding); and the
+  calibration-table builder — per case, findings with
+  eligibility and probe outcomes, every current profile's
+  verdict replayed through `core.evaluate_gate_policy`, and
+  the §8 prediction factors (p_base / p_elig / p_settle) as
+  raw input counts per slice. Inputs only: the prediction
+  formula and its registration remain the pilot
+  registration's step.
+- **Pilot runner `bench/scripts/run_b3_pilot.py`** (preflight /
+  run / table): writes the split manifest before anything runs,
+  runs the dev sets (v1 public split + expanded stratum) live
+  under a current profile with the probe channel optionally
+  wired, and emits `calibration-table.json` in the documented
+  `codereview.b3-calibration/1` format.
+
 ## Unreleased — 0.13.0.dev0 (external Phase 6 follow-up fixes)
 
 Fixes from the external tester's Phase 6 report (end-to-end
