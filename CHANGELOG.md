@@ -12,10 +12,17 @@ triaged 2026-11-07):
   only the diff was redacted, so a secret on an unchanged
   line of a touched file, or one pasted into the change
   description, was sent to providers in clear text.
+- The verification round's builder response and
+  test-command output are redacted the same way before they
+  reach reviewer prompts or the run record; a failing test
+  that echoes config or environment no longer puts a secret
+  into either.
 - The MCP `run_gate` tool's `context` argument is literal
   text: a leading `@` is no longer read as a local file
-  path on the MCP path. The CLI's own `--context @file`
-  behaviour is unchanged.
+  path on the MCP path, and the value is forwarded in the
+  `--context-literal=VALUE` form so text beginning with
+  `-` is accepted as text too. The CLI's own
+  `--context @file` behaviour is unchanged.
 - `codereview report` and `support-bundle` under
   `--no-records` now leave crash notes out as well, as
   PRIVACY.md already stated.

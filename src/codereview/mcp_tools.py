@@ -293,7 +293,13 @@ class GateTools:
             # an agent driving this tool must not be able to
             # make the server read arbitrary files (e.g. SSH
             # keys) into the reviewers' prompts.
-            argv += ["--context-literal", args["context"]]
+            # The equals form is deliberate (0.13.2 delta):
+            # forwarded as a separate argv word, a value
+            # beginning with "-" (e.g. "--out=/x") is misread
+            # by argparse as a flag of its own and the call
+            # fails; "--context-literal=VALUE" is unambiguous
+            # for any text.
+            argv += ["--context-literal=" + args["context"]]
         patch_file = None
         if args.get("patch") is not None:
             fd, patch_file = tempfile.mkstemp(

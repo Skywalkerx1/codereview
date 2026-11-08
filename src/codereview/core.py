@@ -1222,6 +1222,28 @@ New diff ({batch}):
 """
 
 
+def _redact_test_results(test_results):
+    """Copies of the test-result entries with `output_tail`
+    redacted to the same standard as the patch (security fix
+    0.13.2 delta, audit T). Test output is program output: a
+    failing test that echoes config or environment can print a
+    secret, and the tail travels into reviewer prompts (via
+    _test_summary), into deterministic test-failure findings,
+    and into the serialized record — all three inherit the
+    redaction when it happens here, once, at round entry, for
+    every caller. The evidence runner already redacts its
+    results at production (evidence._result); the legacy
+    --test-command path did not. The caller's dicts are not
+    mutated."""
+    out = []
+    for tr in test_results or []:
+        if isinstance(tr, dict) and tr.get("output_tail"):
+            tr = {**tr,
+                  "output_tail": redact_secrets(tr["output_tail"])}
+        out.append(tr)
+    return out
+
+
 def _test_summary(test_results):
     if not test_results:
         return "(no test commands were run)"
@@ -1230,7 +1252,8 @@ def _test_summary(test_results):
         lines.append(
             f"- {'PASS' if tr.get('ok') else 'FAIL'}: {tr.get('command')}"
             + ("" if tr.get("ok") else
-               f"\n  output tail: {(tr.get('output_tail') or '')[:800]}"))
+               f"\n  output tail: "
+               f"{redact_secrets(tr.get('output_tail') or '')[:800]}"))
     return "\n".join(lines)
 
 
@@ -4635,6 +4658,11 @@ def run_review(patch, providers, context="", test_results=None,
     # and the redaction precedes both truncations (the
     # prompt's 4000 chars and the record's 500).
     context = redact_secrets(context or "")
+    # Security fix (0.13.2 delta, audit T): test-command
+    # output is redacted before the prompt summary, the
+    # deterministic test-failure findings, or the record can
+    # carry it — see _redact_test_results.
+    test_results = _redact_test_results(test_results)
     # Gate profile resolution (step 6): explicit argument >
     # policy file's [gate] profile > "strict" default. An
     # unknown profile is a caller error and fails loudly —
@@ -6542,6 +6570,19 @@ def run_verification(patch, providers, previous_report, builder_response,
     review path's semantics."""
     _record_started = time.monotonic()
     test_results = test_results or []
+    # Security fix (0.13.2 delta, audit V): the builder's
+    # response is redacted to the same standard as the patch
+    # before it can reach a verification prompt. The review
+    # round's builder context got this at entry (fix B); this
+    # round's response — the fix explanation a builder pastes
+    # prose, config, and occasionally credentials into — went
+    # out verbatim. Done here, once, so the prompt slice and
+    # the evidence haystack below both draw on redacted text.
+    builder_response = redact_secrets(builder_response or "")
+    # Security fix (0.13.2 delta, audit T): test-command
+    # output is redacted before the prompt summary or the
+    # record can carry it — see _redact_test_results.
+    test_results = _redact_test_results(test_results)
     # Epic L4: same notification wiring as run_review — the
     # verification gate is a gate verdict too (see there).
     progress = _notify_progress(notify, progress)
@@ -8407,10 +8448,12 @@ def run_workflow(steps, providers, repo, out_dir, max_rounds=3,
                                    check=False)
                 tail = (o.stdout + o.stderr).decode(
                     "utf-8", errors="replace")[-4000:]
+                # Audit T: redact at production, as the CLI
+                # test runner and the evidence runner do.
                 results_t.append({"command": c,
                                    "ok": o.returncode == 0,
                                    "exit_code": o.returncode,
-                                   "output_tail": tail})
+                                   "output_tail": redact_secrets(tail)})
             return results_t
 
         loop_result = run_loop(

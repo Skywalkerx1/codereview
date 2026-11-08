@@ -68,9 +68,14 @@ def _run_tests(commands, cwd):
                                  check=False)
             tail = (out.stdout + out.stderr).decode(
                 "utf-8", errors="replace")[-4000:]
+            # Security fix (0.13.2 delta, audit T): redact at
+            # production, the standard the evidence runner
+            # already meets (evidence._result) — a failing
+            # test that echoes config or env must not put a
+            # secret into prompts or the record downstream.
             results.append({"command": cmd, "ok": out.returncode == 0,
                             "exit_code": out.returncode,
-                            "output_tail": tail})
+                            "output_tail": core.redact_secrets(tail)})
         except subprocess.TimeoutExpired:
             results.append({"command": cmd, "ok": False,
                             "exit_code": None,
@@ -2135,7 +2140,9 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
                     help="builder's change description taken "
                          "literally: a leading @ is never read "
                          "as a file path (the MCP server passes "
-                         "its context argument this way)")
+                         "its context argument this way, in the "
+                         "--context-literal=VALUE form, so text "
+                         "beginning with - is accepted too)")
     ap.add_argument("--test-command", action="append", default=[],
                     help="test command to run and include; repeatable")
     ap.add_argument("--evidence-config",
