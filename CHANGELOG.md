@@ -1,10 +1,10 @@
 # Changelog
 
-## 0.13.2 — security patch line (pending tester verification)
+## 0.13.2 — security patch line — 2026-11-07
 
-Fixes from an independent audit of the MCP server surface
-(the CSA MCP Security project's mcpserver-audit outputs,
-triaged 2026-11-07):
+Fixes from an AI-driven audit of the MCP server surface, run
+with the Cloud Security Alliance's published mcpserver-audit
+prompts (outputs triaged 2026-11-07):
 
 - Full-file context and builder-supplied `context` are now
   redacted with the same secret redaction as the diff before
