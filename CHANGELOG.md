@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.13.3 — MCP policy-trust removal — 2026-11-10
+
+Closes the remaining item from the 0.13.2 audit line (item E,
+owner ruling 2026-11-10), plus the path-root restriction from
+the external review of 2026-11-10:
+
+- The MCP `run_gate` tool no longer accepts policy trust from
+  the caller. The `trust_repo_policy` argument is removed
+  from the tool (passing it is now refused as an unknown
+  argument, before anything runs), and a `policy` path that
+  points inside the reviewed repository is refused for the
+  same reason: an explicitly named policy is honoured in
+  full, so naming the repo's own `.codereview.toml` defeated
+  the P3-01 trust restriction. That file is still discovered
+  and applied in restricted form — strengthening keys only,
+  dropped keys returned as `policy_ignored_keys` — and an
+  operator-supplied policy outside the reviewed tree is
+  still honoured in full. Full trust in a repository policy
+  remains available where it belongs: the local CLI's
+  `--policy` / `--trust-repo-policy`, run by the operator.
+- The MCP server can now pin caller-supplied paths to an
+  operator-approved root: `codereview mcp serve --root DIR`
+  (or `$CODEREVIEW_MCP_ROOT`). The `repo`, `out`, and
+  `record` arguments of both tools must then resolve inside
+  that root; anything outside is refused before it runs or
+  is read. With no root configured, path handling is exactly
+  as before.
+- The CLI, the policy engine, and the verdict payload's
+  policy-visibility fields are unchanged.
+
 ## 0.13.2 — security patch line — 2026-11-07
 
 Fixes from an AI-driven audit of the MCP server surface, run
