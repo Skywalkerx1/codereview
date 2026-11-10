@@ -17,7 +17,7 @@ That is the trade: `strict` is a high-recall gate for code you cannot afford to 
 ## What has been tested
 
 - An agent-CLI seat, tested with Codex.
-- The MCP server, driven end to end by a real agent client (Codex CLI): a defective sample and a clean sample were both blocked under the default `strict` profile.
+- The MCP server has been tested end to end with a scripted client. A real agent client (Codex CLI) drove an earlier build of the 0.13 line end to end on a defective sample and a clean sample; both were blocked under the default `strict` profile. That real-client run has not yet been repeated on the current release.
 - Patch review on a real GitLab merge-request diff.
 
 Not yet tested: the pull-request command on a live PR. Reviewers are models; they miss things and occasionally invent them, so your own tests stay part of the gate.
