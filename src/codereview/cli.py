@@ -1751,13 +1751,27 @@ def _mcp_main(argv):
         description="Serve the CodeReview gate over MCP "
                     "(stdio transport; tools: run_gate, "
                     "get_verdict).")
-    ap.parse_args(argv[1:])
+    ap.add_argument("--root", metavar="DIR", default=None,
+                    help="restrict caller-supplied paths "
+                         "(repo, out, record) to this "
+                         "directory tree (item E); "
+                         "$CODEREVIEW_MCP_ROOT is the fallback "
+                         "when the flag is absent; with neither, "
+                         "paths are unrestricted")
+    ns = ap.parse_args(argv[1:])
     from . import mcp_tools
+    try:
+        root = mcp_tools.resolve_path_root(ns.root)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
     print(f"codereview mcp: serving the gate on stdio "
           f"(server {mcp_tools.SERVER_INFO['name']} "
           f"{mcp_tools.SERVER_INFO['version']}; seats from "
-          f"your saved setup)", file=sys.stderr)
-    mcp_tools.serve_stdio()
+          f"your saved setup"
+          + (f"; paths restricted to {root}" if root else "")
+          + ")", file=sys.stderr)
+    mcp_tools.serve_stdio(path_root=root)
     return 0
 
 

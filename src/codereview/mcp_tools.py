@@ -30,6 +30,18 @@ arguments, patch+range together) is refused with an error
 result before anything runs; a refused or failed run is an
 `isError` tool result carrying the reason, never an exception
 escaping into the transport loop.
+
+Path roots (item E, owner ruling 2026-11-10): the operator
+can pin every caller-supplied path — `repo`, `out`, and
+`record` in both tools — to a single approved root, given at
+server start with `codereview mcp serve --root DIR` or the
+$CODEREVIEW_MCP_ROOT environment variable (the flag wins when
+both are set). A path that resolves outside the root is
+refused before anything runs; a relative path resolves
+against the server's working directory. With no root
+configured, paths are accepted exactly as before — the
+restriction is an operator opt-in, set server-side, never
+something a tool caller can widen.
 """
 
 import contextlib
@@ -71,7 +83,11 @@ TOOL_DEFS = [
                     "type": "string",
                     "description": "repository path (default: "
                                    "the server's working "
-                                   "directory)",
+                                   "directory). When the operator "
+                                   "starts the server with a path "
+                                   "root (--root / "
+                                   "$CODEREVIEW_MCP_ROOT), it "
+                                   "must resolve inside that root",
                 },
                 "range": {
                     "type": "string",
@@ -85,29 +101,31 @@ TOOL_DEFS = [
                 },
                 "policy": {
                     "type": "string",
-                    "description": "project policy file (TOML); "
-                                   "default: .codereview.toml "
-                                   "at the repo root, when "
-                                   "present",
-                },
-                "trust_repo_policy": {
-                    "type": "boolean",
-                    "description": "honour a policy discovered "
-                                   "in the reviewed repository "
-                                   "in full, including its hooks "
-                                   "and gate-weakening keys; "
-                                   "without it a discovered "
-                                   "policy keeps only its "
-                                   "strengthening keys (P3-01 "
-                                   "trust restriction) and the "
-                                   "dropped keys are returned as "
-                                   "policy_ignored_keys",
+                    "description": "project policy file (TOML) "
+                                   "that lives OUTSIDE the "
+                                   "reviewed repository; honoured "
+                                   "in full as an operator-supplied "
+                                   "policy. A policy inside the "
+                                   "reviewed repository is never "
+                                   "explicit via this tool (item "
+                                   "E): it is discovered and keeps "
+                                   "only its strengthening keys "
+                                   "(P3-01 trust restriction), "
+                                   "and the dropped keys are "
+                                   "returned as "
+                                   "policy_ignored_keys. To review "
+                                   "under a repo policy in full, "
+                                   "run the CLI locally with "
+                                   "--policy / --trust-repo-policy",
                 },
                 "out": {
                     "type": "string",
                     "description": "output directory for the "
                                    "run record (default: "
-                                   "<repo>/codereview-out)",
+                                   "<repo>/codereview-out); when "
+                                   "the operator configures a "
+                                   "path root, it must resolve "
+                                   "inside that root",
                 },
                 "context": {
                     "type": "string",
@@ -138,14 +156,20 @@ TOOL_DEFS = [
                 "record": {
                     "type": "string",
                     "description": "record JSON file or "
-                                   "record directory",
+                                   "record directory; when the "
+                                   "operator configures a path "
+                                   "root, it must resolve inside "
+                                   "that root",
                 },
                 "repo": {
                     "type": "string",
                     "description": "repository the record "
                                    "belongs to (default: the "
                                    "server's working "
-                                   "directory)",
+                                   "directory); when the "
+                                   "operator configures a path "
+                                   "root, it must resolve inside "
+                                   "that root",
                 },
             },
             "required": ["record"],
@@ -221,10 +245,39 @@ class GateTools:
     as a CLI run's do."""
 
     def __init__(self, providers_override=None,
-                 seat_meta_override=None, fallbacks_override=None):
+                 seat_meta_override=None, fallbacks_override=None,
+                 path_root=None):
         self._providers_override = providers_override
         self._seat_meta_override = seat_meta_override
         self._fallbacks_override = fallbacks_override
+        # Item E path root: None = no restriction (the
+        # pre-0.13.3 behaviour). serve_stdio resolves the
+        # operator's configured root (flag > environment)
+        # and passes it here; tests may inject one directly.
+        self._path_root = (os.path.realpath(path_root)
+                           if path_root else None)
+
+    # -- path-root discipline --------------------------------------
+
+    def _require_within_root(self, tool, label, path):
+        """Item E: when the operator pinned a path root at
+        server start, a caller-supplied path must resolve
+        inside it; otherwise the call is refused before
+        anything runs or is read. Relative paths resolve
+        against the server's working directory, as the
+        tools resolved them before the restriction existed."""
+        if self._path_root is None:
+            return
+        resolved = os.path.realpath(path)
+        root = self._path_root
+        if resolved != root and not resolved.startswith(
+                root + os.sep):
+            raise ToolError(
+                f"{tool}: {label} {path!r} resolves outside "
+                f"the server's configured path root ({root}); "
+                f"paths are restricted to that root by the "
+                f"operator (codereview mcp serve --root / "
+                f"$CODEREVIEW_MCP_ROOT)")
 
     # -- argument discipline -------------------------------------
 
@@ -278,13 +331,37 @@ class GateTools:
         repo = args.get("repo") or "."
         out = args.get("out") or os.path.join(
             repo, "codereview-out")
+        # Item E path root: the effective repo and out
+        # (caller-given or defaulted) must sit inside the
+        # operator's root when one is configured.
+        self._require_within_root("run_gate", "repo", repo)
+        self._require_within_root("run_gate", "out", out)
         argv = ["--repo", repo, "--out", out]
         if args.get("range"):
             argv += ["--range", args["range"]]
         if args.get("policy"):
+            # Item E: a caller-supplied policy path must
+            # not point inside the reviewed repository. An
+            # in-repo path would mark the repo's own policy
+            # "explicit" and defeat the P3-01 trust
+            # restriction (audit F2: policy trust delegated
+            # to the tool caller) — the same file the
+            # restriction strips is still discovered and
+            # applied in restricted form, so refusing loses
+            # nothing but the elevation.
+            policy_path = os.path.realpath(args["policy"])
+            repo_root = os.path.realpath(repo)
+            if policy_path == repo_root or policy_path.startswith(
+                    repo_root + os.sep):
+                raise ToolError(
+                    "run_gate: policy must live outside the "
+                    "reviewed repository; a policy inside it "
+                    "is applied in restricted form "
+                    "(strengthening keys only) and cannot be "
+                    "elevated through this tool — run the CLI "
+                    "locally with --policy / "
+                    "--trust-repo-policy to honour it in full")
             argv += ["--policy", args["policy"]]
-        if args.get("trust_repo_policy"):
-            argv += ["--trust-repo-policy"]
         if args.get("context"):
             # Security fix (0.13.2, audit C): MCP context is
             # literal text. It goes through the CLI's
@@ -355,6 +432,15 @@ class GateTools:
     def get_verdict(self, arguments):
         from . import cli
         args = self._checked_args("get_verdict", arguments)
+        # Item E path root: the record (and the repo it
+        # belongs to, when given) must sit inside the
+        # operator's root when one is configured — checked
+        # before the record is read.
+        self._require_within_root(
+            "get_verdict", "record", args["record"])
+        if args.get("repo"):
+            self._require_within_root(
+                "get_verdict", "repo", args["repo"])
         try:
             record, _record_dir, jpath = cli._load_record_arg(
                 args["record"], args.get("repo") or ".")
@@ -460,8 +546,26 @@ def make_dispatch(tools):
     return dispatch
 
 
+def resolve_path_root(flag_root=None):
+    """The operator's path root for this server process: the
+    --root flag wins over $CODEREVIEW_MCP_ROOT; neither set
+    means no restriction. A configured root that is not an
+    existing directory is a startup error, not a silent
+    no-op — the operator asked for a restriction and must not
+    be served without it."""
+    raw = flag_root or os.environ.get("CODEREVIEW_MCP_ROOT") \
+        or None
+    if raw is None:
+        return None
+    if not os.path.isdir(raw):
+        raise ValueError(
+            f"codereview mcp: path root {raw!r} is not an "
+            f"existing directory")
+    return os.path.realpath(raw)
+
+
 def serve_stdio(tools=None, stdin=None, stdout=None, log=None,
-                max_frame_bytes=None):
+                max_frame_bytes=None, path_root=None):
     """Assemble the server (transport + tools) and serve until
     EOF. Returns the StdioServer so callers (and tests) can
     inspect its error ledger."""
@@ -469,7 +573,9 @@ def serve_stdio(tools=None, stdin=None, stdout=None, log=None,
     # environment (provider keys) and spawns gate runs; make
     # it non-dumpable before serving.
     hardening.make_non_dumpable()
-    tools = tools if tools is not None else GateTools()
+    if tools is None:
+        tools = GateTools(
+            path_root=resolve_path_root(path_root))
     kwargs = {}
     if max_frame_bytes is not None:
         kwargs["max_frame_bytes"] = max_frame_bytes

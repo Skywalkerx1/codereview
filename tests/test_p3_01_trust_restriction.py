@@ -394,13 +394,52 @@ class McpTrustRestrictionTests(unittest.TestCase):
                              ["hooks.pre_run"])
             self.assertFalse(os.path.exists(log))
 
-    def test_run_gate_trust_flag_honours_hook(self):
+    def test_run_gate_trust_repo_policy_is_unknown_argument(self):
+        # Item E: the MCP tool no longer accepts a trust
+        # elevation at all — passing one is the generic
+        # unknown-argument refusal, before anything runs.
         with tempfile.TemporaryDirectory() as tmp:
             repo, log = self._repo_with_hook(tmp)
             result = self._call(self._tools(), {
                 "repo": repo, "patch": SIMPLE_PATCH,
                 "out": os.path.join(tmp, "out"),
                 "trust_repo_policy": True})
+            self.assertTrue(result["isError"])
+            self.assertFalse(os.path.exists(log))
+
+    def test_run_gate_in_repo_policy_path_is_refused(self):
+        # Item E: naming the repo's own policy file via
+        # `policy` would mark it explicit and defeat the
+        # restriction; the call is refused, and the same
+        # file is still applied in restricted form when
+        # discovered (see
+        # test_run_gate_payload_lists_ignored_keys).
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, log = self._repo_with_hook(tmp)
+            result = self._call(self._tools(), {
+                "repo": repo, "patch": SIMPLE_PATCH,
+                "out": os.path.join(tmp, "out"),
+                "policy": os.path.join(repo,
+                                       ".codereview.toml")})
+            self.assertTrue(result["isError"])
+            self.assertFalse(os.path.exists(log))
+
+    def test_run_gate_external_policy_still_honoured(self):
+        # Item E removes elevation of IN-REPO policies
+        # only: an operator-supplied policy outside the
+        # reviewed tree is still honoured in full.
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, log = self._repo_with_hook(tmp)
+            external = os.path.join(tmp, "operator.toml")
+            with open(os.path.join(repo, ".codereview.toml"),
+                      encoding="utf-8") as fh:
+                policy_text = fh.read()
+            with open(external, "w", encoding="utf-8") as fh:
+                fh.write(policy_text)
+            result = self._call(self._tools(), {
+                "repo": repo, "patch": SIMPLE_PATCH,
+                "out": os.path.join(tmp, "out"),
+                "policy": external})
             self.assertFalse(result["isError"])
             payload = result["structuredContent"]
             self.assertEqual(payload["policy_ignored_keys"],
@@ -408,14 +447,143 @@ class McpTrustRestrictionTests(unittest.TestCase):
             with open(log, encoding="utf-8") as fh:
                 self.assertIn("hook-ran", fh.read())
 
-    def test_trust_repo_policy_must_be_boolean(self):
+
+class McpPathRootTests(unittest.TestCase):
+    """Item E (owner ruling 2026-11-10): the operator can pin
+    every caller-supplied path — repo, out, record — to a
+    root given at server start. Inside the root behaves as
+    before; outside is refused before anything runs; with no
+    root configured nothing changes."""
+
+    def _tools(self, root=None):
+        return mcp_tools.GateTools(
+            providers_override={"a": pass_provider},
+            path_root=root)
+
+    def _call(self, tools, name, arguments):
+        dispatch = mcp_tools.make_dispatch(tools)
+        return dispatch("tools/call",
+                        {"name": name, "arguments": arguments},
+                        False)
+
+    def _layout(self, tmp):
+        root = os.path.join(tmp, "root")
+        repo = os.path.join(root, "repo")
+        os.makedirs(repo)
+        outside_repo = os.path.join(tmp, "outside-repo")
+        os.makedirs(outside_repo)
+        return root, repo, outside_repo
+
+    def _run_inside(self, tools, repo, out):
+        return self._call(tools, "run_gate", {
+            "repo": repo, "patch": SIMPLE_PATCH, "out": out})
+
+    def test_paths_inside_root_are_accepted(self):
         with tempfile.TemporaryDirectory() as tmp:
-            repo, _log = self._repo_with_hook(tmp)
-            result = self._call(self._tools(), {
-                "repo": repo, "patch": SIMPLE_PATCH,
-                "out": os.path.join(tmp, "out"),
-                "trust_repo_policy": "yes"})
+            root, repo, _outside = self._layout(tmp)
+            tools = self._tools(root)
+            result = self._run_inside(
+                tools, repo, os.path.join(root, "out"))
+            self.assertFalse(result["isError"])
+            record_path = \
+                result["structuredContent"]["record_path"]
+            verdict = self._call(tools, "get_verdict", {
+                "record": record_path, "repo": repo})
+            self.assertFalse(verdict["isError"])
+
+    def test_default_out_inside_repo_is_accepted(self):
+        # No explicit out: the default <repo>/codereview-out
+        # inherits the repo's containment.
+        with tempfile.TemporaryDirectory() as tmp:
+            root, repo, _outside = self._layout(tmp)
+            result = self._call(self._tools(root), "run_gate", {
+                "repo": repo, "patch": SIMPLE_PATCH})
+            self.assertFalse(result["isError"])
+
+    def test_repo_outside_root_is_refused(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root, _repo, outside = self._layout(tmp)
+            result = self._run_inside(
+                self._tools(root), outside,
+                os.path.join(root, "out"))
             self.assertTrue(result["isError"])
+            self.assertIn("path root",
+                          result["content"][0]["text"])
+
+    def test_out_outside_root_is_refused(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root, repo, _outside = self._layout(tmp)
+            result = self._run_inside(
+                self._tools(root), repo,
+                os.path.join(tmp, "elsewhere"))
+            self.assertTrue(result["isError"])
+
+    def test_repo_escaping_root_by_dotdot_is_refused(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root, repo, _outside = self._layout(tmp)
+            escape = os.path.join(repo, "..", "..")
+            result = self._run_inside(
+                self._tools(root), escape,
+                os.path.join(root, "out"))
+            self.assertTrue(result["isError"])
+
+    def test_record_outside_root_is_refused(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root, repo, _outside = self._layout(tmp)
+            # Produce a real record with an unrestricted
+            # server, then try to read it back through a
+            # root that does not contain it.
+            produced = self._run_inside(
+                self._tools(), repo, os.path.join(tmp, "out"))
+            self.assertFalse(produced["isError"])
+            record_path = \
+                produced["structuredContent"]["record_path"]
+            other_root = os.path.join(tmp, "other-root")
+            os.makedirs(other_root)
+            verdict = self._call(
+                self._tools(other_root), "get_verdict", {
+                    "record": record_path, "repo": repo})
+            self.assertTrue(verdict["isError"])
+            self.assertIn("path root",
+                          verdict["content"][0]["text"])
+
+    def test_no_root_configured_leaves_paths_unrestricted(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            _root, _repo, outside = self._layout(tmp)
+            result = self._run_inside(
+                self._tools(), outside,
+                os.path.join(tmp, "anywhere"))
+            self.assertFalse(result["isError"])
+
+    def test_resolve_path_root_flag_env_and_unset(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = os.path.join(tmp, "root")
+            os.makedirs(root)
+            env_root = os.path.join(tmp, "env-root")
+            os.makedirs(env_root)
+            old = os.environ.get("CODEREVIEW_MCP_ROOT")
+            try:
+                os.environ["CODEREVIEW_MCP_ROOT"] = env_root
+                self.assertEqual(
+                    mcp_tools.resolve_path_root(),
+                    os.path.realpath(env_root))
+                # The flag wins over the environment.
+                self.assertEqual(
+                    mcp_tools.resolve_path_root(root),
+                    os.path.realpath(root))
+                del os.environ["CODEREVIEW_MCP_ROOT"]
+                self.assertIsNone(mcp_tools.resolve_path_root())
+            finally:
+                if old is None:
+                    os.environ.pop("CODEREVIEW_MCP_ROOT", None)
+                else:
+                    os.environ["CODEREVIEW_MCP_ROOT"] = old
+
+    def test_resolve_path_root_rejects_missing_directory(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(ValueError):
+                mcp_tools.resolve_path_root(
+                    os.path.join(tmp, "does-not-exist"))
 
 
 if __name__ == "__main__":
