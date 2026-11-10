@@ -42,6 +42,22 @@ against the server's working directory. With no root
 configured, paths are accepted exactly as before — the
 restriction is an operator opt-in, set server-side, never
 something a tool caller can widen.
+
+Policy trust (owner-approved route (b), 2026-11-10 — CSA
+finding F2 closed in full): a policy a CALLER names through
+the `policy` argument NEVER receives full trust, wherever
+the file lives: it is forwarded with the CLI's
+--policy-restricted flag and applied exactly like a
+repo-discovered policy (strengthening keys only; hooks and
+gate-weakening keys dropped and named in the record's
+policy.ignored_keys, origin "mcp-caller"). Full trust is
+reserved for the operator, at server start:
+`codereview mcp serve --policy FILE` or
+$CODEREVIEW_MCP_POLICY (the flag wins), read once. When an
+operator policy is set it governs EVERY run: a caller-named
+policy is refused, never an override. A caller-named policy
+that does not exist is refused before anything runs —
+fail-closed, never a silent fallback.
 """
 
 import contextlib
@@ -102,21 +118,35 @@ TOOL_DEFS = [
                 "policy": {
                     "type": "string",
                     "description": "project policy file (TOML) "
-                                   "that lives OUTSIDE the "
-                                   "reviewed repository; honoured "
-                                   "in full as an operator-supplied "
-                                   "policy. A policy inside the "
-                                   "reviewed repository is never "
-                                   "explicit via this tool (item "
-                                   "E): it is discovered and keeps "
-                                   "only its strengthening keys "
-                                   "(P3-01 trust restriction), "
-                                   "and the dropped keys are "
-                                   "returned as "
-                                   "policy_ignored_keys. To review "
-                                   "under a repo policy in full, "
-                                   "run the CLI locally with "
-                                   "--policy / --trust-repo-policy",
+                                   "named by the caller. A "
+                                   "caller-named policy is ALWAYS "
+                                   "applied in restricted form "
+                                   "(pre-review condition, "
+                                   "2026-11-10): only its "
+                                   "strengthening keys take "
+                                   "effect — hooks and "
+                                   "gate-weakening keys are "
+                                   "dropped and returned as "
+                                   "policy_ignored_keys — wherever "
+                                   "the file lives. A policy "
+                                   "inside the reviewed "
+                                   "repository is refused "
+                                   "outright (item E): it is "
+                                   "discovered and applied "
+                                   "restricted, so refusing loses "
+                                   "nothing. Full trust is "
+                                   "reserved for the operator's "
+                                   "server-start policy "
+                                   "(codereview mcp serve "
+                                   "--policy / "
+                                   "$CODEREVIEW_MCP_POLICY); "
+                                   "when one is set it governs "
+                                   "every run and a caller-named "
+                                   "policy is refused, never an "
+                                   "override. To review under a "
+                                   "repo policy in full, run the "
+                                   "CLI locally with --policy / "
+                                   "--trust-repo-policy",
                 },
                 "out": {
                     "type": "string",
@@ -246,7 +276,7 @@ class GateTools:
 
     def __init__(self, providers_override=None,
                  seat_meta_override=None, fallbacks_override=None,
-                 path_root=None):
+                 path_root=None, operator_policy=None):
         self._providers_override = providers_override
         self._seat_meta_override = seat_meta_override
         self._fallbacks_override = fallbacks_override
@@ -256,6 +286,13 @@ class GateTools:
         # and passes it here; tests may inject one directly.
         self._path_root = (os.path.realpath(path_root)
                            if path_root else None)
+        # Operator policy (pre-review condition, 2026-11-10):
+        # the ONLY full-trust policy channel through this
+        # server — set once at server start, never by a tool
+        # caller. serve_stdio resolves it (flag >
+        # environment); tests may inject one directly.
+        self._operator_policy = (os.path.realpath(
+            operator_policy) if operator_policy else None)
 
     # -- path-root discipline --------------------------------------
 
@@ -340,6 +377,27 @@ class GateTools:
         if args.get("range"):
             argv += ["--range", args["range"]]
         if args.get("policy"):
+            # Owner-approved route (b) (2026-11-10): a
+            # caller-named policy NEVER overrides the
+            # operator's server-start policy — when one is
+            # pinned, naming a policy is refused outright,
+            # before anything runs.
+            if self._operator_policy is not None:
+                raise ToolError(
+                    "run_gate: this server runs under an "
+                    "operator policy set at server start "
+                    "(codereview mcp serve --policy / "
+                    "$CODEREVIEW_MCP_POLICY); a caller-named "
+                    "policy cannot override it — omit "
+                    "`policy` to run under the operator's "
+                    "policy")
+            # Fail-closed: a named policy that is not an
+            # existing file is refused here, never silently
+            # dropped or replaced downstream.
+            if not os.path.isfile(args["policy"]):
+                raise ToolError(
+                    f"run_gate: policy {args['policy']!r} is "
+                    f"not an existing file")
             # Item E: a caller-supplied policy path must
             # not point inside the reviewed repository. An
             # in-repo path would mark the repo's own policy
@@ -361,7 +419,18 @@ class GateTools:
                     "elevated through this tool — run the CLI "
                     "locally with --policy / "
                     "--trust-repo-policy to honour it in full")
-            argv += ["--policy", args["policy"]]
+            # Route (b): the caller-named policy is
+            # forwarded with --policy-restricted and applied
+            # exactly like a discovered policy (strengthening
+            # keys only; dropped keys named in the record,
+            # origin "mcp-caller").
+            argv += ["--policy", args["policy"],
+                     "--policy-restricted"]
+        elif self._operator_policy is not None:
+            # The operator's server-start policy: forwarded
+            # plainly and honoured in full on every run that
+            # does not (and, above, cannot) name its own.
+            argv += ["--policy", self._operator_policy]
         if args.get("context"):
             # Security fix (0.13.2, audit C): MCP context is
             # literal text. It goes through the CLI's
@@ -564,8 +633,43 @@ def resolve_path_root(flag_root=None):
     return os.path.realpath(raw)
 
 
+def path_root_notice(root):
+    """The stderr notice for a rootless server (pre-review
+    condition, 2026-11-10): when no path root is configured
+    the operator must be told, once, at startup, that
+    caller-supplied paths are unrestricted and how to set a
+    root. Returns None when a root IS configured (the serve
+    banner already states the restriction then)."""
+    if root is not None:
+        return None
+    return ("codereview mcp: notice: no path root "
+            "configured — caller-supplied paths (repo, "
+            "out, record) are unrestricted; restrict them "
+            "with --root DIR or $CODEREVIEW_MCP_ROOT")
+
+
+def resolve_operator_policy(flag_policy=None):
+    """The operator's full-trust policy for this server
+    process: the --policy flag wins over
+    $CODEREVIEW_MCP_POLICY; neither set means no operator
+    policy (runs fall back to discovery / defaults, exactly
+    as before). A configured policy that is not an existing
+    file is a startup error, not a silent no-op — same rule
+    as the path root."""
+    raw = flag_policy or os.environ.get(
+        "CODEREVIEW_MCP_POLICY") or None
+    if raw is None:
+        return None
+    if not os.path.isfile(raw):
+        raise ValueError(
+            f"codereview mcp: operator policy {raw!r} is not "
+            f"an existing file")
+    return os.path.realpath(raw)
+
+
 def serve_stdio(tools=None, stdin=None, stdout=None, log=None,
-                max_frame_bytes=None, path_root=None):
+                max_frame_bytes=None, path_root=None,
+                operator_policy=None):
     """Assemble the server (transport + tools) and serve until
     EOF. Returns the StdioServer so callers (and tests) can
     inspect its error ledger."""
@@ -575,7 +679,9 @@ def serve_stdio(tools=None, stdin=None, stdout=None, log=None,
     hardening.make_non_dumpable()
     if tools is None:
         tools = GateTools(
-            path_root=resolve_path_root(path_root))
+            path_root=resolve_path_root(path_root),
+            operator_policy=resolve_operator_policy(
+                operator_policy))
     kwargs = {}
     if max_frame_bytes is not None:
         kwargs["max_frame_bytes"] = max_frame_bytes

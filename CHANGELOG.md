@@ -15,20 +15,37 @@ the external review of 2026-11-10:
   full, so naming the repo's own `.codereview.toml` defeated
   the P3-01 trust restriction. That file is still discovered
   and applied in restricted form — strengthening keys only,
-  dropped keys returned as `policy_ignored_keys` — and an
-  operator-supplied policy outside the reviewed tree is
-  still honoured in full. Full trust in a repository policy
-  remains available where it belongs: the local CLI's
-  `--policy` / `--trust-repo-policy`, run by the operator.
+  dropped keys returned as `policy_ignored_keys`.
+- A policy a caller names through `run_gate` is now ALWAYS
+  applied in that same restricted form, wherever the file
+  lives (owner-approved route (b), 2026-11-10): the run's
+  record shows origin `mcp-caller`, hooks never run, and
+  every gate-weakening key is dropped and named in
+  `policy_ignored_keys`; path rules keep working. A named
+  policy that does not exist is refused before anything
+  runs. Full trust through the server is reserved for the
+  operator, at server start: `codereview mcp serve
+  --policy FILE` (or `$CODEREVIEW_MCP_POLICY`), read once;
+  when one is set it governs every run and a caller-named
+  policy is refused, never an override. Full trust in a
+  repository policy also remains available where it
+  belongs: the local CLI's `--policy` /
+  `--trust-repo-policy`, run by the operator.
 - The MCP server can now pin caller-supplied paths to an
   operator-approved root: `codereview mcp serve --root DIR`
   (or `$CODEREVIEW_MCP_ROOT`). The `repo`, `out`, and
   `record` arguments of both tools must then resolve inside
-  that root; anything outside is refused before it runs or
-  is read. With no root configured, path handling is exactly
-  as before.
-- The CLI, the policy engine, and the verdict payload's
-  policy-visibility fields are unchanged.
+  that root (checked on the resolved path, so a symlink
+  pointing outside is refused too); anything outside is
+  refused before it runs or is read. With no root
+  configured, path handling is exactly as before, and the
+  server prints one stderr notice at startup saying so and
+  naming how to set a root.
+- Apart from the MCP serve flags above (and the CLI's new
+  `--policy-restricted`, which the server passes for
+  caller-named policies), the CLI, the policy engine, and
+  the verdict payload's policy-visibility fields are
+  unchanged.
 
 ## 0.13.2 — security patch line — 2026-11-07
 

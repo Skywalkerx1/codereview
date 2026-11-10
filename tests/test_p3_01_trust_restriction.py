@@ -424,28 +424,125 @@ class McpTrustRestrictionTests(unittest.TestCase):
             self.assertTrue(result["isError"])
             self.assertFalse(os.path.exists(log))
 
-    def test_run_gate_external_policy_still_honoured(self):
-        # Item E removes elevation of IN-REPO policies
-        # only: an operator-supplied policy outside the
-        # reviewed tree is still honoured in full.
+    def _external_hook_policy(self, tmp, repo):
+        """Copy the repo's hook policy to a file OUTSIDE the
+        reviewed tree and return its path."""
+        external = os.path.join(tmp, "caller.toml")
+        with open(os.path.join(repo, ".codereview.toml"),
+                  encoding="utf-8") as fh:
+            policy_text = fh.read()
+        with open(external, "w", encoding="utf-8") as fh:
+            fh.write(policy_text)
+        return external
+
+    def test_run_gate_caller_named_policy_is_restricted(self):
+        # Owner-approved route (b) (2026-11-10), her
+        # acceptance test 1: a caller-named policy OUTSIDE
+        # the repo no longer receives full trust either —
+        # its hook does NOT run and the record shows the
+        # restricted mode (origin "mcp-caller", the hook
+        # key named in policy_ignored_keys).
         with tempfile.TemporaryDirectory() as tmp:
             repo, log = self._repo_with_hook(tmp)
-            external = os.path.join(tmp, "operator.toml")
-            with open(os.path.join(repo, ".codereview.toml"),
-                      encoding="utf-8") as fh:
-                policy_text = fh.read()
-            with open(external, "w", encoding="utf-8") as fh:
-                fh.write(policy_text)
+            external = self._external_hook_policy(tmp, repo)
             result = self._call(self._tools(), {
                 "repo": repo, "patch": SIMPLE_PATCH,
                 "out": os.path.join(tmp, "out"),
                 "policy": external})
             self.assertFalse(result["isError"])
             payload = result["structuredContent"]
+            self.assertEqual(payload["policy_origin"],
+                             "mcp-caller")
+            self.assertEqual(payload["policy_ignored_keys"],
+                             ["hooks.pre_run"])
+            self.assertFalse(os.path.exists(log))
+
+    def test_run_gate_operator_policy_honoured_in_full(self):
+        # Her acceptance test 2: the operator's policy, set
+        # once at server start, is the only full-trust
+        # channel through this server — its hook runs and
+        # nothing is ignored.
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, log = self._repo_with_hook(tmp)
+            external = self._external_hook_policy(tmp, repo)
+            tools = mcp_tools.GateTools(
+                providers_override={"a": pass_provider},
+                operator_policy=external)
+            result = self._call(tools, {
+                "repo": repo, "patch": SIMPLE_PATCH,
+                "out": os.path.join(tmp, "out")})
+            self.assertFalse(result["isError"])
+            payload = result["structuredContent"]
+            self.assertEqual(payload["policy_origin"],
+                             "explicit")
             self.assertEqual(payload["policy_ignored_keys"],
                              [])
             with open(log, encoding="utf-8") as fh:
                 self.assertIn("hook-ran", fh.read())
+
+    def test_run_gate_caller_policy_cannot_override_operator(self):
+        # Route (b): with an operator policy pinned at
+        # server start, a caller-named policy is refused —
+        # never an override, never silently substituted.
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, log = self._repo_with_hook(tmp)
+            external = self._external_hook_policy(tmp, repo)
+            tools = mcp_tools.GateTools(
+                providers_override={"a": pass_provider},
+                operator_policy=external)
+            result = self._call(tools, {
+                "repo": repo, "patch": SIMPLE_PATCH,
+                "out": os.path.join(tmp, "out"),
+                "policy": external})
+            self.assertTrue(result["isError"])
+            self.assertIn("operator policy",
+                          result["content"][0]["text"])
+            self.assertFalse(os.path.exists(log))
+
+    def test_run_gate_missing_caller_policy_is_refused(self):
+        # Fail-closed: a caller-named policy that does not
+        # exist is an error before anything runs — never a
+        # silent fallback to discovery or defaults.
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, log = self._repo_with_hook(tmp)
+            result = self._call(self._tools(), {
+                "repo": repo, "patch": SIMPLE_PATCH,
+                "out": os.path.join(tmp, "out"),
+                "policy": os.path.join(tmp, "no-such.toml")})
+            self.assertTrue(result["isError"])
+            self.assertFalse(os.path.exists(log))
+
+    def test_resolve_operator_policy_flag_env_and_unset(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            flag_path = os.path.join(tmp, "flag.toml")
+            env_path = os.path.join(tmp, "env.toml")
+            for path in (flag_path, env_path):
+                with open(path, "w", encoding="utf-8") as fh:
+                    fh.write("[gate]\nprofile = \"strict\"\n")
+            old = os.environ.get("CODEREVIEW_MCP_POLICY")
+            try:
+                os.environ["CODEREVIEW_MCP_POLICY"] = env_path
+                self.assertEqual(
+                    mcp_tools.resolve_operator_policy(),
+                    os.path.realpath(env_path))
+                # The flag wins over the environment.
+                self.assertEqual(
+                    mcp_tools.resolve_operator_policy(flag_path),
+                    os.path.realpath(flag_path))
+                del os.environ["CODEREVIEW_MCP_POLICY"]
+                self.assertIsNone(
+                    mcp_tools.resolve_operator_policy())
+            finally:
+                if old is None:
+                    os.environ.pop("CODEREVIEW_MCP_POLICY", None)
+                else:
+                    os.environ["CODEREVIEW_MCP_POLICY"] = old
+
+    def test_resolve_operator_policy_rejects_missing_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(ValueError):
+                mcp_tools.resolve_operator_policy(
+                    os.path.join(tmp, "does-not-exist.toml"))
 
 
 class McpPathRootTests(unittest.TestCase):
@@ -517,6 +614,37 @@ class McpPathRootTests(unittest.TestCase):
                 self._tools(root), repo,
                 os.path.join(tmp, "elsewhere"))
             self.assertTrue(result["isError"])
+
+    def test_symlink_inside_root_pointing_outside_is_refused(self):
+        # Pre-review condition (2026-11-10): containment is
+        # judged on the RESOLVED path — a symlink that lives
+        # inside the root but points outside it must be
+        # refused, not waved through on its spelling.
+        with tempfile.TemporaryDirectory() as tmp:
+            root, _repo, outside = self._layout(tmp)
+            link = os.path.join(root, "linked-repo")
+            try:
+                os.symlink(outside, link)
+            except (OSError, NotImplementedError) as exc:
+                self.skipTest(f"symlinks unavailable: {exc}")
+            result = self._run_inside(
+                self._tools(root), link,
+                os.path.join(root, "out"))
+            self.assertTrue(result["isError"])
+            self.assertIn("path root",
+                          result["content"][0]["text"])
+
+    def test_path_root_notice_only_when_rootless(self):
+        # Pre-review condition (2026-11-10): a rootless
+        # server announces once, on stderr, that paths are
+        # unrestricted and how to set a root; a rooted
+        # server stays silent (its banner states the root).
+        notice = mcp_tools.path_root_notice(None)
+        self.assertIsNotNone(notice)
+        self.assertIn("unrestricted", notice)
+        self.assertIn("--root", notice)
+        self.assertIsNone(
+            mcp_tools.path_root_notice("/some/root"))
 
     def test_repo_escaping_root_by_dotdot_is_refused(self):
         with tempfile.TemporaryDirectory() as tmp:

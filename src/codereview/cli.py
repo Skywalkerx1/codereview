@@ -1758,10 +1758,22 @@ def _mcp_main(argv):
                          "$CODEREVIEW_MCP_ROOT is the fallback "
                          "when the flag is absent; with neither, "
                          "paths are unrestricted")
+    ap.add_argument("--policy", metavar="FILE", default=None,
+                    help="the operator's policy for every "
+                         "run_gate call, honoured in full "
+                         "(pre-review condition, 2026-11-10): "
+                         "the only full-trust policy channel "
+                         "through this server — a policy a "
+                         "caller names in a tool call is "
+                         "always applied restricted; "
+                         "$CODEREVIEW_MCP_POLICY is the "
+                         "fallback when the flag is absent")
     ns = ap.parse_args(argv[1:])
     from . import mcp_tools
     try:
         root = mcp_tools.resolve_path_root(ns.root)
+        operator_policy = mcp_tools.resolve_operator_policy(
+            ns.policy)
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
         return 2
@@ -1770,8 +1782,14 @@ def _mcp_main(argv):
           f"{mcp_tools.SERVER_INFO['version']}; seats from "
           f"your saved setup"
           + (f"; paths restricted to {root}" if root else "")
+          + (f"; operator policy {operator_policy}"
+             if operator_policy else "")
           + ")", file=sys.stderr)
-    mcp_tools.serve_stdio(path_root=root)
+    notice = mcp_tools.path_root_notice(root)
+    if notice is not None:
+        print(notice, file=sys.stderr)
+    mcp_tools.serve_stdio(path_root=root,
+                          operator_policy=operator_policy)
     return 0
 
 
@@ -2277,6 +2295,18 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
                          "root, when present. An invalid policy "
                          "file stops the run — it is never "
                          "silently ignored")
+    ap.add_argument("--policy-restricted", action="store_true",
+                    help="apply the policy named with --policy "
+                         "in restricted form, exactly like a "
+                         "policy discovered in the reviewed "
+                         "repository: hooks and gate-weakening "
+                         "keys are dropped to defaults and named "
+                         "in the record's policy.ignored_keys. "
+                         "The MCP server passes this for every "
+                         "caller-named policy (pre-review "
+                         "condition, 2026-11-10): through MCP, "
+                         "full trust is reserved for the "
+                         "operator's server-start policy")
     ap.add_argument("--trust-repo-policy", action="store_true",
                     help="honour a policy DISCOVERED in the "
                          "reviewed repository in full, including "
@@ -2430,6 +2460,14 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
         if discovered:
             policy_path = discovered
             policy_origin = "discovered-in-repo"
+    # --policy-restricted (the MCP server passes it for every
+    # caller-named policy): the named file is applied exactly
+    # like a discovered one — origin stamped "mcp-caller", so
+    # the record never claims operator trust for it.
+    policy_restricted = bool(
+        getattr(args, "policy_restricted", False))
+    if policy_restricted and policy_path is not None:
+        policy_origin = "mcp-caller"
     if policy_path:
         try:
             project_policy = policy_mod.load_policy(policy_path)
@@ -2439,8 +2477,9 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
             return 2
         project_policy["origin"] = policy_origin
         ignored_keys = []
-        if policy_origin == "discovered-in-repo" \
-                and not args.trust_repo_policy:
+        if (policy_origin == "discovered-in-repo"
+                and not args.trust_repo_policy) \
+                or policy_restricted:
             ignored_keys = policy_mod \
                 .apply_discovered_restrictions(project_policy)
         print(f"codereview: project policy: "
@@ -2464,6 +2503,13 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
                       f"— pass --trust-repo-policy to honour "
                       f"the repository's policy in full",
                       file=sys.stderr)
+        if policy_restricted and ignored_keys:
+            print(f"codereview: WARNING: "
+                  f"{len(ignored_keys)} gate-weakening "
+                  f"key(s) in the named policy were ignored "
+                  f"under the --policy-restricted trust "
+                  f"restriction ({', '.join(ignored_keys)})",
+                  file=sys.stderr)
     # Epic L3: lifecycle hooks from the policy's [hooks] table.
     # The runner is created here (no side effects) and fired at
     # the lifecycle points below; with no [hooks] commands it
