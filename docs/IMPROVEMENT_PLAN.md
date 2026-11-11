@@ -12,10 +12,22 @@ CodeReview is for solo developers checking code their AI agent wrote. Each user 
 
 ## Verification status (read this before relying on the branch)
 
-- **One check, not two.** For this cycle the same agent (Missy) wrote, reviewed and tested the code. The team's §6 rule wants an author, a separate reviewer and the tester. This branch has had one check, not two independent ones. A second person or seat should review it before it merges.
-- **Tests were not run.** The authoring sandbox refused to execute the repository's code, so the full suite and the new `tests/test_review_modes.py` were written and byte-compiled (`python -m py_compile`) only. Nothing on this branch has been executed.
-- **Lint was not run.** ruff and mypy are not installed in the authoring sandbox. The 18 ruff and 8 mypy findings deferred at 0.13.3 are untouched.
-- **Run before merging** (from the repo root, Python 3.11+):
+- **One check, not two, until a second reviewer decides.** Missy wrote, reviewed and tested the code in cycle 1 and wrote the cycle 2 fixes too. Mike's review of 2026-11-11 is the first independent check. The team's §6 rule wants an author, a separate reviewer and the tester, so the merge call belongs to a second reviewer, not to Missy.
+- **The author has not run any of it.** The authoring sandbox does not run this repository's code, so every change here, including the cycle 2 fixes and their tests, was written and byte-compiled (`python -m py_compile`) only. Every test count below comes from someone else's machine and names that run.
+- **Lint has not run anywhere yet.** ruff and mypy are not installed in the authoring sandbox. The 18 ruff and 8 mypy findings deferred at 0.13.3 are untouched.
+
+### Test runs so far, each with its source
+
+| # | Who ran it, where | Code | Result |
+|---|---|---|---|
+| 1 | Jeremy, his Mac (macOS, Python 3.14), 2026-11-11 | v0.13.3 (c2cb0e5), before the branch | Ran 1662 tests: failures=5, errors=1, skipped=11 |
+| 2 | Jeremy, his Mac (macOS, Python 3.14), 2026-11-11 | branch cycle 1 (bf24022) | Ran 1694 tests: the same 5 failures and 1 error, skipped=11 |
+| 3 | Mike, 2026-11-11; machine and Python not stated | branch cycle 1; exact commit not stated | 1,681 tests collected, 0 failures |
+| — | Missy, authoring sandbox | any | not run |
+
+Runs 1 and 2 fail the same six tests, listed below, so cycle 1 added no failure on that Mac. Run 3's zero failures fit a machine where those six do not show up, such as Linux, but that is inferred, not stated. The 1662, 1681 and 1694 totals differ for reasons not yet pinned down: `tests/test_review_modes.py` had 15 tests in cycle 1, which covers only part of the step from 1662 to 1694.
+
+Cycle 2 (this commit) changes the setup wizard, the gate and loop override path, the single-mode wording, and adds 13 tests to `tests/test_review_modes.py` (28 in all). It has not run anywhere. Run before merging, from the repo root, Python 3.11+:
 
 ```bash
 python3 -m unittest discover -s tests -q
@@ -23,11 +35,11 @@ python3 -m unittest tests.test_review_modes -v
 ruff check src tests && mypy src
 ```
 
-Record the counts here when they run. Until then the branch is NOT READY.
+Add each run to the table with who ran it, where, and the commit. Until a run of cycle 2 passes and a second reviewer signs off, the branch is NOT READY.
 
-### v0.13.3 macOS baseline (before this branch)
+### The six macOS failures in runs 1 and 2
 
-Jeremy ran the suite on his Mac on 2026-11-11 (macOS, Python 3.14) on his v0.13.3 checkout, because the bundle had not been downloaded yet. Result: Ran 1662 tests, FAILED (failures=5, errors=1, skipped=11). None of the six touch files this branch changes. Compare the branch run against this list: only a failure outside it counts against the branch.
+None of the six touch files this branch changes. Compare any later macOS run against this list: only a failure outside it counts against the branch.
 
 - `test_herdr_plugin` `test_outside_herdr_falls_back_to_cwd` and `test_pass_run_streams_verdict_record_and_exits_zero`: the temp dir resolves to `/private/var/...` while the test expects `/var/...`. A test-only symlink mismatch; the fix is to compare `os.path.realpath` on both sides.
 - `test_phase3_security` `test_make_non_dumpable_idempotent`: `hardening.make_non_dumpable()` is Linux-only by design and returns False on macOS. The test should skip off Linux, and the docs should say this hardening does not apply on a Mac.
@@ -79,17 +91,19 @@ Each item lists why, acceptance criteria, and how I will verify it as tester. It
 - The saved setup gains a top-level `review_mode`. A file without it is byte-identical to before, and a mode that does not fit the saved providers fails loudly.
 - The gate and `loop` take `--review-mode single|panel` and refuse a seat count that does not fit before anything is sent. The saved mode applies only when the providers come from the saved setup, so explicit `--provider` flags and `$CODEREVIEW_PROVIDERS` keep working as before.
 - The gate records `review_setup.review_mode` in the run record.
+- Cycle 2 (Mike's review): with agent CLIs found on the machine, single mode asks for one of them, not "any". Asking for two is re-asked in the wizard's own words. Typing one provider at the provider prompt replaces the discovered seat instead of making two. Typing `panel` or `single` at either prompt switches the mode. No wizard message names a gate flag.
 
 **Acceptance criteria:**
 
 - Fresh setup with Enter at the mode prompt saves `review_mode = "single"` and one provider.
 - Single mode with two seats and panel mode with one seat exit 2 with a plain message, and make no provider call.
+- Single mode never dead-ends in setup: with two agent CLIs found, every path ends with one seat saved or a switch to panel.
 - An existing config without `review_mode` behaves exactly as at 0.13.3.
 - The full suite passes unchanged.
 
 **How I verify:** run `tests/test_review_modes.py` and the full suite; run `codereview setup` by hand twice (single and panel) in a throwaway `$CODEREVIEW_CONFIG`; diff a pre-existing config file before and after a run to confirm it is untouched.
 
-**Known gaps:** `codereview pr`, `workflow`, `intake` and `doctor` don't take `--review-mode` yet. A `--role` assignment that adds a second seat in single mode is not refused.
+**Known gaps:** `codereview pr`, `workflow`, `intake` and `doctor` don't take `--review-mode` yet. A `--role` assignment that adds a second seat in single mode is not refused. (Cycle 2 closed the gap Mike found: `--review-mode` is now applied on the internal providers_override path of the gate and `loop`.)
 
 ### 2. Same-vendor warning (done on this branch)
 

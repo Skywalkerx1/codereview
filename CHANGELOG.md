@@ -20,6 +20,22 @@ tested by one agent this cycle; see docs/IMPROVEMENT_PLAN.md,
   in the run record. Verdicts are unchanged.
 - docs/IMPROVEMENT_PLAN.md: the build order, acceptance
   criteria and test plan for the next items.
+- Cycle 2, after Mike's review (2026-11-11):
+  - Setup no longer dead-ends in single mode when two agent CLIs
+    are found: it asks for one, re-asks in its own words if given
+    two, lets one typed provider replace the discovered seat, and
+    takes `panel` / `single` at its prompts to switch mode. Its
+    messages no longer name gate flags.
+  - `--review-mode` now applies on the internal providers_override
+    path of the gate and `loop` (it was silently ignored there).
+  - The single-mode note in setup and the README now say what the
+    gate does with one seat: no cross-family confirmation runs
+    and the run is labelled a solo panel. The earlier text said a
+    dispute went to the user as INCONCLUSIVE, but with one seat
+    there is no second vendor to raise a dispute.
+  - End-to-end tests for the gate's and the loop's same-vendor
+    warning and the loop's mode handling.
+  - The plan's test section names the run behind every count.
 
 ## 0.13.3 — MCP policy-trust removal — 2026-11-10
 
