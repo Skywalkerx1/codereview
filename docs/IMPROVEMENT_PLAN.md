@@ -25,6 +25,15 @@ ruff check src tests && mypy src
 
 Record the counts here when they run. Until then the branch is NOT READY.
 
+### v0.13.3 macOS baseline (before this branch)
+
+Jeremy ran the suite on his Mac on 2026-11-11 (macOS, Python 3.14) on his v0.13.3 checkout, because the bundle had not been downloaded yet. Result: Ran 1662 tests, FAILED (failures=5, errors=1, skipped=11). None of the six touch files this branch changes. Compare the branch run against this list: only a failure outside it counts against the branch.
+
+- `test_herdr_plugin` `test_outside_herdr_falls_back_to_cwd` and `test_pass_run_streams_verdict_record_and_exits_zero`: the temp dir resolves to `/private/var/...` while the test expects `/var/...`. A test-only symlink mismatch; the fix is to compare `os.path.realpath` on both sides.
+- `test_phase3_security` `test_make_non_dumpable_idempotent`: `hardening.make_non_dumpable()` is Linux-only by design and returns False on macOS. The test should skip off Linux, and the docs should say this hardening does not apply on a Mac.
+- `test_probe_harness` `test_limits_applied_inside_probe` and `test_memory_limit_bounds_allocation`: the probe's RLIMIT_AS (2 GiB) is not applied on macOS (the probe reports `as 9223372036854775807`), and `_set` swallows the error. So the probe's memory cap is not enforced on a Mac. This matters for the solo-developer audience, many of whom run on Macs; either enforce a cap another way or skip the tests off Linux and say so in the docs.
+- `test_phase3_security` `McpNestedFrameTests.test_deeply_nested_frame_gets_parse_error`: KeyError 'error'. Inferred, not verified: the MCP transport relies on `RecursionError` to reject a frame nested 50,000 deep, and Python 3.14 appears to parse it without raising, so the frame is answered instead of refused. If that holds, add an explicit nesting-depth check rather than relying on the interpreter's recursion limit.
+
 ## Goals and who it's for
 
 **Who:** a solo developer whose AI coding agent (Claude Code, Codex, Gemini CLI, Grok and the like) writes most of the code, and who wants a second opinion that is not the same model grading its own work.
@@ -179,6 +188,7 @@ Each item lists why, acceptance criteria, and how I will verify it as tester. It
 - Reconcile the clean-block figures in team notes: the briefing's "about 65%" is the `balanced` profile's figure (22 of 34), while the README headline is the default `strict` profile's 32 of 34 (bench/generation-v2/RESULTS-2026-11-05.md). Wherever the default is described, keep `strict`'s figure.
 - The deferred 18 ruff and 8 mypy findings.
 - The old Show HN draft still in the team's to-duet folder.
+- The six macOS baseline failures listed under Verification status: make the suite pass on macOS and Python 3.14, which is where solo developers will first run it.
 
 ## User workflows
 
