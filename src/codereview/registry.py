@@ -48,6 +48,8 @@ today's behaviour exactly.
 
 from __future__ import annotations
 
+from typing import Any
+
 # role -> the lens it pins, where the role IS a review lens.
 ROLES = ("correctness", "operations", "verifier", "tech-lead",
          "tech-lead-shadow", "solver")
@@ -80,7 +82,7 @@ LENS_ROLES = {"correctness": "correctness",
 #   recipe        (local presets only) the short operator recipe
 #                 the setup wizard prints: start the server, then
 #                 pick the preset, then probe with `doctor`
-PRESETS = {
+PRESETS: dict[str, dict[str, Any]] = {
     "openai": {
         "kind": "openai-compatible",
         "base_url": "https://api.openai.com/v1",

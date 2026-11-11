@@ -48,6 +48,7 @@ import re
 import subprocess
 import threading
 import time
+from typing import Any
 
 from . import diversity as diversity_mod
 from . import herdrhost
@@ -2648,7 +2649,7 @@ def _ast_hash(node):
     ).hexdigest()
 
 
-_FUNC_SCAN_CACHE = {}
+_FUNC_SCAN_CACHE: dict[str, list[tuple[Any, ...]]] = {}
 _FUNC_SCAN_CACHE_MAX = 64
 
 
@@ -6016,11 +6017,11 @@ def run_review(patch, providers, context="", test_results=None,
             f"({fixture_scope.get('manifest_path')}, sha256 "
             f"{str(fixture_scope.get('manifest_sha256') or '')[:12]}"
             f"…) — preserved in fixture_findings, not blocking"]
-        for exc in fixture_excess:
+        for over in fixture_excess:
             reasons = reasons + [
-                f"fixture path {exc['pattern']}: "
-                f"{exc['actual']} finding(s) exceed the "
-                f"manifest's expected count {exc['expected']} — "
+                f"fixture path {over['pattern']}: "
+                f"{over['actual']} finding(s) exceed the "
+                f"manifest's expected count {over['expected']} — "
                 f"the excess stays in findings as product "
                 f"findings"]
     if gate == "pass":

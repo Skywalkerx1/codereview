@@ -49,7 +49,9 @@ import sys
 import tempfile
 import threading
 import time
+from types import ModuleType
 
+resource: ModuleType | None
 try:
     import resource
 except ImportError:  # non-POSIX: no rlimits to apply

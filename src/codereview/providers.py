@@ -47,6 +47,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from types import ModuleType
 
 try:
     from . import seatstate
@@ -58,6 +59,7 @@ try:
 except ImportError:  # standalone module load
     import herdrhost  # type: ignore
 
+_discovery: ModuleType | None
 try:
     from . import discovery as _discovery
 except ImportError:  # standalone module load

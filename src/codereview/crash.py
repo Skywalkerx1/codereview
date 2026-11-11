@@ -30,6 +30,7 @@ import os
 import platform
 import sys
 import traceback
+from collections.abc import Callable
 
 from .core import VERSION, redact_secrets
 
@@ -48,7 +49,7 @@ _MAX_TRACEBACK = 20000
 
 # Callables the entry points register to run after a crash (for
 # example: mark a GitHub commit status pending). Best-effort.
-_crash_hooks = []
+_crash_hooks: list[Callable[..., object]] = []
 
 
 def register_crash_hook(fn):

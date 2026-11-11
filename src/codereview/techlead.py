@@ -153,7 +153,7 @@ CONFIDENCE_THRESHOLD_DEFAULT = 0.5
 # stage's evidence bar plus an owner act — neither exists
 # today, so this stays empty and every entry records
 # authority_stage_enabled=False.
-ENABLED_STAGES = frozenset()
+ENABLED_STAGES: frozenset[str] = frozenset()
 
 _MAJOR_PLUS = ("blocker", "major")
 _MINOR_PLUS = ("minor", "nit")
