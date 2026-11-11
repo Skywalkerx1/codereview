@@ -120,6 +120,44 @@ def _mode_step(input_fn, print_fn):
     raise EOFError
 
 
+def _wizard_mode_problem(seats, mode):
+    """The wizard's own wording for a seat count that does not
+    fit `mode`, or None when it fits. It says what to type at
+    the wizard's prompt; registry.review_mode_error's text names
+    gate flags, which mean nothing inside the wizard (review
+    2026-11-11)."""
+    if registry.review_mode_error(len(seats), mode) is None:
+        return None
+    if mode == "single":
+        return ("single-reviewer mode uses one seat, and "
+                f"{len(seats)} are picked ({', '.join(seats)}). "
+                "Type the one provider you want to keep, or type "
+                "'panel' to keep them all as a multi-reviewer "
+                "panel.")
+    have = (f"only {seats[0]} is picked" if seats
+            else "no seat is picked")
+    return ("a multi-reviewer panel needs at least two seats, and "
+            f"{have}. Type another provider, ideally from a "
+            "different vendor, or type 'single' to use one "
+            "reviewer.")
+
+
+def _switch_mode(raw, mode, print_fn):
+    """'panel' / 'single' typed at a seat prompt switches the
+    review mode (only when the wizard asked for one). Returns
+    the new mode, or None when `raw` is not a switch."""
+    if mode is None:
+        return None
+    word = raw.strip().lower()
+    if word in ("panel", "multi", "multiple") and mode != "panel":
+        print_fn("  Switched to a multi-reviewer panel.")
+        return "panel"
+    if word in ("single", "solo", "one") and mode != "single":
+        print_fn("  Switched to a single reviewer.")
+        return "single"
+    return None
+
+
 def _builder_step(input_fn, print_fn, providers):
     """Ask which vendor's model writes the code and warn when a
     reviewer seat shares it. Returns the family (or None when
@@ -180,7 +218,8 @@ def _panel_families(providers):
     return families
 
 
-def _discovery_step(input_fn, print_fn, environ, discover_fn):
+def _discovery_step(input_fn, print_fn, environ, discover_fn,
+                    mode=None):
     """Epic K1: offer the agent CLIs found on PATH as seats.
 
     Returns the list of agent specs the user confirmed (empty
@@ -195,7 +234,7 @@ def _discovery_step(input_fn, print_fn, environ, discover_fn):
     if not found:
         print_fn("No supported agent CLIs found on PATH — "
                  "continuing with API providers.")
-        return []
+        return [], mode
     print_fn("Agent CLIs found on this machine — they review "
              "using your existing CLI logins, no API key "
              "needed:")
@@ -221,38 +260,68 @@ def _discovery_step(input_fn, print_fn, environ, discover_fn):
                      f"agent:{entry['name']}:<your command> "
                      "in the provider step below")
     if not offerable:
-        return []
-    raw = _ask(input_fn, print_fn,
-               "Add any as seats? Numbers or names, "
-               "comma-separated (Enter for none): ")
+        return [], mode
+    if mode == "single":
+        prompt = ("Use one as your reviewer? A number or name "
+                  "(Enter for none; 'panel' to switch to a "
+                  "multi-reviewer panel): ")
+    else:
+        prompt = ("Add any as seats? Numbers or names, "
+                  "comma-separated (Enter for none): ")
     chosen = []
-    for token in (t.strip() for t in raw.split(",")):
-        if not token:
+    for _attempt in range(MAX_PROVIDER_ATTEMPTS):
+        raw = _ask(input_fn, print_fn, prompt)
+        switched = _switch_mode(raw, mode, print_fn)
+        if switched:
+            mode = switched
+            prompt = ("Add any as seats? Numbers or names, "
+                      "comma-separated (Enter for none): ")
             continue
-        entry = None
-        if token.isdigit():
-            idx = int(token) - 1
-            if 0 <= idx < len(offerable):
-                entry = offerable[idx]
-        else:
-            entry = next(
-                (e for e in offerable
-                 if e["name"] == token.lower()), None)
-        if entry is None:
-            print_fn(f"  ! {token!r} is not one of the "
-                     "choices — ignored.")
-        elif entry not in chosen:
-            chosen.append(entry)
+        chosen = []
+        for token in (t.strip() for t in raw.split(",")):
+            if not token:
+                continue
+            entry = None
+            if token.isdigit():
+                idx = int(token) - 1
+                if 0 <= idx < len(offerable):
+                    entry = offerable[idx]
+            else:
+                entry = next(
+                    (e for e in offerable
+                     if e["name"] == token.lower()), None)
+            if entry is None:
+                print_fn(f"  ! {token!r} is not one of the "
+                         "choices — ignored.")
+            elif entry not in chosen:
+                chosen.append(entry)
+        if mode == "single" and len(chosen) > 1:
+            # Review 2026-11-11 (Mike): two picks in single
+            # mode used to dead-end the provider step. Ask
+            # again here, in the wizard's own words.
+            print_fn("  ! single-reviewer mode uses one seat: "
+                     "enter one number or name, or type 'panel' "
+                     "to use them all as a multi-reviewer panel.")
+            chosen = []
+            continue
+        break
+    else:
+        if chosen == [] and mode == "single":
+            print_fn("  No agent CLI picked — continuing with "
+                     "API providers.")
     picked = []
     for entry in chosen:
         picked.append(discovery.seat_spec(entry))
         print_fn(f"  + {entry['display']} added as an agent "
                  "seat.")
-    if picked:
+    if picked and mode == "single":
+        print_fn("Press Enter at the provider prompt to keep it, "
+                 "or type one provider there to use instead.")
+    elif picked:
         print_fn("You can add API providers below too, or "
                  "press Enter at the provider prompt to keep "
                  "just the discovered seats.")
-    return picked
+    return picked, mode
 
 
 def run_wizard(input_fn=input, print_fn=print, environ=None,
@@ -276,8 +345,8 @@ def run_wizard(input_fn=input, print_fn=print, environ=None,
              "verdict — so the model that wrote the code is never "
              "the only one that checked it.")
     mode = _mode_step(input_fn, print_fn) if ask_mode else None
-    picked = _discovery_step(input_fn, print_fn, environ,
-                             discover_fn)
+    picked, mode = _discovery_step(input_fn, print_fn, environ,
+                                   discover_fn, mode)
     print_fn("Providers (preset[:model], a custom "
              "name|type|base|model|KEY_ENV spec, or "
              "agent:<name>:<command>):")
@@ -305,6 +374,16 @@ def run_wizard(input_fn=input, print_fn=print, environ=None,
     while not providers:
         raw = _ask(input_fn, print_fn,
                    "Providers, comma-separated: ")
+        switched = _switch_mode(raw, mode, print_fn)
+        if switched:
+            # Review 2026-11-11: 'panel' / 'single' at this
+            # prompt changes the mode instead of costing a try.
+            mode = switched
+            if picked and registry.review_mode_error(
+                    len(picked), mode) is None:
+                print_fn("  Press Enter to keep "
+                         f"{', '.join(picked)}, or add more.")
+            continue
         attempts += 1
         candidates = [s.strip() for s in raw.split(",")
                       if s.strip()]
@@ -313,7 +392,7 @@ def run_wizard(input_fn=input, print_fn=print, environ=None,
             # discovery step confirmed — only reachable when
             # discovery contributed, so a hand-typed flow sees
             # today's behaviour byte-for-byte.
-            problem = registry.review_mode_error(len(picked), mode)
+            problem = _wizard_mode_problem(picked, mode)
             if problem is None:
                 providers = list(picked)
                 break
@@ -339,6 +418,17 @@ def run_wizard(input_fn=input, print_fn=print, environ=None,
                          "provider entries; nothing saved.")
                 raise EOFError
             continue
+        if mode == "single" and picked and len(candidates) == 1:
+            # Review 2026-11-11 (Mike): in single mode, one
+            # typed provider is the user's one reviewer. It
+            # replaces the discovered seat instead of making
+            # two and dead-ending.
+            only = candidates[0]
+            if only not in picked:
+                print_fn(f"  Using {only} as your one reviewer "
+                         f"instead of {', '.join(picked)}.")
+            providers = [only]
+            break
         # An exact repeat of a discovery pick (the user pasted
         # the same agent spec by hand) would seat the identical
         # command twice under two names — one model wearing
@@ -350,7 +440,7 @@ def run_wizard(input_fn=input, print_fn=print, environ=None,
                          "from discovery — duplicate skipped.")
         chosen = picked + [s for s in candidates
                            if s not in picked]
-        problem = registry.review_mode_error(len(chosen), mode)
+        problem = _wizard_mode_problem(chosen, mode)
         if problem:
             print_fn(f"  ! {problem}")
             if attempts >= MAX_PROVIDER_ATTEMPTS:
@@ -424,8 +514,9 @@ def run_wizard(input_fn=input, print_fn=print, environ=None,
         # questions with one possible answer is noise.
         print_fn("Single-reviewer mode: your one seat reviews "
                  "for every role (correctness, operations, "
-                 "verification). A dispute with no second vendor "
-                 "to adjudicate goes to you as INCONCLUSIVE.")
+                 "verification). No second vendor cross-checks "
+                 "its findings, and the record labels the run "
+                 "'solo panel — no independent review'.")
         wizard_roles = []
     else:
         print_fn("Assign a model per role. Enter accepts the "
