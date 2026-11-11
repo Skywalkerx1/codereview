@@ -30,6 +30,16 @@ setup`. The user, not the product, chooses the models:
      spec, or leaves the role to the panel;
   4. save to the user config (userconfig) as the defaults.
 
+With `ask_mode=True` (what `codereview setup` and the first-run
+prompt use; improvement plan 2026-11-11) the wizard first asks
+for the REVIEW MODE — single reviewer (the default) or a
+multi-reviewer panel, the user's choice whatever the project's
+size — and, after the providers, which vendor's model writes the
+code, so it can warn when a reviewer shares that vendor. Single
+mode takes exactly one seat and skips the per-role step (the one
+seat serves every role); panel mode takes two or more. Callers
+that pass nothing get the earlier flow unchanged.
+
 input/print are injectable so the whole flow is testable with
 scripted answers; EOF at any prompt aborts WITHOUT saving.
 """
@@ -57,6 +67,90 @@ def _ask(input_fn, print_fn, prompt):
     except EOFError:
         print_fn("setup aborted — nothing saved.")
         raise
+
+
+def _seat_family(spec):
+    """One spec's vendor family for the wizard's warnings, or
+    None when it cannot be attributed (see _panel_families)."""
+    family = None
+    if spec.startswith("agent:"):
+        try:
+            name, _opts, _cmd = _parse_agent_spec(spec)
+        except ProviderError:
+            return None
+        family = discovery.family_for_seat_name(name)
+    else:
+        try:
+            family = describe_spec(spec)["family"]
+        except ProviderError:
+            return None
+    if family and family not in ("agent", "unknown"):
+        return family
+    return None
+
+
+def _mode_step(input_fn, print_fn):
+    """Ask single reviewer vs multi-reviewer panel. Enter takes
+    the default (single). Bounded like the provider prompt:
+    persistent nonsense aborts through the EOF channel."""
+    print_fn("Review mode — your choice, for any project size:")
+    print_fn("  1. single reviewer (default): one model reviews "
+             "each change. Fastest and cheapest; pick a model "
+             "from a different vendor than your coding agent.")
+    print_fn("  2. multi-reviewer panel: two or more models from "
+             "different vendors review and cross-check each "
+             "other. Slower and costs more per review; catches "
+             "what one vendor's models share as a blind spot.")
+    for _attempt in range(MAX_PROVIDER_ATTEMPTS):
+        raw = _ask(input_fn, print_fn,
+                   "Review mode, 1 or 2 [1]: ").lower()
+        if raw in ("", "1"):
+            return "single"
+        if raw == "2":
+            return "panel"
+        try:
+            mode = registry.normalize_review_mode(raw)
+        except ValueError as exc:
+            print_fn(f"  ! {exc}")
+            continue
+        if mode:
+            return mode
+    print_fn("setup aborted — no review mode chosen; nothing "
+             "saved.")
+    raise EOFError
+
+
+def _builder_step(input_fn, print_fn, providers):
+    """Ask which vendor's model writes the code and warn when a
+    reviewer seat shares it. Returns the family (or None when
+    skipped). Never blocks: the gate's rules, not the wizard,
+    decide what a review may conclude."""
+    raw = _ask(input_fn, print_fn,
+               "Which vendor's model writes your code? e.g. "
+               "anthropic (Claude Code), openai (Codex), google "
+               "(Gemini CLI), xai (Grok) — Enter to skip: ")
+    builder = registry.normalize_builder_family(raw)
+    if not builder:
+        return None
+    seat_families = {}
+    for spec in providers:
+        family = _seat_family(spec)
+        if family:
+            seat_families[spec] = family
+    same = registry.same_vendor_seats(seat_families, builder)
+    if same:
+        print_fn(f"Same-vendor check: {', '.join(same)} "
+                 f"{'is' if len(same) == 1 else 'are'} from "
+                 f"{builder}, the same vendor as your coding "
+                 "agent. A reviewer from the builder's own vendor "
+                 "tends to share its blind spots, so this is "
+                 "closer to self-review. Reviews still run; "
+                 "consider a reviewer from another vendor "
+                 "(re-run `codereview setup` to change it).")
+    else:
+        print_fn(f"Same-vendor check: no reviewer seat is from "
+                 f"{builder} — good.")
+    return builder
 
 
 def _panel_families(providers):
@@ -162,7 +256,7 @@ def _discovery_step(input_fn, print_fn, environ, discover_fn):
 
 
 def run_wizard(input_fn=input, print_fn=print, environ=None,
-               probe_fn=None, discover_fn=None):
+               probe_fn=None, discover_fn=None, ask_mode=False):
     """Drive the wizard; returns the saved config dict
     ({"providers", "roles", "path"}), or None when aborted.
     `probe_fn(providers_dict) -> doctor-result` is optional;
@@ -170,7 +264,8 @@ def run_wizard(input_fn=input, print_fn=print, environ=None,
     saving (the CLI wires core.run_doctor). `discover_fn()` ->
     found-CLI list is the Epic K1 seam: None runs real PATH
     discovery against `environ`'s PATH (discovery.discover_
-    clis); tests inject a fake machine."""
+    clis); tests inject a fake machine. `ask_mode=True` adds
+    the review-mode and same-vendor steps (module docstring)."""
     environ = os.environ if environ is None else environ
     print_fn("CodeReview setup — you choose the models; nothing "
              "is pre-picked.")
@@ -180,6 +275,7 @@ def run_wizard(input_fn=input, print_fn=print, environ=None,
              "other's findings, and issues a recorded pass/block "
              "verdict — so the model that wrote the code is never "
              "the only one that checked it.")
+    mode = _mode_step(input_fn, print_fn) if ask_mode else None
     picked = _discovery_step(input_fn, print_fn, environ,
                              discover_fn)
     print_fn("Providers (preset[:model], a custom "
@@ -217,8 +313,16 @@ def run_wizard(input_fn=input, print_fn=print, environ=None,
             # discovery step confirmed — only reachable when
             # discovery contributed, so a hand-typed flow sees
             # today's behaviour byte-for-byte.
-            providers = list(picked)
-            break
+            problem = registry.review_mode_error(len(picked), mode)
+            if problem is None:
+                providers = list(picked)
+                break
+            print_fn(f"  ! {problem}")
+            if attempts >= MAX_PROVIDER_ATTEMPTS:
+                print_fn("setup aborted — too many invalid "
+                         "provider entries; nothing saved.")
+                raise EOFError
+            continue
         bad = []
         for spec in candidates:
             try:
@@ -244,9 +348,18 @@ def run_wizard(input_fn=input, print_fn=print, environ=None,
             if spec in picked:
                 print_fn(f"  ! {spec} is already in the panel "
                          "from discovery — duplicate skipped.")
-        providers = picked + [s for s in candidates
-                              if s not in picked]
-    if picked:
+        chosen = picked + [s for s in candidates
+                           if s not in picked]
+        problem = registry.review_mode_error(len(chosen), mode)
+        if problem:
+            print_fn(f"  ! {problem}")
+            if attempts >= MAX_PROVIDER_ATTEMPTS:
+                print_fn("setup aborted — too many invalid "
+                         "provider entries; nothing saved.")
+                raise EOFError
+            continue
+        providers = chosen
+    if mode != "single" and (picked or mode == "panel"):
         # Family-diversity guard (Epic K1): discovery makes it
         # easy to build a one-family panel without noticing.
         # Warn in plain words and offer one API spec as the
@@ -298,15 +411,26 @@ def run_wizard(input_fn=input, print_fn=print, environ=None,
                      f"{desc['key_env']} is {state}. Export it "
                      "before running reviews; the key itself is "
                      "never stored.")
-    print_fn("Assign a model per role. Enter accepts the "
-             "suggestion, type any provider spec to override, "
-             "'-' leaves the role to the panel.")
+    builder_family = (_builder_step(input_fn, print_fn, providers)
+                      if ask_mode else None)
     roles = {}
     # The wizard assigns the serving roles; tech-lead-shadow is
     # an opt-in evaluation seat assigned via --role or the saved
     # config, not part of the first-run flow.
     wizard_roles = [r for r in registry.ROLES
                     if r != "tech-lead-shadow"]
+    if mode == "single":
+        # One seat serves every lens and role; asking five role
+        # questions with one possible answer is noise.
+        print_fn("Single-reviewer mode: your one seat reviews "
+                 "for every role (correctness, operations, "
+                 "verification). A dispute with no second vendor "
+                 "to adjudicate goes to you as INCONCLUSIVE.")
+        wizard_roles = []
+    else:
+        print_fn("Assign a model per role. Enter accepts the "
+                 "suggestion, type any provider spec to override, "
+                 "'-' leaves the role to the panel.")
     for i, role in enumerate(wizard_roles):
         suggestion = providers[i % len(providers)]
         answer = _ask(
@@ -347,9 +471,18 @@ def run_wizard(input_fn=input, print_fn=print, environ=None,
             continue
         seat_meta[desc["seat"]] = desc["family"]
     path = userconfig.save_user_config(
-        providers, roles, environ=environ, seat_meta=seat_meta)
-    print_fn(f"Saved your setup to {path} — providers: "
+        providers, roles, environ=environ, seat_meta=seat_meta,
+        review_mode=mode, builder_family=builder_family)
+    mode_txt = ""
+    if mode:
+        mode_txt = ("mode: single reviewer; " if mode == "single"
+                    else "mode: multi-reviewer panel; ")
+    print_fn(f"Saved your setup to {path} — {mode_txt}providers: "
              f"{', '.join(providers)}; roles: "
              f"{len(roles)} assigned.")
-    return {"providers": providers, "roles": roles,
-            "seat_meta": seat_meta, "path": path}
+    result = {"providers": providers, "roles": roles,
+              "seat_meta": seat_meta, "path": path}
+    if ask_mode:
+        result["review_mode"] = mode
+        result["builder_family"] = builder_family
+    return result
