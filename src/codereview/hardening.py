@@ -13,6 +13,9 @@ and MCP entry points and lazily at the sandbox and discovery
 choke points, so any host process that runs untrusted
 commands gets the protection. Failure-silent (hardening is
 best-effort, never a run failure), Linux-only, idempotent.
+Elsewhere (macOS, Windows) there is no equivalent call: it
+returns False and the gate's own environment is not
+protected — see THREAT-MODEL.md residual 7.
 """
 
 from __future__ import annotations

@@ -32,6 +32,7 @@ package.
 
 import json
 import math
+import re
 import sys
 
 # JSON-RPC 2.0 error codes used by this layer.
@@ -46,6 +47,35 @@ INTERNAL_ERROR = -32603
 # monorepo-scale hand-off diff fits far under this — 16 MiB is
 # generous headroom, not an invitation.
 MAX_FRAME_BYTES = 16 * 1024 * 1024
+
+# One frame's nesting ceiling (P3-05 follow-up). Relying on
+# json.loads raising RecursionError is not portable: Python
+# 3.14 bounds the decoder by actual C-stack use, so on some
+# platforms (macOS) a 50,000-deep frame parses and is served.
+# The depth is checked explicitly before parsing instead; no
+# MCP request comes near 128 levels.
+MAX_NESTING_DEPTH = 128
+
+# A JSON string token (quotes and backslash are ASCII, so
+# this is safe on raw UTF-8 bytes) or a structural bracket.
+_DEPTH_TOKEN = re.compile(rb'"(?:[^"\\]+|\\.)*"|[\[\]{}]', re.DOTALL)
+
+
+def _nesting_exceeds(raw, limit=MAX_NESTING_DEPTH):
+    """True when the frame's brackets nest deeper than
+    `limit`. Brackets inside strings do not count, and the
+    scan stops at the first level past the limit. One linear
+    pass over a frame already bounded by MAX_FRAME_BYTES."""
+    depth = 0
+    for match in _DEPTH_TOKEN.finditer(raw):
+        tok = match.group()
+        if tok in (b"[", b"{"):
+            depth += 1
+            if depth > limit:
+                return True
+        elif tok in (b"]", b"}"):
+            depth -= 1
+    return False
 
 
 class JsonRpcError(Exception):
@@ -172,6 +202,13 @@ class StdioServer:
                     f"({self._max_frame_bytes} bytes)"))
                 continue
             if not raw.strip():
+                continue
+            if _nesting_exceeds(raw):
+                detail = ("frame nests deeper than "
+                          f"{MAX_NESTING_DEPTH} levels")
+                self._record("parse_error", detail)
+                self._send(error_response(
+                    None, PARSE_ERROR, f"parse error: {detail}"))
                 continue
             try:
                 message = json.loads(raw.decode("utf-8"))

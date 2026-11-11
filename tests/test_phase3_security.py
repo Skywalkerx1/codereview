@@ -580,10 +580,26 @@ class ParentEnvironHardeningTests(unittest.TestCase):
     allow-listed, but /proc/$PPID/environ exposed the gate
     process's full environment to the sandboxed command."""
 
+    @unittest.skipUnless(
+        sys.platform.startswith("linux"),
+        "PR_SET_DUMPABLE is Linux-only; elsewhere the call "
+        "reports False — see test_non_linux_claims_no_hardening")
     def test_make_non_dumpable_idempotent(self):
         from codereview import hardening
         self.assertTrue(hardening.make_non_dumpable())
         self.assertTrue(hardening.make_non_dumpable())
+
+    def test_non_linux_claims_no_hardening(self):
+        # macOS and Windows have no prctl: the call must say
+        # the protection is NOT in effect, never report True.
+        from unittest import mock
+
+        from codereview import hardening
+        with mock.patch.object(hardening, "_APPLIED", False), \
+                mock.patch.object(hardening.sys, "platform",
+                                  "darwin"):
+            self.assertFalse(hardening.make_non_dumpable())
+            self.assertFalse(hardening._APPLIED)
 
     def test_collect_applies_hardening_at_entry(self):
         # L11: the hardening lives inside collect() itself,
@@ -741,6 +757,58 @@ class McpNestedFrameTests(unittest.TestCase):
         self.assertEqual(out[1]["id"], "after")
         self.assertIn("parse_error",
                       [e["kind"] for e in server.errors])
+
+    def _serve(self, *frames):
+        from codereview import mcp_tools
+        stdin = io.BytesIO(b"".join(f + b"\n" for f in frames))
+        stdout = io.BytesIO()
+        server = mcp_tools.serve_stdio(
+            mcp_tools.GateTools(
+                providers_override={"a": lambda _p: PASS_VERDICT}),
+            stdin=stdin, stdout=stdout, log=lambda _t: None)
+        return [json.loads(line) for line in
+                stdout.getvalue().decode().splitlines()
+                if line.strip()], server
+
+    def _ping(self, params):
+        return (b'{"jsonrpc":"2.0","method":"ping","id":1,'
+                b'"params":' + params + b"}")
+
+    def test_depth_cap_is_explicit_not_interpreter_dependent(self):
+        # One level past the cap is refused on every Python,
+        # far below any interpreter recursion limit — the
+        # refusal no longer depends on json.loads raising
+        # RecursionError (which Python 3.14 on macOS does not).
+        from codereview import mcp_transport
+        limit = mcp_transport.MAX_NESTING_DEPTH
+        # The ping object itself is one level, so this frame
+        # nests limit + 1 deep.
+        over = self._ping(b"[" * limit + b"]" * limit)
+        out, server = self._serve(over)
+        self.assertEqual(out[0]["error"]["code"],
+                         mcp_transport.PARSE_ERROR)
+        self.assertIsNone(out[0]["id"])
+        self.assertIn("parse_error",
+                      [e["kind"] for e in server.errors])
+
+    def test_frame_at_the_depth_cap_is_served(self):
+        from codereview import mcp_transport
+        depth = mcp_transport.MAX_NESTING_DEPTH - 1
+        out, server = self._serve(
+            self._ping(b"[" * depth + b"]" * depth))
+        self.assertEqual(out[0]["id"], 1)
+        self.assertNotIn("error", out[0])
+        self.assertEqual(server.errors, [])
+
+    def test_brackets_inside_strings_do_not_count(self):
+        from codereview import mcp_transport
+        depth = mcp_transport.MAX_NESTING_DEPTH * 4
+        text = ('"\\"' + "[" * depth + '{"').encode()
+        out, server = self._serve(
+            self._ping(b'{"note":' + text + b"}"))
+        self.assertEqual(out[0]["id"], 1)
+        self.assertNotIn("error", out[0])
+        self.assertEqual(server.errors, [])
 
 
 class SandboxGroupKillTests(unittest.TestCase):

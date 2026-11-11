@@ -339,8 +339,17 @@ class SandboxHardeningTests(unittest.TestCase):
         self.assertEqual(res["outcome"], "pass")
         self.assertIn(f"cpu {30 + probe_mod._CPU_SLACK_S}",
                       res["output"])
-        self.assertIn(f"as {probe_mod._PROBE_MEMORY_LIMIT}",
-                      res["output"])
+        if probe_mod._memory_cap_enforced():
+            self.assertIn(f"as {probe_mod._PROBE_MEMORY_LIMIT}",
+                          res["output"])
+            self.assertEqual(
+                res["sandbox"]["memory_cap"],
+                f"RLIMIT_AS {probe_mod._PROBE_MEMORY_LIMIT} bytes")
+        else:
+            # macOS does not enforce RLIMIT_AS: the result must
+            # say the cap is absent instead of claiming it.
+            self.assertIn("not enforced",
+                          res["sandbox"]["memory_cap"])
         self.assertIn(
             f"fsize {probe_mod._PROBE_FILE_SIZE_LIMIT}",
             res["output"])
@@ -448,6 +457,11 @@ class SandboxHardeningTests(unittest.TestCase):
         self.assertGreater(elapsed, 3)
         self.assertLess(elapsed, 20)
 
+    @unittest.skipUnless(
+        probe_mod._memory_cap_enforced(),
+        "this platform does not enforce RLIMIT_AS (macOS); the "
+        "probe reports its memory as uncapped instead — see "
+        "test_macos_reports_memory_cap_not_enforced")
     def test_memory_limit_bounds_allocation(self):
         # The probe reserves anonymous address space in
         # 256 MiB chunks (reservation alone does not touch
@@ -489,6 +503,26 @@ class SandboxHardeningTests(unittest.TestCase):
         self.assertGreater(reserved,
                            probe_mod._PROBE_MEMORY_LIMIT
                            * 3 // 4)
+
+    def test_macos_reports_memory_cap_not_enforced(self):
+        # Runs on every POSIX host: with the platform reported
+        # as macOS, the result and the probe_fn detail must
+        # both say the memory cap is not enforced — never the
+        # 2 GiB figure the platform would silently ignore.
+        with mock.patch.object(probe_mod.sys, "platform",
+                               "darwin"):
+            self.assertFalse(probe_mod._memory_cap_enforced())
+        root = _tree({})
+        with mock.patch.object(probe_mod, "_memory_cap_enforced",
+                               return_value=False):
+            res = probe_mod.make_probe_fn(root, timeout=30)(
+                {}, {"kind": "python", "code": "print('ok')"})
+        self.assertEqual(res["outcome"], "pass")
+        self.assertIn("not enforced",
+                      res["sandbox"]["memory_cap"])
+        self.assertNotIn(str(probe_mod._PROBE_MEMORY_LIMIT),
+                         res["sandbox"]["memory_cap"])
+        self.assertIn("memory cap not enforced", res["detail"])
 
     def test_file_size_limit_blocks_oversize_write(self):
         # A write that would extend a file past

@@ -75,7 +75,9 @@ it that way here too.
   copy, a tighter env allow-list, a timeout whose expiry
   kills the whole process group (`start_new_session` +
   `killpg`), rlimits set in the child (`RLIMIT_CPU` =
-  timeout + 5 s, `RLIMIT_AS` 2 GiB, `RLIMIT_FSIZE` 256 MiB,
+  timeout + 5 s, `RLIMIT_AS` 2 GiB — not enforced by macOS,
+  where the probe's memory is uncapped and the result's
+  `sandbox.memory_cap` says so — `RLIMIT_FSIZE` 256 MiB,
   `RLIMIT_NOFILE` 1024, core dumps off — the C5 hardening of
   2026-11-06), drained output caps, and an `unshare -n`
   probe with honest fallback. Its confinement is per-probe
@@ -188,8 +190,11 @@ or a container.
    other dumpable same-uid process — the operator's shell,
    IDE, or another agent holding provider keys in its
    environment. The gate hardens its *own* process
-   (`PR_SET_DUMPABLE, 0`, Phase 3 P3-04), but sibling
-   processes are not ours to harden. So the "provider keys
+   (`PR_SET_DUMPABLE, 0`, Phase 3 P3-04) on Linux only:
+   macOS has no equivalent, so there the gate's own
+   environment stays readable to a same-uid process too
+   (`make_non_dumpable()` returns False and claims nothing).
+   Sibling processes are not ours to harden. So the "provider keys
    never reach an evidence process" property depends on
    namespace mode: in env-only mode it holds only for keys
    no same-uid process carries. **Env-only mode is not

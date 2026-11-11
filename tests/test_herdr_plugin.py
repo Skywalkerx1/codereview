@@ -150,7 +150,10 @@ class _LauncherCase(unittest.TestCase):
     scratch workspace, and a controlled environment."""
 
     def setUp(self):
-        self.tmp = tempfile.mkdtemp(prefix="k3b-")
+        # realpath: on macOS the temp dir lives under /var,
+        # a symlink to /private/var, and a child's getcwd()
+        # reports the resolved path — compare like with like.
+        self.tmp = os.path.realpath(tempfile.mkdtemp(prefix="k3b-"))
         self.addCleanup(self._rmtree)
         self.bin_dir = os.path.join(self.tmp, "bin")
         self.empty_bin = os.path.join(self.tmp, "empty-bin")

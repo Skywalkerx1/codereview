@@ -23,7 +23,9 @@ Sandbox discipline:
 - Resource limits and tree kill (the C5 discipline the
   evidence sandbox established): the probe runs in its own
   session under POSIX rlimits (CPU time, address space,
-  per-file size, open files; core dumps off), its output
+  per-file size, open files; core dumps off — the
+  address-space cap is not enforced by macOS, and there the
+  result's sandbox.memory_cap says so), its output
   is drained under a per-stream byte cap so a spewing
   probe cannot grow the harness's memory, and expiry —
   or normal exit — kills the probe's whole process
@@ -190,6 +192,25 @@ def _sandbox_env(tmp, work):
     # whose directory would otherwise shadow sys.path).
     env["PYTHONPATH"] = work
     return env
+
+
+def _memory_cap_enforced():
+    """Whether the RLIMIT_AS cap actually bounds a probe's
+    memory on this platform. macOS accepts or ignores the
+    request but never enforces it (getrlimit inside the probe
+    still reports unlimited and a 10 GiB reservation
+    succeeds), and RLIMIT_DATA there does not bound mmap'd
+    heaps either, so on macOS the probe's memory is uncapped
+    and its result says so rather than claiming the cap."""
+    return resource is not None and sys.platform != "darwin"
+
+
+def _memory_cap_note():
+    if _memory_cap_enforced():
+        return f"RLIMIT_AS {_PROBE_MEMORY_LIMIT} bytes"
+    return ("not enforced on this platform: the probe's "
+            "memory is uncapped (bounded only by the "
+            "wall-clock and CPU limits)")
 
 
 def _apply_probe_limits(timeout):
@@ -489,7 +510,8 @@ def run_probe(spec, tree_dir, timeout=PROBE_TIMEOUT_DEFAULT):
             "sandbox": {"cwd": "temp-copy",
                         "network": net_level,
                         "env": "allowlist",
-                        "timeout_s": timeout},
+                        "timeout_s": timeout,
+                        "memory_cap": _memory_cap_note()},
             "spec": spec,
             "can_rebut": True, "can_support": False,
             "detail": (f"harness probe {outcome} "
@@ -530,5 +552,8 @@ def make_probe_fn(tree_dir, timeout=PROBE_TIMEOUT_DEFAULT):
                 "detail": (f"{res['detail']}; output sha256 "
                            f"{res['output_sha256'][:12]}…; "
                            f"sandbox network="
-                           f"{res['sandbox'].get('network')}")}
+                           f"{res['sandbox'].get('network')}"
+                           + ("" if _memory_cap_enforced()
+                              else "; memory cap not enforced "
+                                   "on this platform"))}
     return probe_fn
