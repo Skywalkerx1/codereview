@@ -1,5 +1,26 @@
 # Changelog
 
+## Unreleased — improvement plan, cycle 1 (branch improvement-plan-1)
+
+Not released and not version-bumped. Written, reviewed and
+tested by one agent this cycle; see docs/IMPROVEMENT_PLAN.md,
+"Verification status", for what was and was not run.
+
+- Review modes (owner decision 2026-11-11): `codereview setup`
+  asks for single reviewer (default) or multi-reviewer panel;
+  the saved setup gains top-level `review_mode`; the gate and
+  `loop` take `--review-mode single|panel` and refuse a seat
+  count that does not fit. No gate rule changes.
+- Same-vendor warning: setup asks for the coding agent's vendor
+  (saved as `builder_family`); the gate and `loop` take
+  `--builder-family` and warn on stderr when a reviewer seat is
+  from the same vendor; `loop` also infers it from a
+  `--builder-cmd` running claude, codex or gemini. The gate
+  records `review_setup` (mode, builder family, matching seats)
+  in the run record. Verdicts are unchanged.
+- docs/IMPROVEMENT_PLAN.md: the build order, acceptance
+  criteria and test plan for the next items.
+
 ## 0.13.3 — MCP policy-trust removal — 2026-11-10
 
 Closes the remaining item from the 0.13.2 audit line (item E,

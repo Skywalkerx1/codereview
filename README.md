@@ -175,6 +175,19 @@ or via the generic escape hatch `--provider "openai-compatible:https://api.examp
 
 Keys come from environment variables only — bring your own key for every provider; nothing is stored or logged. Secrets in the diff are redacted before anything is sent to a provider: the redaction is pattern-based best-effort, covering known token formats (cloud and provider API keys, private-key blocks, a bare private-key body line that carries the key's DER/OpenSSH start, credential-bearing URLs, and keyword-named assignments) — it is not a guarantee. The boundary, stated plainly: encoded forms of a key (base64, hex, URL-encoded, line-wrapped, case-transformed) are not caught, and neither are the later body lines of a headerless key fragment — only the line carrying the key's start is a recognisable shape. The diff is treated as untrusted data — reviewers are instructed to ignore instructions embedded in code and comments.
 
+### Review modes — one reviewer or a panel, your choice
+
+*(Unreleased, on branch `improvement-plan-1`; not yet in a published version.)*
+
+`codereview setup` now starts by asking for a **review mode**. Both are open to every user, whatever the project's size:
+
+- **single reviewer** (the default): one model reviews each change and serves every lens. It is the fastest and cheapest setup. Pick a reviewer from a different vendor than the agent that writes your code.
+- **multi-reviewer panel**: two or more models, ideally from different vendors, review and cross-check each other.
+
+The mode is saved with your setup and applies when a run takes its providers from that setup. `--review-mode single|panel` sets it per run on the gate and `loop` commands; a seat count that does not fit the mode is refused before anything is sent. The mode changes no gate rule: in single mode the gate still runs the `strict` profile (the `corroborated` profile needs two vendor families), and a dispute that no second vendor can adjudicate goes to you as INCONCLUSIVE.
+
+**Same-vendor warning.** Setup also asks which vendor's model writes your code. When a reviewer seat is from that vendor, setup and every run print a warning (`--builder-family` sets it per run; `loop` also recognises a `--builder-cmd` that runs `claude`, `codex` or `gemini`). The gate command records the mode, the builder's vendor and any matching seats under `review_setup` in the run record. The warning never changes a verdict.
+
 ### Pick the model for each role
 
 Reviewing isn't one job, and one model doesn't have to do all of it. `--role <role>=<provider-spec>` assigns a provider/model per role; the role's seat joins the panel, and the assignment (seat, provider, model, vendor family) is written into the run record. Roles: `correctness` and `operations` (the two review lenses — the assigned seat serves that lens), `verifier` (the verification-round panel), `tech-lead` (the dispute adjudicator), and `solver` (intake mode's plan writer, via `codereview intake --role solver=...`). Roles you assign in `codereview setup` are your standing defaults; `--role` on a run overrides them per role for that run.
