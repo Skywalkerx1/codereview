@@ -49,6 +49,7 @@ from . import hooks as hooks_mod
 from . import notify as notify_mod
 from . import policy as policy_mod
 from . import evidence as evidence_mod
+from . import discovery as discovery_mod
 from . import registry
 from . import sarif as sarif_mod
 from . import setup_wizard, userconfig
@@ -372,11 +373,69 @@ def _write_report(report, out_dir, prog, stem=None):
         raise _ReportWriteFailed(str(exc)) from exc
 
 
+_REVIEW_MODE_HELP = (
+    "review mode: 'single' (one reviewer seat serves every "
+    "lens; the setup default) or 'panel' (two or more seats, "
+    "ideally from different vendors). The run refuses a seat "
+    "count that does not fit the mode. Default: the mode your "
+    "saved setup names when the providers come from it; "
+    "otherwise no constraint")
+_BUILDER_FAMILY_HELP = (
+    "vendor of the model that wrote the change (e.g. anthropic, "
+    "openai, google, xai). A reviewer seat from the same vendor "
+    "draws a warning on stderr and in the record; it never "
+    "changes the verdict. Default: your saved setup's value")
+
+
+def _resolve_review_mode(flag_value, specs_from_setup):
+    """The run's review mode: the flag, else the saved setup's
+    mode when the providers came from that setup, else None.
+    Raises ValueError for a bad value or a broken setup."""
+    mode = registry.normalize_review_mode(flag_value)
+    if mode is None and specs_from_setup:
+        mode = userconfig.default_review_mode()
+    return mode
+
+
+def _same_vendor_warning(seat_families, builder_family, prog):
+    """Print the same-vendor warning and return the matching
+    seat names ([] when none or no builder family is known)."""
+    same = registry.same_vendor_seats(seat_families,
+                                      builder_family)
+    if same:
+        builder = registry.normalize_builder_family(builder_family)
+        print(f"{prog}: warning: reviewer seat"
+              f"{'s' if len(same) > 1 else ''} "
+              f"{', '.join(same)} share{'' if len(same) > 1 else 's'} "
+              f"the vendor family '{builder}' with the model that "
+              f"wrote the change; same-vendor review tends to share "
+              f"the builder's blind spots. Add or switch to a "
+              f"reviewer from another vendor (codereview setup).",
+              file=sys.stderr)
+    return same
+
+
+def _builder_family_from_cmd(builder_cmd):
+    """Best-effort vendor of a loop --builder-cmd whose program
+    is a CLI the discovery table knows (claude, codex, gemini);
+    None otherwise. Used for the same-vendor warning only."""
+    import shlex
+    try:
+        argv = shlex.split(builder_cmd or "")
+    except ValueError:
+        return None
+    if not argv:
+        return None
+    return discovery_mod.family_for_seat_name(
+        os.path.basename(argv[0]))
+
+
 def _run_setup_wizard():
     """The first-run wizard (test seam): the CLI wires the live
     seat probe; tests substitute this to script a setup."""
     return setup_wizard.run_wizard(
-        probe_fn=lambda providers: core.run_doctor(providers))
+        probe_fn=lambda providers: core.run_doctor(providers),
+        ask_mode=True)
 
 
 def _evidence_main(argv):
@@ -548,6 +607,12 @@ def _loop_main(argv, providers_override=None):
     ap.add_argument("--out", default="codereview-out")
     ap.add_argument("--allow-major", action="store_true")
     ap.add_argument("--strict", action="store_true")
+    ap.add_argument("--review-mode", default=None,
+                    help=_REVIEW_MODE_HELP)
+    ap.add_argument("--builder-family", default=None,
+                    help=_BUILDER_FAMILY_HELP + "; else the vendor "
+                         "of --builder-cmd when its program is a "
+                         "known agent CLI (claude, codex, gemini)")
     args = ap.parse_args(argv)
 
     if _refuse_unwritable_out(args.out, "codereview loop"):
@@ -556,8 +621,11 @@ def _loop_main(argv, providers_override=None):
         providers = providers_override
     else:
         specs = args.provider
+        specs_from_setup = False
         if not specs:
             env = (os.environ.get("CODEREVIEW_PROVIDERS") or os.environ.get("REVIEWLOOP_PROVIDERS", ""))
+            specs_from_setup = not [x for x in env.split(",")
+                                    if x.strip()]
             try:
                 specs = [s.strip() for s in env.split(",")
                          if s.strip()] \
@@ -569,11 +637,34 @@ def _loop_main(argv, providers_override=None):
             print(userconfig.NOT_SET_UP, file=sys.stderr)
             return 2
         try:
+            mode = _resolve_review_mode(args.review_mode,
+                                        specs_from_setup)
+        except ValueError as exc:
+            print(f"codereview loop: {exc}", file=sys.stderr)
+            return 2
+        problem = registry.review_mode_error(len(specs), mode)
+        if problem:
+            print(f"codereview loop: {problem}", file=sys.stderr)
+            return 2
+        try:
             providers = build_providers(specs)
         except Exception as exc:  # noqa: BLE001
             print(f"codereview: provider setup failed: {exc}",
                   file=sys.stderr)
             return 2
+    try:
+        builder_family = (args.builder_family
+                          or userconfig.default_builder_family()
+                          or _builder_family_from_cmd(
+                              args.builder_cmd))
+    except ValueError as exc:
+        print(f"codereview loop: {exc}", file=sys.stderr)
+        return 2
+    if builder_family:
+        _same_vendor_warning(
+            {n: m.get("family") for n, m
+             in _default_seat_meta(providers).items()},
+            builder_family, "codereview loop")
 
     os.makedirs(args.out, exist_ok=True)
     packet_path = os.path.join(args.out, "builder-packet.json")
@@ -2196,6 +2287,10 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
     ap.add_argument("--strict", action="store_true",
                     help="degraded or truncated reviews are INCONCLUSIVE "
                          "instead of passing")
+    ap.add_argument("--review-mode", default=None,
+                    help=_REVIEW_MODE_HELP)
+    ap.add_argument("--builder-family", default=None,
+                    help=_BUILDER_FAMILY_HELP)
     ap.add_argument("--gate-profile",
                     choices=("strict", "balanced", "corroborated"),
                     default=None,
@@ -2540,12 +2635,16 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
     herdr_host = None
     herdr_seats = None
     herdr_inert = None
+    review_mode = None
     if providers_override is not None:
         providers = providers_override
     else:
         specs = args.provider
+        specs_from_setup = False
         if not specs:
             env = (os.environ.get("CODEREVIEW_PROVIDERS") or os.environ.get("REVIEWLOOP_PROVIDERS", ""))
+            specs_from_setup = not [x for x in env.split(",")
+                                    if x.strip()]
             try:
                 specs = [s.strip() for s in env.split(",")
                          if s.strip()] \
@@ -2569,6 +2668,20 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
                 return 2
         if not specs:
             print(userconfig.NOT_SET_UP, file=sys.stderr)
+            return 2
+        # Improvement plan 2026-11-11: the user's review mode.
+        # A seat count that does not fit it is refused before
+        # anything is sent; the mode itself changes no gate rule.
+        try:
+            review_mode = _resolve_review_mode(args.review_mode,
+                                               specs_from_setup)
+        except ValueError as exc:
+            print(f"codereview: {exc}", file=sys.stderr)
+            return 2
+        problem = registry.review_mode_error(len(specs),
+                                             review_mode)
+        if problem:
+            print(f"codereview: {problem}", file=sys.stderr)
             return 2
         # Epic K3a: seats the saved config marks for herdr
         # hosting ([hosting] herdr = [...]) are detected ONCE
@@ -2656,6 +2769,33 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
                   file=sys.stderr)
         return 2
 
+    # Improvement plan 2026-11-11: same-vendor warning. The
+    # builder's vendor comes from the flag or the saved setup;
+    # a matching reviewer seat is named on stderr and in the
+    # record. It never changes the verdict.
+    if providers_override is None:
+        try:
+            builder_family = registry.normalize_builder_family(
+                args.builder_family
+                or userconfig.default_builder_family())
+        except ValueError as exc:
+            print(f"codereview: {exc}", file=sys.stderr)
+            return 2
+    else:
+        builder_family = registry.normalize_builder_family(
+            args.builder_family)
+    same_vendor = []
+    if builder_family:
+        same_vendor = _same_vendor_warning(
+            {n: (m or {}).get("family")
+             for n, m in seat_meta.items() if n in providers},
+            builder_family, "codereview")
+    review_setup = None
+    if review_mode or builder_family:
+        review_setup = {"review_mode": review_mode,
+                        "builder_family": builder_family,
+                        "same_vendor_seats": same_vendor}
+
     fallbacks = fallbacks_override
     if fallbacks is None and args.fallback:
         fallbacks = {}
@@ -2702,6 +2842,9 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
         # why; the seats all ran headless.
         record_extra = {**(record_extra or {}),
                         "herdr_hosting": herdr_inert}
+    if review_setup:
+        record_extra = {**(record_extra or {}),
+                        "review_setup": review_setup}
 
 
     cwd = args.repo or "."
