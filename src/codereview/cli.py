@@ -619,6 +619,17 @@ def _loop_main(argv, providers_override=None):
         return 2
     if providers_override is not None:
         providers = providers_override
+        # Review 2026-11-11: only the flag applies on the
+        # override path (no saved setup); refuse a mismatch.
+        try:
+            mode = registry.normalize_review_mode(args.review_mode)
+        except ValueError as exc:
+            print(f"codereview loop: {exc}", file=sys.stderr)
+            return 2
+        problem = registry.review_mode_error(len(providers), mode)
+        if problem:
+            print(f"codereview loop: {problem}", file=sys.stderr)
+            return 2
     else:
         specs = args.provider
         specs_from_setup = False
@@ -2638,6 +2649,21 @@ def main(argv=None, providers_override=None, seat_meta_override=None,
     review_mode = None
     if providers_override is not None:
         providers = providers_override
+        # Review 2026-11-11 (Mike): --review-mode used to be
+        # ignored here. The override path has no saved setup, so
+        # only the flag applies; a seat count that does not fit
+        # it is refused before anything is sent, as below.
+        try:
+            review_mode = registry.normalize_review_mode(
+                args.review_mode)
+        except ValueError as exc:
+            print(f"codereview: {exc}", file=sys.stderr)
+            return 2
+        problem = registry.review_mode_error(len(providers),
+                                             review_mode)
+        if problem:
+            print(f"codereview: {problem}", file=sys.stderr)
+            return 2
     else:
         specs = args.provider
         specs_from_setup = False
