@@ -33,6 +33,8 @@ import os
 import re
 import tomllib
 
+from . import registry
+
 
 def config_path(environ=None):
     environ = os.environ if environ is None else environ
@@ -150,9 +152,39 @@ def load_user_config(environ=None):
             f"{raw_seat_meta!r}")
     seat_meta = {str(k): str(v)
                  for k, v in raw_seat_meta.items()}
+    # Improvement plan 2026-11-11: the optional top-level
+    # `review_mode` ("single" or "panel") and `builder_family`
+    # (the coding agent's vendor, for the same-vendor warning)
+    # the setup wizard saves. Absent = the pre-mode behaviour.
+    # Type- and shape-validated like the rest: a saved single
+    # mode with more than one provider (or a panel with fewer
+    # than two) is a broken setup and fails loudly.
+    raw_mode = data.get("review_mode")
+    if raw_mode is not None and not isinstance(raw_mode, str):
+        raise ValueError(
+            f"user config {path}: 'review_mode' must be a "
+            f"string, got {type(raw_mode).__name__}")
+    try:
+        review_mode = registry.normalize_review_mode(raw_mode)
+    except ValueError as exc:
+        raise ValueError(f"user config {path}: {exc}")
+    if review_mode and providers:
+        problem = registry.review_mode_error(len(providers),
+                                             review_mode)
+        if problem:
+            raise ValueError(f"user config {path}: {problem} "
+                             f"(re-run `codereview setup`)")
+    raw_builder = data.get("builder_family")
+    if raw_builder is not None and not isinstance(raw_builder,
+                                                  str):
+        raise ValueError(
+            f"user config {path}: 'builder_family' must be a "
+            f"string, got {type(raw_builder).__name__}")
+    builder_family = registry.normalize_builder_family(raw_builder)
     return {"providers": providers, "roles": roles,
             "hosting": hosting, "notify": notify,
-            "seat_meta": seat_meta, "path": path}
+            "seat_meta": seat_meta, "review_mode": review_mode,
+            "builder_family": builder_family, "path": path}
 
 
 def _toml_str(value):
@@ -170,14 +202,17 @@ def _toml_key(name):
 
 
 def save_user_config(providers, roles, environ=None,
-                     hosting=None, notify=None, seat_meta=None):
+                     hosting=None, notify=None, seat_meta=None,
+                     review_mode=None, builder_family=None):
     """Write the setup file (specs only — never a key value) and
     return its path. `hosting` ({"herdr": [seat names]}) adds
     the [hosting] table; `notify` ({"command": [argv...]})
     adds the [notify] table (Epic L4); `seat_meta`
     ({seat name: family}) adds the [seat_meta] table (P6-06);
-    the defaults write exactly the bytes earlier versions
-    wrote, so an unchanged setup stays byte-identical."""
+    `review_mode` ("single" / "panel") and `builder_family`
+    add top-level keys (improvement plan 2026-11-11); the
+    defaults write exactly the bytes earlier versions wrote,
+    so an unchanged setup stays byte-identical."""
     path = config_path(environ)
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     lines = [
@@ -186,6 +221,15 @@ def save_user_config(providers, roles, environ=None,
         "# the environment variables the specs name, never here.",
         "providers = [" + ", ".join(
             _toml_str(p) for p in providers) + "]",
+    ]
+    # Top-level keys must precede the first table in TOML.
+    if review_mode:
+        lines.append("review_mode = " + _toml_str(
+            registry.normalize_review_mode(review_mode)))
+    if builder_family:
+        lines.append("builder_family = " + _toml_str(
+            registry.normalize_builder_family(builder_family)))
+    lines += [
         "",
         "[roles]",
     ]
@@ -283,6 +327,19 @@ def default_seat_meta(environ=None):
     if not cfg:
         return {}
     return dict(cfg.get("seat_meta") or {})
+
+
+def default_review_mode(environ=None):
+    """The saved setup's review mode ("single" / "panel"), or
+    None when no setup exists or it predates modes."""
+    cfg = load_user_config(environ)
+    return (cfg or {}).get("review_mode")
+
+
+def default_builder_family(environ=None):
+    """The saved setup's coding-agent vendor family, or None."""
+    cfg = load_user_config(environ)
+    return (cfg or {}).get("builder_family")
 
 
 def default_notify_command(environ=None):

@@ -292,3 +292,94 @@ def parse_role_assignments(values):
                 f"{spec!r}); assign each role once")
         roles[role] = spec
     return roles
+
+
+# Review modes (improvement plan 2026-11-11, owner decision:
+# "User could choose single reviewer mode, or multiple reviewer
+# mode at their discretion"). The mode is the USER's choice and
+# applies to any user, solo or team:
+#   single — one reviewer seat reviews every change and serves
+#            every lens; the default the setup wizard offers;
+#   panel  — two or more seats, ideally from different vendor
+#            families, cross-check each other.
+# The mode never changes gate semantics: it constrains how many
+# seats a run takes, and it is recorded on the run.
+REVIEW_MODES = ("single", "panel")
+DEFAULT_REVIEW_MODE = "single"
+
+# The coding agent's vendor, as people name it, -> the registry
+# family tag the reviewer seats carry. Used only for the same-
+# vendor WARNING (setup and run time); it never changes a
+# verdict. A value not listed here is kept as typed (lowercased),
+# so any family tag the registry knows also works directly.
+BUILDER_FAMILY_ALIASES = {
+    "claude": "anthropic", "claude-code": "anthropic",
+    "claude code": "anthropic", "anthropic": "anthropic",
+    "codex": "openai", "chatgpt": "openai", "gpt": "openai",
+    "openai": "openai",
+    "gemini": "google", "gemini-cli": "google",
+    "gemini cli": "google", "google": "google",
+    "grok": "xai", "xai": "xai",
+    "kimi": "moonshot", "moonshot": "moonshot",
+    "deepseek": "deepseek", "minimax": "minimax",
+    "mistral": "mistral", "nvidia": "nvidia",
+}
+
+
+def normalize_review_mode(value):
+    """'single' / 'panel' (aliases: one, solo -> single; multi,
+    multiple -> panel) -> the canonical mode; None/'' -> None.
+    Anything else raises ValueError naming the choices."""
+    if value is None:
+        return None
+    text = str(value).strip().lower()
+    if not text:
+        return None
+    aliases = {"single": "single", "one": "single",
+               "solo": "single", "panel": "panel",
+               "multi": "panel", "multiple": "panel"}
+    if text not in aliases:
+        raise ValueError(
+            f"unknown review mode {value!r}: choose one of "
+            f"{', '.join(REVIEW_MODES)}")
+    return aliases[text]
+
+
+def normalize_builder_family(value):
+    """The coding agent's vendor as typed -> a family tag, or
+    None for an empty value. Never raises: an unknown name is
+    kept (lowercased) so a custom family still compares."""
+    if value is None:
+        return None
+    text = str(value).strip().lower()
+    if not text:
+        return None
+    return BUILDER_FAMILY_ALIASES.get(text, text)
+
+
+def review_mode_error(seat_count, mode):
+    """None when `seat_count` reviewer seats fit `mode`, else the
+    operator-readable reason they do not. mode None = no
+    constraint (the pre-mode behaviour)."""
+    if mode == "single" and seat_count != 1:
+        return (f"single-reviewer mode takes exactly one reviewer "
+                f"seat, but {seat_count} were given; pass one "
+                f"--provider, or use --review-mode panel")
+    if mode == "panel" and seat_count < 2:
+        return (f"multi-reviewer panel mode needs at least two "
+                f"reviewer seats, but {seat_count} was given; add "
+                f"a --provider from another vendor, or use "
+                f"--review-mode single")
+    return None
+
+
+def same_vendor_seats(seat_families, builder_family):
+    """Seat names whose vendor family equals the coding agent's,
+    sorted. `seat_families` is {seat name: family}. Families the
+    registry cannot attribute ('agent', 'unknown', 'local') never
+    match: the warning names only what it can stand behind."""
+    builder = normalize_builder_family(builder_family)
+    if not builder or builder in ("agent", "unknown", LOCAL_FAMILY):
+        return []
+    return sorted(name for name, family in seat_families.items()
+                  if family and str(family).lower() == builder)
