@@ -122,7 +122,6 @@ import hashlib
 import json
 import os
 import re
-import resource
 import shutil
 import signal
 import subprocess
@@ -130,6 +129,13 @@ import sys
 import tempfile
 import threading
 import time
+from types import ModuleType
+
+resource: ModuleType | None
+try:
+    import resource
+except ImportError:  # non-POSIX (Windows): no rlimits to apply
+    resource = None
 
 from . import hardening
 from .core import _now_iso, redact_secrets
@@ -300,22 +306,78 @@ def _unshare_ok():
 def _kill_group(proc):
     """Kill the child's whole process group (it runs in its own
     session), so a timed-out command leaves no grandchildren
-    behind — the same discipline as the agent seats."""
-    try:
-        pgid = os.getpgid(proc.pid)
-    except (ProcessLookupError, PermissionError, OSError):
-        # The child has exited and been reaped (the normal-exit
-        # path, P3-06): its pid is gone, but it WAS its group
-        # leader (start_new_session), so the pid IS the pgid —
-        # and the group can still hold live grandchildren.
-        pgid = proc.pid
-    try:
-        os.killpg(pgid, signal.SIGKILL)
-    except (ProcessLookupError, PermissionError, OSError):
+    behind — the same discipline as the agent seats. Where the
+    platform has no process groups (Windows: no os.killpg or
+    os.getpgid) only the direct child is killed, as for the
+    agent seats there. Never raises."""
+    killpg = getattr(os, "killpg", None)
+    getpgid = getattr(os, "getpgid", None)
+    if killpg is not None and getpgid is not None:
         try:
-            proc.kill()
-        except Exception:  # noqa: BLE001
+            pgid = getpgid(proc.pid)
+        except (ProcessLookupError, PermissionError, OSError):
+            # The child has exited and been reaped (the
+            # normal-exit path, P3-06): its pid is gone, but it
+            # WAS its group leader (start_new_session), so the
+            # pid IS the pgid — and the group can still hold
+            # live grandchildren.
+            pgid = proc.pid
+        try:
+            killpg(pgid, signal.SIGKILL)
+            return
+        except (ProcessLookupError, PermissionError, OSError):
             pass
+    try:
+        proc.kill()
+    except Exception:  # noqa: BLE001
+        pass
+
+
+_LIMITS_NOTICE_EMITTED = False
+
+
+def _posix_limits_available():
+    """Whether the POSIX rlimits can be applied to an evidence
+    child here. They go through subprocess's preexec_fn, which
+    Python rejects outright on Windows (ValueError at Popen),
+    so there the child runs without them rather than not at
+    all. Decided at call time, so the answer follows the
+    running platform."""
+    return resource is not None and os.name == "posix"
+
+
+_LIMITS_NOT_APPLIED = (
+    "not applied on this platform: no CPU-time or per-file-size "
+    "caps (the wall-clock timeout and output cap still apply)")
+
+
+def _limit_kwargs(timeout):
+    """Popen keyword arguments that apply the evidence rlimits:
+    preexec_fn on POSIX, nothing elsewhere. On a platform
+    without the limits, the first evidence child of the
+    process says so once on stderr, and the record's
+    sandbox.limits says so too — the caps are lost visibly,
+    never silently."""
+    global _LIMITS_NOTICE_EMITTED
+    if _posix_limits_available():
+        return {"preexec_fn": lambda: _apply_limits(timeout)}
+    if not _LIMITS_NOTICE_EMITTED:
+        _LIMITS_NOTICE_EMITTED = True
+        print("codereview: warning: evidence resource limits are "
+              "POSIX-only and are " + _LIMITS_NOT_APPLIED,
+              file=sys.stderr)
+    return {}
+
+
+def _start_failure_detail(status, exit_code, output):
+    """The item detail for a child that never started (an
+    error with no exit code): the start failure's own text,
+    so the gate's reason names it instead of a bare 'error'.
+    Empty for every other outcome."""
+    if status != "error" or exit_code is not None or not output:
+        return ""
+    return output.decode("utf-8", "replace").strip() \
+        .splitlines()[0][:300]
 
 
 def _apply_limits(timeout):
@@ -323,6 +385,9 @@ def _apply_limits(timeout):
     that cannot be set must not kill the child before it starts;
     the wall-clock timeout (enforced by the parent) always
     applies regardless."""
+    if resource is None:
+        return
+
     def _set(res, value):
         try:
             resource.setrlimit(res, (value, value))
@@ -477,7 +542,7 @@ def _execute(argv, cwd, timeout, env, allow_network,
         proc = subprocess.Popen(
             run_argv, cwd=cwd, env=env, stdout=subprocess.PIPE,
             stderr=subprocess.PIPE, start_new_session=True,
-            preexec_fn=lambda: _apply_limits(timeout))
+            **_limit_kwargs(timeout))
     except Exception as exc:  # noqa: BLE001
         return "error", None, 0.0, \
             f"could not start: {exc}".encode("utf-8", "replace"), \
@@ -690,6 +755,7 @@ def collect(config, source_dir, environ=None):
             items.append(_result(
                 name, "command", entry.get("required", True),
                 status, code, duration, output,
+                detail=_start_failure_detail(status, code, output),
                 command=command, network_mode=net))
 
         for entry in config.get("adapters") or []:
@@ -714,6 +780,7 @@ def collect(config, source_dir, environ=None):
             items.append(_result(
                 name, "adapter", entry.get("required", False),
                 status, code, duration, output,
+                detail=_start_failure_detail(status, code, output),
                 command=" ".join(argv[1:]) if len(argv) > 1
                         else argv[0],
                 network_mode=net))
@@ -758,6 +825,8 @@ def _record(config, source_dir, items, network_mode,
             "cpu_slack_s": _CPU_SLACK,
             "file_size_limit_bytes": _FILE_SIZE_LIMIT,
             "output_cap_bytes_per_stream": _OUTPUT_CAP_BYTES,
+            "rlimits": ("posix-rlimits" if _posix_limits_available()
+                        else _LIMITS_NOT_APPLIED),
         },
     }
     if sandbox_warning:
@@ -1008,7 +1077,10 @@ def verify_claims(report_text, source_dir, timeout=DEFAULT_TIMEOUT,
                 + (f" (exit {claim['claimed_exit_code']})"
                    if claim["claimed_exit_code"] is not None
                    else "")
-                + f"; re-run exited {code} ({status})")
+                + f"; re-run exited {code} ({status})"
+                + (f": {start_failure}" if (
+                    start_failure := _start_failure_detail(
+                        status, code, output)) else ""))
             results.append(entry)
     finally:
         shutil.rmtree(sandbox_root, ignore_errors=True)

@@ -23,7 +23,10 @@ Sandbox discipline:
 - Resource limits and tree kill (the C5 discipline the
   evidence sandbox established): the probe runs in its own
   session under POSIX rlimits (CPU time, address space,
-  per-file size, open files; core dumps off), its output
+  per-file size, open files; core dumps off — on a platform
+  without them, such as Windows, the probe still runs, the
+  result's sandbox.limits says the caps were not applied,
+  and stderr says so once), its output
   is drained under a per-stream byte cap so a spewing
   probe cannot grow the harness's memory, and expiry —
   or normal exit — kills the probe's whole process
@@ -83,6 +86,13 @@ _DRAIN_GRACE_S = 2          # post-exit pipe-drain grace
 # containment comes from the process-group kill plus the
 # CPU/address-space limits above.
 _ENV_ALLOW = ("PATH", "LANG", "LC_ALL", "LC_CTYPE", "TERM")
+# Windows only: the variables a child process needs to start
+# at all (an interpreter without SYSTEMROOT cannot initialise,
+# COMSPEC/PATHEXT resolve commands). None is a secret; the
+# evidence sandbox's allow-list carries the same four. POSIX
+# runs never see them added.
+_ENV_ALLOW_WINDOWS = ("SYSTEMROOT", "WINDIR", "COMSPEC",
+                      "PATHEXT")
 _IGNORE = shutil.ignore_patterns(
     ".git", "__pycache__", "*.pyc", "codereview-out",
     "bench-out", "acceptance-out")
@@ -181,6 +191,9 @@ def parse_probe_spec(request):
 
 def _sandbox_env(tmp, work):
     env = {k: os.environ[k] for k in _ENV_ALLOW if k in os.environ}
+    if os.name == "nt":
+        env.update({k: os.environ[k] for k in _ENV_ALLOW_WINDOWS
+                    if k in os.environ})
     env["HOME"] = tmp
     env["TMPDIR"] = tmp
     env["PYTHONDONTWRITEBYTECODE"] = "1"
@@ -190,6 +203,47 @@ def _sandbox_env(tmp, work):
     # whose directory would otherwise shadow sys.path).
     env["PYTHONPATH"] = work
     return env
+
+
+_LIMITS_NOTICE_EMITTED = False
+
+
+def _posix_limits_available():
+    """Whether the POSIX rlimits can be applied to a probe on
+    this platform. They are applied through subprocess's
+    preexec_fn, which Python rejects outright on Windows
+    (ValueError at Popen), so there the probe runs without
+    them rather than not at all. Decided at call time, so the
+    answer follows the running platform."""
+    return resource is not None and os.name == "posix"
+
+
+def _limits_note():
+    """The resource-limit level a probe actually ran under —
+    recorded on the result, never overstated."""
+    if _posix_limits_available():
+        return "posix-rlimits"
+    return ("not applied on this platform: no CPU-time, "
+            "address-space, per-file-size or open-file caps "
+            "(the wall-clock timeout and output cap still "
+            "apply)")
+
+
+def _limit_kwargs(timeout):
+    """Popen keyword arguments that apply the probe's rlimits:
+    preexec_fn on POSIX, nothing elsewhere. On a platform
+    without the limits, the first probe of the process says
+    so once on stderr — the caps are lost visibly, never
+    silently."""
+    global _LIMITS_NOTICE_EMITTED
+    if _posix_limits_available():
+        return {"preexec_fn": lambda: _apply_probe_limits(timeout)}
+    if not _LIMITS_NOTICE_EMITTED:
+        _LIMITS_NOTICE_EMITTED = True
+        print("codereview: warning: probe resource limits are "
+              "POSIX-only and are not applied on this platform: "
+              + _limits_note(), file=sys.stderr)
+    return {}
 
 
 def _apply_probe_limits(timeout):
@@ -314,9 +368,9 @@ def _execute_probe(argv, cwd, env, timeout):
             argv, cwd=cwd, env=env,
             stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             start_new_session=True,
-            preexec_fn=lambda: _apply_probe_limits(timeout))
+            **_limit_kwargs(timeout))
     except Exception as exc:  # noqa: BLE001 — an outcome, not a crash
-        return "error", None, f"probe spawn failed: {exc}"
+        return "error", None, f"probe could not start: {exc}"
     out_sink = {"data": bytearray(), "truncated": False}
     err_sink = {"data": bytearray(), "truncated": False}
     readers = [
@@ -392,6 +446,18 @@ def _supervise_probe_execution(proc, readers, out_sink,
     except Exception as exc:  # noqa: BLE001 — an outcome, not a crash
         _kill_probe_group(proc)
         return "error", None, f"probe execution failed: {exc}"
+
+
+def _probe_detail(outcome, exit_code, duration, output):
+    """The result's one-line detail. When the harness itself
+    could not run the probe (an error with no exit code), the
+    reason leads the detail, so a probe that never started
+    reads as exactly that — not as a bare 'error'."""
+    detail = (f"harness probe {outcome} "
+              f"(exit {exit_code}, {duration:.1f}s)")
+    if outcome == "error" and exit_code is None and output:
+        detail += ": " + output.strip().splitlines()[0][:300]
+    return detail
 
 
 def run_probe(spec, tree_dir, timeout=PROBE_TIMEOUT_DEFAULT):
@@ -489,11 +555,12 @@ def run_probe(spec, tree_dir, timeout=PROBE_TIMEOUT_DEFAULT):
             "sandbox": {"cwd": "temp-copy",
                         "network": net_level,
                         "env": "allowlist",
-                        "timeout_s": timeout},
+                        "timeout_s": timeout,
+                        "limits": _limits_note()},
             "spec": spec,
             "can_rebut": True, "can_support": False,
-            "detail": (f"harness probe {outcome} "
-                       f"(exit {exit_code}, {duration:.1f}s)"),
+            "detail": _probe_detail(outcome, exit_code,
+                                    duration, output),
         }
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
