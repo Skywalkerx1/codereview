@@ -15,6 +15,7 @@ a preexec_fn. They are a simulation, not a Windows run.
 import contextlib
 import io
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -85,6 +86,7 @@ def _tree():
 
 
 class ProbeWindowsStartupTests(unittest.TestCase):
+    @unittest.skipUnless(os.name == "posix", "POSIX-hosted regression")
     def test_old_shape_fails_to_start_under_windows_popen(self):
         # The pre-fix failure, reproduced: limits still requested
         # (os.name posix) but Popen is Windows-like. The result
@@ -137,6 +139,7 @@ class ProbeWindowsStartupTests(unittest.TestCase):
         self.assertEqual(env["SYSTEMROOT"], r"C:\Windows")
         self.assertEqual(env["COMSPEC"], "cmd.exe")
 
+    @unittest.skipUnless(os.name == "posix", "POSIX-hosted regression")
     def test_posix_env_unchanged(self):
         extra = {"SYSTEMROOT": r"C:\Windows"}
         with mock.patch.dict(os.environ, extra):
@@ -178,6 +181,7 @@ class EvidenceWindowsStartupTests(unittest.TestCase):
                             "command": "echo evidence-ran",
                             "required": True, "timeout": 30}]}
 
+    @unittest.skipUnless(os.name == "posix", "POSIX-hosted regression")
     def test_old_shape_fails_to_start_and_detail_names_it(self):
         _WindowsLikePopen.calls = []
         with mock.patch.object(evidence.subprocess, "Popen",
@@ -190,6 +194,7 @@ class EvidenceWindowsStartupTests(unittest.TestCase):
         self.assertEqual(effect, "blocked")
         self.assertIn(_WINDOWS_PREEXEC_ERROR, reasons[0])
 
+    @unittest.skipUnless(shutil.which("sh"), "requires sh on the host")
     def test_evidence_runs_on_windows(self):
         with _windows(evidence) as err, _no_process_groups():
             record = evidence.collect(self.CONFIG, _tree())
@@ -200,6 +205,22 @@ class EvidenceWindowsStartupTests(unittest.TestCase):
         self.assertIn("not applied",
                       record["sandbox"]["limits"]["rlimits"])
         self.assertIn("POSIX-only", err.getvalue())
+
+    def test_missing_shell_is_clear_and_blocked(self):
+        # Real missing-executable failure under the simulated Windows
+        # path, including hosts that normally have sh installed.
+        with tempfile.TemporaryDirectory() as root, \
+                _windows(evidence), _no_process_groups(), \
+                mock.patch.object(evidence, "_unshare_ok", return_value=False), \
+                mock.patch.dict(os.environ, {"PATH": ""}):
+            record = evidence.collect(self.CONFIG, root)
+        item = record["items"][0]
+        self.assertEqual(item["status"], "error", item)
+        self.assertIsNone(item["exit_code"])
+        self.assertIn("could not start", item["detail"])
+        effect, reasons = evidence.gate_effect(record["items"])
+        self.assertEqual(effect, "blocked")
+        self.assertTrue(any("could not start" in r for r in reasons))
 
     def test_claim_rerun_names_a_start_failure(self):
         with mock.patch.object(evidence.subprocess, "Popen",
@@ -254,6 +275,36 @@ class EvidenceWindowsStartupTests(unittest.TestCase):
             check=False)
         self.assertEqual(out.returncode, 0, out.stderr)
         self.assertIn("imported", out.stdout)
+
+
+class WindowsNativeSmokeTests(unittest.TestCase):
+    """Real Windows checks. Never counted as run on POSIX."""
+
+    @unittest.skipUnless(os.name == "nt", "requires native Windows")
+    def test_native_python_probe(self):
+        with tempfile.TemporaryDirectory() as root:
+            res = probe.run_probe(
+                {"kind": "python", "code": "print('native-probe-ok')"},
+                root, timeout=30)
+        self.assertEqual(res["outcome"], "pass", res)
+        self.assertIn("native-probe-ok", res["output"])
+        self.assertIn("not applied", res["sandbox"]["limits"])
+
+    @unittest.skipUnless(os.name == "nt", "requires native Windows")
+    def test_native_missing_shell_is_clear_and_blocked(self):
+        # Use an empty PATH even on Windows hosts with Git Bash.
+        # The real OS, not a mocked Popen, must reject missing sh.
+        with tempfile.TemporaryDirectory() as root, \
+                mock.patch.dict(os.environ, {"PATH": ""}):
+            record = evidence.collect(
+                EvidenceWindowsStartupTests.CONFIG, root)
+        item = record["items"][0]
+        self.assertEqual(item["status"], "error", item)
+        self.assertIsNone(item["exit_code"])
+        self.assertIn("could not start", item["detail"])
+        effect, reasons = evidence.gate_effect(record["items"])
+        self.assertEqual(effect, "blocked")
+        self.assertTrue(any("could not start" in r for r in reasons))
 
 
 if __name__ == "__main__":
